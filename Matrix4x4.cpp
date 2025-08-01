@@ -168,7 +168,6 @@ float MatrixMath::cot(float radian) {
 	return 1.0f / std::tan(radian); // std::cos(radian)/std::sin::(radian);
 }
 
-
 Matrix4x4 MatrixMath::MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
 	Matrix4x4 result = {};
 	result.m[0][0] = (1.0f / aspectRatio) * cot(fovY / 2.0f);
@@ -179,4 +178,14 @@ Matrix4x4 MatrixMath::MakePerspectiveFovMatrix(float fovY, float aspectRatio, fl
 	return result;
 }
 
-
+Matrix4x4 MatrixMath::MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip) {
+	Matrix4x4 result = {};
+	result.m[0][0] = 2.0f / (right - left);
+	result.m[1][1] = 2.0f / (top - bottom);
+	result.m[2][2] = 1.0f / (farClip - nearClip);
+	result.m[3][0] = (left + right) / (left - right);
+	result.m[3][1] = (top + bottom) / (bottom - top);
+	result.m[3][2] = nearClip / (nearClip - farClip);
+	result.m[3][3] = 1.0f;
+	return result;
+}
