@@ -1,5 +1,6 @@
 ﻿#pragma once
-#include "Matrix4x4.h"
+#include "../base/Matrix4x4.h"
+
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
