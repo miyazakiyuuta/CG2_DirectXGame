@@ -34,7 +34,11 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // #include"C:\\Users\\k024g\\Desktop\\CG2\\CG2_DirectXGame\\externals\\DirectXTex\\DirectXTex.h"
-#include <DirectXTex.h>
+//#include <DirectXTex.h>
+// 修正案: "DirectXTex.h" のインクルードパスをプロジェクトの相対パスに変更します。
+// 既存コードを維持しつつ、正しいパスでインクルードすることでエラーを解消します。
+
+#include "externals/DirectXTex/DirectXTex.h"
 #include "externals/DirectXTex/d3dx12.h"
 #include <vector>
 
