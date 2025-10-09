@@ -53,10 +53,11 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg
 #define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
 #include <dinput.h>
 
-#pragma comment(lib, "dinput8.lib")
-#pragma comment(lib, "dxguid.lib")
+
 
 #include "engine/3d/DebugCamera.h"
+
+#include "Input.h"
 
 using namespace MatrixMath;
 
@@ -594,28 +595,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// ウィンドウを表示する
 	ShowWindow(hwnd, SW_SHOW);
 
-	// DirectInputの初期化
-	IDirectInput8* directInput = nullptr;
-	HRESULT result = DirectInput8Create(
-		wc.hInstance,
-		DIRECTINPUT_VERSION,
-		IID_IDirectInput8,
-		(void**)&directInput,
-		nullptr
-	);
-	assert(SUCCEEDED(result));
-	// キーボードデバイスの生成
-	IDirectInputDevice8* keyboard = nullptr;
-	result = directInput->CreateDevice(GUID_SysKeyboard, &keyboard, NULL);
-	assert(SUCCEEDED(result));
-	// 入力データ形式のセット
-	result = keyboard->SetDataFormat(&c_dfDIKeyboard); // 標準形式
-	assert(SUCCEEDED(result));
-	// 排他制御レベルのリセット
-	result = keyboard->SetCooperativeLevel(
-		hwnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE | DISCL_NOWINKEY
-	);
-	assert(SUCCEEDED(result));
+	Input* input = nullptr;
+	input = new Input();
+	input->Initialize(wc.hInstance, hwnd);
 
 	POINT lastMouse = {};
 	GetCursorPos(&lastMouse);
@@ -1259,15 +1241,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			DispatchMessage(&msg);
 		} else {
 
-			// キーボード情報の取得開始
-			keyboard->Acquire();
-			// 全キーの入力状態を取得する
-			BYTE key[256] = {};
-			keyboard->GetDeviceState(sizeof(key), key);
+			input->Update();
 			// 数字の0キーが押されていたら
-			/*if (key[DIK_0]) {
+			if (input->TriggerKey(DIK_0)) {
 				OutputDebugStringA("Hit 0\n"); // 出力ウィンドウに「Hit 0」と表示
-			}*/
+			}
 
 			POINT currentMouse;
 			GetCursorPos(&currentMouse);
@@ -1313,7 +1291,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			ImGuiIO& io = ImGui::GetIO();
 			float wheelDelta = io.MouseWheel;
-			debugCamera.Update(keyboard, delta, wheelDelta);
+			//debugCamera.Update(keyboard, delta, wheelDelta);
 
 			/*ゲームの処理*/
 			//transform.rotate.y += 0.03f;
