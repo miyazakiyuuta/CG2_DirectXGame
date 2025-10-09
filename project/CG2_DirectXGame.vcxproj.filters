@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{8fd54d58-f5e1-436f-be04-7c5213e706dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\00_app">
+      <UniqueIdentifier>{20fc4159-779a-4158-83cf-6bbd28104c19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\01_math">
+      <UniqueIdentifier>{188a790e-c6c7-4132-9440-5f012581ad78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\02_camera">
+      <UniqueIdentifier>{0097ff92-4882-458f-9f94-cfa38d225671}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\03_audio">
+      <UniqueIdentifier>{7a868830-da66-4b96-a5a7-313cae7cee57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\04_resource">
+      <UniqueIdentifier>{923f8d69-b820-4290-af1b-b53e1737246d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\05_shaders">
+      <UniqueIdentifier>{25b61da4-6d20-4190-a750-b1fb50b8cc22}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="externals\imgui\imgui.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_demo.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_draw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_impl_dx12.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_impl_win32.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_tables.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="externals\imgui\imgui_widgets.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>ソース ファイル\00_app</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\base\Vector3.cpp">
+      <Filter>ソース ファイル\01_math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\base\Matrix4x4.cpp">
+      <Filter>ソース ファイル\01_math</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\3d\DebugCamera.cpp">
+      <Filter>ソース ファイル\02_camera</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\audio\SoundManager.cpp">
+      <Filter>ソース ファイル\03_audio</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\io\ResourceObject.cpp">
+      <Filter>ソース ファイル\04_resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="externals\imgui\imconfig.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imgui.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imgui_impl_dx12.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imgui_impl_win32.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imgui_internal.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imstb_rectpack.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imstb_textedit.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="externals\imgui\imstb_truetype.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\base\Vector3.h">
+      <Filter>ソース ファイル\01_math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\base\Matrix4x4.h">
+      <Filter>ソース ファイル\01_math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\3d\DebugCamera.h">
+      <Filter>ソース ファイル\02_camera</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\audio\SoundManager.h">
+      <Filter>ソース ファイル\03_audio</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\io\ResourceObject.h">
+      <Filter>ソース ファイル\04_resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="externals\imgui\LICENSE.txt">
+      <Filter>imgui</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
+      <Filter>ソース ファイル\05_shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="resources\shaders\Object3d.VS.hlsl">
+      <Filter>ソース ファイル\05_shaders</Filter>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resources\shaders\Object3d.hlsli">
+      <Filter>ソース ファイル\05_shaders</Filter>
+    </None>
+  </ItemGroup>
+</Project>
