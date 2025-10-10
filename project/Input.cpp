@@ -4,13 +4,15 @@
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
-void Input::Initialize(HINSTANCE hInstance, HWND hwnd) {
+void Input::Initialize(WinApp* winApp) {
+	winApp_ = winApp;
+
 	HRESULT result;
 
 	// DirectInputの初期化
 	//ComPtr<IDirectInput8> directInput = nullptr;
 	result = DirectInput8Create(
-		hInstance,
+		winApp_->GetHInstance(),
 		DIRECTINPUT_VERSION,
 		IID_IDirectInput8,
 		(void**)&directInput,
@@ -25,7 +27,7 @@ void Input::Initialize(HINSTANCE hInstance, HWND hwnd) {
 	assert(SUCCEEDED(result));
 	// 排他制御レベルのリセット
 	result = keyboard->SetCooperativeLevel(
-		hwnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE | DISCL_NOWINKEY
+		winApp_->GetHwnd(), DISCL_FOREGROUND | DISCL_NONEXCLUSIVE | DISCL_NOWINKEY
 	);
 	assert(SUCCEEDED(result));
 }
