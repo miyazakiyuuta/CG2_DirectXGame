@@ -5,7 +5,7 @@ on:
       - master
 env:
   # リポジトリのルートディレクトリを基点としたそりゅ―ジョンファイルのパス
-  SOLUTION_FILE_PATH: project/CG2_DirectX.sln
+  SOLUTION_FILE_PATH: project/CG2_DirectXGame.sln
   # Visual Studio の構成(Debug / Release)
   CONFIGURATION: Debug
 jobs:
