@@ -1,10 +1,13 @@
 ﻿#pragma once
 #include <d3d12.h>
+#include "externals/DirectXTex/DirectXTex.h"
 #include <dxgi1_6.h>
 #include <wrl.h>
 #include <cstdint>
 #include <dxcapi.h>
 #include <array>
+#include <string>
+#include <chrono>
 
 class WinApp;
 
@@ -13,6 +16,56 @@ class DirectXCommon {
 public: // メンバ関数
 	// 初期化
 	void Initialize(WinApp* winApp);
+
+	// 描画前処理
+	void PreDraw();
+	// 描画後処理
+	void PostDraw();
+
+	/// <summary>
+	/// SRVの指定番号のCPUデスクリプタハンドルを取得する
+	/// </summary>
+	D3D12_CPU_DESCRIPTOR_HANDLE GetSRVCPUDescriptorHandle(uint32_t index);
+
+	/// <summary>
+	/// SRVの指定番号のGPUデスクリプタハンドルを取得する
+	/// </summary>
+	D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGPUDescriptorHandle(uint32_t index);
+
+	// シェーダーのコンパイル
+	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
+
+	/// <summary>
+	/// バッファリソースの生成
+	/// </summary>
+	Microsoft::WRL::ComPtr<ID3D12Resource> CreateBufferResource(size_t sizeInBytes);
+
+	/// <summary>
+	/// テクスチャリソースの生成
+	/// </summary>
+	Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
+
+	/// <summary>
+	/// テクスチャリソースの転送
+	/// </summary>
+	[[nodiscard]]
+	Microsoft::WRL::ComPtr<ID3D12Resource> UpLoadTextureData(const Microsoft::WRL::ComPtr<ID3D12Resource>& texture, const DirectX::ScratchImage& mipImages);
+
+	/// <summary>
+	/// テクスチャファイルの読み込み
+	/// </summary>
+	/// <param name="filePath">テクスチャファイルのパス</param>
+	/// <returns>画像イメージデータ</returns>
+	static DirectX::ScratchImage LoadTexture(const std::string& filePath);
+
+
+
+	/* getter */
+	ID3D12Device* GetDevice() { return device_.Get(); }
+	ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
+	ID3D12DescriptorHeap* GetSRVDescriptorHeap() { return srvDescriptorHeap_.Get(); }
+	ID3D12Device* GetDevice() const { return device_.Get(); }
+	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
 
 private:
 	// デバイスの初期化
@@ -32,16 +85,16 @@ private:
 	// フェンスの初期化
 	void InitializeFence();
 	// ビューポート矩形の初期化
-	
+	void InitializeViewportRect();
 	// シザリング矩形の初期化 
 	void InitializeScissorRect();
 	// DXCコンパイラの生成
 	void CreateDXCCompiler();
 	// ImGuiの初期化
 	void InitializeImGui();
-	
+
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateDepthStencilTextureResource();
-	
+
 	/// <summary>
 	/// デスクリプタヒープを生成する
 	/// </summary>
@@ -51,22 +104,17 @@ private:
 	/// 指定番号のCPUデスクリプタハンドルを取得する
 	/// </summary>
 	static D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& descriptorHeap, uint32_t descriptorSize, uint32_t index);
-	
+
 	/// <summary>
 	/// 指定番号のGPUデスクリプタハンドルを取得する
 	/// </summary>
 	static D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& descriptorHeap, uint32_t descriptorSize, uint32_t index);
 
-	/// <summary>
-	/// SRVの指定番号のCPUデスクリプタハンドルを取得する
-	/// </summary>
-	D3D12_CPU_DESCRIPTOR_HANDLE GetSRVCPUDescriptorHandle(uint32_t index);
-
-	/// <summary>
-	/// SRVの指定番号のGPUデスクリプタハンドルを取得する
-	/// </summary>
-	D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGPUDescriptorHandle(uint32_t index);
-
+	// FPS固定初期化
+	void InitializeFixFPS();
+	// FPS固定更新
+	void UpdateFixFPS();
+	
 
 private:
 	HRESULT hr_;
@@ -109,13 +157,22 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence_ = nullptr;
 	uint64_t fenceValue_;
 	HANDLE fenceEvent_;
+	// ビューポート矩形
+	D3D12_VIEWPORT viewport_{};
 	// シザリング矩形
 	D3D12_RECT scissorRect_;
 	// DXCユーティリティ
-	IDxcUtils* dxcUtils = nullptr;
+	IDxcUtils* dxcUtils_ = nullptr;
 	// DXCコンパイラ
-	IDxcCompiler3* dxcCompiler = nullptr;
+	IDxcCompiler3* dxcCompiler_ = nullptr;
 	// デフォルトインクルードハンドラ
-	IDxcIncludeHandler* includeHandler = nullptr;
+	IDxcIncludeHandler* includeHandler_ = nullptr;
+	//static IDxcIncludeHandler* includeHandler_;
+
+	// TransitionBarrierの設定
+	D3D12_RESOURCE_BARRIER barrier_{};
+
+	// 記録時間(FPS固定用)
+	std::chrono::steady_clock::time_point reference_;
 };
 
