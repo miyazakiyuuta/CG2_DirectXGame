@@ -1,31 +1,31 @@
-#pragma once
+ï»¿#pragma once
 #include <Windows.h>
 #include <cstdint>
 
 // WindowsAPI
 class WinApp {
-public: // Ã“Iƒƒ“ƒoŠÖ”
+public: // é™çš„ãƒ¡ãƒ³ãƒé–¢æ•°
 	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
-public: // ƒƒ“ƒoŠÖ”
+public: // ãƒ¡ãƒ³ãƒé–¢æ•°
 	void Initialize();
-	// I—¹ˆ—
+	// çµ‚äº†å‡¦ç†
 	void Finalize();
-	// ƒƒbƒZ[ƒW‚Ìˆ—
+	// ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®å‡¦ç†
 	bool ProcessMessage();
 
 	/* getter */
 	HWND GetHwnd() { return hwnd_; }
 	HINSTANCE GetHInstance() const { return wc_.hInstance; }
 
-public: // ƒƒ“ƒo•Ï”
-	// ƒNƒ‰ƒCƒAƒ“ƒg—Ìˆæ‚ÌƒTƒCƒY
+public: // ãƒ¡ãƒ³ãƒå¤‰æ•°
+	// ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆé ˜åŸŸã®ã‚µã‚¤ã‚º
 	static const std::int32_t kClientWidth = 1280;
 	static const std::int32_t kClientHeight = 720;
 
 private:
-	// ƒEƒBƒ“ƒhƒEƒnƒ“ƒhƒ‹
+	// ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ãƒãƒ³ãƒ‰ãƒ«
 	HWND hwnd_ = nullptr;
-	// ƒEƒBƒ“ƒhƒEƒNƒ‰ƒX‚Ìİ’è
+	// ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚¯ãƒ©ã‚¹ã®è¨­å®š
 	WNDCLASS wc_{};
 };
 
