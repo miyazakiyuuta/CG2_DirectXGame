@@ -1,9 +1,8 @@
-#pragma once
+ï»¿#pragma once
 class D3DResourceLeakChecker {
 public:
 	/// <summary>
-	/// ƒfƒXƒgƒ‰ƒNƒ^
+	/// ãƒ‡ã‚¹ãƒˆãƒ©ã‚¯ã‚¿
 	/// </summary>
 	~D3DResourceLeakChecker();
 };
-

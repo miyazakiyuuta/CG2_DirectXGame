@@ -16,7 +16,6 @@
 #include "externals/DirectXTex/DirectXTex.h"
 #include "externals/DirectXTex/d3dx12.h"
 
-
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib,"dxcompiler.lib")
@@ -93,8 +92,8 @@ void DirectXCommon::PostDraw() {
 	commandList_->ResourceBarrier(1, &barrier_);
 
 	// コマンドリストの内容を確定させる。すべてのコマンドを積んでからCloseすること
-	hr_ = commandList_->Close();
-	assert(SUCCEEDED(hr_));
+	HRESULT hr = commandList_->Close();
+	assert(SUCCEEDED(hr));
 
 	// GPUにコマンドリストの実行を行わせる
 	Microsoft::WRL::ComPtr<ID3D12CommandList> commandLists[] = { commandList_ };
@@ -118,9 +117,9 @@ void DirectXCommon::PostDraw() {
 	UpdateFixFPS();
 
 	// 次のフレーム用のコマンドリストを準備
-	hr_ = commandAllocator_->Reset();
+	hr = commandAllocator_->Reset();
 	assert(SUCCEEDED(hr));
-	hr_ = commandList_->Reset(commandAllocator_.Get(), nullptr);
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
 	assert(SUCCEEDED(hr));
 }
 
@@ -187,7 +186,7 @@ IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar
 
 	// コンパイル結果から実行用のバイナリ部分を取得
 	IDxcBlob* shaderBlob = nullptr;
-	hr_ = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
+	HRESULT hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
 	assert(SUCCEEDED(hr));
 	// 成功したログを出す
 	Log(ConvertString(std::format(L"Compile Succeeded, path:{}, profile:{}\n", filePath, profile)));

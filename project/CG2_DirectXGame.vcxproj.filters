@@ -170,5 +170,10 @@
     <None Include="resources\shaders\Object3d.hlsli">
       <Filter>ソース ファイル\05_shaders</Filter>
     </None>
+    <None Include="resources\shaders\Particle.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="resources\shaders\Particle.VS.hlsl" />
+    <FxCompile Include="resources\shaders\Particle.PS.hlsl" />
   </ItemGroup>
 </Project>
