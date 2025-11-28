@@ -159,6 +159,16 @@ struct Emitter {
 	float frequencyTime; //!< 頻度用時刻
 };
 
+struct AABB {
+	Vector3 min; //!< 最小点
+	Vector3 max; //!< 最大点
+};
+
+struct AccelerationField {
+	Vector3 acceleration; //!< 加速度
+	AABB area; //!< 範囲
+};
+
 void Log(std::ostream& os, const std::string& message) {
 	os << message << std::endl;
 	OutputDebugStringA(message.c_str());
@@ -303,6 +313,16 @@ std::list<Particle> Emit(const Emitter& emitter, std::mt19937& randomEngine) {
 		particles.push_back(MakeNewParticle(randomEngine, emitter.transform.translate));
 	}
 	return particles;
+}
+
+bool IsCollision(const AABB& aabb, const Vector3& point) {
+	if (aabb.min.x <= point.x && aabb.max.x >= point.x &&
+		aabb.min.y <= point.y && aabb.max.y >= point.y &&
+		aabb.min.z <= point.z && aabb.max.z >= point.z) {
+		return true;
+	}
+	
+	return false;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -628,7 +648,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	particleInputLayoutDesc.pInputElementDescs = particleInputElementDescs;
 	particleInputLayoutDesc.NumElements = _countof(particleInputElementDescs);
 
-	int particleBlendMode = kBlendModeNormal;
+	int particleBlendMode = kBlendModeAdd;
+	//int particleBlendMode = kBlendModeNormal;
 	int particlePrevBlendMode = -1;
 	// BlendStateの設定
 	D3D12_BLEND_DESC particleBlendDesc{};
@@ -728,6 +749,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	
 	std::list<Particle> particles;
 
+	AccelerationField accelerationField;
+	accelerationField.acceleration = { 15.0f,0.0f,0.0f };
+	accelerationField.area.min = { -1.0f,-1.0f,-1.0f };
+	accelerationField.area.max = { 1.0f,1.0f,1.0f };
+
 	// 書き込むためのアドレスを取得
 	ParticleForGPU* instancingData = nullptr;
 	instancingResource->Map(0, nullptr, reinterpret_cast<void**>(&instancingData));
@@ -738,6 +764,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		instancingData[index].color = { 0.0f,0.0f,0.0f,0.0f };
 	}
 
+	float particleRotateZ = 0.0f;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
 	instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -958,7 +985,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	bool useMonsterBall = false;
 
-	
+	// 風(Acceleration)を使うかどうか
+	bool enableAccelerationField = false;
 
 	DebugCamera debugCamera;
 	debugCamera.Initialize();
@@ -994,6 +1022,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		lastMouse = currentMouse;
 
+#pragma region ImGui
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
@@ -1027,10 +1056,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			ImGui::TreePop();
 		}
 		if (ImGui::TreeNode("particle")) {
+			ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
+			ImGui::SliderAngle("ParticleRotateZ", &particleRotateZ);
 			if (ImGui::Button("AddParticle")) {
 				particles.splice(particles.end(), Emit(emitter, randomEngine));
 			}
-			ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
+			ImGui::Checkbox("enableAccelerationField", &enableAccelerationField);
+			static const char* kBlendModeNames[] = {
+				"kBlendModeNone",
+				"kBlendModeNormal",
+				"kBlendModeAdd",
+				"kBlendModeSubtract",
+				"kBlendModeMultiply",
+				"kBlendModeScreen",
+				"kCountOfBlendMode"
+			};
+			ImGui::Combo("BlendMode", &particleBlendMode, kBlendModeNames, 7);
 			ImGui::TreePop();
 		}
 		if (ImGui::TreeNode("sprite")) {
@@ -1049,7 +1090,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
 		ImGui::ShowDemoWindow();
+#pragma endregion
 
+#pragma region object用blendMode
 		if(blendMode!=prevBlendMode){
 			prevBlendMode = blendMode;
 			if (blendMode == kBlendModeNone) {
@@ -1091,6 +1134,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				assert(SUCCEEDED(hr));
 			}
 		}
+#pragma endregion
+
+#pragma region particle用blendMode
+		if(particleBlendMode!=particlePrevBlendMode){
+			particlePrevBlendMode = particleBlendMode;
+			if (particleBlendMode == kBlendModeNone) {
+				particleBlendDesc.RenderTarget[0].BlendEnable = FALSE;
+			} else {
+				particleBlendDesc.RenderTarget[0].BlendEnable = TRUE;
+				particleBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+				particleBlendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+				particleBlendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+
+				if (particleBlendMode == kBlendModeNormal) {
+					particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+					particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+					particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+				}
+				if (particleBlendMode == kBlendModeAdd) {
+					particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+					particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+					particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+				}
+				if (particleBlendMode == kBlendModeSubtract) {
+					particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+					particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+					particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+				}
+				if (particleBlendMode == kBlendModeMultiply) {
+					particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_ZERO;
+					particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+					particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_SRC_COLOR;
+				}
+				if (particleBlendMode == kBlendModeScreen) {
+					particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_INV_DEST_COLOR;
+					particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+					particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+				}
+				particlePipelineStateDesc.BlendState = particleBlendDesc;
+				hr = device->CreateGraphicsPipelineState(
+					&particlePipelineStateDesc, IID_PPV_ARGS(&particlePipelineState));
+				assert(SUCCEEDED(hr));
+			}
+		}
+#pragma endregion
 		
 		ImGuiIO& io = ImGui::GetIO();
 		float wheelDelta = io.MouseWheel;
@@ -1126,6 +1214,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			}
 			
 			if (numInstance < kNumMaxInstance) {
+				// Fieldの範囲内のParticleには加速度を適用する
+				if(enableAccelerationField){
+					particleIterator->transform.rotate.z += 2.0f * kDeltaTime;
+					if (IsCollision(accelerationField.area, particleIterator->transform.translate)) {
+						particleIterator->velocity.x += accelerationField.acceleration.x * kDeltaTime;
+						particleIterator->velocity.y += accelerationField.acceleration.y * kDeltaTime;
+						particleIterator->velocity.z += accelerationField.acceleration.z * kDeltaTime;
+					}
+				}
+
 				particleIterator->transform.translate.x += particleIterator->velocity.x * kDeltaTime;
 				particleIterator->transform.translate.y += particleIterator->velocity.y * kDeltaTime;
 				particleIterator->transform.translate.z += particleIterator->velocity.z * kDeltaTime;
@@ -1136,8 +1234,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				billboardMatrix.m[3][1] = 0.0f;
 				billboardMatrix.m[3][2] = 0.0f;
 				//Matrix4x4 worldMatrix = MakeAffineMatrix(particles[index].transform.scale, particles[index].transform.rotate, particles[index].transform.translate);
+				Matrix4x4 rotateZMatrix = MakeRotateZMatrix(particleIterator->transform.rotate.z + particleRotateZ);
 				Matrix4x4 worldMatrix = Multiply(
-					Multiply(MakeScaleMatrix(particleIterator->transform.scale), billboardMatrix),
+					Multiply(Multiply(MakeScaleMatrix(particleIterator->transform.scale),rotateZMatrix), billboardMatrix),
 					MakeTranslateMatrix(particleIterator->transform.translate));
 				Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, viewProjectionMatrix);
 				particleIterator->currentTime += kDeltaTime;
