@@ -648,8 +648,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	particleInputLayoutDesc.pInputElementDescs = particleInputElementDescs;
 	particleInputLayoutDesc.NumElements = _countof(particleInputElementDescs);
 
-	int particleBlendMode = kBlendModeAdd;
-	//int particleBlendMode = kBlendModeNormal;
+	//int particleBlendMode = kBlendModeAdd;
+	int particleBlendMode = kBlendModeNormal;
 	int particlePrevBlendMode = -1;
 	// BlendStateの設定
 	D3D12_BLEND_DESC particleBlendDesc{};
