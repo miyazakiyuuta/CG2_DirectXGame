@@ -24,6 +24,8 @@ using namespace Microsoft::WRL;
 using namespace Logger;
 using namespace StringUtility;
 
+const uint32_t DirectXCommon::kMaxSRVCount = 512;
+
 void DirectXCommon::Initialize(WinApp* winApp) {
 	assert(winApp);
 	winApp_ = winApp;
@@ -237,8 +239,8 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateTextureResource(cons
 
 	// 利用するHeapの設定。非常に特殊な運用。
 	D3D12_HEAP_PROPERTIES  heapProperties{};
-	//heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM; // 細かい設定を行う
 	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	//heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM; // 細かい設定を行う
 	//heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK; // WriteBackポリシーでCPUアクセス可能
 	//heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0; // プロセッサの近くに配置
 
@@ -256,6 +258,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateTextureResource(cons
 	return resource;
 }
 
+[[nodiscard]]
 Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::UpLoadTextureData(const Microsoft::WRL::ComPtr<ID3D12Resource>& texture, const DirectX::ScratchImage& mipImages) {
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 	DirectX::PrepareUpload(device_.Get(), mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
@@ -274,22 +277,28 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::UpLoadTextureData(const Mi
 	return intermediateResource;
 }
 
-DirectX::ScratchImage DirectXCommon::LoadTexture(const std::string& filePath) {
-	// テクスチャファイルを読んでプログラムで扱えるようにする
-	DirectX::ScratchImage image{};
-	std::wstring filePathW = ConvertString(filePath);
+void DirectXCommon::ExecuteCommandListAndWait() {
+	// 1. コマンドリストを閉じる
+	commandList_->Close();
 
+	// 2. キューに投げる
+	ID3D12CommandList* cmdLists[] = { commandList_.Get() };
+	commandQueue_->ExecuteCommandLists(1, cmdLists);
 
-	HRESULT hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
-	assert(SUCCEEDED(hr));
+	// 3. フェンスで GPU 完了待ち
+	fenceValue_++;
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
 
-	// ミップマップの作成
-	DirectX::ScratchImage mipImages{};
-	hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
-	assert(SUCCEEDED(hr));
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		fence_->SetEventOnCompletion(fenceValue_, eventHandle);
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
 
-	// ミップマップ付きのデータを返す
-	return mipImages;
+	// 4. 次のコマンドを積めるようにリセット
+	commandAllocator_->Reset();
+	commandList_->Reset(commandAllocator_.Get(), nullptr);
 }
 
 void DirectXCommon::InitializeDevice() {
@@ -431,7 +440,7 @@ void DirectXCommon::CreateDescriptorHeaps() {
 	// RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので、ShaderVisibleはfalse
 	rtvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 	// SRV用のヒープでディスクリプタの数は128。SRVはShader内で触るものなので、ShaderVisibleはtrue
-	srvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+	srvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kMaxSRVCount, true);
 	// DSV用のヒープでディスクリプタの数は1。DSVはShader内で触るものではないので、ShaderVisibleはfalse
 	dsvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 }
@@ -605,6 +614,8 @@ void DirectXCommon::UpdateFixFPS() {
 	// 現在の時間を記録する
 	reference_ = std::chrono::steady_clock::now();
 }
+
+
 
 
 

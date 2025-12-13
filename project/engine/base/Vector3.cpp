@@ -1,15 +1,15 @@
 #include "Vector3.h"
 #include <math.h>
 
-Vector3 Vector3Math::Add(const Vector3& v1, const Vector3& v2) {
+MatrixMath::Vector3 MatrixMath::Add(const Vector3& v1, const Vector3& v2) {
 	Vector3 result = {};
-	result.x = v1.x + v2.x;
-	result.y = v1.y + v2.y;
-	result.z = v1.z + v2.z;
-	return result;
+    result.x = v1.x + v2.x;
+    result.y = v1.y + v2.y;
+    result.z = v1.z + v2.z;
+    return result;
 }
 
-Vector3 Vector3Math::Subtract(const Vector3& v1, const Vector3& v2) {
+MatrixMath::Vector3 MatrixMath::Subtract(const Vector3& v1, const Vector3& v2) {
 	Vector3 result = {};
 	result.x = v1.x - v2.x;
 	result.y = v1.y - v2.y;
@@ -17,22 +17,23 @@ Vector3 Vector3Math::Subtract(const Vector3& v1, const Vector3& v2) {
 	return result;
 }
 
-Vector3 Vector3Math::Multiply(float scalar, const Vector3& v) {
+MatrixMath::Vector3 MatrixMath::Multiply(float scalar, const Vector3& v) {
 	Vector3 result = {};
 	result.x = v.x * scalar;
 	result.y = v.y * scalar;
+	result.z = v.z * scalar;
 	return result;
 }
 
-float Vector3Math::Dot(const Vector3& v1, const Vector3 v2) {
+float MatrixMath::Dot(const Vector3& v1, const Vector3 v2) {
 	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 
-float Vector3Math::Length(const Vector3& v) {
+float MatrixMath::Length(const Vector3& v) {
 	return sqrtf(Dot(v, v));
 }
 
-Vector3 Vector3Math::Normalize(const Vector3& v) {
+MatrixMath::Vector3 MatrixMath::Normalize(const Vector3& v) {
 	Vector3 result = {};
 	result.x = v.x / Length(v);
 	result.y = v.y / Length(v);

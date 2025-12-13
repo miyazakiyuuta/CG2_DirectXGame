@@ -1,9 +1,9 @@
 #pragma once
+#include "Vector3.h"
+
 struct Matrix4x4 {
 	float m[4][4];
 };
-
-struct Vector3;
 
 namespace MatrixMath {
 
@@ -13,11 +13,11 @@ namespace MatrixMath {
 
 	Matrix4x4 MakeIdentity4x4();
 
-	Matrix4x4 MakeTranslateMatrix(const Vector3& translate);
+	Matrix4x4 MakeTranslateMatrix(const MatrixMath::Vector3& translate);
 
-	Matrix4x4 MakeScaleMatrix(const Vector3& scale);
+	Matrix4x4 MakeScaleMatrix(const MatrixMath::Vector3& scale);
 	
-	Vector3 TransformMatrix(const Vector3& vector, const Matrix4x4& matrix);
+	MatrixMath::Vector3 TransformMatrix(const MatrixMath::Vector3& vector, const Matrix4x4& matrix);
 	
 	Matrix4x4 MakeRotateXMatrix(float radian);
 	
@@ -25,7 +25,7 @@ namespace MatrixMath {
 	
 	Matrix4x4 MakeRotateZMatrix(float radian);
 	
-	Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate);
+	Matrix4x4 MakeAffineMatrix(const MatrixMath::Vector3& scale, const MatrixMath::Vector3& rotate, const MatrixMath::Vector3& translate);
 
 	float cot(float radian);
 
