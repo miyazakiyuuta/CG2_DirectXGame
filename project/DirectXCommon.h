@@ -51,14 +51,11 @@ public: // メンバ関数
 	[[nodiscard]]
 	Microsoft::WRL::ComPtr<ID3D12Resource> UpLoadTextureData(const Microsoft::WRL::ComPtr<ID3D12Resource>& texture, const DirectX::ScratchImage& mipImages);
 
-	/// <summary>
-	/// テクスチャファイルの読み込み
-	/// </summary>
-	/// <param name="filePath">テクスチャファイルのパス</param>
-	/// <returns>画像イメージデータ</returns>
-	static DirectX::ScratchImage LoadTexture(const std::string& filePath);
+	// 転送用などで、今詰んでいるコマンドを即実行して完了まで待つ
+	void ExecuteCommandListAndWait();
 
-
+	// 最大SRV数(最大テクスチャ枚数)
+	static const uint32_t kMaxSRVCount;
 
 	/* getter */
 	ID3D12Device* GetDevice() { return device_.Get(); }
@@ -174,5 +171,7 @@ private:
 
 	// 記録時間(FPS固定用)
 	std::chrono::steady_clock::time_point reference_;
+
+	
 };
 

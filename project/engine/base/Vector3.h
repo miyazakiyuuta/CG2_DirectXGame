@@ -1,12 +1,32 @@
 ﻿#pragma once
 
-struct Vector3 {
-	float x;
-	float y;
-	float z;
-};
+namespace MatrixMath {
+	struct Vector3 {
+		float x;
+		float y;
+		float z;
+		// 追加: const参照への暗黙変換演算子
+		operator const Vector3& () const { return *this; }
+	};
 
-namespace Vector3Math {
+	struct Vector2 {
+		float x;
+		float y;
+	};
+
+	struct Vector4 {
+		float x;
+		float y;
+		float z;
+		float w;
+	};
+
+	struct Transform {
+		Vector3 scale;
+		Vector3 rotate;
+		Vector3 translate;
+	};
+
 	// 加算
 	Vector3 Add(const Vector3& v1, const Vector3& v2);
 	// 減算

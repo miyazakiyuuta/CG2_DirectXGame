@@ -23,7 +23,8 @@
 #include <dxgidebug.h>
 #pragma comment(lib,"dxguid.lib")
 
-#include "engine/base/Matrix4x4.h"
+#include "engine/base/Vector3.h"
+//#include "engine/base/Matrix4x4.h"
 
 #include "externals/imgui/imgui_impl_dx12.h"
 #include "externals/imgui/imgui_impl_win32.h"
@@ -58,6 +59,9 @@
 #include "DirectXCommon.h"
 #include "StringUtility.h"
 #include "D3DResourceLeakChecker.h"
+#include "SpriteCommon.h"
+#include "Sprite.h"
+#include "TextureManager.h"
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -81,29 +85,7 @@ enum BlendMode {
 	kCountOfBlendMode,
 };
 
-struct Vector2 {
-	float x;
-	float y;
-};
 
-/*struct Vector3 {
-	float x;
-	float y;
-	float z;
-};*/
-
-struct Vector4 {
-	float x;
-	float y;
-	float z;
-	float w;
-};
-
-struct Transform {
-	Vector3 scale;
-	Vector3 rotate;
-	Vector3 translate;
-};
 
 struct VertexData {
 	Vector4 position;
@@ -333,6 +315,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	//誰も捕捉しなかった場合に(Unhandled),捕捉する関数を登録
 	SetUnhandledExceptionFilter(ExportDump);
 
+#pragma region 基盤システムの初期化
+
 	WinApp* winApp = nullptr;
 	winApp = new WinApp();
 	winApp->Initialize();
@@ -350,6 +334,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	DirectXCommon* dxCommon = nullptr;
 	dxCommon = new DirectXCommon();
 	dxCommon->Initialize(winApp);
+
+	TextureManager::GetInstance()->Initialize(dxCommon);
+
+	SpriteCommon* spriteCommon = nullptr;
+	// スプライト共通部の初期化
+	spriteCommon = new SpriteCommon;
+	spriteCommon->Initialize(dxCommon);
+
+#pragma endregion
 
 	ID3D12Device* device = dxCommon->GetDevice();
 	ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
@@ -379,11 +372,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	modelData.material.textureFilePath = "./resources/uvChecker.png";
 	*/
 	
-	const int kNumMaxInstance = 10; // instanceCount
+	
 
+	/*
 	// Textureを読んで転送する
-	DirectX::ScratchImage mipImages = dxCommon->LoadTexture("resources/circle.png");
-	//DirectX::ScratchImage mipImages = dxCommon->LoadTexture("resources/uvChecker.png");
+	//DirectX::ScratchImage mipImages = dxCommon->LoadTexture("resources/circle.png");
+	DirectX::ScratchImage mipImages = dxCommon->LoadTexture("resources/uvChecker.png");
 	//DirectX::ScratchImage mipImages = dxCommon->LoadTexture("resources/fence/fence.png");
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	Microsoft::WRL::ComPtr<ID3D12Resource> textureResource = dxCommon->CreateTextureResource(metadata);
@@ -410,14 +404,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	srvDesc2.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc2.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
 	srvDesc2.Texture2D.MipLevels = UINT(metadata2.mipLevels);
-	/*
+	
 	// SRVを作成するDescriptorHeapの場所を決める
 	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = dxCommon->GetSRVDescriptorHeap()->GetCPUDescriptorHandleForHeapStart();
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = dxCommon->GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart();
 	// 先頭はImGuiが使っているのでその次を使う
 	textureSrvHandleCPU.ptr += dxCommon->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	textureSrvHandleGPU.ptr += dxCommon->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	*/
 	// ImGui が 0 番を使ってる前提で、1 番に uvChecker を割り当て
 	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = dxCommon->GetSRVCPUDescriptorHandle(1);
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = dxCommon->GetSRVGPUDescriptorHandle(1);
@@ -431,6 +424,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// SRVの生成
 	device->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
 	//device->CreateShaderResourceView(textureResource2.Get(), &srvDesc2, textureSrvHandleCPU2);
+	*/
+
+	const int kNumMaxInstance = 10; // instanceCount
+
+	// TextureManager からテクスチャを読み込む
+	TextureManager* textureManager = TextureManager::GetInstance();
+	textureManager->LoadTexture("resources/uvChecker.png");
+	textureManager->LoadTexture("resources/monsterBall.png");
+	textureManager->LoadTexture(modelData.material.textureFilePath);
+
+	// あとで使いやすいようにインデックスとGPUハンドルを取っておく
+	uint32_t uvCheckerIndex =
+		textureManager->GetTextureIndexByFilePath("resources/uvChecker.png");
+	uint32_t modelTexIndex =
+		textureManager->GetTextureIndexByFilePath(modelData.material.textureFilePath);
+
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
+		textureManager->GetSrvHandleGPU(uvCheckerIndex);
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 =
+		textureManager->GetSrvHandleGPU(modelTexIndex);
+
 
 #pragma region Object用PSO
 
@@ -886,6 +900,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 	*/
 
+	/*
+	
+
 	// Sprite用の頂点リソースを作る
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResourceSprite = dxCommon->CreateBufferResource(sizeof(VertexData) * 6);
 
@@ -970,7 +987,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	indexDataSprite[5] = 2;
 
 	Transform transformSprite{ {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
-
+	*/
 
 	// 出力ウィンドウへの文字出力
 	OutputDebugStringA("Hello,DirectX!\n");
@@ -995,6 +1012,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	sound.Initialize();
 	SoundData se = sound.LoadWave("resources/mokugyo.wav");
 	//sound.PlayerWave(se);
+
+	const uint32_t kMaxSprite = 5;
+	std::vector<Sprite*> sprites;
+	for (uint32_t i = 0; i < kMaxSprite; ++i) {
+		Sprite* sprite = new Sprite();
+		std::string texture = "resources/uvChecker.png";
+		if (i % 2 == 0) {
+			texture = "resources/uvChecker.png";
+		} else {
+			texture = "resources/monsterBall.png";
+		}
+		sprite->Initialize(spriteCommon, texture);
+		sprite->SetPos({ i * 200.0f,0.0f });
+		sprite->SetSize({ 100.0f,100.0f });
+		sprite->SetTextureLeftTop({ 0.0f,0.0f });
+		sprite->SetTextureSize({ 256.0f,256.0f });
+		sprites.push_back(sprite);
+	}
+
 
 
 	// ウィンドウの×ボタンが押されるまでループ
@@ -1074,6 +1110,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			ImGui::Combo("BlendMode", &particleBlendMode, kBlendModeNames, 7);
 			ImGui::TreePop();
 		}
+		/*
 		if (ImGui::TreeNode("sprite")) {
 			ImGui::DragFloat3("TranslateSprite", &transformSprite.translate.x, 1.0f);
 			ImGui::DragFloat3("RotateSprite", &transformSprite.rotate.x, 0.01f);
@@ -1086,6 +1123,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			ImGui::TreePop();
 		}
+		*/
 		ImGui::End();
 
 		// 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
@@ -1196,6 +1234,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		wvpData->WVP = worldViewProjectionMatrix;
 		wvpData->World = worldMatrix;
 
+#pragma region particle
 		// instancing用のWVP行列を作る
 		uint32_t numInstance = 0;
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
@@ -1249,7 +1288,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			}
 			++particleIterator; // 次のイテレータに進める
 		}
+#pragma endregion
 
+		/*
 		// Sprite用のWorldViewProjectionMatrixを作る
 		Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale, transformSprite.rotate, transformSprite.translate);
 		Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
@@ -1263,7 +1304,42 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		uvTransformMatrix = Multiply(uvTransformMatrix, MakeRotateZMatrix(uvTransformSprite.rotate.z));
 		uvTransformMatrix = Multiply(uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
 		materialDataSprite->uvTransform = uvTransformMatrix;
+		*/
 
+		// Spriteクラス 呼び出しの例
+		/*
+		Vector2 position = sprite->GetPos();
+		position.x += 0.1f;
+		position.y += 0.1f;
+		sprite->SetPos(position);
+
+		float rotation = sprite->GetRotation();
+		rotation += 0.01f;
+		sprite->SetRotation(rotation);
+
+		Vector4 color = sprite->GetColor();
+		color.x += 0.01f;
+		if (color.x > 1.0f) {
+			color.x -= 1.0f;
+		}
+		sprite->SetColor(color);
+		
+		Vector2 size = sprite->GetSize();
+		size.x += 0.01f;
+		size.y += 0.01f;
+		sprite->SetSize(size);
+
+		for (Sprite* sprite : sprites) {
+			sprite->Update();
+		}
+		*/
+
+		for (uint32_t i = 0; i < sprites.size(); ++i) {
+			sprites[i]->Update();
+			float rotation = sprites[i]->GetRotation();
+			//rotation += 0.01f;
+			sprites[i]->SetRotation(rotation);
+		}
 		
 
 		ImGui::Render();
@@ -1302,7 +1378,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		commandList->SetGraphicsRootConstantBufferView(3, directionalLightResource->GetGPUVirtualAddress());
 
 		commandList->DrawInstanced(UINT(modelData.vertices.size()), numInstance, 0, 0);
+	
 		
+		// スプライト描画
+
+		spriteCommon->CommonDrawSetting();
+
+		for (Sprite* sprite : sprites) {
+			sprite->Draw();
+		}
+
+		/*
+		commandList->SetPipelineState(objectPipelineState.Get());
 		commandList->SetGraphicsRootSignature(objectRootSignature.Get());
 
 		// マテリアルCBufferの場所を設定
@@ -1312,11 +1399,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// TransformationMatrixCBufferの場所を設定
 		commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 		// 描画! (DrawCall/ドローコール)
-		//commandList->DrawInstanced(6, 1, 0, 0);
+		commandList->DrawInstanced(6, 1, 0, 0);
 
 		commandList->IASetIndexBuffer(&indexBufferViewSprite);
 		// 描画! (DrawCall/ドローコール) 6個のインデックスを使用し1つのインスタンスを描画。
-		//commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+		*/
 
 		// 実際のcommandListのImGuiの描画コマンドを積む
 		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
@@ -1346,6 +1434,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	sound.Unload(&se);
 	sound.Finalize();
 
+	TextureManager::GetInstance()->Finalize();
+
 	// ImGuiの終了処理
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -1357,6 +1447,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	delete winApp;
 	winApp = nullptr;
 
+	delete spriteCommon;
+	spriteCommon = nullptr;
+
+	
+	for (Sprite* sprite : sprites) {
+		delete sprite;
+		sprite = nullptr;
+	}
+	sprites.clear();
 
 	return 0;
 }

@@ -1,6 +1,5 @@
 ﻿#include "Matrix4x4.h"
 #include <cmath>
-#include "Vector3.h"
 #include <assert.h>
 
 Matrix4x4 MatrixMath::Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
@@ -83,7 +82,7 @@ Matrix4x4 MatrixMath::MakeIdentity4x4() {
 	return result;
 }
 
-Matrix4x4 MatrixMath::MakeTranslateMatrix(const Vector3& translate) {
+Matrix4x4 MatrixMath::MakeTranslateMatrix(const MatrixMath::Vector3& translate) {
 	Matrix4x4 result = {
 		1,0,0,0,
 		0,1,0,0,
@@ -93,7 +92,7 @@ Matrix4x4 MatrixMath::MakeTranslateMatrix(const Vector3& translate) {
 	return result;
 }
 
-Matrix4x4 MatrixMath::MakeScaleMatrix(const Vector3& scale) {
+Matrix4x4 MatrixMath::MakeScaleMatrix(const MatrixMath::Vector3& scale) {
 	Matrix4x4 result = {
 		scale.x,0,0,0,
 		0,scale.y,0,0,
@@ -103,8 +102,8 @@ Matrix4x4 MatrixMath::MakeScaleMatrix(const Vector3& scale) {
 	return result;
 }
 
-Vector3 MatrixMath::TransformMatrix(const Vector3& vector, const Matrix4x4& matrix) {
-	Vector3 result = {};
+MatrixMath::Vector3 MatrixMath::TransformMatrix(const MatrixMath::Vector3& vector, const Matrix4x4& matrix) {
+	MatrixMath::Vector3 result = {};
 	result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
 	result.y = vector.x * matrix.m[0][1] + vector.y * matrix.m[1][1] + vector.z * matrix.m[2][1] + 1.0f * matrix.m[3][1];
 	result.z = vector.x * matrix.m[0][2] + vector.y * matrix.m[1][2] + vector.z * matrix.m[2][2] + 1.0f * matrix.m[3][2];
@@ -149,7 +148,7 @@ Matrix4x4 MatrixMath::MakeRotateZMatrix(float radian) {
 	return result;
 }
 
-Matrix4x4 MatrixMath::MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
+Matrix4x4 MatrixMath::MakeAffineMatrix(const MatrixMath::Vector3& scale, const MatrixMath::Vector3& rotate, const MatrixMath::Vector3& translate) {
 	Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
 	Matrix4x4 rotateXMatrix = MakeRotateXMatrix(rotate.x);
 	Matrix4x4 rotateYMatrix = MakeRotateYMatrix(rotate.y);
