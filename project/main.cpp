@@ -62,6 +62,9 @@
 #include "SpriteCommon.h"
 #include "Sprite.h"
 #include "TextureManager.h"
+#include "Object3dCommon.h"
+#include "Object3d.h"
+#include "ModelManager.h"
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -342,6 +345,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	spriteCommon = new SpriteCommon;
 	spriteCommon->Initialize(dxCommon);
 
+	Object3dCommon* object3dCommon = nullptr;
+	// 3Dオブジェクト共通部の初期化
+	object3dCommon = new Object3dCommon();
+	object3dCommon->Initialize(dxCommon);
+
 #pragma endregion
 
 	ID3D12Device* device = dxCommon->GetDevice();
@@ -445,7 +453,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 =
 		textureManager->GetSrvHandleGPU(modelTexIndex);
 
-
+	/*
 #pragma region Object用PSO
 
 	// RootSignature作成
@@ -574,6 +582,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	assert(SUCCEEDED(hr));
 
 #pragma endregion
+	*/
 
 #pragma region Particle用PSO
 
@@ -685,6 +694,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 	particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 
+	// RasiterzerStateの設定
+	D3D12_RASTERIZER_DESC rasterizerDesc{};
+	// 裏面(時計回り)を表示しない
+	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
+	// 三角形の中を塗りつぶす
+	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+
 	Microsoft::WRL::ComPtr<IDxcBlob> particleVertexShaderBlob = dxCommon->CompileShader(
 		L"resources/shaders/Particle.VS.hlsl", L"vs_6_0");
 	assert(particleVertexShaderBlob != nullptr);
@@ -792,6 +808,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU = dxCommon->GetSRVGPUDescriptorHandle(3);
 	device->CreateShaderResourceView(instancingResource.Get(), &instancingSrvDesc, instancingSrvHandleCPU);
 
+	/*
 	// データを書き込む
 	//Matrix4x4* wvpData = nullptr;
 	TransformationMatrix* wvpData = nullptr;
@@ -800,6 +817,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 単位行列を書き込んでおく
 	wvpData->WVP = MakeIdentity4x4();
 	wvpData->World = MakeIdentity4x4();
+	*/
 
 
 	// 頂点リソース
@@ -1031,7 +1049,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		sprites.push_back(sprite);
 	}
 
+	Object3d* object3d = new Object3d();
+	object3d->Initialize(object3dCommon);
 
+	// 3Dモデルマネージャーの初期化
+	ModelManager::GetInstance()->Initialize(dxCommon);
+
+	// .objファイルからモデルを読み込む
+	ModelManager::GetInstance()->LoadModel("plane.obj");
+
+	// 初期化済みの3Dオブジェクトにモデルを紐づける
+	object3d->SetModel("plane.obj");
+	object3d->SetTranslate({ 0.0f, 0.0f, 5.0f });
+	object3d->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (true) {
@@ -1058,6 +1088,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		lastMouse = currentMouse;
 
+		Vector3 translate = object3d->GetTranslate();
+		Vector3 rotate = object3d->GetRotate();
+		Vector3 scale = object3d->GetScale();
+
 #pragma region ImGui
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
@@ -1072,12 +1106,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			ImGui::TreePop();
 		}
 		if (ImGui::TreeNode("object")) {
-			ImGui::DragFloat3("Translate", &transform.translate.x, 0.01f);
-			ImGui::DragFloat3("Rotate", &transform.rotate.x, 0.01f);
-			ImGui::DragFloat3("Scale", &transform.scale.x, 0.01f);
+			ImGui::DragFloat3("Translate", &translate.x, 0.01f);
+			ImGui::DragFloat3("Rotate", &rotate.x, 0.01f);
+			ImGui::DragFloat3("Scale", &scale.x, 0.01f);
 			ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.01f, 0.0f, 10.0f);
 			ImGui::ColorEdit4("ObjectColor", &materialData->color.x);
-			static const char* kBlendModeNames[] = {
+
+
+			/*static const char* kBlendModeNames[] = {
 				"kBlendModeNone",
 				"kBlendModeNormal",
 				"kBlendModeAdd",
@@ -1087,7 +1123,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				"kCountOfBlendMode"
 			};
 			
-			ImGui::Combo("BlendMode", &blendMode ,kBlendModeNames,7);
+			ImGui::Combo("BlendMode", &blendMode ,kBlendModeNames,7);*/
 				//"kBlendModeNone\0kBlendModeNormal\0kBlendModeAdd\0kBlendModeSubtract\0kBlendModeMultiply\0kBlendModeScreen\0kCountOfBlendMode\0");
 			ImGui::TreePop();
 		}
@@ -1130,6 +1166,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::ShowDemoWindow();
 #pragma endregion
 
+		/*
 #pragma region object用blendMode
 		if(blendMode!=prevBlendMode){
 			prevBlendMode = blendMode;
@@ -1173,6 +1210,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			}
 		}
 #pragma endregion
+		*/
 
 #pragma region particle用blendMode
 		if(particleBlendMode!=particlePrevBlendMode){
@@ -1222,6 +1260,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		float wheelDelta = io.MouseWheel;
 		//debugCamera.Update(keyboard, delta, wheelDelta);
 
+		object3d->Update();
+
+		object3d->SetTranslate(translate);
+		object3d->SetRotate(rotate);
+		object3d->SetScale(scale);
+
 		/*ゲームの処理*/
 		Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
 		Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate, cameraTransform.translate);
@@ -1231,8 +1275,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// WVPMatrixを作る
 		Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 		//Matrix4x4 worldViewProjectionMatrix = Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
-		wvpData->WVP = worldViewProjectionMatrix;
-		wvpData->World = worldMatrix;
+		//wvpData->WVP = worldViewProjectionMatrix;
+		//wvpData->World = worldMatrix;
 
 #pragma region particle
 		// instancing用のWVP行列を作る
@@ -1347,6 +1391,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// 描画前処理
 		dxCommon->PreDraw();
 
+		// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
+		object3dCommon->CommonDrawSetting();
+
+		object3d->Draw();
+
+		/*
 		// RootSignatureを設定。PSOに設定しているけど別途設定が必要
 		commandList->SetGraphicsRootSignature(objectRootSignature.Get());
 		commandList->SetPipelineState(objectPipelineState.Get()); // PSOを設定
@@ -1364,6 +1414,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		commandList->SetGraphicsRootDescriptorTable(2, useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
 		// 描画!(DrawCall/ドローコール)。
 		commandList->DrawInstanced(UINT(modelData.vertices.size()), 1, 0, 0);
+		*/
 
 		// パーティクル描画
 		// パーティクル用 RootSignature / PSO に切り替え
@@ -1409,6 +1460,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// 実際のcommandListのImGuiの描画コマンドを積む
 		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 
+		
+
 		// 描画後処理
 		dxCommon->PostDraw();
 
@@ -1436,6 +1489,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	TextureManager::GetInstance()->Finalize();
 
+	// 3Dモデルマネージャーの終了
+	ModelManager::GetInstance()->Finalize();
+
 	// ImGuiの終了処理
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -1449,13 +1505,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	delete spriteCommon;
 	spriteCommon = nullptr;
-
 	
 	for (Sprite* sprite : sprites) {
 		delete sprite;
 		sprite = nullptr;
 	}
 	sprites.clear();
+
+	delete object3d;
+	object3d = nullptr;
 
 	return 0;
 }
