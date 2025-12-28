@@ -87,7 +87,7 @@ void DirectXCommon::PostDraw() {
 	UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
 
 	// 画面に描く処理はすべて終わり、画面に映すので、状態を遷移
-		// 今回はRenderTargetからPresentにする
+	// 今回はRenderTargetからPresentにする
 	barrier_.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	barrier_.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 	// TransitionBarrierを張る
