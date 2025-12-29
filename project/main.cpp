@@ -65,6 +65,7 @@
 #include "Object3dCommon.h"
 #include "Object3d.h"
 #include "ModelManager.h"
+#include "Camera.h"
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -364,6 +365,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない
 	// 比較関数はLessEqual。つまり、近ければ描画される
 	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	Camera* camera = new Camera();
+	object3dCommon->SetDefaultCamera(camera);
+	/* Particle用カメラ設定
+	camera->SetRotate({ std::numbers::pi_v<float> / 3.0f,std::numbers::pi_v<float>,0.0f });
+	camera->SetTranslate({ 0.0f,23.0f,10.0f });
+	*/
+	camera->SetRotate({ 0.3f,0.0f,0.0f });
+	camera->SetTranslate({ 0.0f,4.0f,-10.0f });
 
 	// モデル読み込み
 	//ModelData modelData;
@@ -1012,12 +1022,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	const float kDeltaTime = 1.0f / 60.0f;
 
-	Transform transform{ {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
-	Transform cameraTransform{
-		{1.0f,1.0f,1.0f},
-		{std::numbers::pi_v<float> / 3.0f,std::numbers::pi_v<float>,0.0f},
-		{0.0f,23.0f,10.0f} };
-
 	bool useMonsterBall = false;
 
 	// 風(Acceleration)を使うかどうか
@@ -1062,6 +1066,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	object3d->SetModel("plane.obj");
 	object3d->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
+	object3d->SetCamera(camera);
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (true) {
@@ -1088,11 +1093,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		lastMouse = currentMouse;
 
+#pragma region ImGui
+
 		Vector3 translate = object3d->GetTranslate();
 		Vector3 rotate = object3d->GetRotate();
 		Vector3 scale = object3d->GetScale();
 
-#pragma region ImGui
+		Vector3 cameraTranslate = camera->GetTranslate();
+		Vector3 cameraRotate = camera->GetRotate();
+
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
@@ -1100,8 +1109,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		//ImGui::Checkbox("useMonsterBall", &useMonsterBall);
 		//ImGui::ColorEdit3("Color", &materialData->color->x); // RGBA
 		if (ImGui::TreeNode("camera")) {
-			ImGui::DragFloat3("Translate", &cameraTransform.translate.x, 0.1f);
-			ImGui::DragFloat3("Rotate", &cameraTransform.rotate.x, 0.01f);
+			ImGui::DragFloat3("Translate", &cameraTranslate.x, 0.1f);
+			ImGui::DragFloat3("Rotate", &cameraRotate.x, 0.01f);
 
 			ImGui::TreePop();
 		}
@@ -1164,6 +1173,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
 		ImGui::ShowDemoWindow();
+
+		object3d->SetTranslate(translate);
+		object3d->SetRotate(rotate);
+		object3d->SetScale(scale);
+
+		camera->SetTranslate(cameraTranslate);
+		camera->SetRotate(cameraRotate);
+
 #pragma endregion
 
 		/*
@@ -1258,30 +1275,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		ImGuiIO& io = ImGui::GetIO();
 		float wheelDelta = io.MouseWheel;
-		//debugCamera.Update(keyboard, delta, wheelDelta);
+		
+		camera->Update();
 
 		object3d->Update();
-
-		object3d->SetTranslate(translate);
-		object3d->SetRotate(rotate);
-		object3d->SetScale(scale);
-
-		/*ゲームの処理*/
-		Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
-		Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate, cameraTransform.translate);
-		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-		//Matrix4x4 viewMatrix = debugCamera.GetViewMatrix();
-		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, 1280.0f / 720.0f, 0.1f, 100.0f);
-		// WVPMatrixを作る
-		Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
-		//Matrix4x4 worldViewProjectionMatrix = Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
-		//wvpData->WVP = worldViewProjectionMatrix;
-		//wvpData->World = worldMatrix;
 
 #pragma region particle
 		// instancing用のWVP行列を作る
 		uint32_t numInstance = 0;
-		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+		Matrix4x4 viewProjectionMatrix = camera->GetViewProjectionMatrix();
 
 		emitter.frequencyTime += kDeltaTime;
 		if (emitter.frequency <= emitter.frequencyTime) { // 頻度より大きいなら発生
@@ -1312,7 +1314,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				particleIterator->transform.translate.z += particleIterator->velocity.z * kDeltaTime;
 
 				Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
-				Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+				Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, camera->GetWorldMatrix());
 				billboardMatrix.m[3][0] = 0.0f; // 平行移動成分はいらない
 				billboardMatrix.m[3][1] = 0.0f;
 				billboardMatrix.m[3][2] = 0.0f;

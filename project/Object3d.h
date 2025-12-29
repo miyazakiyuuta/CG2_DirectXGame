@@ -5,6 +5,7 @@
 
 class Object3dCommon;
 class Model;
+class Camera;
 
 // 3Dオブジェクト
 class Object3d {
@@ -19,6 +20,7 @@ public:
 	void SetScale(const MatrixMath::Vector3& scale) { transform_.scale = scale; }
 	void SetRotate(const MatrixMath::Vector3& rotate) { transform_.rotate = rotate; }
 	void SetTranslate(const MatrixMath::Vector3& translate) { transform_.translate = translate; }
+	void SetCamera(Camera* camera) { camera_ = camera; }
 
 	// getter
 	const MatrixMath::Vector3& GetScale() const { return transform_.scale; }
@@ -57,7 +59,8 @@ private: // メンバ変数
 	DirectionalLight* directionalLightData_ = nullptr;
 	
 	MatrixMath::Transform transform_;
-	MatrixMath::Transform cameraTransform_;
+	
+	Camera* camera_ = nullptr;
 
 	Model* model_ = nullptr;
 };

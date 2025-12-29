@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "DirectXCommon.h"
+#include "Camera.h"
 
 // 3Dオブジェクト共通部
 class Object3dCommon {
@@ -8,8 +9,12 @@ public: // メンバ関数
 	// 共通描画設定 (PreDraw)
 	void CommonDrawSetting();
 
-public: // getter
+public:
+	// setter
+	void SetDefaultCamera(Camera* camera) { defaultCamera_ = camera; }
+	// getter
 	DirectXCommon* GetDxCommon() const { return dxCommon_; }
+	Camera* GetDefaultCamera() const { return defaultCamera_; }
 
 private:
 	// ルートシグネチャの作成
@@ -21,5 +26,7 @@ private: // メンバ変数
 	DirectXCommon* dxCommon_;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
+
+	Camera* defaultCamera_ = nullptr;
 };
 
