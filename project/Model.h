@@ -15,6 +15,8 @@ private: // メンバ構造体
 		int32_t enableLighting;
 		float padding[3];
 		Matrix4x4 uvTransform;
+		float shininess;
+		float padding1[3];
 	};
 
 	struct MaterialData {

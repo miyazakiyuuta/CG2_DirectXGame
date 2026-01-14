@@ -72,6 +72,16 @@ Matrix4x4 MatrixMath::Inverse(const Matrix4x4& m) {
 	return result;
 }
 
+Matrix4x4 MatrixMath::Transpose(const Matrix4x4& m) {
+	Matrix4x4 result = {};
+	for (int row = 0; row < 4; row++) {
+		for (int col = 0; col < 4; col++) {
+			result.m[row][col] = m.m[col][row];
+		}
+	}
+	return result;
+}
+
 Matrix4x4 MatrixMath::MakeIdentity4x4() {
 	Matrix4x4 result = {
 		1,0,0,0,
