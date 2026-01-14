@@ -21,11 +21,18 @@ public:
 	void SetRotate(const MatrixMath::Vector3& rotate) { transform_.rotate = rotate; }
 	void SetTranslate(const MatrixMath::Vector3& translate) { transform_.translate = translate; }
 	void SetCamera(Camera* camera) { camera_ = camera; }
+	void SetLightColor(MatrixMath::Vector4 color) { directionalLightData_->color = color; }
+	void SetLightDirection(MatrixMath::Vector3 direction) { directionalLightData_->direction = direction; }
+	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
 
 	// getter
 	const MatrixMath::Vector3& GetScale() const { return transform_.scale; }
 	const MatrixMath::Vector3& GetRotate() const { return transform_.rotate; }
 	const MatrixMath::Vector3& GetTranslate() const { return transform_.translate; }
+	//DirectionalLight* GetDirectionalLightData() const { return directionalLightData_; }
+	MatrixMath::Vector4 GetLightColor() const { return directionalLightData_->color; }
+	MatrixMath::Vector3 GetLightDirection() const { return directionalLightData_->direction; }
+	float GetLightIntensity() const { return directionalLightData_->intensity; }
 
 private: // メンバ構造体
 	
@@ -33,6 +40,7 @@ private: // メンバ構造体
 	struct TransformationMatrix {
 		Matrix4x4 WVP;
 		Matrix4x4 World;
+		Matrix4x4 WorldInverseTranspose;
 	};
 
 	struct DirectionalLight {

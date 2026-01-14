@@ -34,6 +34,7 @@ void Object3d::Update() {
 
 	transformationMatrixData_->WVP = worldViewProjectionMatrix;
 	transformationMatrixData_->World = worldMatrix;
+	transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
 }
 
 void Object3d::Draw() {
@@ -44,7 +45,9 @@ void Object3d::Draw() {
 	
 	// 平行光源CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(3, directionalLightResource_->GetGPUVirtualAddress());
-	
+
+	commandList->SetGraphicsRootConstantBufferView(4, camera_->GetGPUAddress());
+
 	// 3Dモデルが割り当てられていれば描画する
 	if (model_) {
 		model_->Draw();
@@ -67,6 +70,7 @@ void Object3d::CreateTransformationMatrixData() {
 	// 単位行列に書き込んでおく
 	transformationMatrixData_->WVP = MakeIdentity4x4();
 	transformationMatrixData_->World = MakeIdentity4x4();
+	transformationMatrixData_->WorldInverseTranspose = MakeIdentity4x4();
 }
 
 void Object3d::CreateDirectionalLightData() {
