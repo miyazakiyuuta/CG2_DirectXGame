@@ -22,16 +22,6 @@ public: // メンバ関数
 	// 描画後処理
 	void PostDraw();
 
-	/// <summary>
-	/// SRVの指定番号のCPUデスクリプタハンドルを取得する
-	/// </summary>
-	D3D12_CPU_DESCRIPTOR_HANDLE GetSRVCPUDescriptorHandle(uint32_t index);
-
-	/// <summary>
-	/// SRVの指定番号のGPUデスクリプタハンドルを取得する
-	/// </summary>
-	D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGPUDescriptorHandle(uint32_t index);
-
 	// シェーダーのコンパイル
 	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
 
@@ -51,6 +41,11 @@ public: // メンバ関数
 	[[nodiscard]]
 	Microsoft::WRL::ComPtr<ID3D12Resource> UpLoadTextureData(const Microsoft::WRL::ComPtr<ID3D12Resource>& texture, const DirectX::ScratchImage& mipImages);
 
+	/// <summary>
+	/// デスクリプタヒープを生成する
+	/// </summary>
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible);
+
 	// 転送用などで、今詰んでいるコマンドを即実行して完了まで待つ
 	void ExecuteCommandListAndWait();
 
@@ -60,7 +55,6 @@ public: // メンバ関数
 	/* getter */
 	ID3D12Device* GetDevice() { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
-	ID3D12DescriptorHeap* GetSRVDescriptorHeap() { return srvDescriptorHeap_.Get(); }
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
 
@@ -92,10 +86,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateDepthStencilTextureResource();
 
-	/// <summary>
-	/// デスクリプタヒープを生成する
-	/// </summary>
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible);
+	
 
 	/// <summary>
 	/// 指定番号のCPUデスクリプタハンドルを取得する
@@ -132,12 +123,10 @@ private:
 	// WindowsAPI
 	WinApp* winApp_ = nullptr;
 	// デスクリプタサイズ
-	uint32_t descriptorSizeSRV_ = 0;
 	uint32_t descriptorSizeRTV_ = 0;
 	uint32_t descriptorSizeDSV_ = 0;
 	// デスクリプタヒープ
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_ = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_ = nullptr;
 	const uint32_t kBackBufferCount = 2;
 	// SwapChainからResourceを引っ張ってくる

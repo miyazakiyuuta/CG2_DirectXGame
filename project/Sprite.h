@@ -2,8 +2,10 @@
 #include "DirectXCommon.h"
 #include "engine/base/Vector3.h"
 #include "engine/base/Matrix4x4.h"
+#include <string>
 
 class SpriteCommon;
+class SrvManager;
 
 // スプライト
 class Sprite {
@@ -98,5 +100,8 @@ private:
     MatrixMath::Vector2 textureLeftTop_ = { 0.0f,0.0f };
     // テクスチャ切り出しサイズ
     MatrixMath::Vector2 textureSize_ = { 100.0f,100.0f };
+
+    std::string filePath_;
+    uint32_t srvIndex_ = 0;
 };
 

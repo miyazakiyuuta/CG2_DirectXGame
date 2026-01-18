@@ -1,11 +1,13 @@
 ﻿#include "SpriteCommon.h"
+#include "SrvManager.h"
 #include "Logger.h"
 #include <iostream>
 
 using namespace Logger;
 
-void SpriteCommon::Initialize(DirectXCommon* dxCommon) {
+void SpriteCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
+	srvManager_ = srvManager;
 
 	CreateGraphicsPipelineState();
 }

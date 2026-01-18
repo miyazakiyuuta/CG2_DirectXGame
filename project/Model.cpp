@@ -1,7 +1,7 @@
 ﻿#include "Model.h"
 #include "ModelCommon.h"
 #include "TextureManager.h"
-
+#include "SrvManager.h"
 #include <cassert>
 #include <fstream>
 
@@ -19,11 +19,12 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& directorypat
 	// .objの参照しているテクスチャファイル読み込み
 	TextureManager::GetInstance()->LoadTexture(modelData_.material.textureFilePath);
 	// 読み込んだテクスチャの番号を取得
-	modelData_.material.textureIndex = TextureManager::GetInstance()->GetTextureIndexByFilePath(modelData_.material.textureFilePath);
+	modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(modelData_.material.textureFilePath);
 }
 
 void Model::Draw() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+	auto* srvManager = modelCommon_->GetSrvManager();
 
 	// VertexBufferViewを設定
 	// リソースの先頭のアドレスから使う
@@ -40,7 +41,7 @@ void Model::Draw() {
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
 	// SRVのDescriptorTableの先頭を設定
-	commandList->SetGraphicsRootDescriptorTable(2, TextureManager::GetInstance()->GetSrvHandleGPU(modelData_.material.textureIndex));
+	commandList->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(modelData_.material.srvIndex));
 
 	// 描画!(DrawCall/ドローコール)。
 	commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);

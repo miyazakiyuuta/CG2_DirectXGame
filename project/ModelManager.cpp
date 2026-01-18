@@ -1,6 +1,7 @@
 ﻿#include "ModelManager.h"
 #include "Model.h"
 #include "ModelCommon.h"
+#include "SrvManager.h"
 
 ModelManager* ModelManager::instance_ = nullptr;
 
@@ -18,9 +19,9 @@ void ModelManager::Finalize() {
 	}
 }
 
-void ModelManager::Initialize(DirectXCommon* dxCommon) {
+void ModelManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	modelCommon_ = new ModelCommon();
-	modelCommon_->Initialize(dxCommon);
+	modelCommon_->Initialize(dxCommon, srvManager);
 }
 
 void ModelManager::LoadModel(const std::string& filePath) {
