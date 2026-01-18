@@ -63,6 +63,7 @@
 #include "Object3d.h"
 #include "ModelManager.h"
 #include "Camera.h"
+#include "SrvManager.h"
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -136,17 +137,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	dxCommon = new DirectXCommon();
 	dxCommon->Initialize(winApp);
 
-	TextureManager::GetInstance()->Initialize(dxCommon);
+	SrvManager* srvManager = nullptr;
+	srvManager = new SrvManager();
+	srvManager->Initialize(dxCommon);
+
+	TextureManager::GetInstance()->Initialize(dxCommon,srvManager);
 
 	SpriteCommon* spriteCommon = nullptr;
 	// スプライト共通部の初期化
 	spriteCommon = new SpriteCommon;
-	spriteCommon->Initialize(dxCommon);
+	spriteCommon->Initialize(dxCommon, srvManager);
 
 	Object3dCommon* object3dCommon = nullptr;
 	// 3Dオブジェクト共通部の初期化
 	object3dCommon = new Object3dCommon();
 	object3dCommon->Initialize(dxCommon);
+
+	
 
 #pragma endregion
 
@@ -213,7 +220,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	object3d->Initialize(object3dCommon);
 
 	// 3Dモデルマネージャーの初期化
-	ModelManager::GetInstance()->Initialize(dxCommon);
+	ModelManager::GetInstance()->Initialize(dxCommon, srvManager);
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
@@ -255,7 +262,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		};
 
 		lastMouse = currentMouse;
-
+		/*
 #pragma region ImGui
 
 		Vector3 translate = object3d->GetTranslate();
@@ -316,6 +323,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		ImGuiIO& io = ImGui::GetIO();
 		float wheelDelta = io.MouseWheel;
+		*/
 		
 		camera->Update();
 		camera->TransferToGPU();
@@ -360,10 +368,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 		
 
-		ImGui::Render();
+		//ImGui::Render();
 		
 		// 描画前処理
 		dxCommon->PreDraw();
+		srvManager->PreDraw();
 		
 		// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 		object3dCommon->CommonDrawSetting();
@@ -373,7 +382,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		monsterBall->Draw();
 		
 		// スプライト描画
-
 		spriteCommon->CommonDrawSetting();
 
 		/*for (Sprite* sprite : sprites) {
@@ -381,9 +389,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}*/
 
 		// 実際のcommandListのImGuiの描画コマンドを積む
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
-
-		
+		//ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 
 		// 描画後処理
 		dxCommon->PostDraw();
@@ -416,9 +422,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ModelManager::GetInstance()->Finalize();
 
 	// ImGuiの終了処理
-	ImGui_ImplDX12_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-	ImGui::DestroyContext();
+	//ImGui_ImplDX12_Shutdown();
+	//ImGui_ImplWin32_Shutdown();
+	//ImGui::DestroyContext();
 
 	// WindowAPIの終了処理
 	winApp->Finalize();
@@ -437,6 +443,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	delete object3d;
 	object3d = nullptr;
+
+	delete srvManager;
+	srvManager = nullptr;
 
 	return 0;
 }

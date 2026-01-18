@@ -21,7 +21,7 @@ private: // メンバ構造体
 
 	struct MaterialData {
 		std::string textureFilePath;
-		uint32_t textureIndex = 0;
+		uint32_t srvIndex = 0;
 	};
 
 	// 頂点データ

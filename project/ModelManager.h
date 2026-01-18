@@ -7,6 +7,7 @@
 
 class Model;
 class ModelCommon;
+class SrvManager;
 
 // モデルマネージャー
 class ModelManager {
@@ -16,7 +17,7 @@ public:
 	// 終了
 	void Finalize();
 
-	void Initialize(DirectXCommon* dxCommon);
+	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 
 	/// <summary>
 	/// モデルファイルの読み込み

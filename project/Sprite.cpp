@@ -2,15 +2,16 @@
 #include "SpriteCommon.h"
 #include "WinApp.h"
 #include "TextureManager.h"
+#include "SrvManager.h"
 
 using namespace MatrixMath;
 
 void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath) {
 	spriteCommon_ = spriteCommon;
 	dxCommon_ = spriteCommon_->GetDxCommon();
-
-	// 単位行列を書き込んでおく
-	textureIndex_ = TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+	filePath_ = textureFilePath;
+	textureIndex_ = TextureManager::GetInstance()->GetSrvIndex(filePath_);
+	srvIndex_ = TextureManager::GetInstance()->GetSrvIndex(filePath_);
 
 	CreateVertexData();
 
@@ -40,7 +41,8 @@ void Sprite::Update() {
 		bottom = -bottom;
 	}
 
-	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
+	//const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
+	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetaData(filePath_);
 	float tex_left = textureLeftTop_.x / metadata.width;
 	float tex_right = (textureLeftTop_.x + textureSize_.x) / metadata.width;
 	float tex_top = textureLeftTop_.y / metadata.height;
@@ -97,6 +99,7 @@ void Sprite::Update() {
 
 void Sprite::Draw() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+	auto* srvManager = spriteCommon_->GetSrvManager();
 
 	// VertexBufferViewを設定
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
@@ -108,11 +111,10 @@ void Sprite::Draw() {
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
 	// SRVのDescriptorTableの先頭を設定
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = dxCommon_->GetSRVGPUDescriptorHandle(1);
+	//D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = dxCommon_->GetSRVGPUDescriptorHandle(1);
 	commandList->SetGraphicsRootDescriptorTable(
 		2, // SRV用のルートパラメータ番号
-		//textureSrvHandleGPU // そのスプライトのテクスチャSRVのGPUハンドル
-		TextureManager::GetInstance()->GetSrvHandleGPU(textureIndex_)
+		srvManager->GetGPUDescriptorHandle(srvIndex_)
 	);
 	// 描画！(DrawCall/ドローコール)
 	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
@@ -175,7 +177,8 @@ void Sprite::CreateTransformationMatrixData() {
 
 void Sprite::AdjustTextureSize() {
 	// テクスチャメタデータを取得
-	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
+	//const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
+	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetaData(filePath_);
 
 	textureSize_.x = static_cast<float>(metadata.width);
 	textureSize_.y = static_cast<float>(metadata.height);
