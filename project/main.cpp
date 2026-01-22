@@ -64,6 +64,8 @@
 #include "ModelManager.h"
 #include "Camera.h"
 #include "SrvManager.h"
+#include "ParticleManager.h"
+#include "ParticleEmitter.h"
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -237,6 +239,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	monsterBall->SetModel("sphere.obj");
 	monsterBall->SetRotate({ 0.0f, -std::numbers::pi_v<float> / 2.0f, 0.0f });
 
+	ParticleManager::GetInstance()->Initialize(dxCommon, srvManager);
+	ParticleManager::GetInstance()->SetCamera(camera);
+
+	ParticleManager::GetInstance()->CreateParticleGroup("test", "resources/circle.png");
+
+	ParticleEmitter* testParticle = new ParticleEmitter(dxCommon, srvManager, camera);
+	testParticle->transform_ = {};
+	testParticle->name_ = "test";
+	testParticle->count_ = 10;
+	testParticle->frequencyTime_ = 1.0f;
+
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (true) {
@@ -366,7 +379,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			//rotation += 0.01f;
 			sprites[i]->SetRotation(rotation);
 		}
+
+		testParticle->Update(1.0f / 60.0f);
 		
+		ParticleManager::GetInstance()->Update(1.0f / 60.0f); // すべてのパーティクルの更新
 
 		//ImGui::Render();
 		
@@ -377,9 +393,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 		object3dCommon->CommonDrawSetting();
 
-		object3d->Draw();
+		//object3d->Draw();
 	
-		monsterBall->Draw();
+		//monsterBall->Draw();
 		
 		// スプライト描画
 		spriteCommon->CommonDrawSetting();
@@ -387,6 +403,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/*for (Sprite* sprite : sprites) {
 			sprite->Draw();
 		}*/
+
+		ParticleManager::GetInstance()->Draw();
 
 		// 実際のcommandListのImGuiの描画コマンドを積む
 		//ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
