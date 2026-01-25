@@ -1,4 +1,4 @@
-﻿#include <Windows.h>
+#include <Windows.h>
 
 #include <cstdint>
 
@@ -25,9 +25,6 @@
 
 #include "engine/base/Vector3.h"
 //#include "engine/base/Matrix4x4.h"
-
-#include "externals/imgui/imgui_impl_dx12.h"
-#include "externals/imgui/imgui_impl_win32.h"
 
 // #include"C:\\Users\\k024g\\Desktop\\CG2\\CG2_DirectXGame\\externals\\DirectXTex\\DirectXTex.h"
 //#include <DirectXTex.h>
@@ -66,6 +63,9 @@
 #include "SrvManager.h"
 #include "ParticleManager.h"
 #include "ParticleEmitter.h"
+#include "ImGuiManager.h"
+
+#include <imgui.h>
 
 using namespace MatrixMath;
 using namespace StringUtility;
@@ -143,7 +143,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	srvManager = new SrvManager();
 	srvManager->Initialize(dxCommon);
 
-	TextureManager::GetInstance()->Initialize(dxCommon,srvManager);
+	TextureManager::GetInstance()->Initialize(dxCommon, srvManager);
 
 	SpriteCommon* spriteCommon = nullptr;
 	// スプライト共通部の初期化
@@ -155,7 +155,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	object3dCommon = new Object3dCommon();
 	object3dCommon->Initialize(dxCommon);
 
-	
+
 
 #pragma endregion
 
@@ -218,6 +218,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		sprites.push_back(sprite);
 	}
 
+	std::string testTexture = "resources/monsterBall.png";
+	Sprite* testSprite = new Sprite();
+	testSprite->Initialize(spriteCommon, testTexture);
+	testSprite->SetPos({ 100.0f,100.0f });
+	testSprite->SetSize({ 500.0f,500.0f });
+	testSprite->SetAnchorPoint({ 0.0f,0.0f });
+	testSprite->SetTextureSize({ 1200.0f,600.0f });
+
 	Object3d* object3d = new Object3d();
 	object3d->Initialize(object3dCommon);
 
@@ -250,6 +258,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	testParticle->count_ = 10;
 	testParticle->frequencyTime_ = 1.0f;
 
+	ImGuiManager* imGuiManager = nullptr;
+	imGuiManager = new ImGuiManager();
+	imGuiManager->Initialize(winApp, dxCommon, srvManager);
+
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (true) {
@@ -258,6 +270,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			// ゲームループを抜ける
 			break;
 		}
+
+		
 
 		input->Update();
 		// 数字の0キーが押されていたら
@@ -275,6 +289,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		};
 
 		lastMouse = currentMouse;
+
+		imGuiManager->Begin();
+
+#ifdef USE_IMGUI
+		// デモウィンドウ(使い方紹介)
+		ImGui::ShowDemoWindow();
+
+		Vector2 testSpritePos = testSprite->GetPos();
+
+		ImGui::Begin("Window");
+
+		camera->DrawImGui();
+
+		if (ImGui::TreeNode("Sprite")) {
+			ImGui::DragFloat2("position", &testSpritePos.x, 1.0f, 0.0f, 0.0f, "%4.3f");
+			ImGui::TreePop();
+		}
+
+		ImGui::End();
+
+		testSprite->SetPos(testSpritePos);
+#endif
+
 		/*
 #pragma region ImGui
 
@@ -333,11 +370,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 #pragma endregion
 
-		
+
 		ImGuiIO& io = ImGui::GetIO();
 		float wheelDelta = io.MouseWheel;
 		*/
+
 		
+
 		camera->Update();
 		camera->TransferToGPU();
 
@@ -362,7 +401,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			color.x -= 1.0f;
 		}
 		sprite->SetColor(color);
-		
+
 		Vector2 size = sprite->GetSize();
 		size.x += 0.01f;
 		size.y += 0.01f;
@@ -380,34 +419,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			sprites[i]->SetRotation(rotation);
 		}
 
+		testSprite->Update();
+
 		testParticle->Update(1.0f / 60.0f);
-		
+
 		ParticleManager::GetInstance()->Update(1.0f / 60.0f); // すべてのパーティクルの更新
 
-		//ImGui::Render();
-		
+		imGuiManager->End();
+
 		// 描画前処理
 		dxCommon->PreDraw();
 		srvManager->PreDraw();
-		
+
 		// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 		object3dCommon->CommonDrawSetting();
 
 		//object3d->Draw();
-	
-		//monsterBall->Draw();
-		
+
+		monsterBall->Draw();
+
 		// スプライト描画
 		spriteCommon->CommonDrawSetting();
 
 		/*for (Sprite* sprite : sprites) {
 			sprite->Draw();
 		}*/
+		testSprite->Draw();
 
 		ParticleManager::GetInstance()->Draw();
 
-		// 実際のcommandListのImGuiの描画コマンドを積む
-		//ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+		imGuiManager->Draw();
 
 		// 描画後処理
 		dxCommon->PostDraw();
@@ -452,7 +493,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	delete spriteCommon;
 	spriteCommon = nullptr;
-	
+
 	for (Sprite* sprite : sprites) {
 		delete sprite;
 		sprite = nullptr;
@@ -464,6 +505,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	delete srvManager;
 	srvManager = nullptr;
+
+	imGuiManager->Finalize();
+	delete imGuiManager;
+	imGuiManager = nullptr;
 
 	return 0;
 }

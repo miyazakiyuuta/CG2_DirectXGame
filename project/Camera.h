@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "engine/base/Matrix4x4.h"
 #include "engine/base/Vector3.h"
@@ -9,7 +9,7 @@
 class Camera {
 public: // メンバ関数
 	Camera();
-	void ImGui();
+	void DrawImGui();
 	void InitializeGPU(ID3D12Device* device);
 	void Update();
 	void TransferToGPU();
