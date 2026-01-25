@@ -57,6 +57,7 @@ public: // メンバ関数
 	ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
+	size_t GetSwapChainResourceNum()const { return swapChainResources_.size(); }
 
 private:
 	// デバイスの初期化
@@ -85,8 +86,6 @@ private:
 	void InitializeImGui();
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateDepthStencilTextureResource();
-
-	
 
 	/// <summary>
 	/// 指定番号のCPUデスクリプタハンドルを取得する

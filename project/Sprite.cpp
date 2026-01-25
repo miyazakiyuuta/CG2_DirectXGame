@@ -1,4 +1,4 @@
-﻿#include "Sprite.h"
+#include "Sprite.h"
 #include "SpriteCommon.h"
 #include "WinApp.h"
 #include "TextureManager.h"
@@ -173,6 +173,7 @@ void Sprite::CreateTransformationMatrixData() {
 	// 単位行列に書き込んでおく
 	transformationMatrixData_->WVP = MakeIdentity4x4();
 	transformationMatrixData_->World = MakeIdentity4x4();
+	transformationMatrixData_->WorldInverseTranspose = MakeIdentity4x4();
 }
 
 void Sprite::AdjustTextureSize() {

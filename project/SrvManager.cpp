@@ -1,4 +1,4 @@
-﻿#include "SrvManager.h"
+#include "SrvManager.h"
 
 const uint32_t SrvManager::kMaxSRVCount = 512;
 
