@@ -162,16 +162,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3D12Device* device = dxCommon->GetDevice();
 	ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
 
-	// DepthStencilStateの設定
-	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
-	// Depthの機能を有効化する
-	depthStencilDesc.DepthEnable = true;
-	// 書き込みします
-	//depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない
-	// 比較関数はLessEqual。つまり、近ければ描画される
-	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-
 	Camera* camera = new Camera();
 	object3dCommon->SetDefaultCamera(camera);
 	camera->InitializeGPU(device);
@@ -197,8 +187,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	SoundManager sound;
 	sound.Initialize();
-	SoundData se = sound.LoadWave("resources/mokugyo.wav");
-	//sound.PlayerWave(se);
+	SoundData se = sound.LoadFile("resources/mokugyo.wav");
+	sound.PlayerWave(se);
 
 	const uint32_t kMaxSprite = 5;
 	std::vector<Sprite*> sprites;
@@ -289,6 +279,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		};
 
 		lastMouse = currentMouse;
+		
+		if (input->TriggerKey(DIK_B)) {
+			sound.PlayerWave(se);
+		}
+		
 
 		imGuiManager->Begin();
 
@@ -303,6 +298,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		camera->DrawImGui();
 
 		if (ImGui::TreeNode("Sprite")) {
+			ImGui::DragFloat2("position", &testSpritePos.x, 1.0f, 0.0f, 0.0f, "%4.3f");
 			ImGui::DragFloat2("position", &testSpritePos.x, 1.0f, 0.0f, 0.0f, "%4.3f");
 			ImGui::TreePop();
 		}
