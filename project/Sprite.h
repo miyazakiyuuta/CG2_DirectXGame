@@ -1,7 +1,9 @@
 #pragma once
 #include "DirectXCommon.h"
-#include "engine/base/Vector3.h"
 #include "engine/base/Matrix4x4.h"
+#include "engine/base/Vector3.h"
+#include "engine/base/Vector4.h"
+#include "engine/base/Vector2.h"
 #include <string>
 
 class SpriteCommon;
@@ -17,23 +19,23 @@ public: // メンバ関数
 public:
     // getter
 
-    const MatrixMath::Vector2& GetPos()const { return pos_; }
+    const Vector2& GetPos()const { return pos_; }
     float GetRotation()const { return rotation_; }
-    const MatrixMath::Vector4& GetColor() const { return materialData_->color; }
-    const MatrixMath::Vector2& GetSize() const { return size_; }
-    const MatrixMath::Vector2& GetAnchorPoint() const { return anchorPoint_; }
+    const Vector4& GetColor() const { return materialData_->color; }
+    const Vector2& GetSize() const { return size_; }
+    const Vector2& GetAnchorPoint() const { return anchorPoint_; }
 
     // setter
 
-    void SetPos(const MatrixMath::Vector2& pos) { pos_ = pos; }
+    void SetPos(const Vector2& pos) { pos_ = pos; }
     void SetRotation(float rotation) { rotation_ = rotation; }
-    void SetColor(const MatrixMath::Vector4& color) { materialData_->color = color; }
-    void SetSize(const MatrixMath::Vector2& size) { size_ = size; }
-    void SetAnchorPoint(const MatrixMath::Vector2& anchorPoint) { anchorPoint_ = anchorPoint; }
+    void SetColor(const Vector4& color) { materialData_->color = color; }
+    void SetSize(const Vector2& size) { size_ = size; }
+    void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; }
 	void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; }
 	void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }
-    void SetTextureLeftTop(const MatrixMath::Vector2& leftTop) { textureLeftTop_ = leftTop; }
-	void SetTextureSize(const MatrixMath::Vector2& size) { textureSize_ = size; }
+    void SetTextureLeftTop(const Vector2& leftTop) { textureLeftTop_ = leftTop; }
+	void SetTextureSize(const Vector2& size) { textureSize_ = size; }
 
 private:
     void CreateVertexData();
@@ -46,14 +48,14 @@ private:
 private:
     // 頂点データ
     struct VertexData {
-        MatrixMath::Vector4 position;
-        MatrixMath::Vector2 texcoord;
-        MatrixMath::Vector3 normal;
+        Vector4 position;
+        Vector2 texcoord;
+        Vector3 normal;
     };
 
     //マテリアルデータ
     struct Material {
-        MatrixMath::Vector4 color;
+        Vector4 color;
         int32_t enableLighting;
         float padding[3];
         Matrix4x4 uvTransform;
@@ -83,14 +85,14 @@ private:
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_;
     D3D12_INDEX_BUFFER_VIEW indexBufferView_;
 
-    MatrixMath::Vector2 pos_ = { 0.0f,0.0f };
+    Vector2 pos_ = { 0.0f,0.0f };
     float rotation_ = 0.0f;
-    MatrixMath::Vector2 size_ = { 1.0f,1.0f };
+    Vector2 size_ = { 1.0f,1.0f };
 
     // テクスチャ番号
     uint32_t textureIndex_ = 0;
 
-    MatrixMath::Vector2 anchorPoint_ = { 0.0f,0.0f };
+    Vector2 anchorPoint_ = { 0.0f,0.0f };
 
     // 左右フリップ
 	bool isFlipX_ = false;
@@ -98,9 +100,9 @@ private:
 	bool isFlipY_ = false;
 
     // テクスチャ左上座標
-    MatrixMath::Vector2 textureLeftTop_ = { 0.0f,0.0f };
+    Vector2 textureLeftTop_ = { 0.0f,0.0f };
     // テクスチャ切り出しサイズ
-    MatrixMath::Vector2 textureSize_ = { 100.0f,100.0f };
+    Vector2 textureSize_ = { 100.0f,100.0f };
 
     std::string filePath_;
     uint32_t srvIndex_ = 0;

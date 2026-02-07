@@ -3,6 +3,7 @@
 #include "SrvManager.h"
 #include "Camera.h"
 #include "engine/base/Vector3.h"
+#include "Transform.h"
 
 class ParticleEmitter {
 public:
@@ -13,7 +14,7 @@ public:
 	void Emit();
 
 public:
-	MatrixMath::Transform transform_{};
+	Transform transform_{};
 	std::string name_;
 	uint32_t count_ = 1;
 	float elapsed_ = 0.0f;

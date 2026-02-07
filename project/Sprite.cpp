@@ -3,6 +3,7 @@
 #include "WinApp.h"
 #include "TextureManager.h"
 #include "SrvManager.h"
+#include "Transform.h"
 
 using namespace MatrixMath;
 

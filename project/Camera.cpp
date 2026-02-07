@@ -30,8 +30,6 @@ void Camera::DrawImGui() {
 		ImGui::TreePop();
 	}
 #endif
-
-
 }
 
 void Camera::InitializeGPU(ID3D12Device* device) {

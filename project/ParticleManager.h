@@ -1,7 +1,10 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 #include "engine/base/Matrix4x4.h"
+#include "engine/base/Vector2.h"
 #include "engine/base/Vector3.h"
+#include "engine/base/Vector4.h"
+#include "Transform.h"
 #include <string>
 #include <random>
 
@@ -20,7 +23,7 @@ public:
 
 	void CreateParticleGroup(const std::string name, const std::string textureFilePath);
 
-	void Emit(const std::string name, const MatrixMath::Vector3& position, uint32_t count);
+	void Emit(const std::string name, const Vector3& position, uint32_t count);
 
 	void SetCamera(const Camera* camera) { camera_ = camera; }
 
@@ -31,9 +34,9 @@ private:
 	};
 
 	struct Particle {
-		MatrixMath::Transform transform;
-		MatrixMath::Vector3 velocity;
-		MatrixMath::Vector4 color;
+		Transform transform;
+		Vector3 velocity;
+		Vector4 color;
 		float lifeTime;
 		float currentTime;
 	};
@@ -49,7 +52,7 @@ private:
 	struct InstanceData {
 		Matrix4x4 wvp;
 		Matrix4x4 world;
-		MatrixMath::Vector4 color;
+		Vector4 color;
 	};
 
 	struct ParticleGroup {
@@ -63,13 +66,13 @@ private:
 
 	// 頂点データ
 	struct VertexData {
-		MatrixMath::Vector4 position;
-		MatrixMath::Vector2 texcoord;
-		MatrixMath::Vector3 normal;
+		Vector4 position;
+		Vector2 texcoord;
+		Vector3 normal;
 	};
 
 	struct MaterialForGPU {
-		MatrixMath::Vector4 color;
+		Vector4 color;
 		int32_t enableLighting;
 		float padding[3];
 		Matrix4x4 uvTransform;

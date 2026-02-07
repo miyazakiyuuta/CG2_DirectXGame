@@ -162,6 +162,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="D3DResourceLeakChecker.cpp" />
     <ClCompile Include="DirectXCommon.cpp" />
     <ClCompile Include="engine\3d\DebugCamera.cpp" />
+    <ClCompile Include="Framework.cpp" />
+    <ClCompile Include="Game.cpp" />
     <ClCompile Include="ImGuiManager.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
@@ -213,9 +215,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="DirectXCommon.h" />
     <ClInclude Include="engine\3d\DebugCamera.h" />
     <ClInclude Include="engine\base\Matrix4x4.h" />
+    <ClInclude Include="engine\base\Vector4.h" />
+    <ClInclude Include="Framework.h" />
+    <ClInclude Include="Transform.h" />
+    <ClInclude Include="engine\base\Vector2.h" />
     <ClInclude Include="engine\io\ResourceObject.h" />
     <ClInclude Include="engine\audio\SoundManager.h" />
     <ClInclude Include="engine\base\Vector3.h" />
+    <ClInclude Include="Game.h" />
     <ClInclude Include="ImGuiManager.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="Logger.h" />

@@ -1,11 +1,10 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <wrl.h>
 #include <d3d12.h>
 #include "externals/DirectXTex/DirectXTex.h"
 #include "DirectXCommon.h"
 #include <unordered_map>
-#include <DirectXPackedVector.h>
 #include <DirectXPackedVector.h>
 
 class SrvManager;
