@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 #include "../base/Matrix4x4.h"
+#include "../base/Vector3.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -24,11 +25,11 @@ public:
 private:
 	// X,Y,Z軸回りのローカル回転角
 	//Vector3 rotation_ = {};
-	MatrixMath::Vector3 pivot_;
+	Vector3 pivot_;
 	// 累積回転行列
 	Matrix4x4 matRot_;
 	// ローカル座標
-	MatrixMath::Vector3 translation_;
+	Vector3 translation_;
 	// ビュー行列
 	Matrix4x4 viewMatrix_;
 	// 射影行列

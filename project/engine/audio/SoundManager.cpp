@@ -30,6 +30,13 @@ struct FormatChunk {
 using namespace Microsoft::WRL;
 using namespace StringUtility;
 
+SoundManager* SoundManager::instance = nullptr;
+
+SoundManager* SoundManager::GetInstance() {
+	if (!instance)instance = new SoundManager();
+	return instance;
+}
+
 void SoundManager::Initialize() {
 	// XAudioエンジンのインスタンス生成
 	HRESULT result = XAudio2Create(&xAudio2_, 0, XAUDIO2_DEFAULT_PROCESSOR);

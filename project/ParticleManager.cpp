@@ -1,4 +1,4 @@
-﻿#include "ParticleManager.h"
+#include "ParticleManager.h"
 #include "TextureManager.h"
 #include "SrvManager.h"
 #include "Camera.h"
@@ -18,7 +18,9 @@ ParticleManager* ParticleManager::GetInstance() {
 
 void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
+	assert(dxCommon_);
 	srvManager_ = srvManager;
+	assert(srvManager_);
 
 	// MaterialCB作成
 	materialResource_ = dxCommon_->CreateBufferResource(sizeof(MaterialForGPU));
@@ -81,6 +83,7 @@ void ParticleManager::Update(float deltaTime) {
 }
 
 void ParticleManager::Draw() {
+
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 	assert(commandList);
 

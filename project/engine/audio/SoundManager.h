@@ -18,6 +18,8 @@ struct SoundData {
 
 class SoundManager {
 public:
+	static SoundManager* GetInstance();
+
 	void Initialize();
 	void Finalize();
 
@@ -26,6 +28,8 @@ public:
 	void PlayerWave(const SoundData& soundData); // 再生
 
 private:
+	static SoundManager* instance;
+
 	Microsoft::WRL::ComPtr<IXAudio2> xAudio2_;
 	IXAudio2MasteringVoice* masterVoice_;
 };

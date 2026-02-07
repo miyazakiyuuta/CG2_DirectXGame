@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <Windows.h>
 #include <wrl.h>
 #define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
@@ -11,6 +11,7 @@ public:
 	template <class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 public:
+	static Input* GetInstance();
 
 	void Initialize(WinApp* winApp);
 	void Update();
@@ -29,6 +30,8 @@ public:
 	bool TriggerKey(BYTE keyNumber);
 
 private:
+	static Input* instance_;
+
 	// キーボードのデバイス
 	ComPtr<IDirectInputDevice8> keyboard;
 	// 全キーの入力状態を取得する

@@ -1,7 +1,9 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 #include "engine/base/Matrix4x4.h"
 #include "engine/base/Vector3.h"
+#include "engine/base/Vector4.h"
+#include "Transform.h"
 
 class Object3dCommon;
 class Model;
@@ -17,21 +19,21 @@ public: // メンバ関数
 public:
 	// setter
 	void SetModel(const std::string& filePath);
-	void SetScale(const MatrixMath::Vector3& scale) { transform_.scale = scale; }
-	void SetRotate(const MatrixMath::Vector3& rotate) { transform_.rotate = rotate; }
-	void SetTranslate(const MatrixMath::Vector3& translate) { transform_.translate = translate; }
+	void SetScale(const Vector3& scale) { transform_.scale = scale; }
+	void SetRotate(const Vector3& rotate) { transform_.rotate = rotate; }
+	void SetTranslate(const Vector3& translate) { transform_.translate = translate; }
 	void SetCamera(Camera* camera) { camera_ = camera; }
-	void SetLightColor(MatrixMath::Vector4 color) { directionalLightData_->color = color; }
-	void SetLightDirection(MatrixMath::Vector3 direction) { directionalLightData_->direction = direction; }
+	void SetLightColor(Vector4 color) { directionalLightData_->color = color; }
+	void SetLightDirection(Vector3 direction) { directionalLightData_->direction = direction; }
 	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
 
 	// getter
-	const MatrixMath::Vector3& GetScale() const { return transform_.scale; }
-	const MatrixMath::Vector3& GetRotate() const { return transform_.rotate; }
-	const MatrixMath::Vector3& GetTranslate() const { return transform_.translate; }
+	const Vector3& GetScale() const { return transform_.scale; }
+	const Vector3& GetRotate() const { return transform_.rotate; }
+	const Vector3& GetTranslate() const { return transform_.translate; }
 	//DirectionalLight* GetDirectionalLightData() const { return directionalLightData_; }
-	MatrixMath::Vector4 GetLightColor() const { return directionalLightData_->color; }
-	MatrixMath::Vector3 GetLightDirection() const { return directionalLightData_->direction; }
+	Vector4 GetLightColor() const { return directionalLightData_->color; }
+	Vector3 GetLightDirection() const { return directionalLightData_->direction; }
 	float GetLightIntensity() const { return directionalLightData_->intensity; }
 
 private: // メンバ構造体
@@ -44,8 +46,8 @@ private: // メンバ構造体
 	};
 
 	struct DirectionalLight {
-		MatrixMath::Vector4 color; //!< ライトの色
-		MatrixMath::Vector3 direction; //!< ライトの向き
+		Vector4 color; //!< ライトの色
+		Vector3 direction; //!< ライトの向き
 		float intensity; //!< 輝度
 	};
 
@@ -66,7 +68,7 @@ private: // メンバ変数
 	TransformationMatrix* transformationMatrixData_ = nullptr;
 	DirectionalLight* directionalLightData_ = nullptr;
 	
-	MatrixMath::Transform transform_;
+	Transform transform_;
 	
 	Camera* camera_ = nullptr;
 
