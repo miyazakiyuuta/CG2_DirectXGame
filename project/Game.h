@@ -1,8 +1,5 @@
 #pragma once
-
 #include "Framework.h"
-
-#include "SceneManager.h"
 
 // ゲーム全体
 class Game : public Framework{

@@ -4,6 +4,7 @@
 #include <d3d12.h>
 #include <cstdint>
 #include <vector>
+#include <memory>
 
 #include "engine/audio/SoundManager.h"
 
@@ -26,23 +27,27 @@ public:
 	
 	void Draw() override;
 
+	GamePlayScene();
+
+	~GamePlayScene() override;
+
 private:
-	Camera* camera_ = nullptr;
-	ImGuiManager* imGuiManager_ = nullptr;
-	DebugCamera* debugCamera_;
+	std::unique_ptr<Camera> camera_ = nullptr;
+	std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
+	std::unique_ptr<DebugCamera> debugCamera_;
 
 	SoundData se_;
 
-	Object3d* object3d_;
+	std::unique_ptr<Object3d> object3d_;
 
-	Object3d* monsterBall_;
+	std::unique_ptr<Object3d> monsterBall_;
 
-	ParticleEmitter* testParticle_;
+	std::unique_ptr<ParticleEmitter> testParticle_;
 
 	const uint32_t kMaxSprite = 5;
-	std::vector<Sprite*> sprites_;
+	std::vector<std::unique_ptr<Sprite>> sprites_;
 
-	Sprite* testSprite_;
+	std::unique_ptr<Sprite> testSprite_;
 
 };
 

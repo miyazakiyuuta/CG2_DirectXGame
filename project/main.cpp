@@ -3,6 +3,7 @@
 #pragma comment(lib,"Dbghelp.lib")
 #include <strsafe.h>
 #include "D3DResourceLeakChecker.h"
+#include <memory>
 #include "Framework.h"
 #include "Game.h"
 
@@ -37,12 +38,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	SetUnhandledExceptionFilter(ExportDump);
 
 	D3DResourceLeakChecker leakCheck;
-
-	Framework* game = new Game();
 	
-	game->Run();
-
-	delete game;
+	std::unique_ptr<Framework> game = std::make_unique<Game>();
+	
+	game.get()->Run();
 
 	return 0;
 }

@@ -13,11 +13,10 @@ void SceneManager::Update() {
 		// 旧シーンの終了
 		if (scene_) {
 			scene_->Finalize();
-			delete scene_;
 		}
 
 		// シーン切り替え
-		scene_ = nextScene_;
+		scene_ = std::move(nextScene_);
 		nextScene_ = nullptr;
 
 		// 次シーンを初期化する
@@ -36,7 +35,6 @@ void SceneManager::Draw() {
 SceneManager::~SceneManager() {
 	// 最期のシーンの終了と解放
 	scene_->Finalize();
-	delete scene_;
 }
 
 void SceneManager::ChangeScene(const std::string& sceneName) {
@@ -44,4 +42,5 @@ void SceneManager::ChangeScene(const std::string& sceneName) {
 	assert(nextScene_ == nullptr);
 
 	nextScene_ = sceneFactory_->CreateScene(sceneName);
+	//nextScene_ = std::move(sceneFactory_->CreateScene(sceneName));
 }

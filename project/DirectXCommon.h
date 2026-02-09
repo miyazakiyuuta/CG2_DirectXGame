@@ -84,8 +84,6 @@ private:
 	void InitializeScissorRect();
 	// DXCコンパイラの生成
 	void CreateDXCCompiler();
-	// ImGuiの初期化
-	void InitializeImGui();
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateDepthStencilTextureResource();
 

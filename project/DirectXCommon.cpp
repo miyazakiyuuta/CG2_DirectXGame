@@ -45,7 +45,6 @@ void DirectXCommon::Initialize(WinApp* winApp) {
 	InitializeViewportRect();
 	InitializeScissorRect();
 	CreateDXCCompiler();
-	InitializeImGui();
 }
 
 void DirectXCommon::PreDraw() {
@@ -512,22 +511,6 @@ void DirectXCommon::CreateDXCCompiler() {
 	// 現時点でincludeはしないが、includeに対するための設定を行っていく
 	hr_ = dxcUtils_->CreateDefaultIncludeHandler(&includeHandler_);
 	assert(SUCCEEDED(hr_));
-}
-
-void DirectXCommon::InitializeImGui() {
-	/*
-	// ImGuiの初期化。
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGui::StyleColorsDark();
-	ImGui_ImplWin32_Init(winApp_->GetHwnd());
-	ImGui_ImplDX12_Init(device_.Get(),
-		swapChainDesc_.BufferCount,
-		rtvDesc_.Format,
-		srvDescriptorHeap_.Get(),
-		srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart(),
-		srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart());
-	*/
 }
 
 Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateDepthStencilTextureResource() {

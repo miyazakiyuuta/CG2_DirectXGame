@@ -1,6 +1,6 @@
 #pragma once
-
 #include "AbstractSceneFactory.h"
+#include <memory>
 
 // ゲーム全体
 class Framework {
@@ -31,6 +31,6 @@ private:
 	bool isEndRequest_ = false;
 
 protected:
-	AbstractSceneFactory* sceneFactory_ = nullptr;
+	std::unique_ptr<AbstractSceneFactory> sceneFactory_;
 };
 

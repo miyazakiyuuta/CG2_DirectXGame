@@ -1,4 +1,4 @@
-﻿#include "TextureManager.h"
+#include "TextureManager.h"
 #include "StringUtility.h"
 #include "SrvManager.h"
 
@@ -15,8 +15,6 @@ TextureManager* TextureManager::GetInstance() {
 }
 
 void TextureManager::Finalize() {
-	delete instance;
-	instance = nullptr;
 }
 
 void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
