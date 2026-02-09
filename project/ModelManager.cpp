@@ -1,21 +1,21 @@
-﻿#include "ModelManager.h"
+#include "ModelManager.h"
 #include "Model.h"
 #include "ModelCommon.h"
 #include "SrvManager.h"
 
-ModelManager* ModelManager::instance_ = nullptr;
+ModelManager* ModelManager::instance = nullptr;
 
 ModelManager* ModelManager::GetInstance() {
-	if (instance_ == nullptr) {
-		instance_ = new ModelManager();
+	if (instance == nullptr) {
+		instance = new ModelManager();
 	}
-	return instance_;
+	return instance;
 }
 
 void ModelManager::Finalize() {
-	if (instance_ != nullptr) {
-		delete instance_;
-		instance_ = nullptr;
+	if (instance != nullptr) {
+		delete instance;
+		instance = nullptr;
 	}
 }
 

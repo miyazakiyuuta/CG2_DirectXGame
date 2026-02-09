@@ -1,9 +1,13 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 #include "Camera.h"
 
 // 3Dオブジェクト共通部
 class Object3dCommon {
+public:
+	static Object3dCommon* GetInstance();
+
+
 public: // メンバ関数
 	void Initialize(DirectXCommon* dxCommon);
 	// 共通描画設定 (PreDraw)
@@ -21,6 +25,9 @@ private:
 	void CreateRootSignature();
 	// グラフィクスパイプラインの生成
 	void CreateGraphicsPipelineState();
+
+private:
+	static Object3dCommon* instance;
 
 private: // メンバ変数
 	DirectXCommon* dxCommon_;

@@ -1,9 +1,11 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 
 // SRV管理
 class SrvManager {
 public:
+	static SrvManager* GetInstance();
+
 	void Initialize(DirectXCommon* dxCommon);
 
 	bool CanAllocate() const;
@@ -23,6 +25,8 @@ public:
 	void SetGraphicsRootDescriptorTable(UINT RootParameterIndex, uint32_t srvIndex);
 
 private:
+	static SrvManager* instance;
+
 	DirectXCommon* dxCommon_ = nullptr;
 
 	// 最大SRV数(最大テクスチャ枚数)

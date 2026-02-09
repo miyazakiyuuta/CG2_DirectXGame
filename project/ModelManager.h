@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 
 #include <map>
@@ -33,7 +33,7 @@ public:
 	Model* FindModel(const std::string& filePath);
 
 private:
-	static ModelManager* instance_;
+	static ModelManager* instance;
 
 	ModelManager() = default;
 	~ModelManager() = default;

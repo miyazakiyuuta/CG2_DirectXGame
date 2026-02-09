@@ -1,8 +1,15 @@
-﻿#include "Object3dCommon.h"
+#include "Object3dCommon.h"
 #include "Logger.h"
 #include <iostream>
 
 using namespace Logger;
+
+Object3dCommon* Object3dCommon::instance = nullptr;
+
+Object3dCommon* Object3dCommon::GetInstance() {
+	if (!instance)instance = new Object3dCommon();
+	return instance;
+}
 
 void Object3dCommon::Initialize(DirectXCommon* dxCommon) {
 	dxCommon_ = dxCommon;

@@ -23,6 +23,12 @@ using namespace StringUtility;
 
 const uint32_t DirectXCommon::kMaxSRVCount = 512;
 
+DirectXCommon* DirectXCommon::instance = nullptr;
+DirectXCommon* DirectXCommon::GetInstance() {
+	if (!instance)instance = new DirectXCommon();
+	return instance;
+}
+
 void DirectXCommon::Initialize(WinApp* winApp) {
 	assert(winApp);
 	winApp_ = winApp;

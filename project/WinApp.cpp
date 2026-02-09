@@ -7,6 +7,12 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg
 
 #pragma comment(lib, "winmm.lib")
 
+WinApp* WinApp::instance = nullptr;
+
+WinApp* WinApp::GetInstance() {
+	if (!instance)instance = new WinApp();
+	return instance;
+}
 
 LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 #ifdef USE_IMGUI

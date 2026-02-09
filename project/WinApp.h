@@ -1,10 +1,12 @@
-﻿#pragma once
+#pragma once
 #include <Windows.h>
 #include <cstdint>
 
 // WindowsAPI
 class WinApp {
 public: // 静的メンバ関数
+	static WinApp* GetInstance();
+
 	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 public: // メンバ関数
 	void Initialize();
@@ -23,6 +25,8 @@ public: // メンバ変数
 	static const std::int32_t kClientHeight = 720;
 
 private:
+	static WinApp* instance;
+
 	// ウィンドウハンドル
 	HWND hwnd_ = nullptr;
 	// ウィンドウクラスの設定
