@@ -1,9 +1,16 @@
-﻿#include "SpriteCommon.h"
+#include "SpriteCommon.h"
 #include "SrvManager.h"
 #include "Logger.h"
 #include <iostream>
 
 using namespace Logger;
+
+SpriteCommon* SpriteCommon::instance = nullptr;
+
+SpriteCommon* SpriteCommon::GetInstance() {
+	if (!instance)instance = new SpriteCommon();
+	return instance;
+}
 
 void SpriteCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;

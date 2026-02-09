@@ -11,53 +11,40 @@
 #include "Logger.h"
 
 void Framework::Initialize() {
-	winApp_ = new WinApp();
-	winApp_->Initialize();
+	WinApp::GetInstance()->Initialize();
 
-	Input::GetInstance()->Initialize(winApp_);
+	Input::GetInstance()->Initialize(WinApp::GetInstance());
 
-	dxCommon_ = new DirectXCommon();
-	dxCommon_->Initialize(winApp_);
+	DirectXCommon::GetInstance()->Initialize(WinApp::GetInstance());
 
-	srvManager_ = new SrvManager();
-	srvManager_->Initialize(dxCommon_);
+	SrvManager::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	TextureManager::GetInstance()->Initialize(dxCommon_, srvManager_);
+	TextureManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
-	ModelManager::GetInstance()->Initialize(dxCommon_, srvManager_);
+	ModelManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	SoundManager::GetInstance()->Initialize();
 
 	// 3Dオブジェクト共通部の初期化
-	object3dCommon_ = new Object3dCommon();
-	object3dCommon_->Initialize(dxCommon_);
+	Object3dCommon::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
 	// スプライト共通部の初期化
-	spriteCommon_ = new SpriteCommon;
-	spriteCommon_->Initialize(dxCommon_, srvManager_);
+	SpriteCommon::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	Logger::Initialize();
 }
 
 void Framework::Finalize() {
-	delete spriteCommon_;
-	spriteCommon_ = nullptr;
-	delete object3dCommon_;
-	object3dCommon_ = nullptr;
+	
 	SoundManager::GetInstance()->Finalize();
 	ModelManager::GetInstance()->Finalize();
 	TextureManager::GetInstance()->Finalize();
-	delete srvManager_;
-	srvManager_ = nullptr;
-	delete dxCommon_;
-	dxCommon_ = nullptr;
-	delete winApp_;
-	winApp_ = nullptr;
+	
 	Logger::Finalize();
 }
 
 void Framework::Update() {
-	if (winApp_->ProcessMessage()) {
+	if (WinApp::GetInstance()->ProcessMessage()) {
 		// ゲームループを抜ける
 		isEndRequest_ = true;
 	}
@@ -84,10 +71,10 @@ void Framework::Run() {
 			break;
 		}
 		// 描画
-		dxCommon_->PreDraw();
-		srvManager_->PreDraw();
+		DirectXCommon::GetInstance()->PreDraw();
+		SrvManager::GetInstance()->PreDraw();
 		Draw();
-		dxCommon_->PostDraw();
+		DirectXCommon::GetInstance()->PostDraw();
 	}
 	// ゲームの終了
 	Finalize();

@@ -2,6 +2,13 @@
 
 const uint32_t SrvManager::kMaxSRVCount = 512;
 
+SrvManager* SrvManager::instance = nullptr;
+
+SrvManager* SrvManager::GetInstance() {
+	if (!instance)instance = new SrvManager();
+	return instance;
+}
+
 void SrvManager::Initialize(DirectXCommon* dxCommon) {
 	dxCommon_ = dxCommon;
 	// デスクリプタヒープの生成

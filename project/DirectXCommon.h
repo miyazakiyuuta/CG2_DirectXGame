@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <d3d12.h>
 #include "externals/DirectXTex/DirectXTex.h"
 #include <dxgi1_6.h>
@@ -13,7 +13,9 @@ class WinApp;
 
 // DirectX基盤
 class DirectXCommon {
-public: // メンバ関数
+public:
+	static DirectXCommon* GetInstance();
+
 	// 初期化
 	void Initialize(WinApp* winApp);
 
@@ -104,6 +106,8 @@ private:
 	
 
 private:
+	static DirectXCommon* instance;
+
 	HRESULT hr_;
 	// DirectX12デバイス
 	Microsoft::WRL::ComPtr<ID3D12Device> device_ = nullptr;

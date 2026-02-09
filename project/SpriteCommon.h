@@ -1,10 +1,13 @@
-﻿#pragma once
+#pragma once
 #include "DirectXCommon.h"
 
 class SrvManager;
 
 // スプライト共通部
 class SpriteCommon {
+public:
+	static SpriteCommon* GetInstance();
+
 public: // メンバ関数
 	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 	// 共通描画設定 (PreDraw)
@@ -19,6 +22,9 @@ private:
 	void CreateRootSignature();
 	// グラフィクスパイプラインの生成
 	void CreateGraphicsPipelineState();
+
+private:
+	static SpriteCommon* instance;
 
 private:
 	DirectXCommon* dxCommon_;
