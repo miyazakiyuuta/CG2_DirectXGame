@@ -17,7 +17,7 @@
 #include <numbers>
 
 void GamePlayScene::Initialize() {
-	camera_ = new Camera();
+	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
 	camera_->SetRotate({ 0.3f,0.0f,0.0f });
 	camera_->SetTranslate({ 0.0f,4.0f,-10.0f });
@@ -26,13 +26,13 @@ void GamePlayScene::Initialize() {
 
 	//object3dCommon_->SetDefaultCamera(camera_);
 
-	imGuiManager_ = new ImGuiManager();
+	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
-	ParticleManager::GetInstance()->SetCamera(camera_);
+	ParticleManager::GetInstance()->SetCamera(camera_.get());
 
-	debugCamera_ = new DebugCamera();
+	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
 
 	// TextureManager からテクスチャを読み込む
@@ -46,29 +46,29 @@ void GamePlayScene::Initialize() {
 	se_ = SoundManager::GetInstance()->LoadFile("resources/mokugyo.wav");
 	SoundManager::GetInstance()->PlayerWave(se_);
 
-	object3d_ = new Object3d();
+	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
 	object3d_->SetModel("plane.obj");
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-	object3d_->SetCamera(camera_);
+	object3d_->SetCamera(camera_.get());
 
-	monsterBall_ = new Object3d();
+	monsterBall_ = std::make_unique<Object3d>();
 	monsterBall_->Initialize(Object3dCommon::GetInstance());
-	monsterBall_->SetCamera(camera_);
+	monsterBall_->SetCamera(camera_.get());
 	monsterBall_->SetModel("sphere.obj");
 	monsterBall_->SetRotate({ 0.0f, -std::numbers::pi_v<float> / 2.0f, 0.0f });
 
 	//particleManager_->CreateParticleGroup("test", "resources/circle.png");
 	ParticleManager::GetInstance()->CreateParticleGroup("test", "resources/circle.png");
-	testParticle_ = new ParticleEmitter(DirectXCommon::GetInstance(), SrvManager::GetInstance(), camera_);
+	testParticle_ = std::make_unique<ParticleEmitter>(DirectXCommon::GetInstance(), SrvManager::GetInstance(), camera_.get());
 	testParticle_->transform_ = {};
 	testParticle_->name_ = "test";
 	testParticle_->count_ = 10;
 	testParticle_->frequencyTime_ = 1.0f;
 
 	for (uint32_t i = 0; i < kMaxSprite; ++i) {
-		Sprite* sprite = new Sprite();
+		std::unique_ptr<Sprite> sprite = std::make_unique<Sprite>();
 		std::string texture = "resources/uvChecker.png";
 		if (i % 2 == 0) {
 			texture = "resources/uvChecker.png";
@@ -80,11 +80,11 @@ void GamePlayScene::Initialize() {
 		sprite->SetSize({ 100.0f,100.0f });
 		sprite->SetTextureLeftTop({ 0.0f,0.0f });
 		sprite->SetTextureSize({ 256.0f,256.0f });
-		sprites_.push_back(sprite);
+		sprites_.push_back(std::move(sprite));
 	}
 
 	std::string testTexture = "resources/monsterBall.png";
-	testSprite_ = new Sprite();
+	testSprite_ = std::make_unique<Sprite>();
 	testSprite_->Initialize(SpriteCommon::GetInstance(), testTexture);
 	testSprite_->SetPos({ 100.0f,100.0f });
 	testSprite_->SetSize({ 500.0f,500.0f });
@@ -93,36 +93,6 @@ void GamePlayScene::Initialize() {
 }
 
 void GamePlayScene::Finalize() {
-	delete testSprite_;
-	testSprite_ = nullptr;
-
-	for (Sprite* sprite : sprites_) {
-		delete sprite;
-	}
-	sprites_.clear();
-
-	delete testParticle_;
-	testParticle_ = nullptr;
-
-	delete monsterBall_;
-	monsterBall_ = nullptr;
-
-	delete object3d_;
-	object3d_ = nullptr;
-
-	delete debugCamera_;
-	debugCamera_ = nullptr;
-
-	//ParticleManager::GetInstance()->Finalize();
-
-	imGuiManager_->Finalize();
-	delete imGuiManager_;
-	imGuiManager_ = nullptr;
-
-	delete camera_;
-	camera_ = nullptr;
-
-	
 }
 
 void GamePlayScene::Update() {
@@ -179,7 +149,7 @@ void GamePlayScene::Draw() {
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 
-	for (Sprite* sprite : sprites_) {
+	for (const std::unique_ptr<Sprite>& sprite : sprites_) {
 		sprite->Draw();
 	}
 
@@ -187,3 +157,7 @@ void GamePlayScene::Draw() {
 
 	imGuiManager_->Draw();
 }
+
+GamePlayScene::GamePlayScene() = default;
+
+GamePlayScene::~GamePlayScene() = default;

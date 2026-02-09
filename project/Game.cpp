@@ -2,13 +2,14 @@
 #include "Logger.h"
 #include "BaseScene.h"
 #include "SceneFactory.h"
+#include "SceneManager.h"
 
 
 void Game::Initialize() {
 	Framework::Initialize();
 
-	sceneFactory_ = new SceneFactory();
-	SceneManager::GetInstance()->SetSceneFactory(sceneFactory_);
+	sceneFactory_ = std::make_unique<SceneFactory>();
+	SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
 	SceneManager::GetInstance()->ChangeScene("TITLE");
 
 	// 出力ウィンドウへの文字出力

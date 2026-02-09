@@ -13,3 +13,5 @@ void BaseScene::Update() {
 
 void BaseScene::Draw() {
 }
+
+BaseScene::~BaseScene() = default;

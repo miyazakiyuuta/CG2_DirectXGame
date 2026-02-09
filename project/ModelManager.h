@@ -1,8 +1,7 @@
 #pragma once
 #include "DirectXCommon.h"
-
+#include <memory>
 #include <map>
-#include <DirectXPackedVector.h>
 #include <DirectXPackedVector.h>
 
 class Model;
@@ -43,6 +42,6 @@ private:
 	// モデルデータ
 	std::map<std::string, std::unique_ptr<Model>> models_;
 
-	ModelCommon* modelCommon_ = nullptr;
+	std::unique_ptr<ModelCommon> modelCommon_ = nullptr;
 };
 
