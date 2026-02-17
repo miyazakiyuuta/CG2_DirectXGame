@@ -19,10 +19,12 @@
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-	camera_->SetRotate({ 0.3f,0.0f,0.0f });
-	camera_->SetTranslate({ 0.0f,4.0f,-10.0f });
-	camera_->SetRotate({ 0.0f,0.0f,0.0f });
-	camera_->SetTranslate({ 0.0f,0.0f,-10.0f });
+	//camera_->SetRotate({ 0.3f,0.0f,0.0f });
+	//camera_->SetTranslate({ 0.0f,4.0f,-10.0f });
+	//camera_->SetRotate({ 0.0f,0.0f,0.0f });
+	//camera_->SetTranslate({ 0.0f,0.0f,-10.0f });
+	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
+	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
 
 	//object3dCommon_->SetDefaultCamera(camera_);
 
@@ -38,10 +40,12 @@ void GamePlayScene::Initialize() {
 	// TextureManager からテクスチャを読み込む
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
+	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
+	ModelManager::GetInstance()->LoadModel("terrain.obj");
 
 	se_ = SoundManager::GetInstance()->LoadFile("resources/mokugyo.wav");
 	SoundManager::GetInstance()->PlayerWave(se_);
@@ -58,6 +62,32 @@ void GamePlayScene::Initialize() {
 	monsterBall_->SetCamera(camera_.get());
 	monsterBall_->SetModel("sphere.obj");
 	monsterBall_->SetRotate({ 0.0f, -std::numbers::pi_v<float> / 2.0f, 0.0f });
+
+	terrain_ = std::make_unique<Object3d>();
+	terrain_->Initialize(Object3dCommon::GetInstance());
+	terrain_->SetModel("terrain.obj");
+	terrain_->SetCamera(camera_.get());
+	terrain_->SetTranslate({ 0.0f,0.0f,0.0f });
+	terrain_->SetRotate({ 0.0f,-std::numbers::pi_v<float> / 2.0f, 0.0f });
+
+	pointLight_.color = { 1.0f,1.0f,1.0f,1.0f };
+	pointLight_.position = { 0.0f,2.0f,0.0f };
+	pointLight_.intensity = 1.0f;
+	pointLight_.radius = 3.0f;
+	pointLight_.decay = 1.0f;
+	
+	Object3dCommon::GetInstance()->SetPointLight(pointLight_);
+
+	spotLight_.color = { 1.0f,1.0f,1.0f,1.0f };
+	spotLight_.position = { 2.0f,1.25f,0.0f };
+	spotLight_.distance = 7.0f;
+	spotLight_.direction = Vector3::Normalized({ -1.0f,-1.0f,0.0f });
+	spotLight_.intensity = 4.0f;
+	spotLight_.decay = 2.0f;
+	spotLight_.cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
+	spotLight_.cosFalloffStart = std::cos(std::numbers::pi_v<float> / 18.0f);
+
+	Object3dCommon::GetInstance()->SetSpotLight(spotLight_);
 
 	//particleManager_->CreateParticleGroup("test", "resources/circle.png");
 	ParticleManager::GetInstance()->CreateParticleGroup("test", "resources/circle.png");
@@ -101,12 +131,40 @@ void GamePlayScene::Update() {
 	// デモウィンドウ(使い方紹介)
 	ImGui::ShowDemoWindow();
 
+	Vector4 lightColor = monsterBall_->GetLightColor();
+	Vector3 lightDirection = monsterBall_->GetLightDirection();
+	float lightIntensity = monsterBall_->GetLightIntensity();
 	Vector2 testSpritePos = testSprite_->GetPos();
 
 	ImGui::Begin("Window");
 
 	camera_->DrawImGui();
 
+	if (ImGui::TreeNode("MonsterBallLight")) {
+		ImGui::DragFloat4("LightColor", &lightColor.x, 0.01f);
+		ImGui::DragFloat3("LightDirection", &lightDirection.x, 0.01f);
+		ImGui::DragFloat("LightIntensity", &lightIntensity, 0.01f);
+		ImGui::TreePop();
+	}
+	if (ImGui::TreeNode("PointLight")) {
+		ImGui::DragFloat3("Pos", &pointLight_.position.x, 0.01f);
+		ImGui::DragFloat("Intensity", &pointLight_.intensity, 0.01f);
+		ImGui::DragFloat4("color", &pointLight_.color.x, 0.01f);
+		ImGui::DragFloat("radius", &pointLight_.radius, 0.01f);
+		ImGui::DragFloat("decay", &pointLight_.decay, 0.01f);
+		ImGui::TreePop();
+	}
+	if (ImGui::TreeNode("SpotLight")) {
+		ImGui::DragFloat3("Pos", &spotLight_.position.x, 0.01f);
+		ImGui::DragFloat("Intensity", &spotLight_.intensity, 0.01f);
+		ImGui::DragFloat4("color", &spotLight_.color.x, 0.01f);
+		ImGui::DragFloat("distance", &spotLight_.distance, 0.01f);
+		ImGui::DragFloat("decay", &spotLight_.decay, 0.01f);
+		ImGui::DragFloat("cosAngle", &spotLight_.cosAngle, 0.01f);      // なんかできない
+		ImGui::DragFloat3("direction", &spotLight_.direction.x, 0.01f); // なんかできない
+		ImGui::DragFloat("cosFalloffStart", &spotLight_.cosFalloffStart, 0.01f);
+		ImGui::TreePop();
+	}
 	if (ImGui::TreeNode("Sprite")) {
 		ImGui::DragFloat2("position", &testSpritePos.x, 1.0f, 0.0f, 0.0f, "%4.3f");
 		ImGui::TreePop();
@@ -115,6 +173,13 @@ void GamePlayScene::Update() {
 	ImGui::End();
 
 	imGuiManager_->End();
+
+	monsterBall_->SetLightColor(lightColor);
+	monsterBall_->SetLightDirection(lightDirection);
+	monsterBall_->SetLightIntensity(lightIntensity);
+
+	Object3dCommon::GetInstance()->SetPointLight(pointLight_);
+	Object3dCommon::GetInstance()->SetSpotLight(spotLight_);
 
 	testSprite_->SetPos(testSpritePos);
 #endif
@@ -125,6 +190,8 @@ void GamePlayScene::Update() {
 	object3d_->Update();
 
 	monsterBall_->Update();
+
+	terrain_->Update();
 
 	testParticle_->Update(1.0f / 60.0f);
 
@@ -141,19 +208,21 @@ void GamePlayScene::Draw() {
 	// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 	Object3dCommon::GetInstance()->CommonDrawSetting();
 
-	object3d_->Draw();
+	//object3d_->Draw();
 
 	monsterBall_->Draw();
 
-	ParticleManager::GetInstance()->Draw();
+	terrain_->Draw();
+
+	//ParticleManager::GetInstance()->Draw();
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 
 	for (const std::unique_ptr<Sprite>& sprite : sprites_) {
-		sprite->Draw();
+		//sprite->Draw();
 	}
 
-	testSprite_->Draw();
+	//testSprite_->Draw();
 
 	imGuiManager_->Draw();
 }

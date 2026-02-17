@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "engine/audio/SoundManager.h"
+#include "Object3dCommon.h"
 
 class Camera;
 class ImGuiManager;
@@ -41,6 +42,12 @@ private:
 	std::unique_ptr<Object3d> object3d_;
 
 	std::unique_ptr<Object3d> monsterBall_;
+
+	std::unique_ptr<Object3d> terrain_;
+
+	PointLight pointLight_{};
+
+	SpotLight spotLight_{};
 
 	std::unique_ptr<ParticleEmitter> testParticle_;
 
