@@ -1,6 +1,7 @@
 #include "Object3dCommon.h"
 #include "Logger.h"
 #include <iostream>
+#include <numbers>
 
 using namespace Logger;
 
@@ -13,6 +14,8 @@ Object3dCommon* Object3dCommon::GetInstance() {
 
 void Object3dCommon::Initialize(DirectXCommon* dxCommon) {
 	dxCommon_ = dxCommon;
+	InitializePointLight();
+	InitializeSpotLight();
 	CreateGraphicsPipelineState();
 }
 
@@ -39,7 +42,7 @@ void Object3dCommon::CreateRootSignature() {
 	srvRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
 
 	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
-	D3D12_ROOT_PARAMETER rootParameters[5] = {};
+	D3D12_ROOT_PARAMETER rootParameters[7] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
 	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド (PS)
@@ -60,6 +63,14 @@ void Object3dCommon::CreateRootSignature() {
 	rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[4].Descriptor.ShaderRegister = 2;
+
+	rootParameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[5].Descriptor.ShaderRegister = 3;
+
+	rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[6].Descriptor.ShaderRegister = 4;
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
 	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // バイリニアフィルタ
@@ -156,8 +167,8 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 	// Depthの機能を有効化する
 	depthStencilDesc.DepthEnable = true;
 	// 書き込みします
-	//depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない
+	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	//depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない(これだと座標ではなくDrawを書いた順に前に描画される)
 	// 比較関数はLessEqual。つまり、近ければ描画される
 	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
@@ -169,4 +180,31 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 	ID3D12Device* device = dxCommon_->GetDevice();
 	HRESULT hr = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(&pipelineState_));
 	assert(SUCCEEDED(hr));
+}
+
+void Object3dCommon::InitializePointLight() {
+	pointLightResource_ = dxCommon_->CreateBufferResource(sizeof(PointLight));
+	assert(pointLightResource_);
+	HRESULT hr = pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
+	assert(SUCCEEDED(hr));
+
+	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	pointLightData_->position = { 0.0f, 3.0f, 0.0f };
+	pointLightData_->intensity = 1.0f;
+}
+
+void Object3dCommon::InitializeSpotLight() {
+	spotLightResource_ = dxCommon_->CreateBufferResource(sizeof(SpotLight));
+	assert(spotLightResource_);
+	HRESULT hr = spotLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&spotLightData_));
+	assert(SUCCEEDED(hr));
+
+	spotLightData_->color = { 1.0f,1.0f,1.0f,1.0f };
+	spotLightData_->position = { 2.0f,1.25f,0.0f };
+	spotLightData_->distance = 7.0f;
+	spotLightData_->direction = Vector3::Normalized({ -1.0f,-1.0f,0.0f });
+	spotLightData_->intensity = 4.0f;
+	spotLightData_->decay = 2.0f;
+	spotLightData_->cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
+	spotLightData_->cosFalloffStart = std::cos(std::numbers::pi_v<float> / 18.0f);
 }

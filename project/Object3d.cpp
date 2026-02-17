@@ -1,4 +1,4 @@
-﻿#include "Object3d.h"
+#include "Object3d.h"
 #include "Object3dCommon.h"
 #include "Model.h"
 #include "ModelManager.h"
@@ -48,6 +48,10 @@ void Object3d::Draw() {
 
 	commandList->SetGraphicsRootConstantBufferView(4, camera_->GetGPUAddress());
 
+	commandList->SetGraphicsRootConstantBufferView(5, object3dCommon_->GetPointLightGPUAddress());
+
+	commandList->SetGraphicsRootConstantBufferView(6, object3dCommon_->GetSpotLightGPUAddress());
+
 	// 3Dモデルが割り当てられていれば描画する
 	if (model_) {
 		model_->Draw();
@@ -83,5 +87,5 @@ void Object3d::CreateDirectionalLightData() {
 	// デフォルト値を書き込んでおく
 	directionalLightData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	directionalLightData_->direction = Vector3{ 0.0f,-1.0f,0.0f };
-	directionalLightData_->intensity = 1.0f;
+	directionalLightData_->intensity = 0.0f;
 }
