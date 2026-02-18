@@ -44,6 +44,7 @@ void GamePlayScene::Initialize() {
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
+	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
 
@@ -52,7 +53,8 @@ void GamePlayScene::Initialize() {
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("plane.obj");
+	//object3d_->SetModel("plane.obj");
+	object3d_->SetModel("plane.gltf");
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetCamera(camera_.get());
@@ -131,6 +133,8 @@ void GamePlayScene::Update() {
 	// デモウィンドウ(使い方紹介)
 	ImGui::ShowDemoWindow();
 
+	Vector3 rotate = object3d_->GetRotate();
+
 	Vector4 lightColor = monsterBall_->GetLightColor();
 	Vector3 lightDirection = monsterBall_->GetLightDirection();
 	float lightIntensity = monsterBall_->GetLightIntensity();
@@ -139,7 +143,10 @@ void GamePlayScene::Update() {
 	ImGui::Begin("Window");
 
 	camera_->DrawImGui();
-
+	if (ImGui::TreeNode("object3d")) {
+		ImGui::DragFloat3("rotate", &rotate.x, 0.01f);
+		ImGui::TreePop();
+	}
 	if (ImGui::TreeNode("MonsterBallLight")) {
 		ImGui::DragFloat4("LightColor", &lightColor.x, 0.01f);
 		ImGui::DragFloat3("LightDirection", &lightDirection.x, 0.01f);
@@ -173,6 +180,8 @@ void GamePlayScene::Update() {
 	ImGui::End();
 
 	imGuiManager_->End();
+
+	object3d_->SetRotate(rotate);
 
 	monsterBall_->SetLightColor(lightColor);
 	monsterBall_->SetLightDirection(lightDirection);
@@ -208,11 +217,11 @@ void GamePlayScene::Draw() {
 	// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 	Object3dCommon::GetInstance()->CommonDrawSetting();
 
-	//object3d_->Draw();
+	object3d_->Draw();
 
-	monsterBall_->Draw();
+	//monsterBall_->Draw();
 
-	terrain_->Draw();
+	//terrain_->Draw();
 
 	//ParticleManager::GetInstance()->Draw();
 

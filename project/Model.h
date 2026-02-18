@@ -5,6 +5,10 @@
 #include "engine/base/Vector3.h"
 #include "engine/base/Vector4.h"
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 class ModelCommon;
 
 class Model {
@@ -34,19 +38,31 @@ private: // メンバ構造体
 		Vector3 normal;
 	};
 
+	struct Node {
+		Matrix4x4 localMatrix;
+		std::string name;
+		std::vector<Node> children;
+	};
+
 	struct ModelData {
 		std::vector<VertexData> vertices;
 		MaterialData material;
+		Node rootNode;
 	};
+
+public:
+	ModelData GetModelData() { return modelData_; }
 
 private: // メンバ関数
 	// .mtlファイルの読み取り
 	static MaterialData LoadMaterialTemplateFile(const std::string& directoryPath, const std::string& filename);
 	// .objファイルの読み取り
-	static ModelData LoadObjFile(const std::string& directoryPath, const std::string& filename);
+	static ModelData LoadModelFile(const std::string& directoryPath, const std::string& filename);
 
 	void CreateVertexData();
 	void CreateMaterialData();
+
+	static Node ReadNode(aiNode* node);
 
 private: // メンバ変数
 	ModelCommon* modelCommon_ = nullptr;
