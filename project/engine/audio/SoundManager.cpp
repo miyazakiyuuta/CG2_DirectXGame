@@ -7,7 +7,7 @@
 #pragma comment(lib,"mfreadwrite.lib")
 #pragma comment(lib,"mfuuid.lib")
 
-#include "../../StringUtility.h"
+#include "utility/StringUtility.h"
 
 // チャンクヘッダ
 struct ChunkHeader {
