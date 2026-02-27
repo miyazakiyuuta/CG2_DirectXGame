@@ -1,6 +1,7 @@
 #pragma once
-#include "BaseScene.h"
-#include "AbstractSceneFactory.h"
+#include "scene/BaseScene.h"
+#include "scene/AbstractSceneFactory.h"
+#include "scene/ITransition.h"
 #include <memory>
 
 class SceneManager {
@@ -13,7 +14,7 @@ public:
 
 	~SceneManager();
 
-	void ChangeScene(const std::string& sceneName);
+	void ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition = nullptr);
 
 	void SetSceneFactory(AbstractSceneFactory* factory) { sceneFactory_ = factory; }
 
@@ -24,5 +25,8 @@ private:
 
 	std::unique_ptr<BaseScene> scene_ = nullptr;
 	std::unique_ptr<BaseScene> nextScene_ = nullptr;
+
+	std::unique_ptr<ITransition> transition_ = nullptr;
+	bool isSceneChanged_ = false;
 };
 
