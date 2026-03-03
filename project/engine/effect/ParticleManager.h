@@ -5,6 +5,7 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "math/Transform.h"
+#include "effect/ParticleConfig.h"
 #include <string>
 #include <random>
 
@@ -23,7 +24,7 @@ public:
 
 	void CreateParticleGroup(const std::string name, const std::string textureFilePath);
 
-	void Emit(const std::string name, const Vector3& position, uint32_t count);
+	void Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count);
 
 	void SetCamera(const Camera* camera) { camera_ = camera; }
 
@@ -39,15 +40,8 @@ private:
 		Vector4 color;
 		float lifeTime;
 		float currentTime;
+		ParticleMoveType moveType;
 	};
-
-	/* 一粒ごとの場合
-	struct ParticleForGPU {
-		Matrix4x4 WVP;
-		Matrix4x4 World;
-		MatrixMath::Vector4 color;
-	};
-	*/
 
 	struct InstanceData {
 		Matrix4x4 wvp;
@@ -114,7 +108,5 @@ private:
 
 	std::unordered_map<std::string, ParticleGroup> particleGroups_;
 
-	std::random_device seedGenerator;
-	std::mt19937 randomEngine{ seedGenerator() };
 };
 

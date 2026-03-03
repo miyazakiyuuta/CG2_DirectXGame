@@ -1,17 +1,20 @@
 #include "scene/GamePlayScene.h"
 
 #include "base/ImGuiManager.h"
+#include "io/Input.h"
 #include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
 #include "3d/ModelManager.h"
-#include "3d/ParticleManager.h"
 #include "3d/DebugCamera.h"
 #include "3d/Object3dCommon.h"
+#include "effect/ParticleManager.h"
+#include "effect/RingManager.h"
+#include "effect/CylinderManager.h"
 #include "audio/SoundManager.h"
 
 #include "2d/Sprite.h"
 #include "3d/Object3d.h"
-#include "3d/ParticleEmitter.h"
+#include "effect/ParticleEmitter.h"
 
 #include <imgui.h>
 #include <numbers>
@@ -76,7 +79,7 @@ void GamePlayScene::Initialize() {
 	pointLight_.intensity = 1.0f;
 	pointLight_.radius = 3.0f;
 	pointLight_.decay = 1.0f;
-	
+
 	Object3dCommon::GetInstance()->SetPointLight(pointLight_);
 
 	spotLight_.color = { 1.0f,1.0f,1.0f,1.0f };
@@ -95,8 +98,21 @@ void GamePlayScene::Initialize() {
 	testParticle_ = std::make_unique<ParticleEmitter>(DirectXCommon::GetInstance(), SrvManager::GetInstance(), camera_.get());
 	testParticle_->transform_ = {};
 	testParticle_->name_ = "test";
-	testParticle_->count_ = 10;
+	testParticle_->count_ = 20;
 	testParticle_->frequencyTime_ = 1.0f;
+	testParticle_->config_.minScale = { 0.05f,0.4f,1.0f };
+	testParticle_->config_.maxScale = { 0.05f,1.5f,1.0f };
+	testParticle_->config_.minRotate = { 0.0f,0.0f,-std::numbers::pi_v<float> };
+	testParticle_->config_.maxRotate = { 0.0f,0.0f,std::numbers::pi_v<float> };
+	testParticle_->config_.minVelocity = {};
+	testParticle_->config_.maxVelocity = {};
+	testParticle_->config_.lifeTime = 1.0f;
+
+	RingManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	RingManager::GetInstance()->SetCamera(camera_.get());
+
+	CylinderManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	CylinderManager::GetInstance()->SetCamera(camera_.get());
 
 	for (uint32_t i = 0; i < kMaxSprite; ++i) {
 		std::unique_ptr<Sprite> sprite = std::make_unique<Sprite>();
@@ -205,6 +221,30 @@ void GamePlayScene::Update() {
 
 	ParticleManager::GetInstance()->Update(1.0f / 60.0f); // すべてのパーティクルの更新
 
+	RingConfig ring;
+	ring.isBillboard = true;
+	ring.startScale = 1.0f;
+	ring.endScale = 10.0f;
+	ring.lifeTime = 1.0f;
+	ring.startScale = 0.5f;
+	ring.endScale = 0.5f;
+
+	if(Input::GetInstance()->TriggerKey(DIK_SPACE)){
+		RingManager::GetInstance()->Emit({}, {}, ring);
+	}
+
+	RingManager::GetInstance()->Update(1.0f / 60.0f);
+
+	CylinderConfig cylinder;
+	cylinder.startScale = 1.0f;
+	cylinder.endScale = 1.0f;
+	cylinder.lifeTime = 1.0f;
+	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+		CylinderManager::GetInstance()->Emit({}, cylinder);
+	}
+	CylinderManager::GetInstance()->Update(1.0f / 60.0f);
+
+
 	for (uint32_t i = 0; i < sprites_.size(); ++i) {
 		sprites_[i]->Update();
 	}
@@ -223,6 +263,10 @@ void GamePlayScene::Draw() {
 	//terrain_->Draw();
 
 	//ParticleManager::GetInstance()->Draw();
+
+	RingManager::GetInstance()->Draw();
+
+	CylinderManager::GetInstance()->Draw();
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 

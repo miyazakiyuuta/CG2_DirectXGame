@@ -26,6 +26,8 @@ namespace MatrixMath {
 	Matrix4x4 MakeRotateYMatrix(float radian);
 	
 	Matrix4x4 MakeRotateZMatrix(float radian);
+
+	Matrix4x4 MakeRotateMatrix(const Vector3& rotate);
 	
 	Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate);
 

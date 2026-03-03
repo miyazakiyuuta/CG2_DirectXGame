@@ -1,8 +1,9 @@
+#include "effect/ParticleManager.h"
 #include "base/SrvManager.h"
 #include "2d/TextureManager.h"
-#include "3d/ParticleManager.h"
 #include "3d/Camera.h"
 #include "utility/Logger.h"
+#include "utility/Random.h"
 
 #include <numbers>
 
@@ -40,7 +41,7 @@ void ParticleManager::Update(float deltaTime) {
 	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
 
 	// instancing 用のWVP行列を作る
-	
+
 	Matrix4x4 viewProjectionMatrix = Multiply(view, proj);
 
 	for (auto& [name, group] : particleGroups_) {
@@ -54,9 +55,14 @@ void ParticleManager::Update(float deltaTime) {
 			}
 
 			if (numInstance < kNumMaxInstance) {
-				particleIterator->transform.translate.x += particleIterator->velocity.x * deltaTime;
-				particleIterator->transform.translate.y += particleIterator->velocity.y * deltaTime;
-				particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
+				
+
+				switch (particleIterator->moveType) {
+				case ParticleMoveType::Normal:
+					particleIterator->transform.translate.x += particleIterator->velocity.x * deltaTime;
+					particleIterator->transform.translate.y += particleIterator->velocity.y * deltaTime;
+					particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
+				}
 
 				Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
 				Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
@@ -68,7 +74,7 @@ void ParticleManager::Update(float deltaTime) {
 					Multiply(Multiply(MakeScaleMatrix(particleIterator->transform.scale), rotateZMatrix), billboardMatrix),
 					MakeTranslateMatrix(particleIterator->transform.translate));
 				Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, viewProjectionMatrix);
-				
+
 				group.instancingData[numInstance].wvp = worldViewProjectionMatrix;
 				group.instancingData[numInstance].world = worldMatrix;
 				group.instancingData[numInstance].color = particleIterator->color;
@@ -98,9 +104,9 @@ void ParticleManager::Draw() {
 
 	//commandList->SetGraphicsRootConstantBufferView(0, camera_->GetGPUAddress());
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	for(auto& [_, group]:particleGroups_) {
+	for (auto& [_, group] : particleGroups_) {
 		if (group.instanceCount == 0) { continue; }
-		
+
 		D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU = srvManager_->GetGPUDescriptorHandle(group.instancingSrvIndex);
 		commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
 		D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = srvManager_->GetGPUDescriptorHandle(group.material.srvIndex);
@@ -123,23 +129,36 @@ void ParticleManager::CreateParticleGroup(const std::string name, const std::str
 	particleGroups_.emplace(name, std::move(group));
 }
 
-void ParticleManager::Emit(const std::string name, const Vector3& position, uint32_t count) {
+void ParticleManager::Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count) {
 	auto itGroup = particleGroups_.find(name);
 	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Call CreateParticleGroup first.");
 
 	ParticleGroup& group = itGroup->second;
 
 	for (uint32_t i = 0; i < count; ++i) {
-		std::uniform_real_distribution<float> distribution(-5.0f, 5.0f);
 		Particle p{};
 
 		p.transform.translate = position;
-		p.transform.scale = { 1.0f,1.0f,1.0f };
-		p.transform.rotate = { 0.0f,0.0f,0.0f };
-		p.velocity.y = distribution(randomEngine);
-		p.color = { 1.0f,1.0f,1.0f,1.0f };
-		p.lifeTime = 0.5f;
+		p.transform.scale = {
+			Random::GetFloat(config.minScale.x,config.maxScale.x),
+			Random::GetFloat(config.minScale.y,config.maxScale.y),
+			Random::GetFloat(config.minScale.z,config.maxScale.z)
+		};
+		p.transform.rotate = {
+			Random::GetFloat(config.minRotate.x,config.maxRotate.x),
+			Random::GetFloat(config.minRotate.y,config.maxRotate.y),
+			Random::GetFloat(config.minRotate.z,config.maxRotate.z)
+		};
+		p.velocity = {
+			Random::GetFloat(config.minVelocity.x,config.maxVelocity.x),
+			Random::GetFloat(config.minVelocity.y,config.maxVelocity.y),
+			Random::GetFloat(config.minVelocity.z,config.maxVelocity.z)
+		};
+		p.color = config.startColor;
 		p.currentTime = 0.0f;
+		p.moveType = config.moveType;
+		p.lifeTime = config.lifeTime;
+		
 
 		group.particles.push_back(p);
 	}
@@ -147,7 +166,7 @@ void ParticleManager::Emit(const std::string name, const Vector3& position, uint
 
 void ParticleManager::CreateInstancingResource(ParticleGroup& group) {
 	group.instanceCount = 0;
-	
+
 	const UINT bufferSize = sizeof(InstanceData) * kNumMaxInstance;
 
 	group.instancingResource = dxCommon_->CreateBufferResource(bufferSize);
@@ -218,7 +237,7 @@ void ParticleManager::CreateRootSignature() {
 
 	// バイナリを元に生成
 	ID3D12Device* device = dxCommon_->GetDevice();
-	
+
 	hr = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
 	assert(SUCCEEDED(hr));
 }
@@ -322,7 +341,7 @@ void ParticleManager::CreateGraphicsPipelineState() {
 	assert(SUCCEEDED(hr));
 
 	/*
-	
+
 	if (particleBlendMode != particlePrevBlendMode) {
 		particlePrevBlendMode = particleBlendMode;
 		if (particleBlendMode == kBlendModeNone) {
