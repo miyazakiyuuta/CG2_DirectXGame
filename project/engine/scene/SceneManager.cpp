@@ -55,6 +55,9 @@ SceneManager::~SceneManager() {
 
 void SceneManager::ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition) {
 	assert(sceneFactory_);
+	if (nextScene_ != nullptr || transition_ != nullptr) {
+		return;
+	}
 	assert(nextScene_ == nullptr);
 
 	nextScene_ = sceneFactory_->CreateScene(sceneName);

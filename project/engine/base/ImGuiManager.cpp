@@ -67,5 +67,21 @@ void ImGuiManager::Draw() {
 	commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 	// 描画コマンドを発行
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+
+	D3D12_VIEWPORT viewport{};
+	viewport.Width = static_cast<float>(winApp_->kClientWidth);
+	viewport.Height = static_cast<float>(winApp_->kClientHeight);
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	commandList->RSSetViewports(1, &viewport);
+
+	D3D12_RECT scissorRect{};
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = winApp_->kClientWidth;
+	scissorRect.bottom = winApp_->kClientHeight;
+	commandList->RSSetScissorRects(1, &scissorRect);
 #endif
 }
