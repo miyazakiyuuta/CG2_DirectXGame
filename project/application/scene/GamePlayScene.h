@@ -8,6 +8,7 @@
 
 #include "audio/SoundManager.h"
 #include "3d/Object3dCommon.h"
+#include "Bug.h" 
 
 class Camera;
 class ImGuiManager;
@@ -55,6 +56,11 @@ private:
 	std::vector<std::unique_ptr<Sprite>> sprites_;
 
 	std::unique_ptr<Sprite> testSprite_;
+
+	 // ★虫クラスのインスタンス（1匹分）
+	std::unique_ptr<Bug> bug_ = nullptr; 
+
+
 
 };
 
