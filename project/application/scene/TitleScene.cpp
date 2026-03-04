@@ -11,7 +11,7 @@ void TitleScene::Finalize() {
 }
 
 void TitleScene::Update() {
-	if (Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+	if (Input::GetInstance()->IsTriggerKey(DIK_RETURN)) {
 		SceneManager::GetInstance()->ChangeScene("GAMEPLAY", std::make_unique<ShutterTransition>());
 	}
 }

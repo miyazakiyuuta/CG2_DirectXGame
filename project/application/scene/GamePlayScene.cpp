@@ -208,6 +208,11 @@ void GamePlayScene::Update() {
 	testSprite_->SetPos(testSpritePos);
 #endif
 
+	Input::MouseMove mouseMove = Input::GetInstance()->GetMouseMove();
+	const float sensitivity = 0.001f; // 感度
+	Vector3 cameraRotate = camera_->GetRotate();
+	cameraRotate.y += (float)mouseMove.x * sensitivity;
+	camera_->SetRotate(cameraRotate);
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -229,7 +234,7 @@ void GamePlayScene::Update() {
 	ring.startScale = 0.5f;
 	ring.endScale = 0.5f;
 
-	if(Input::GetInstance()->TriggerKey(DIK_SPACE)){
+	if(Input::GetInstance()->IsTriggerMouse(1)){
 		RingManager::GetInstance()->Emit({}, {}, ring);
 	}
 
@@ -239,7 +244,7 @@ void GamePlayScene::Update() {
 	cylinder.startScale = 1.0f;
 	cylinder.endScale = 1.0f;
 	cylinder.lifeTime = 1.0f;
-	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+	if (Input::GetInstance()->IsTriggerMouse(0)) {
 		CylinderManager::GetInstance()->Emit({}, cylinder);
 	}
 	CylinderManager::GetInstance()->Update(1.0f / 60.0f);
