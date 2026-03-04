@@ -9,6 +9,7 @@
 #include "audio/SoundManager.h"
 #include "3d/Object3dCommon.h"
 
+
 class Camera;
 class ImGuiManager;
 class DebugCamera;
@@ -16,6 +17,9 @@ class DebugCamera;
 class Object3d;
 class ParticleEmitter;
 class Sprite;
+class Player;
+class CameraController;
+class StageEdit;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -44,6 +48,10 @@ private:
 	std::unique_ptr<Object3d> monsterBall_;
 
 	std::unique_ptr<Object3d> terrain_;
+
+	std::unique_ptr<Player> player_;
+	std::unique_ptr<CameraController> cameraController_;
+	std::unique_ptr<StageEdit> stageEdit_;
 
 	PointLight pointLight_{};
 

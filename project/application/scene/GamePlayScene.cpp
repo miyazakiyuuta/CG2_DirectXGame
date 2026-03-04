@@ -15,6 +15,9 @@
 #include "2d/Sprite.h"
 #include "3d/Object3d.h"
 #include "effect/ParticleEmitter.h"
+#include "Player.h"
+#include "CameraController.h"
+#include "StageEdit.h"
 
 #include <imgui.h>
 #include <numbers>
@@ -50,6 +53,8 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
+	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
+	ModelManager::GetInstance()->LoadModel("Cube.obj");
 
 	se_ = SoundManager::GetInstance()->LoadFile("resources/mokugyo.wav");
 	//SoundManager::GetInstance()->PlayerWave(se_);
@@ -60,6 +65,21 @@ void GamePlayScene::Initialize() {
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetCamera(camera_.get());
+
+	player_ = std::make_unique<Player>();
+	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", { 0.0f, 0.0f, 0.0f });
+	player_->SetGroundHeight(0.0f);
+
+	cameraController_ = std::make_unique<CameraController>();
+	cameraController_->Initialize(camera_.get());
+	cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
+	cameraController_->SetDistance(25.0f);
+	cameraController_->SetHeight(1.5f);
+	cameraController_->SetYawSpeed(0.03f);
+	cameraController_->SetPitchSpeed(0.02f);
+
+	stageEdit_ = std::make_unique<StageEdit>();
+	stageEdit_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj");
 
 	monsterBall_ = std::make_unique<Object3d>();
 	monsterBall_->Initialize(Object3dCommon::GetInstance());
@@ -194,7 +214,6 @@ void GamePlayScene::Update() {
 
 	ImGui::End();
 
-	imGuiManager_->End();
 
 	object3d_->SetRotate(rotate);
 
@@ -207,6 +226,35 @@ void GamePlayScene::Update() {
 
 	testSprite_->SetPos(testSpritePos);
 #endif
+	
+	// デバッグ用: チャージストック変更
+	if(Input::GetInstance()->TriggerKey(DIK_1)){
+		player_->SetChargeStock(0);
+	}
+	if(Input::GetInstance()->TriggerKey(DIK_2)){
+		player_->SetChargeStock(1);
+	}
+	if(Input::GetInstance()->TriggerKey(DIK_3)){
+		player_->SetChargeStock(2);
+	}
+	if(Input::GetInstance()->TriggerKey(DIK_4)){
+		player_->SetChargeStock(3);
+	}
+
+	stageEdit_->Update();
+
+	if(!stageEdit_->IsEditMode()){
+		// いつもの更新
+		player_->Update(cameraController_->GetYaw());
+		cameraController_->Update(player_->GetPosition());
+
+	} else{
+		// StageEdit中はプレイヤー更新を止める
+		cameraController_->Update(player_->GetPosition());
+	}
+
+	imGuiManager_->End();
+
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -256,7 +304,9 @@ void GamePlayScene::Draw() {
 	// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
 	Object3dCommon::GetInstance()->CommonDrawSetting();
 
-	object3d_->Draw();
+	//object3d_->Draw();
+	player_->Draw();
+	stageEdit_->Draw();
 
 	//monsterBall_->Draw();
 

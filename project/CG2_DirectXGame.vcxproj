@@ -159,6 +159,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="application\CameraController.cpp" />
     <ClCompile Include="engine\effect\CylinderManager.cpp" />
     <ClCompile Include="engine\scene\BaseScene.cpp" />
     <ClCompile Include="engine\3d\Camera.cpp" />
@@ -197,6 +198,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\base\WinApp.cpp" />
     <ClCompile Include="application\transition\ShutterTransition.cpp" />
     <ClCompile Include="engine\effect\RingManager.cpp" />
+    <ClCompile Include="application\Player.cpp" />
+    <ClCompile Include="application\StageEdit.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -219,6 +222,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="application\CameraController.h" />
     <ClInclude Include="engine\effect\CylinderManager.h" />
     <ClInclude Include="engine\effect\ParticleConfig.h" />
     <ClInclude Include="engine\scene\AbstractSceneFactory.h" />
@@ -260,6 +264,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\base\WinApp.h" />
     <ClInclude Include="application\transition\ShutterTransition.h" />
     <ClInclude Include="engine\effect\RingManager.h" />
+    <ClInclude Include="application\Player.h" />
+    <ClInclude Include="application\StageEdit.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
