@@ -16,7 +16,7 @@ void StageEdit::Initialize(Object3dCommon* object3dCommon, Camera* camera, const
 void StageEdit::Update(){
 	Input* input = Input::GetInstance();
 
-	if(input->TriggerKey(DIK_F1)){
+	if(input->IsTriggerKey(DIK_F1)){
 		isEditMode_ = !isEditMode_;
 	}
 

@@ -87,24 +87,24 @@ void Player::MoveHorizontal(float cameraYaw){
 	Vector3 forward = { std::sin(cameraYaw), 0.0f, std::cos(cameraYaw) };
 	Vector3 right = { std::cos(cameraYaw), 0.0f, -std::sin(cameraYaw) };
 
-	if(input_->PushKey(DIK_W)){
+	if(input_->IsPushKey(DIK_W)){
 		lastMove_.x += forward.x;
 		lastMove_.z += forward.z;
 	}
-	if(input_->PushKey(DIK_S)){
+	if(input_->IsPushKey(DIK_S)){
 		lastMove_.x -= forward.x;
 		lastMove_.z -= forward.z;
 	}
-	if(input_->PushKey(DIK_D)){
+	if(input_->IsPushKey(DIK_D)){
 		lastMove_.x += right.x;
 		lastMove_.z += right.z;
 	}
-	if(input_->PushKey(DIK_A)){
+	if(input_->IsPushKey(DIK_A)){
 		lastMove_.x -= right.x;
 		lastMove_.z -= right.z;
 	}
 
-	if(input_->PushKey(DIK_R)){
+	if(input_->IsPushKey(DIK_R)){
 		position = { 0.0f, resetHeight_, 0.0f };
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
@@ -138,7 +138,7 @@ void Player::UpdateJumpCharge(){
 		return;
 	}
 
-	if(input_->TriggerKey(DIK_SPACE)){
+	if(input_->IsTriggerKey(DIK_SPACE)){
 		isChargingJump_ = true;
 		isJumpChargeCanceled_ = false;
 		chargeTimer_ = 0.0f;
@@ -149,7 +149,7 @@ void Player::UpdateJumpCharge(){
 		return;
 	}
 
-	if(input_->PushKey(DIK_SPACE)){
+	if(input_->IsPushKey(DIK_SPACE)){
 		chargeTimer_ += 1.0f;
 
 		int currentLevel = GetCurrentChargeLevel();
@@ -166,7 +166,7 @@ void Player::UpdateJumpCharge(){
 		}
 	}
 
-	if(!input_->PushKey(DIK_SPACE)){
+	if(!input_->IsPushKey(DIK_SPACE)){
 		if(!isJumpChargeCanceled_){
 			int chargeLevel = GetCurrentChargeLevel();
 			chargeLevel = std::min(chargeLevel, GetAllowedChargeLevel());
