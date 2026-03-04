@@ -19,18 +19,18 @@ void CameraController::Update(const Vector3& target){
 	}
 
 	// 左右で水平方向の回転
-	if(input_->PushKey(DIK_LEFT)){
+	if(input_->IsPushKey(DIK_LEFT)){
 		yaw_ -= yawSpeed_;
 	}
-	if(input_->PushKey(DIK_RIGHT)){
+	if(input_->IsPushKey(DIK_RIGHT)){
 		yaw_ += yawSpeed_;
 	}
 
 	// 上下で見下ろし角を調整
-	if(input_->PushKey(DIK_UP)){
+	if(input_->IsPushKey(DIK_UP)){
 		pitch_ += pitchSpeed_;
 	}
-	if(input_->PushKey(DIK_DOWN)){
+	if(input_->IsPushKey(DIK_DOWN)){
 		pitch_ -= pitchSpeed_;
 	}
 
