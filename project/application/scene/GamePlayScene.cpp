@@ -157,6 +157,11 @@ void GamePlayScene::Initialize() {
 	testSprite_->SetSize({ 500.0f,500.0f });
 	testSprite_->SetAnchorPoint({ 0.0f,0.0f });
 	testSprite_->SetTextureSize({ 1200.0f,600.0f });
+
+	  // 虫の生成と初期化
+	bug_ = std::make_unique<Bug>();
+	bug_->Initialize(camera_.get());
+
 }
 
 void GamePlayScene::Finalize() {
@@ -257,6 +262,9 @@ void GamePlayScene::Update() {
 
 
 
+	// 虫の更新
+	bug_->Update();
+
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -308,6 +316,9 @@ void GamePlayScene::Draw() {
 	//object3d_->Draw();
 	player_->Draw();
 	stageEdit_->Draw();
+
+	// 虫の描画
+	bug_->Draw();
 
 	//monsterBall_->Draw();
 
