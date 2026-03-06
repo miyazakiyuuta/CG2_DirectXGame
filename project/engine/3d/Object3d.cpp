@@ -3,6 +3,7 @@
 #include "Model.h"
 #include "ModelManager.h"
 #include "Camera.h"
+#include "utility/Logger.h"
 
 using namespace MatrixMath;
 
@@ -60,8 +61,12 @@ void Object3d::Draw() {
 
 void Object3d::SetModel(const std::string& filePath) {
 	// モデルを検索してセットする
-	model_ = ModelManager::GetInstance()->FindModel(filePath);
-	assert(model_ && "Model not found. filePath key mismatch.");
+    model_ = ModelManager::GetInstance()->FindModel(filePath);
+    if (!model_) {
+        // 見つからない場合はアサートでは止めずログ出力してヌルを許容
+        Logger::Log(std::string("Object3d::SetModel: Model not found: ") + filePath + "\n");
+        return;
+    }
 }
 
 void Object3d::CreateTransformationMatrixData() {

@@ -1,6 +1,7 @@
 #include "3d/Camera.h"
 #include "base/WinApp.h"
 #include <cassert>
+#include <cmath>
 
 
 #ifdef _DEBUG
@@ -87,4 +88,21 @@ void Camera::TransferToGPU() {
 
 D3D12_GPU_VIRTUAL_ADDRESS Camera::GetGPUAddress() const {
 	return cameraResource_ ? cameraResource_->GetGPUVirtualAddress() : 0;
+}
+
+Vector3 Camera::GetForward() const {
+    // Transformからワールド行列を作成して前方ベクトルを抽出
+    // ローカルの前方は (0,0,1) としてワールド空間に変換
+    Matrix4x4 world = MatrixMath::MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
+    // ワールド行列の3列目はローカルZ軸のワールド変換 (ただし行/列の表現に依存)
+    Vector3 forward;
+    forward.x = world.m[2][0];
+    forward.y = world.m[2][1];
+    forward.z = world.m[2][2];
+    // 正規化
+    float len = std::sqrt(forward.x * forward.x + forward.y * forward.y + forward.z * forward.z);
+    if (len > 1e-6f) {
+        forward.x /= len; forward.y /= len; forward.z /= len;
+    }
+    return forward;
 }

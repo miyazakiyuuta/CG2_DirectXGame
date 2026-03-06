@@ -17,7 +17,7 @@
 #include "effect/ParticleEmitter.h"
 #include "Player.h"
 #include "CameraController.h"
-#include "StageEdit.h"
+#include "StageEditor.h"
 
 #include <imgui.h>
 #include <numbers>
@@ -78,8 +78,8 @@ void GamePlayScene::Initialize() {
 	cameraController_->SetYawSpeed(0.03f);
 	cameraController_->SetPitchSpeed(0.02f);
 
-	stageEdit_ = std::make_unique<StageEdit>();
-	stageEdit_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj");
+    stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
+    stageEditor_->Initialize("Cube.obj");
 
 	monsterBall_ = std::make_unique<Object3d>();
 	monsterBall_->Initialize(Object3dCommon::GetInstance());
@@ -241,16 +241,16 @@ void GamePlayScene::Update() {
 		player_->SetChargeStock(3);
 	}
 
-	stageEdit_->Update();
+    stageEditor_->Update();
 
-	if(!stageEdit_->IsEditMode()){
+    if(!stageEditor_->IsEditMode()){
 		// いつもの更新
 		player_->Update(cameraController_->GetYaw());
 		cameraController_->Update(player_->GetPosition());
 
-	} else{
-		// StageEdit中はプレイヤー更新を止める
-		cameraController_->Update(player_->GetPosition());
+    } else{
+        // StageEditor中はプレイヤー更新を止める
+        cameraController_->Update(player_->GetPosition());
 	}
 
 	imGuiManager_->End();
@@ -307,7 +307,7 @@ void GamePlayScene::Draw() {
 
 	//object3d_->Draw();
 	player_->Draw();
-	stageEdit_->Draw();
+	stageEditor_->Draw();
 
 	//monsterBall_->Draw();
 
