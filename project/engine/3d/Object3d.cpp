@@ -4,8 +4,6 @@
 #include "ModelManager.h"
 #include "Camera.h"
 
-using namespace MatrixMath;
-
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
 	dxCommon_ = object3dCommon_->GetDxCommon();
@@ -17,14 +15,32 @@ void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	
 	CreateTransformationMatrixData();
 	CreateDirectionalLightData();
+
+	animationPlayer_ = new AnimationPlayer(); // コンストラクタを切り替Matrix4x4::えられるようにする & unique_ptrにする
 }
 
 void Object3d::Update() {
-	// TransformからWorldMatrixを作る
-	Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
 
+	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
+
+	if (animationPlayer_ && model_ && model_->GetAnimation().duration > 0.0f) {
+		animationPlayer_->Update(1.0f / 60.0f, model_->GetModelData().rootNode.name);
+		worldMatrix = animationPlayer_->GetLocalMatrix() * worldMatrix;
+	}
+
+	Matrix4x4 finalWorldMatrix = model_->GetModelData().rootNode.localMatrix * worldMatrix;
+
+	transformationMatrixData_->World = finalWorldMatrix;
+	transformationMatrixData_->WorldInverseTranspose = finalWorldMatrix.Inverse().Transpose();
+	if (camera_) {
+		const Matrix4x4& viewProjectionMatrix = camera_->GetViewProjectionMatrix();
+		transformationMatrixData_->WVP = finalWorldMatrix * viewProjectionMatrix;
+	} else {
+		transformationMatrixData_->WVP = finalWorldMatrix;
+	}
+	
+	/*
 	Matrix4x4 worldViewProjectionMatrix;
-
 	if (camera_) {
 		const Matrix4x4& viewProjectionMatrix = camera_->GetViewProjectionMatrix();
 		worldViewProjectionMatrix = Multiply(worldMatrix, viewProjectionMatrix);
@@ -35,6 +51,7 @@ void Object3d::Update() {
 	transformationMatrixData_->WVP = Multiply(model_->GetModelData().rootNode.localMatrix, worldViewProjectionMatrix);
 	transformationMatrixData_->World = Multiply(model_->GetModelData().rootNode.localMatrix, worldMatrix);
 	transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
+	*/
 }
 
 void Object3d::Draw() {
@@ -62,6 +79,10 @@ void Object3d::SetModel(const std::string& filePath) {
 	// モデルを検索してセットする
 	model_ = ModelManager::GetInstance()->FindModel(filePath);
 	assert(model_ && "Model not found. filePath key mismatch.");
+
+	if (animationPlayer_) {
+		animationPlayer_->SetAnimation(&model_->GetAnimation());
+	}
 }
 
 void Object3d::CreateTransformationMatrixData() {
@@ -72,9 +93,9 @@ void Object3d::CreateTransformationMatrixData() {
 	transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
 
 	// 単位行列に書き込んでおく
-	transformationMatrixData_->WVP = MakeIdentity4x4();
-	transformationMatrixData_->World = MakeIdentity4x4();
-	transformationMatrixData_->WorldInverseTranspose = MakeIdentity4x4();
+	transformationMatrixData_->WVP = Matrix4x4::Identity();
+	transformationMatrixData_->World = Matrix4x4::Identity();
+	transformationMatrixData_->WorldInverseTranspose = Matrix4x4::Identity();
 }
 
 void Object3d::CreateDirectionalLightData() {

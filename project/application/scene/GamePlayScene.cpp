@@ -44,19 +44,24 @@ void GamePlayScene::Initialize() {
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
+	//TextureManager::GetInstance()->LoadTexture("resources/AnimatedCube/AnimatedCube_BaseColor.png");
+	//TextureManager::GetInstance()->LoadTexture("resources/AnimatedCube/AnimatedCube_MetalicRoughness.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
 	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
+	ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
+	//ModelManager::GetInstance()->LoadModel("AnimatedCube/AnimatedCube.gltf");
 
 	se_ = SoundManager::GetInstance()->LoadFile("resources/mokugyo.wav");
 	//SoundManager::GetInstance()->PlayerWave(se_);
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("plane.gltf");
+	//object3d_->SetModel("plane.gltf");
+	object3d_->SetModel("AnimatedCube.gltf");
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetCamera(camera_.get());
@@ -212,7 +217,7 @@ void GamePlayScene::Update() {
 	const float sensitivity = 0.001f; // 感度
 	Vector3 cameraRotate = camera_->GetRotate();
 	cameraRotate.y += (float)mouseMove.x * sensitivity;
-	camera_->SetRotate(cameraRotate);
+	//camera_->SetRotate(cameraRotate);
 	camera_->Update();
 	camera_->TransferToGPU();
 

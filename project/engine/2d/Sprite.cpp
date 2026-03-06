@@ -5,8 +5,6 @@
 #include "2d/TextureManager.h"
 #include "math/Transform.h"
 
-using namespace MatrixMath;
-
 void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath) {
 	spriteCommon_ = spriteCommon;
 	dxCommon_ = spriteCommon_->GetDxCommon();
@@ -88,13 +86,13 @@ void Sprite::Update() {
 	transform.scale = { size_.x,size_.y,1.0f };
 
 	// TransformからWorldMatrixを作る
-	Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
+	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform.scale, transform.rotate, transform.translate);
 	// ViewMatrixを作って単位行列を代入
-	Matrix4x4 viewMatrix = MakeIdentity4x4();
+	Matrix4x4 viewMatrix = Matrix4x4::Identity();
 	// ProjectionMatrixを使って平行投影行列を書き込む
-	Matrix4x4 projectionMatrix = MakeOrthographicMatrix(0.0f, 0.0f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.0f, 100.0f);
+	Matrix4x4 projectionMatrix = Matrix4x4::Orthographic(0.0f, 0.0f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.0f, 100.0f);
 
-	transformationMatrixData_->WVP = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+	transformationMatrixData_->WVP = worldMatrix * (viewMatrix * projectionMatrix);
 	transformationMatrixData_->World = worldMatrix;
 }
 
@@ -161,7 +159,7 @@ void Sprite::CreateMaterialData() {
 	// マテリアルデータの初期値を書き込む
 	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	materialData_->enableLighting = false;
-	materialData_->uvTransform = MakeIdentity4x4();
+	materialData_->uvTransform = Matrix4x4::Identity();
 }
 
 void Sprite::CreateTransformationMatrixData() {
@@ -172,9 +170,9 @@ void Sprite::CreateTransformationMatrixData() {
 	transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
 
 	// 単位行列に書き込んでおく
-	transformationMatrixData_->WVP = MakeIdentity4x4();
-	transformationMatrixData_->World = MakeIdentity4x4();
-	transformationMatrixData_->WorldInverseTranspose = MakeIdentity4x4();
+	transformationMatrixData_->WVP = Matrix4x4::Identity();
+	transformationMatrixData_->World = Matrix4x4::Identity();
+	transformationMatrixData_->WorldInverseTranspose = Matrix4x4::Identity();
 }
 
 void Sprite::AdjustTextureSize() {
