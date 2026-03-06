@@ -8,19 +8,16 @@
 #include "imgui.h"
 #endif // _DEBUG
 
-
-using namespace MatrixMath;
-
 Camera::Camera()
 	: transform_({ 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f }, { 0.0f,0.0f,0.0f })
 	, fovY_(0.45f)
 	, aspectRatio_(float(WinApp::kClientWidth) / float(WinApp::kClientHeight))
 	, nearClip_(0.1f)
 	, farClip_(100.0f)
-	, worldMatrix_(MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate))
-	, viewMatrix_(Inverse(worldMatrix_))
-	, projectionMatrix_(MakePerspectiveFovMatrix(fovY_, aspectRatio_, nearClip_, farClip_))
-	, viewProjectionMatrix_(Multiply(viewMatrix_, projectionMatrix_)) {
+	, worldMatrix_(Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate))
+	, viewMatrix_(worldMatrix_.Inverse())
+	, projectionMatrix_(Matrix4x4::PerspectiveFov(fovY_, aspectRatio_, nearClip_, farClip_))
+	, viewProjectionMatrix_(viewMatrix_ * projectionMatrix_) {
 }
 
 void Camera::DrawImGui() {
@@ -70,13 +67,13 @@ void Camera::InitializeGPU(ID3D12Device* device) {
 
 void Camera::Update() {
 	// Transformからアフィン変換行列を計算
-	worldMatrix_ = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
+	worldMatrix_ = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
 	// worldMatrixの逆行列
-	viewMatrix_ = Inverse(worldMatrix_);
+	viewMatrix_ = worldMatrix_.Inverse();
 	// 透視投影行列を計算
-	projectionMatrix_ = MakePerspectiveFovMatrix(fovY_, aspectRatio_, nearClip_, farClip_);
+	projectionMatrix_ = Matrix4x4::PerspectiveFov(fovY_, aspectRatio_, nearClip_, farClip_);
 	// ビュー行列とプロジェクション行列の積を計算
-	viewProjectionMatrix_ = Multiply(viewMatrix_, projectionMatrix_);
+	viewProjectionMatrix_ = viewMatrix_ * projectionMatrix_;
 }
 
 void Camera::TransferToGPU() {

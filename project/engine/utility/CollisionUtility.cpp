@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace CollisionUtility {
 
 // ヘルパー関数

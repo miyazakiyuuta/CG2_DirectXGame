@@ -6,6 +6,7 @@
 #include "3d/Object3d.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
+#include "Tongue.h"
 
 class Camera;
 class Object3dCommon;
@@ -45,6 +46,7 @@ public:
 	bool IsChargeAtMaxPhase() const;
 
 	float GetYaw() const;
+	Tongue* GetTongue() const{ return tongue_.get(); }
 
 private:
 	void MoveHorizontal(float cameraYaw);
@@ -86,4 +88,6 @@ private:
 
 	int chargeStock_ = 3;
 	static constexpr int kMaxChargeLevel_ = 3;
+
+	std::unique_ptr<Tongue> tongue_ = nullptr;
 };

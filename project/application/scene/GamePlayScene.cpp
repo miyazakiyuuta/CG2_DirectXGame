@@ -47,12 +47,16 @@ void GamePlayScene::Initialize() {
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
+	//TextureManager::GetInstance()->LoadTexture("resources/AnimatedCube/AnimatedCube_BaseColor.png");
+	//TextureManager::GetInstance()->LoadTexture("resources/AnimatedCube/AnimatedCube_MetalicRoughness.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
 	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
+	ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
+	//ModelManager::GetInstance()->LoadModel("AnimatedCube/AnimatedCube.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
 
@@ -61,7 +65,8 @@ void GamePlayScene::Initialize() {
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("plane.gltf");
+	//object3d_->SetModel("plane.gltf");
+	object3d_->SetModel("AnimatedCube.gltf");
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetCamera(camera_.get());
@@ -157,6 +162,11 @@ void GamePlayScene::Initialize() {
 	testSprite_->SetSize({ 500.0f,500.0f });
 	testSprite_->SetAnchorPoint({ 0.0f,0.0f });
 	testSprite_->SetTextureSize({ 1200.0f,600.0f });
+
+	  // 虫の生成と初期化
+	bug_ = std::make_unique<Bug>();
+	bug_->Initialize(camera_.get());
+
 }
 
 void GamePlayScene::Finalize() {
@@ -257,6 +267,9 @@ void GamePlayScene::Update() {
 
 
 
+	// 虫の更新
+	bug_->Update();
+
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -308,6 +321,9 @@ void GamePlayScene::Draw() {
 	//object3d_->Draw();
 	player_->Draw();
 	stageEditor_->Draw();
+
+	// 虫の描画
+	bug_->Draw();
 
 	//monsterBall_->Draw();
 
