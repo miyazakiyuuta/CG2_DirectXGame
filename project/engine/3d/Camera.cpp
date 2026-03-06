@@ -90,7 +90,7 @@ D3D12_GPU_VIRTUAL_ADDRESS Camera::GetGPUAddress() const {
 Vector3 Camera::GetForward() const {
     // Transformからワールド行列を作成して前方ベクトルを抽出
     // ローカルの前方は (0,0,1) としてワールド空間に変換
-    Matrix4x4 world = MatrixMath::MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
+    Matrix4x4 world = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
     // ワールド行列の3列目はローカルZ軸のワールド変換 (ただし行/列の表現に依存)
     Vector3 forward;
     forward.x = world.m[2][0];
