@@ -30,6 +30,9 @@ void Player::Initialize(
 	object_->SetTranslate(startPosition);
 	object_->SetRotate({ 0.0f, 0.0f, 0.0f });
 
+	tongue_ = std::make_unique<Tongue>();
+	tongue_->Initialize(object3dCommon, camera_, this, "Cube.obj");
+
 	velocity_ = { 0.0f, 0.0f, 0.0f };
 	lastMove_ = { 0.0f, 0.0f, 0.0f };
 	isOnGround_ = false;
@@ -69,6 +72,17 @@ void Player::Update(float cameraYaw){
 	UpdateJumpCharge();
 	ApplyGravity();
 
+	// 舌発射
+	if(input_->IsTriggerKey(DIK_Z) && tongue_){
+		tongue_->Shot();
+	}
+
+	// 1/60 固定で仮運用
+	if(tongue_){
+		tongue_->Update(1.0f / 60.0f);
+	}
+
+
 	object_->Update();
 	UpdateDebugImGui();
 }
@@ -76,6 +90,9 @@ void Player::Update(float cameraYaw){
 void Player::Draw(){
 	if(object_){
 		object_->Draw();
+	}
+	if(tongue_){
+		tongue_->Draw();
 	}
 }
 
@@ -283,6 +300,32 @@ void Player::UpdateDebugImGui(){
 	}
 
 	ImGui::End();
+
+	ImGui::Begin("Tongue");
+
+	if(tongue_){
+		Vector3 tonguePos = tongue_->GetPosition();
+		ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
+
+		const char* stateName = "Idle";
+		switch(tongue_->GetState()){
+			case Tongue::State::Idle:
+				stateName = "Idle";
+				break;
+			case Tongue::State::Extending:
+				stateName = "Extending";
+				break;
+			case Tongue::State::Returning:
+				stateName = "Returning";
+				break;
+		}
+
+		ImGui::Text("State : %s", stateName);
+		ImGui::Text("Shot Key : Z");
+	}
+
+	ImGui::End();
+
 }
 
 float Player::GetJumpChargeRate() const{

@@ -4,6 +4,7 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "math/Transform.h"
+#include "3d/AnimationPlayer.h"
 
 class Object3dCommon;
 class Model;
@@ -73,6 +74,8 @@ private: // メンバ変数
 	Camera* camera_ = nullptr;
 
 	Model* model_ = nullptr;
+
+	AnimationPlayer* animationPlayer_ = nullptr;
 };
 
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "base/DirectXCommon.h"
+#include "3d/Animation.h"
 #include "math/Matrix4x4.h"
 #include "math/Vector2.h"
 #include "math/Vector3.h"
@@ -15,6 +16,8 @@ class Model {
 public: // メンバ関数
 	void Initialize(ModelCommon* modelCommon, const std::string& directorypath, const std::string& filename);
 	void Draw();
+
+	static Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
 
 private: // メンバ構造体
 	struct Material {
@@ -52,6 +55,7 @@ private: // メンバ構造体
 
 public:
 	ModelData GetModelData() { return modelData_; }
+	const Animation& GetAnimation() const { return animation_; }
 
 private: // メンバ関数
 	// .mtlファイルの読み取り
@@ -70,6 +74,8 @@ private: // メンバ変数
 
 	// Objファイルのデータ
 	ModelData modelData_;
+
+	Animation animation_;
 
 	// バッファリソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;

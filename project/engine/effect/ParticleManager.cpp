@@ -7,7 +7,6 @@
 
 #include <numbers>
 
-using namespace MatrixMath;
 using namespace Logger;
 
 ParticleManager* ParticleManager::instance = nullptr;
@@ -28,7 +27,7 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 	materialData_->color = { 1.0f,1.0f,1.0f,1.0f };
 	materialData_->enableLighting = 0;
-	materialData_->uvTransform = MakeIdentity4x4();
+	materialData_->uvTransform = Matrix4x4::Identity();
 
 	CreateVertexResource();
 	CreateGraphicsPipelineState();
@@ -42,7 +41,7 @@ void ParticleManager::Update(float deltaTime) {
 
 	// instancing 用のWVP行列を作る
 
-	Matrix4x4 viewProjectionMatrix = Multiply(view, proj);
+	Matrix4x4 viewProjectionMatrix = view * proj;
 
 	for (auto& [name, group] : particleGroups_) {
 		uint32_t numInstance = 0;
@@ -64,16 +63,16 @@ void ParticleManager::Update(float deltaTime) {
 					particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
 				}
 
-				Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
-				Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+				Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(std::numbers::pi_v<float>);
+				Matrix4x4 billboardMatrix = backToFrontMatrix * cameraMatrix;
 				billboardMatrix.m[3][0] = 0.0f; // 平行移動成分はいらない
 				billboardMatrix.m[3][1] = 0.0f;
 				billboardMatrix.m[3][2] = 0.0f;
-				Matrix4x4 rotateZMatrix = MakeRotateZMatrix(particleIterator->transform.rotate.z + 0.0f);
-				Matrix4x4 worldMatrix = Multiply(
-					Multiply(Multiply(MakeScaleMatrix(particleIterator->transform.scale), rotateZMatrix), billboardMatrix),
-					MakeTranslateMatrix(particleIterator->transform.translate));
-				Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, viewProjectionMatrix);
+				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(particleIterator->transform.rotate.z + 0.0f);
+				Matrix4x4 worldMatrix = 
+					Matrix4x4::Scale(particleIterator->transform.scale) * rotateZMatrix * billboardMatrix * 
+					Matrix4x4::Translate(particleIterator->transform.translate);
+				Matrix4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
 
 				group.instancingData[numInstance].wvp = worldViewProjectionMatrix;
 				group.instancingData[numInstance].world = worldMatrix;

@@ -9,7 +9,6 @@
 //#include <cmath>
 #include <algorithm>
 
-using namespace MatrixMath;
 using namespace Logger;
 
 RingManager* RingManager::instance = nullptr;
@@ -32,7 +31,7 @@ void RingManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 	materialData_->color = { 1.0f,1.0f,1.0f,1.0f };
 	materialData_->enableLighting = 0;
-	materialData_->uvTransform = MakeIdentity4x4();
+	materialData_->uvTransform = Matrix4x4::Identity();
 
 	const UINT bufferSize = sizeof(InstanceData) * kNumMaxInstance;
 	instancingResource_ = dxCommon_->CreateBufferResource(bufferSize);
@@ -51,7 +50,7 @@ void RingManager::Update(float deltaTime) {
 	const Matrix4x4& view = camera_->GetViewMatrix();
 	const Matrix4x4& projection = camera_->GetProjectionMatrix();
 	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
-	Matrix4x4 viewProjectionMatrix = Multiply(view, projection);
+	Matrix4x4 viewProjectionMatrix = view * projection;
 
 	numInstance_ = 0;
 	
@@ -65,27 +64,27 @@ void RingManager::Update(float deltaTime) {
 		if (numInstance_ < kNumMaxInstance) {
 			float t = std::clamp(ring.currentTime / ring.config.lifeTime, 0.0f, 1.0f);
 			float currentScale = std::lerp(ring.config.startScale, ring.config.endScale, t);
-			Matrix4x4  scaleMatrix = MakeScaleMatrix({ currentScale, currentScale, currentScale });
+			Matrix4x4  scaleMatrix = Matrix4x4::Scale({ currentScale, currentScale, currentScale });
 			Matrix4x4 rotateMatrix;
 
 			if (ring.config.isBillboard) {
-				Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
-				rotateMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+				Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(std::numbers::pi_v<float>);
+				rotateMatrix = backToFrontMatrix * cameraMatrix;
 				rotateMatrix.m[3][0] = 0.0f;
 				rotateMatrix.m[3][1] = 0.0f;
 				rotateMatrix.m[3][2] = 0.0f;
 
-				Matrix4x4 rotateZMatrix = MakeRotateZMatrix(ring.transform.rotate.z);
-				rotateMatrix = Multiply(rotateZMatrix, rotateMatrix);
+				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(ring.transform.rotate.z);
+				rotateMatrix = rotateZMatrix * rotateMatrix;
 			} else {
-				rotateMatrix = MakeRotateMatrix(ring.transform.rotate);
+				rotateMatrix = Matrix4x4::Rotate(ring.transform.rotate);
 			}
 
-			Matrix4x4 translateMatrix = MakeTranslateMatrix(ring.transform.translate);
-			Matrix4x4 worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+			Matrix4x4 translateMatrix = Matrix4x4::Translate(ring.transform.translate);
+			Matrix4x4 worldMatrix = scaleMatrix * rotateMatrix * translateMatrix;
 
 			instancingData_[numInstance_].world = worldMatrix;
-			instancingData_[numInstance_].wvp = Multiply(worldMatrix, viewProjectionMatrix);
+			instancingData_[numInstance_].wvp = worldMatrix * viewProjectionMatrix;
 
 			Vector4 color = ring.config.startColor;
 			// float easedT; // イージングを使うなら

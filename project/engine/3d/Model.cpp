@@ -5,13 +5,12 @@
 #include <cassert>
 #include <fstream>
 
-using namespace MatrixMath;
-
 void Model::Initialize(ModelCommon* modelCommon, const std::string& directorypath, const std::string& filename) {
 	modelCommon_ = modelCommon;
 	dxCommon_ = modelCommon_->GetDxCommon();
 
 	modelData_ = LoadModelFile(directorypath, filename);
+	animation_ = LoadAnimationFile(directorypath, filename);
 
 	CreateVertexData();
 	CreateMaterialData();
@@ -45,6 +44,51 @@ void Model::Draw() {
 
 	// 描画!(DrawCall/ドローコール)。
 	commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);
+}
+
+Animation Model::LoadAnimationFile(const std::string& directoryPath, const std::string& filename) {
+	Animation animation;
+	Assimp::Importer importer;
+	std::string filePath = directoryPath + "/" + filename;
+	const aiScene* scene = importer.ReadFile(filePath.c_str(), 0);
+	//assert(scene->mNumAnimations != 0); // アニメーションがない
+	if (!scene || scene->mNumAnimations == 0) {
+		animation.duration = 0.0f;
+		return animation;
+	}
+	aiAnimation* animationAssimp = scene->mAnimations[0]; // 最初のアニメーションだけ採用
+	animation.duration = float(animationAssimp->mDuration / animationAssimp->mTicksPerSecond); // 時間の単位を秒に変換
+
+	// assimpでは個々のNodeのAnimationをchannelと呼んでいるのでchannnelを回してNodeAnimationの情報をとってくる
+	for (uint32_t channelIndex = 0; channelIndex < animationAssimp->mNumChannels; ++channelIndex) {
+		aiNodeAnim* nodeAnimationAssimp = animationAssimp->mChannels[channelIndex];
+		NodeAnimation& nodeAnimation = animation.nodeAnimations[nodeAnimationAssimp->mNodeName.C_Str()];
+		// Position(Translate)の解析
+		for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumPositionKeys; ++keyIndex) {
+			aiVectorKey& keyAssimp = nodeAnimationAssimp->mPositionKeys[keyIndex];
+			KeyframeVector3 keyframe;
+			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond); // 秒に変換
+			keyframe.value = { -keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
+			nodeAnimation.translate.push_back(keyframe);
+		}
+		// Rotationの解析
+		for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumRotationKeys; ++keyIndex) {
+			aiQuatKey& keyAssimp = nodeAnimationAssimp->mRotationKeys[keyIndex];
+			KeyframeQuaternion keyframe;
+			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
+			keyframe.value = { keyAssimp.mValue.x,-keyAssimp.mValue.y,-keyAssimp.mValue.z, keyAssimp.mValue.w };
+			nodeAnimation.rotate.push_back(keyframe);
+		}
+		// Scaleの解析
+		for (uint32_t j = 0; j < nodeAnimationAssimp->mNumScalingKeys; ++j) {
+			aiVectorKey& keyAssimp = nodeAnimationAssimp->mScalingKeys[j];
+			KeyframeVector3 keyframe;
+			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
+			keyframe.value = { keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
+			nodeAnimation.scale.push_back(keyframe);
+		}
+	}
+	return animation;
 }
 
 Model::MaterialData Model::LoadMaterialTemplateFile(const std::string& directoryPath, const std::string& filename) {
@@ -142,7 +186,7 @@ void Model::CreateMaterialData() {
 	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	materialData_->enableLighting = false;
 	//materialData_->enableLighting = true;
-	materialData_->uvTransform = MakeIdentity4x4();
+	materialData_->uvTransform = Matrix4x4::Identity();
 	materialData_->shininess = 32.0f;
 }
 
