@@ -202,6 +202,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\effect\RingManager.cpp" />
     <ClCompile Include="application\Player.cpp" />
     <ClCompile Include="application\StageEdit.cpp" />
+    <ClCompile Include="application\Tongue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -270,6 +271,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\effect\RingManager.h" />
     <ClInclude Include="application\Player.h" />
     <ClInclude Include="application\StageEdit.h" />
+    <ClInclude Include="application\Tongue.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
