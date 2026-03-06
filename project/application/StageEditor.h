@@ -645,8 +645,10 @@ private:
         // オブジェクト数の表示
         ImGui::Text("Object Count: %d", (int)data_.objects.size());
         if (ImGui::Button("Save")) {
-            // Saveボタンが押されたら現在のステージデータを "stage.json" というファイル名で保存する
-            Save("stage.json");
+            // Saveボタンが押されたら現在のステージデータを resources フォルダ内の "stage.json" に保存する
+            // resources フォルダはプロジェクト内のリソース配置場所として利用
+            std::filesystem::create_directories("resources");
+            Save("resources/stage.json");
         }
 
         // Saveボタンと Loadボタンを同じ行に配置するために SameLine を呼び出す
@@ -654,8 +656,8 @@ private:
 
         // Loadボタンが押されたら "stage.json" というファイルからステージデータを読み込む
         if (ImGui::Button("Load")) {
-            // Load関数は成功・失敗に関わらずステージデータを更新する可能性があるため、ここでは戻り値をチェックせずに呼び出す
-            Load("stage.json");
+            // resources フォルダ内のステージファイルを読み込む
+            Load("resources/stage.json");
         }
 
         // 選択・編集パネル
