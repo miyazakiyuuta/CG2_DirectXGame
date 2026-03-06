@@ -8,7 +8,6 @@
 #include <numbers>
 #include <algorithm>
 
-using namespace MatrixMath;
 using namespace Logger;
 
 CylinderManager* CylinderManager::instance = nullptr;
@@ -31,7 +30,7 @@ void CylinderManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 	materialData_->color = { 1.0f,1.0f,1.0f,1.0f };
 	materialData_->enableLighting = 0;
-	materialData_->uvTransform = MakeIdentity4x4();
+	materialData_->uvTransform = Matrix4x4::Identity();
 
 	const UINT bufferSize = sizeof(InstanceData) * kNumMaxInstance;
 	instancingResource_ = dxCommon_->CreateBufferResource(bufferSize);
@@ -50,7 +49,7 @@ void CylinderManager::Update(float deltaTime) {
 	const Matrix4x4& view = camera_->GetViewMatrix();
 	const Matrix4x4& projection = camera_->GetProjectionMatrix();
 	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
-	Matrix4x4 viewProjectionMatrix = Multiply(view, projection);
+	Matrix4x4 viewProjectionMatrix = view * projection;
 
 	numInstance_ = 0;
 
@@ -64,13 +63,13 @@ void CylinderManager::Update(float deltaTime) {
 		if (numInstance_ < kNumMaxInstance) {
 			float t = std::clamp(cylinder.currentTime / cylinder.config.lifeTime, 0.0f, 1.0f);
 			float currentScale = std::lerp(cylinder.config.startScale, cylinder.config.endScale, t);
-			Matrix4x4  scaleMatrix = MakeScaleMatrix({ currentScale, currentScale, currentScale });
-			Matrix4x4 rotateMatrix = MakeRotateMatrix(cylinder.transform.rotate);
-			Matrix4x4 translateMatrix = MakeTranslateMatrix(cylinder.transform.translate);
-			Matrix4x4 worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+			Matrix4x4  scaleMatrix = Matrix4x4::Scale({ currentScale, currentScale, currentScale });
+			Matrix4x4 rotateMatrix = Matrix4x4::Rotate(cylinder.transform.rotate);
+			Matrix4x4 translateMatrix = Matrix4x4::Translate(cylinder.transform.translate);
+			Matrix4x4 worldMatrix = scaleMatrix * rotateMatrix * translateMatrix;
 
 			instancingData_[numInstance_].world = worldMatrix;
-			instancingData_[numInstance_].wvp = Multiply(worldMatrix, viewProjectionMatrix);
+			instancingData_[numInstance_].wvp = worldMatrix * viewProjectionMatrix;
 
 			Vector4 color = cylinder.config.startColor;
 			// float easedT; // イージングを使うなら
@@ -91,7 +90,7 @@ void CylinderManager::Update(float deltaTime) {
 	float scrollSpeedV = 1.0f;
 	uvOffsetU += scrollSpeedU * deltaTime;
 	uvOffsetV -= scrollSpeedV * deltaTime;
-	materialData_->uvTransform = MakeTranslateMatrix({ uvOffsetU,uvOffsetV,0.0f });
+	materialData_->uvTransform = Matrix4x4::Translate({ uvOffsetU,uvOffsetV,0.0f });
 
 	std::erase_if(cylinders_, [](const CylinderData& r) {
 		return r.currentTime >= r.config.lifeTime;

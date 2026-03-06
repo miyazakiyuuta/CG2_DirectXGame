@@ -1,10 +1,8 @@
-﻿#include "DebugCamera.h"
-
-using namespace MatrixMath;
+#include "DebugCamera.h"
 
 void DebugCamera::Initialize() {
     pivot_ = {};
-    matRot_ = MakeIdentity4x4();
+    matRot_ = Matrix4x4::Identity();
 	translation_ = { 0,0,-10 };
 }
 
@@ -16,10 +14,10 @@ void DebugCamera::Update(IDirectInputDevice8* keyboard, POINT mouseDelta, float 
     keyboard->GetDeviceState(sizeof(key), key);
 
     // 追加回転分の回転行列の生成
-    Matrix4x4 matRotDelta = MakeIdentity4x4();
+    Matrix4x4 matRotDelta = Matrix4x4::Identity();
     if (GetAsyncKeyState(VK_RBUTTON) & 0x8000) {
-        matRotDelta = Multiply(matRotDelta, MakeRotateXMatrix(mouseDelta.y * 0.005f));
-        matRotDelta = Multiply(matRotDelta, MakeRotateYMatrix(mouseDelta.x * 0.005f));
+        matRotDelta = matRotDelta * Matrix4x4::RotateX(mouseDelta.y * 0.005f);
+        matRotDelta = matRotDelta * Matrix4x4::RotateY(mouseDelta.x * 0.005f);
     }
 
     Vector3 camToPivot = {
@@ -28,7 +26,8 @@ void DebugCamera::Update(IDirectInputDevice8* keyboard, POINT mouseDelta, float 
         translation_.z - pivot_.z,
     };
 
-    camToPivot = TransformMatrix(camToPivot, matRotDelta);
+    //camToPivot = Matrix4x4::Transform(camToPivot, matRotDelta);
+    camToPivot = matRotDelta.Transform(camToPivot);
 
     translation_.x = pivot_.x + camToPivot.x;
     translation_.y = pivot_.y + camToPivot.y;
@@ -36,7 +35,7 @@ void DebugCamera::Update(IDirectInputDevice8* keyboard, POINT mouseDelta, float 
 
     // 累積の回転行列を合成
     //matRot_ = Multiply(matRotDelta, matRot_);
-    matRot_ = Multiply(matRot_, matRotDelta);
+    matRot_ = matRot_ * matRotDelta;
 
     const float panSpeed = 0.01f;
     if (GetAsyncKeyState(VK_MBUTTON) & 0x8000) {
@@ -46,7 +45,7 @@ void DebugCamera::Update(IDirectInputDevice8* keyboard, POINT mouseDelta, float 
              mouseDelta.y * panSpeed,   // 画面下にドラッグで上にパン
              0
         };
-        Vector3 panWorld = TransformMatrix(panLocal, matRot_);
+        Vector3 panWorld = matRot_.Transform(panLocal);
 
         // translation_ と pivot_ を一緒に動かす（ターゲットを中心に移動させる）
         translation_.x += panWorld.x;
@@ -61,15 +60,15 @@ void DebugCamera::Update(IDirectInputDevice8* keyboard, POINT mouseDelta, float 
     const float zoomSpeed = 1.0f;
     if (wheelDelta != 0) {
         // カメラローカル Z 軸（奥方向）をワールドに変換
-        Vector3 forward = TransformMatrix({ 0, 0, wheelDelta * zoomSpeed }, matRot_);
+        Vector3 forward = matRot_.Transform({ 0, 0, wheelDelta * zoomSpeed });
         translation_.x += forward.x;
         translation_.y += forward.y;
         translation_.z += forward.z;
     }
 
-    Matrix4x4 translateMatrix = MakeTranslateMatrix(translation_);
-    Matrix4x4 worldMatrix = Multiply(matRot_, translateMatrix);
-    viewMatrix_ = Inverse(worldMatrix);
+    Matrix4x4 translateMatrix = Matrix4x4::Translate(translation_);
+    Matrix4x4 worldMatrix = matRot_ * translateMatrix;
+    viewMatrix_ = worldMatrix.Inverse();
 
     //if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
     //    rotation_.x += mouseDelta.y * 0.001f; // 上下（pitch）

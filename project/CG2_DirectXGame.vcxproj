@@ -159,6 +159,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
     <ClCompile Include="application\Bug.cpp" />
     <ClCompile Include="application\BugBehavior.cpp" />
     <ClCompile Include="application\CameraController.cpp" />
@@ -224,11 +225,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="engine\3d\AnimationPlayer.h" />
+    <ClInclude Include="engine\3d\Animation.h" />
     <ClInclude Include="application\Bug.h" />
     <ClInclude Include="application\BugBehavior.h" />
     <ClInclude Include="application\CameraController.h" />
     <ClInclude Include="engine\effect\CylinderManager.h" />
     <ClInclude Include="engine\effect\ParticleConfig.h" />
+    <ClInclude Include="engine\math\mathFunction.h" />
+    <ClInclude Include="engine\math\Quaternion.h" />
     <ClInclude Include="engine\scene\AbstractSceneFactory.h" />
     <ClInclude Include="engine\scene\BaseScene.h" />
     <ClInclude Include="engine\3d\Camera.h" />
