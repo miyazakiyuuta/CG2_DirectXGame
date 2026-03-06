@@ -173,6 +173,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\scene\GamePlayScene.cpp" />
     <ClCompile Include="engine\base\ImGuiManager.cpp" />
     <ClCompile Include="engine\io\Input.cpp" />
+    <ClCompile Include="engine\utility\CollisionUtility.cpp" />
     <ClCompile Include="engine\utility\Logger.cpp" />
     <ClCompile Include="application\main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
@@ -252,6 +253,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Game.h" />
     <ClInclude Include="engine\base\ImGuiManager.h" />
     <ClInclude Include="engine\io\Input.h" />
+    <ClInclude Include="engine\utility\CollisionUtility.h" />
     <ClInclude Include="engine\utility\Logger.h" />
     <ClInclude Include="engine\3d\Model.h" />
     <ClInclude Include="engine\3d\ModelCommon.h" />
