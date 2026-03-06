@@ -20,7 +20,7 @@ class ParticleEmitter;
 class Sprite;
 class Player;
 class CameraController;
-class StageEdit;
+class StageEditor;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -52,7 +52,7 @@ private:
 
 	std::unique_ptr<Player> player_;
 	std::unique_ptr<CameraController> cameraController_;
-	std::unique_ptr<StageEdit> stageEdit_;
+	std::unique_ptr<StageEditor> stageEditor_;
 
 	PointLight pointLight_{};
 

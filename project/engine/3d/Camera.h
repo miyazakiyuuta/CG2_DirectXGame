@@ -32,6 +32,9 @@ public:
 	Vector3& GetTranslate() { return transform_.translate; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
 
+    // カメラの前方ベクトルを取得する（ワールド空間）
+    Vector3 GetForward() const;
+
 private:
 	struct CameraForGPU {
 		Vector3 worldPosition;

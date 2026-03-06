@@ -3,6 +3,7 @@
 #include "Model.h"
 #include "ModelManager.h"
 #include "Camera.h"
+#include "utility/Logger.h"
 
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
