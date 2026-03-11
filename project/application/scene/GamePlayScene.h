@@ -8,6 +8,7 @@
 
 #include "audio/SoundManager.h"
 #include "3d/Object3dCommon.h"
+#include "debug/debugSphere.h"
 
 class Camera;
 class ImGuiManager;
@@ -55,6 +56,8 @@ private:
 	std::vector<std::unique_ptr<Sprite>> sprites_;
 
 	std::unique_ptr<Sprite> testSprite_;
+
+	std::unique_ptr<DebugSphere> debugSphere_;
 
 };
 

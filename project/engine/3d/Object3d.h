@@ -5,10 +5,12 @@
 #include "math/Vector4.h"
 #include "math/Transform.h"
 #include "3d/AnimationPlayer.h"
+#include "3d/Skeleton.h"
 
 class Object3dCommon;
 class Model;
 class Camera;
+class DebugSphere;
 
 // 3Dオブジェクト
 class Object3d {
@@ -56,6 +58,7 @@ private: // メンバ関数
 
 	void CreateTransformationMatrixData();
 	void CreateDirectionalLightData();
+	void DrawDebugSkeleton();
 
 private: // メンバ変数
 
@@ -75,7 +78,11 @@ private: // メンバ変数
 
 	Model* model_ = nullptr;
 
-	AnimationPlayer* animationPlayer_ = nullptr;
+	std::unique_ptr<AnimationPlayer> animationPlayer_;
+	float animationTime_ = 0.0f;
+	Skeleton skeleton_;
+
+	std::unique_ptr<DebugSphere> debugSphere_;
 };
 
 
