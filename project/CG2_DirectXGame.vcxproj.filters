@@ -141,6 +141,12 @@
     <ClCompile Include="engine\3d\AnimationPlayer.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\3d\Skeleton.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\debug\debugSphere.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="application\Bug.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -299,6 +305,12 @@
     <ClInclude Include="engine\math\mathFunction.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="engine\3d\Skeleton.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\debug\debugSphere.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="application\Bug.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -342,11 +354,15 @@
     </None>
     <None Include="resources\shaders\Particle.hlsli" />
     <None Include="resources\shaders\Cylinder.hlsli" />
+    <None Include="resources\shaders\DebugSphere.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />
     <FxCompile Include="resources\shaders\Particle.PS.hlsl" />
     <FxCompile Include="resources\shaders\Cylinder.VS.hlsl" />
     <FxCompile Include="resources\shaders\Cylinder.PS.hlsl" />
+    <FxCompile Include="resources\shaders\DebugSphere.VS.hlsl" />
+    <FxCompile Include="resources\shaders\DebugSphere.PS.hlsl" />
+    <FxCompile Include="resources\shaders\SkinningObject3d.VS.hlsl" />
   </ItemGroup>
 </Project>

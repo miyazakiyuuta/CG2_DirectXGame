@@ -56,6 +56,8 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
 	ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
+	ModelManager::GetInstance()->LoadModel("human", "walk.gltf");
+	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
 	//ModelManager::GetInstance()->LoadModel("AnimatedCube/AnimatedCube.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
@@ -65,8 +67,7 @@ void GamePlayScene::Initialize() {
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	//object3d_->SetModel("plane.gltf");
-	object3d_->SetModel("AnimatedCube.gltf");
+	object3d_->SetModel("sneakWalk.gltf");
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetCamera(camera_.get());
@@ -167,6 +168,9 @@ void GamePlayScene::Initialize() {
 	bug_ = std::make_unique<Bug>();
 	bug_->Initialize(camera_.get());
 
+
+	debugSphere_ = std::make_unique<DebugSphere>();
+	debugSphere_->Initialize(DirectXCommon::GetInstance());
 }
 
 void GamePlayScene::Finalize() {
@@ -316,7 +320,8 @@ void GamePlayScene::Update() {
 
 void GamePlayScene::Draw() {
 	// 3Dオブジェクトの描画準備。3Dオブジェクトの描画に共通のグラフィックスコマンドを積む
-	Object3dCommon::GetInstance()->CommonDrawSetting();
+	//Object3dCommon::GetInstance()->CommonDrawSetting();
+	SrvManager::GetInstance()->PreDraw();
 
 	//object3d_->Draw();
 	player_->Draw();
@@ -344,6 +349,8 @@ void GamePlayScene::Draw() {
 	//testSprite_->Draw();
 
 	imGuiManager_->Draw();
+
+	//debugSphere_->Draw({}, 1.0f, { 1.0f,1.0f,1.0f,1.0f }, *camera_.get());
 }
 
 GamePlayScene::GamePlayScene() = default;
