@@ -263,6 +263,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::UpLoadTextureData(const Mi
 	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
 	commandList_->ResourceBarrier(1, &barrier);
+	ExecuteCommandListAndWait();
 	return intermediateResource;
 }
 
