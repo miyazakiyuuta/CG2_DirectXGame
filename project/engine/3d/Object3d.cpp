@@ -16,10 +16,6 @@ void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	
 	CreateTransformationMatrixData();
 	CreateDirectionalLightData();
-
-	animationPlayer_ = std::make_unique<AnimationPlayer>(); // コンストラクタを切り替えられるようにする
-	debugSphere_ = std::make_unique<DebugSphere>();
-	debugSphere_->Initialize(dxCommon_);
 }
 
 void Object3d::Update() {
@@ -83,12 +79,18 @@ void Object3d::SetModel(const std::string& filePath) {
 	model_ = ModelManager::GetInstance()->FindModel(filePath);
 	assert(model_ && "Model not found. filePath key mismatch.");
 
-	if (animationPlayer_) {
+	if (model_ && !model_->GetAnimation().nodeAnimations.empty()) {
+		if (!animationPlayer_) {
+			animationPlayer_ = std::make_unique<AnimationPlayer>();
+		}
 		animationPlayer_->SetAnimation(&model_->GetAnimation());
+
 		// モデルのNode階層からスケルトンを生成
 		skeleton_ = CreateSkeleton(model_->GetModelData().rootNode);
 
 		model_->CreateSkinCluster(skeleton_);
+	} else {
+		animationPlayer_.reset();
 	}
 }
 
@@ -138,5 +140,4 @@ void Object3d::DrawDebugSkeleton() {
 	}
 	float radius = 0.05f;
 	Vector4 color = { 0.0f,0.0f,0.0f,1.0f };
-	debugSphere_->Draw(jointPositions, radius, color, *camera_);
 }
