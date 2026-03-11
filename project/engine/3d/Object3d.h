@@ -19,6 +19,9 @@ public: // メンバ関数
 	void Update();
 	void Draw();
 
+	Object3d();
+	~Object3d();
+
 public:
 	// setter
 	void SetModel(const std::string& filePath);

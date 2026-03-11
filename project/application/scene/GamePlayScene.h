@@ -9,7 +9,6 @@
 #include "audio/SoundManager.h"
 #include "3d/Object3dCommon.h"
 #include "Bug.h" 
-#include "debug/debugSphere.h"
 
 
 class Camera;
@@ -68,10 +67,5 @@ private:
 
 	 // ★虫クラスのインスタンス（1匹分）
 	std::unique_ptr<Bug> bug_ = nullptr; 
-
-
-
-	std::unique_ptr<DebugSphere> debugSphere_;
-
 };
 

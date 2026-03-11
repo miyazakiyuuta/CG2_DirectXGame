@@ -73,6 +73,7 @@ void GamePlayScene::Initialize() {
 	object3d_->SetCamera(camera_.get());
 
 	player_ = std::make_unique<Player>();
+	//player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "sneakWalk.gltf", { 0.0f, 0.0f, 0.0f });
 	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", { 0.0f, 0.0f, 0.0f });
 	player_->SetGroundHeight(0.0f);
 
@@ -167,10 +168,6 @@ void GamePlayScene::Initialize() {
 	  // 虫の生成と初期化
 	bug_ = std::make_unique<Bug>();
 	bug_->Initialize(camera_.get());
-
-
-	debugSphere_ = std::make_unique<DebugSphere>();
-	debugSphere_->Initialize(DirectXCommon::GetInstance());
 }
 
 void GamePlayScene::Finalize() {
@@ -260,11 +257,11 @@ void GamePlayScene::Update() {
     if(!stageEditor_->IsEditMode()){
 		// いつもの更新
 		player_->Update(cameraController_->GetYaw());
-		cameraController_->Update(player_->GetPosition());
+		//cameraController_->Update(player_->GetPosition());
 
     } else{
         // StageEditor中はプレイヤー更新を止める
-        cameraController_->Update(player_->GetPosition());
+        //cameraController_->Update(player_->GetPosition());
 	}
 
 	imGuiManager_->End();
@@ -323,14 +320,14 @@ void GamePlayScene::Draw() {
 	//Object3dCommon::GetInstance()->CommonDrawSetting();
 	SrvManager::GetInstance()->PreDraw();
 
-	//object3d_->Draw();
+	object3d_->Draw();
 	player_->Draw();
 	stageEditor_->Draw();
 
 	// 虫の描画
 	bug_->Draw();
 
-	//monsterBall_->Draw();
+	monsterBall_->Draw();
 
 	//terrain_->Draw();
 
@@ -349,8 +346,6 @@ void GamePlayScene::Draw() {
 	//testSprite_->Draw();
 
 	imGuiManager_->Draw();
-
-	//debugSphere_->Draw({}, 1.0f, { 1.0f,1.0f,1.0f,1.0f }, *camera_.get());
 }
 
 GamePlayScene::GamePlayScene() = default;
