@@ -159,6 +159,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="engine\debug\DebugGrid.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
     <ClCompile Include="engine\3d\Skeleton.cpp" />
     <ClCompile Include="engine\debug\debugSphere.cpp" />
@@ -229,6 +230,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
     <ClInclude Include="engine\3d\Animation.h" />
     <ClInclude Include="engine\3d\Skeleton.h" />

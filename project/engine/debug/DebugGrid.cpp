@@ -1,42 +1,27 @@
-#include "debug/DebugSphere.h"
+#include "DebugGrid.h"
 
-#include <vector>
-#include <numbers>
-
-void DebugSphere::Initialize(DirectXCommon* dxCommon) {
-
+void DebugGrid::Initialize(DirectXCommon* dxCommon, float gridSize, uint32_t subdivision) {
 	dxCommon_ = dxCommon;
 	auto device = dxCommon_->GetDevice();
+	const float kGridSize = gridSize;
+	const int kSubdivision = subdivision;
+	const float kStep = kGridSize / kSubdivision;
 
-	// ジオメトリ生成
-	const uint32_t kSubdivision = 16; // 16分割
 	std::vector<Vertex> vertices;
-	for (uint32_t lat = 0; lat <= kSubdivision; ++lat) {
-		float theta = std::numbers::pi_v<float> * lat / kSubdivision;
-		for (uint32_t lon = 0; lon <= kSubdivision; ++lon) {
-			float phi = 2.0f * std::numbers::pi_v<float> *lon / kSubdivision;
-			Vertex v;
-			v.pos.x = std::sin(theta) * std::cos(phi);
-			v.pos.y = std::cos(theta);
-			v.pos.z = std::sin(theta) * std::sin(phi);
-			vertices.push_back(v);
-		}
+	// X軸方向の線(Z軸と平行な線)
+	for (int i = -kSubdivision; i <= (int)kSubdivision; ++i) {
+		float pos = i * kStep;
+		vertices.push_back({ Vector3{pos,0.0f,-kGridSize} }); // 始点
+		vertices.push_back({ Vector3{pos,0.0f,kGridSize} }); // 終点
 	}
-
-	// インデックス生成 (ワイヤーフレーム用 LineList)
-	std::vector<uint32_t> indices;
-	for (uint32_t lat = 0; lat < kSubdivision; ++lat) {
-		for (uint32_t lon = 0; lon < kSubdivision; ++lon) {
-			uint32_t start = lat * (kSubdivision + 1) + lon;
-			// 横の線
-			indices.push_back(start); indices.push_back(start + 1);
-			// 縦の線
-			indices.push_back(start); indices.push_back(start + (kSubdivision + 1));
-		}
+	// Z軸の方向の線(X軸と平行な線)
+	for (int i = -kSubdivision; i <= (int)kSubdivision; ++i) {
+		float pos = i * kStep;
+		vertices.push_back({ Vector3{-kGridSize,0.0f,pos} });
+		vertices.push_back({ Vector3{kGridSize,0.0f,pos} });
 	}
-	indexCount_ = static_cast<uint32_t>(indices.size());
+	vertexCount_ = static_cast<uint32_t>(vertices.size());
 
-	// バッファの生成 (DirectXCommon::CreateBufferResourceを利用)
 	vertexBufferResource_ = dxCommon_->CreateBufferResource(sizeof(Vertex) * vertices.size());
 	Vertex* vData = nullptr;
 	vertexBufferResource_->Map(0, nullptr, reinterpret_cast<void**>(&vData));
@@ -47,15 +32,11 @@ void DebugSphere::Initialize(DirectXCommon* dxCommon) {
 	vertexBufferView_.SizeInBytes = sizeof(Vertex) * (uint32_t)vertices.size();
 	vertexBufferView_.StrideInBytes = sizeof(Vertex);
 
-	indexBufferResource_ = dxCommon_->CreateBufferResource(sizeof(uint32_t) * indices.size());
-	uint32_t* iData = nullptr;
-	indexBufferResource_->Map(0, nullptr, reinterpret_cast<void**>(&iData));
-	std::memcpy(iData, indices.data(), sizeof(uint32_t) * indices.size());
-	indexBufferResource_->Unmap(0, nullptr);
+	const UINT cbSize = (sizeof(ConstBufferData) + 0xFF) & ~0xFF;
+	constantBufferResource_ = dxCommon_->CreateBufferResource(cbSize);
+	constantBufferResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedConstantData_));
 
-	indexBufferView_.BufferLocation = indexBufferResource_->GetGPUVirtualAddress();
-	indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
-	indexBufferView_.SizeInBytes = sizeof(uint32_t) * (uint32_t)indices.size();
+	/* RootSignature & PSO */
 
 	// RootSignatureの作成
 	D3D12_ROOT_PARAMETER rootParameters[1] = {};
@@ -108,35 +89,20 @@ void DebugSphere::Initialize(DirectXCommon* dxCommon) {
 	psoDesc.SampleDesc.Count = 1;
 
 	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pipelineState_));
-
-	// 定数バッファの生成 (256byteアラインメント)
-	const UINT cbSize = (sizeof(ConstBufferData) + 0xFF) & ~0xFF;
-	constantBufferResource_ = dxCommon_->CreateBufferResource(cbSize);
-	constantBufferResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedConstantData_));
-
 }
 
-void DebugSphere::Draw(const std::vector<Vector3>& centers, float radius, const Vector4& color, const Camera& camera) {
-	if (centers.empty())return;
-	
+void DebugGrid::Draw(const Camera& camera) {
 	auto commandList = dxCommon_->GetCommandList();
-	// 描画する個数(最大128個まで)
-	uint32_t instanceCount = static_cast<uint32_t>((std::min)((size_t)128, centers.size()));
 
-	for (uint32_t i = 0; i < instanceCount; ++i) {
-		Matrix4x4 matWorld = Matrix4x4::Scale({ radius,radius,radius }) * Matrix4x4::Translate(centers[i]);
-		mappedConstantData_->data[i].matWVP = matWorld * camera.GetViewProjectionMatrix();
-		mappedConstantData_->data[i].color = color;
-	}
+	mappedConstantData_->matWVP = camera.GetViewProjectionMatrix();
+	mappedConstantData_->color = { 0.5f,0.5f,0.5f,1.0f }; // グレー
 
 	commandList->SetPipelineState(pipelineState_.Get());
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
-	commandList->IASetIndexBuffer(&indexBufferView_);
 
-	// 定数バッファの転送とセット
 	commandList->SetGraphicsRootConstantBufferView(0, constantBufferResource_->GetGPUVirtualAddress());
 
-	commandList->DrawIndexedInstanced(indexCount_, instanceCount, 0, 0, 0);
+	commandList->DrawInstanced(vertexCount_, 1, 0, 0);
 }

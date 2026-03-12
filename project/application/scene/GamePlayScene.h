@@ -6,7 +6,6 @@
 #include <vector>
 #include <memory>
 
-#include "audio/SoundManager.h"
 #include "3d/Object3dCommon.h"
 #include "Bug.h" 
 
@@ -14,13 +13,12 @@
 class Camera;
 class ImGuiManager;
 class DebugCamera;
-
-class Object3d;
 class ParticleEmitter;
 class Sprite;
 class Player;
 class CameraController;
 class StageEditor;
+class DebugGrid;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -41,10 +39,6 @@ private:
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
-
-	SoundData se_;
-
-	std::unique_ptr<Object3d> object3d_;
 
 	std::unique_ptr<Object3d> monsterBall_;
 
@@ -67,5 +61,7 @@ private:
 
 	 // ★虫クラスのインスタンス（1匹分）
 	std::unique_ptr<Bug> bug_ = nullptr; 
+	std::unique_ptr<DebugGrid> debugGrid_;
+
 };
 

@@ -10,7 +10,6 @@
 class Object3dCommon;
 class Model;
 class Camera;
-class DebugSphere;
 
 // 3Dオブジェクト
 class Object3d {
@@ -84,8 +83,6 @@ private: // メンバ変数
 	std::unique_ptr<AnimationPlayer> animationPlayer_;
 	float animationTime_ = 0.0f;
 	Skeleton skeleton_;
-
-	std::unique_ptr<DebugSphere> debugSphere_;
 };
 
 
