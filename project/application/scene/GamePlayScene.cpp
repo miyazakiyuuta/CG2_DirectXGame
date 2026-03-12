@@ -14,7 +14,6 @@
 
 #include "2d/Sprite.h"
 #include "3d/Object3d.h"
-#include "effect/ParticleEmitter.h"
 #include "Player.h"
 #include "CameraController.h"
 #include "StageEditor.h"
@@ -78,11 +77,12 @@ void GamePlayScene::Initialize() {
     stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
     stageEditor_->Initialize("Cube.obj");
 
-	
-
 	  // 虫の生成と初期化
 	bug_ = std::make_unique<Bug>();
 	bug_->Initialize(camera_.get());
+
+	debugGrid_ = std::make_unique<DebugGrid>();
+	debugGrid_->Initialize(DirectXCommon::GetInstance());
 }
 
 void GamePlayScene::Finalize() {
