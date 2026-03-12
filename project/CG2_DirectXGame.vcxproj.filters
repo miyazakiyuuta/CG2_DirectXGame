@@ -144,7 +144,10 @@
     <ClCompile Include="engine\3d\Skeleton.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="engine\debug\debugSphere.cpp">
+    <ClCompile Include="engine\debug\DebugSphere.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\debug\DebugGrid.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -287,7 +290,10 @@
     <ClInclude Include="engine\3d\Skeleton.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="engine\debug\debugSphere.h">
+    <ClInclude Include="engine\debug\DebugSphere.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\debug\DebugGrid.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
