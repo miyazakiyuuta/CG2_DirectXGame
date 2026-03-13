@@ -115,11 +115,11 @@ void GamePlayScene::Update() {
     if(!stageEditor_->IsEditMode()){
 		// いつもの更新
 		player_->Update(cameraController_->GetYaw());
-		//cameraController_->Update(player_->GetPosition());
+		cameraController_->Update(player_->GetPosition());
 
     } else{
         // StageEditor中はプレイヤー更新を止める
-        //cameraController_->Update(player_->GetPosition());
+        cameraController_->Update(player_->GetPosition());
 	}
 
 	imGuiManager_->End();
