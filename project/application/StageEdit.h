@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "math/Vector3.h"
+#include "utility/CollisionUtility.h"
 
 class Camera;
 class Object3d;
@@ -32,6 +33,9 @@ public:
 	// 必要なら外から参照
 	size_t GetBlockCount() const{ return blocks_.size(); }
 
+	// 生成済みブロックを AABB 群として取得
+	std::vector<CollisionUtility::AABB> GetBlockAABBs() const;
+
 private:
 	void DrawImGui();
 	void CreateSingleBlock(const Vector3& position);
@@ -57,4 +61,10 @@ private:
 
 	// まとめて少し上に置きたい時用
 	float yOffset_ = 0.0f;
+
+	// Cube.obj を 1辺 1.0 とみなす
+	Vector3 blockHalfSize_ = { 1.0f, 1.0f, 1.0f };
 };
+
+// 既存コードが StageEditor 名を使っていても通しやすくするための別名
+using StageEditor = StageEdit;

@@ -464,6 +464,9 @@ public:
         // Object3dCommon と Camera を StageLoader に渡して初期化
         object3dCommon_ = objCommon;
         camera_ = camera;
+        // デフォルトモデルのバッファを初期化しておく（コンストラクタ時点で表示されるように）
+        strcpy_s(defaultModelBuf_, sizeof(defaultModelBuf_), defaultModel_.c_str());
+        strcpy_s(batchModelBuf_, sizeof(batchModelBuf_), defaultModel_.c_str());
     }
 
     /// <summary>
@@ -475,6 +478,8 @@ public:
         // defaultModelBuf_ に初期文字列をコピー（安全な strcpy_s を使用）
         strcpy_s(defaultModelBuf_, sizeof(defaultModelBuf_), defaultModel_.c_str());
         data_.name = "stage"; // ステージ名の初期値を設定
+        // 初期状態を履歴に保存
+        SaveHistorySnapshot();
     }
 
     /// <summary>
@@ -492,11 +497,13 @@ public:
                 // デフォルトモデルを設定
                 o.modelName = defaultModel_;
                 // カメラ前方に配置
-                o.position = controller_.GetCreatePosition();
+                o.position = GetCreateOrigin();
                 // 回転はゼロ、拡縮は等倍のまま
                 data_.objects.push_back(o);
                 // 変更を反映してオブジェクトを再生成
                 loader_.UpdateOrCreateInstance(o);
+                // 履歴に保存
+                SaveHistorySnapshot();
             }
 
             // 削除処理（Deleteキーで最後に生成したオブジェクトを削除）
@@ -508,6 +515,8 @@ public:
                     data_.objects.pop_back();
                     // 削除インスタンスのみ破棄
                     loader_.RemoveInstanceById(removed.id);
+                    // 履歴に保存
+                    SaveHistorySnapshot();
                 }
             }
         }
@@ -574,6 +583,9 @@ public:
         // 読み込んだデータを元にオブジェクトを生成
         loader_.CreateFromData(data_);
 
+        // 履歴に保存
+        SaveHistorySnapshot();
+
         // 読み込み成功
         return true;
     }
@@ -587,6 +599,10 @@ public:
         data_.objects.clear();
         // オブジェクト管理クラスのインスタンスもすべて破棄してクリアする
         loader_.Clear();
+        // nextId をリセット
+        nextId_ = 1;
+        // 履歴に保存
+        SaveHistorySnapshot();
     }
 
     /// <summary>
@@ -595,6 +611,94 @@ public:
     StageData& GetStageData() { return data_; }
 
 private:
+    // Object3dCommon と Camera への参照（StageLoader にも渡す）
+    struct Snapshot {
+        StageData data;
+        int nextId = 1;
+    };
+
+    // 履歴（線形履歴）と現在の履歴インデックス
+    std::vector<Snapshot> history_;
+    int historyIndex_ = -1;
+
+    /// <summary>
+    /// 現在のステージデータのスナップショットを履歴に保存する関数
+    /// </summary>
+    void SaveHistorySnapshot()
+    {
+        // もし現在位置以降に履歴が存在するならそれを破棄（新しい分岐）
+        if (historyIndex_ + 1 < (int)history_.size()) {
+            history_.erase(history_.begin() + historyIndex_ + 1, history_.end());
+        }
+
+        Snapshot s;
+        s.data = data_;
+        s.nextId = nextId_;
+        history_.push_back(std::move(s));
+        historyIndex_ = (int)history_.size() - 1;
+    }
+
+    /// <summary>
+    /// 生成基準点を取得する関数
+    /// </summary>
+    Vector3 GetCreateOrigin() const
+    {
+        Vector3 base;
+        switch (createReferenceIndex_) {
+        case 0: // Camera Forward
+            base = controller_.GetCreatePosition();
+            break;
+        case 1: // World Origin
+            base = Vector3{0.0f, 0.0f, 0.0f};
+            break;
+        case 2: // Selected Object
+        {
+            if (selectedObjectId_ != -1) {
+                for (const auto& o : data_.objects) {
+                    if (o.id == selectedObjectId_) { base = o.position; break; }
+                }
+            } else {
+                base = Vector3{0.0f, 0.0f, 0.0f};
+            }
+        }
+        break;
+        case 3: // Custom
+        default:
+            base = createOrigin_;
+            break;
+        }
+
+        return base + createOffset_;
+    }
+
+    /// <summary>
+    /// 一つ戻る
+    /// </summary>
+    void Undo()
+    {
+        if (historyIndex_ <= 0) return;
+        --historyIndex_;
+        const auto& s = history_[historyIndex_];
+        data_ = s.data;
+        nextId_ = s.nextId;
+        loader_.CreateFromData(data_);
+        selectedObjectId_ = -1;
+    }
+
+    /// <summary>
+    /// 一つ進む
+    /// </summary>
+    void Redo()
+    {
+        if (historyIndex_ + 1 >= (int)history_.size()) return;
+        ++historyIndex_;
+        const auto& s = history_[historyIndex_];
+        data_ = s.data;
+        nextId_ = s.nextId;
+        loader_.CreateFromData(data_);
+        selectedObjectId_ = -1;
+    }
+
     /// <summary>
     /// ImGuiを使用して編集モードのUIを描画する関数
     /// </summary>
@@ -618,9 +722,42 @@ private:
             Clear();
         }
 
+        // Live Edit トグルを編集モードボタンと同じ行に配置
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Live Edit", &liveEdit_)) {
+            // Live Edit を有効にした場合は、選択中のオブジェクトに現在の編集バッファを即時適用する
+            if (liveEdit_ && selectedObjectId_ != -1) {
+                loader_.UpdateInstanceTransform(selectedObjectId_, editPosition_, editRotation_, editScale_);
+                for (auto& obj : data_.objects) {
+                    if (obj.id == selectedObjectId_) {
+                        obj.position = editPosition_;
+                        obj.rotation = editRotation_;
+                        obj.scale = editScale_;
+                        break;
+                    }
+                }
+            }
+        }
+
         // 区切り線を描画してUIを整理する
         ImGui::Separator();
 
+        // 生成関連のUI
+        ImGui::Text("Create Origin");
+        const char* refs[] = { "Camera Forward", "World Origin", "Selected Object", "Custom" };
+        ImGui::Combo("Reference", &createReferenceIndex_, refs, IM_ARRAYSIZE(refs));
+        ImGui::SameLine();
+        if (ImGui::Button("Set To Camera")) {
+            // カメラ前方を生成基準点に設定するボタンが押されたら、現在のカメラ前方位置を createOrigin_ にセットして、参照タイプを Custom に切り替える
+            createOrigin_ = controller_.GetCreatePosition();
+            createReferenceIndex_ = 3; // Custom に切り替える
+        }
+        ImGui::DragFloat3("Origin Pos", &createOrigin_.x, 0.1f);
+        ImGui::DragFloat3("Create Offset", &createOffset_.x, 0.1f);
+        
+        // 区切り線を描画してUIを整理する
+        ImGui::Separator();
+        
         // デフォルトモデル名の編集（安全な固定長バッファを使用）
         if (ImGui::InputText("Default Model", defaultModelBuf_, sizeof(defaultModelBuf_))) {
             // 変更があった場合のみ std::string に反映
@@ -633,9 +770,11 @@ private:
             StageObject o;
             o.id = nextId_++;
             o.modelName = defaultModel_;
-            o.position = controller_.GetCreatePosition();
+            o.position = GetCreateOrigin();
             data_.objects.push_back(o);
             loader_.UpdateOrCreateInstance(o);
+            // 履歴に保存
+            SaveHistorySnapshot();
         }
 
         // ヘルプ表示
@@ -660,6 +799,75 @@ private:
             Load("resources/stage.json");
         }
 
+        // Undo / Redo ボタン
+        ImGui::SameLine();
+        if (ImGui::Button("Undo")) {
+            if (historyIndex_ > 0) {
+                Undo();
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Redo")) {
+            if (historyIndex_ + 1 < (int)history_.size()) {
+                Redo();
+            }
+        }
+
+        // バッチ生成セクション
+        ImGui::Separator();
+        ImGui::Text("Batch Create");
+        ImGui::InputText("Model for Batch", batchModelBuf_, sizeof(batchModelBuf_));
+        ImGui::InputInt("Count A", &batchCountA_);
+        ImGui::InputInt("Count B", &batchCountB_);
+        ImGui::InputFloat("Spacing", &batchSpacing_);
+        const char* axes[] = {"X","Y(floor)","Z"};
+        ImGui::Combo("Normal Axis", &batchNormalIndex_, axes, IM_ARRAYSIZE(axes));
+        ImGui::TextWrapped("Normal Axis selects the axis that is treated as the 'up' direction for the grid. For floor use Y.");
+        
+        if (ImGui::Button("Batch Create")) {
+            // バッチ生成のパラメータを検証して最低値を設定
+            if (batchCountA_ < 1) batchCountA_ = 1;
+            if (batchCountB_ < 1) batchCountB_ = 1;
+            std::string model(batchModelBuf_);
+            // 生成の基準点を取得
+            Vector3 origin = GetCreateOrigin();
+
+            // バッチ生成の方向を決定するためのベクトルを設定
+            Vector3 dirA, dirB;
+            if (batchNormalIndex_ == 0) { // normal X -> grid on YZ
+                dirA = Vector3{0.0f, 0.0f, 1.0f}; // Z
+                dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+            } else if (batchNormalIndex_ == 1) { // normal Y (floor) -> grid on XZ
+                dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
+                dirB = Vector3{0.0f, 0.0f, 1.0f}; // Z
+            } else { // normal Z -> grid on XY
+                dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
+                dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+            }
+
+            // バッチの中心を基準点にするために、半分のオフセットを計算
+            float halfA = (batchCountA_ - 1) * 0.5f * batchSpacing_;
+            float halfB = (batchCountB_ - 1) * 0.5f * batchSpacing_;
+
+            
+            // 二重ループでバッチ生成
+            for (int ia = 0; ia < batchCountA_; ++ia) {
+                for (int ib = 0; ib < batchCountB_; ++ib) {
+                    Vector3 pos = origin + dirA * ((ia * batchSpacing_) - halfA) + dirB * ((ib * batchSpacing_) - halfB);
+                    StageObject o;
+                    o.id = nextId_++;
+                    o.modelName = model;
+                    o.position = pos;
+                    data_.objects.push_back(o);
+                    loader_.UpdateOrCreateInstance(o);
+                }
+            }
+
+            // 履歴に保存
+            SaveHistorySnapshot();
+        }
+
         // 選択・編集パネル
         ImGui::Separator();
         ImGui::Text("Selection");
@@ -676,6 +884,8 @@ private:
                 editPosition_ = o.position;
                 editRotation_ = o.rotation;
                 editScale_ = o.scale;
+                // モデル名バッファに現在のモデル名をコピー
+                strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
             }
         }
         ImGui::EndChild();
@@ -683,11 +893,50 @@ private:
         if (selectedObjectId_ == -1) {
             ImGui::Text("No object selected");
         } else {
+            // 選択されたオブジェクトのIDを表示
             ImGui::Text("Selected ID: %d", selectedObjectId_);
             // 編集バッファを表示・編集
-            ImGui::DragFloat3("Position", &editPosition_.x, 0.1f);
-            ImGui::DragFloat3("Rotation", &editRotation_.x, 0.01f);
-            ImGui::DragFloat3("Scale", &editScale_.x, 0.01f, 0.01f, 100.0f);
+
+            // 位置は0.01単位で編集可能にする
+            if (ImGui::DragFloat3("Position", &editPosition_.x, 0.1f)) {
+                if (liveEdit_) {
+                    loader_.UpdateInstanceTransform(selectedObjectId_, editPosition_, editRotation_, editScale_);
+                    for (auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
+                            obj.position = editPosition_;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 回転は0.01のステップで編集可能にする
+            if (ImGui::DragFloat3("Rotation", &editRotation_.x, 0.01f)) {
+                if (liveEdit_) {
+                    loader_.UpdateInstanceTransform(selectedObjectId_, editPosition_, editRotation_, editScale_);
+                    for (auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
+                            obj.rotation = editRotation_;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 拡縮率は0.01～100の範囲で編集可能にする
+            if (ImGui::DragFloat3("Scale", &editScale_.x, 0.01f, 0.01f, 100.0f)) {
+                if (liveEdit_) {
+                    loader_.UpdateInstanceTransform(selectedObjectId_, editPosition_, editRotation_, editScale_);
+                    for (auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
+                            obj.scale = editScale_;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 編集内容を反映するボタン
             if (ImGui::Button("Apply Transform")) {
                 // 編集内容を反映
                 loader_.UpdateInstanceTransform(selectedObjectId_, editPosition_, editRotation_, editScale_);
@@ -700,14 +949,48 @@ private:
                         break;
                     }
                 }
+
+                // 履歴に保存
+                SaveHistorySnapshot();
             }
+
             ImGui::SameLine();
+
+            // 選択オブジェクトの削除ボタン
             if (ImGui::Button("Delete Selected")) {
                 // データ削除
                 data_.objects.erase(std::remove_if(data_.objects.begin(), data_.objects.end(), [this](const StageObject& o) { return o.id == selectedObjectId_; }), data_.objects.end());
                 // インスタンス削除
                 loader_.RemoveInstanceById(selectedObjectId_);
                 selectedObjectId_ = -1;
+                // clear selected model buffer
+                selectedModelBuf_[0] = '\0';
+                // 履歴に保存
+                SaveHistorySnapshot();
+            }
+
+            // モデル名の編集
+            ImGui::Separator();
+            ImGui::Text("Model");
+            // モデル名の編集用テキスト入力（安全な固定長バッファを使用）
+            if (ImGui::InputText("Model Path", selectedModelBuf_, sizeof(selectedModelBuf_))) {
+                // 変更があった場合は即時反映（Live Edit と同様の挙動）
+            }
+
+            // モデル名の変更を反映するボタン
+            if (ImGui::Button("Apply Model")) {
+                // モデル名の変更を反映
+                for (auto& obj : data_.objects) {
+                    if (obj.id == selectedObjectId_) {
+                        obj.modelName = std::string(selectedModelBuf_);
+                        // インスタンスも更新
+                        loader_.UpdateOrCreateInstance(obj);
+                        break;
+                    }
+                }
+
+                // 履歴に保存
+                SaveHistorySnapshot();
             }
         }
 
@@ -740,14 +1023,33 @@ private:
     std::string defaultModel_ = "Cube.obj"; // デフォルトモデル名
     // ImGui 用固定長バッファ: std::string の内部バッファを直接渡さない安全な実装
     char defaultModelBuf_[256] = {};
+    // バッチ生成用モデルバッファ
+    char batchModelBuf_[256] = {};
+
+    // バッチ生成設定
+    int batchCountA_ = 3; // 横方向の数
+    int batchCountB_ = 3; // 縦方向の数
+    float batchSpacing_ = 2.0f; // 間隔
+    int batchNormalIndex_ = 1; // 0=X,1=Y(floor),2=Z
 
     // 次に付与するID
     int nextId_ = 1;
 
+    // カメラ前方以外の位置を生成原点にする場合のカスタム原点
+    Vector3 createOrigin_ {0.0f, 0.0f, 5.0f};
+    // 生成原点の参照選択（0=カメラ前方、1=ワールド原点、2=選択オブジェクト、3=カスタム）
+    int createReferenceIndex_ = 1;
+    // 生成位置に加算するオフセット
+    Vector3 createOffset_ {0.0f, 0.0f, 0.0f};
+
     // 編集モード状態
     bool isEditMode_ = false;
+    // リアルタイム編集フラグ（Apply Transform を押さなくても即時反映）
+    bool liveEdit_ = true;
     // 現在選択中のオブジェクトID（編集用）
     int selectedObjectId_ = -1;
+    // 選択中オブジェクトのモデル編集用バッファ
+    char selectedModelBuf_[256] = {};
     // 選択中オブジェクトの編集用ワークバッファ
     Vector3 editPosition_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式
     Vector3 editRotation_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式

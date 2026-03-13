@@ -82,6 +82,28 @@ void StageEdit::CreateBlockRange(const Vector3& minPos, const Vector3& maxPos, c
 	}
 }
 
+std::vector<CollisionUtility::AABB> StageEdit::GetBlockAABBs() const{
+	std::vector<CollisionUtility::AABB> result;
+	result.reserve(blocks_.size());
+
+	for(const auto& block : blocks_){
+		CollisionUtility::AABB aabb;
+		aabb.min = {
+			block.position.x - blockHalfSize_.x,
+			block.position.y - blockHalfSize_.y,
+			block.position.z - blockHalfSize_.z
+		};
+		aabb.max = {
+			block.position.x + blockHalfSize_.x,
+			block.position.y + blockHalfSize_.y,
+			block.position.z + blockHalfSize_.z
+		};
+		result.push_back(aabb);
+	}
+
+	return result;
+}
+
 void StageEdit::DrawImGui(){
 	ImGui::Begin("StageEdit");
 

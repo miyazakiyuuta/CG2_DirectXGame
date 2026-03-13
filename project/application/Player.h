@@ -3,16 +3,26 @@
 #define NOMINMAX
 #include <memory>
 #include <string>
+#include <vector>
+
 #include "3d/Object3d.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include "Tongue.h"
+#include "utility/CollisionUtility.h"
 
 class Camera;
 class Object3dCommon;
 class CameraController;
 
 class Player{
+
+	enum class MovementState{
+		Root,
+		Jumping,
+		WallClinging
+	};
+
 public:
 	Player() = default;
 	~Player();
@@ -26,6 +36,7 @@ public:
 
 	void Update(float cameraYaw);
 	void Draw();
+	void DrawImGui();
 
 	void SetCamera(Camera* camera);
 	void SetPosition(const Vector3& position);
@@ -34,6 +45,10 @@ public:
 
 	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
 	bool IsOnGround() const{ return isOnGround_; }
+
+	void SetBlockColliders(const std::vector<CollisionUtility::AABB>* blockColliders){
+		blockColliders_ = blockColliders;
+	}
 
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
@@ -52,12 +67,19 @@ private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
 	void ApplyGravity();
-	void UpdateDebugImGui();
 
 	int GetCurrentChargeLevel() const;
 	int GetAllowedChargeLevel() const;
 	void ExecuteChargedJump(int chargeLevel);
 	void CancelJumpCharge();
+
+	void UpdateWallClinging(float cameraYaw);
+	void TransitionTo(MovementState nextState);
+	const char* GetMovementStateName() const;
+
+	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
+	void ResolveHorizontalCollisions(const Vector3& previousPosition);
+	void ResolveVerticalCollisions(const Vector3& previousPosition);
 
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
@@ -90,4 +112,18 @@ private:
 	static constexpr int kMaxChargeLevel_ = 3;
 
 	std::unique_ptr<Tongue> tongue_ = nullptr;
+
+	MovementState moveState_ = MovementState::Root;
+
+	float wallClingGauge_ = 100.0f;
+	float maxWallClingGauge_ = 100.0f;
+	float wallClingConsumption_ = 0.5f;
+	float wallMoveSpeed_ = 0.05f;
+
+	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
+
+	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
+
+	// Cube プレイヤー前提
+	Vector3 colliderHalfSize_ = { 1.0f, 1.0f, 1.0f };
 };

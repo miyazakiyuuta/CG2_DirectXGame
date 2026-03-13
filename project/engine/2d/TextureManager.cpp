@@ -55,9 +55,6 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
 
-	// ここで今積んでいるコピーコマンドを実行して完了待ち
-	dxCommon_->ExecuteCommandListAndWait();
-
 	srvManager_->CreateSRVForTexture2D(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
 

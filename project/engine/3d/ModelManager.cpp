@@ -35,6 +35,20 @@ void ModelManager::LoadModel(const std::string& filePath) {
 	models_.insert(std::make_pair(filePath, std::move(model)));
 }
 
+void ModelManager::LoadModel(const std::string& directoryPath, const std::string& filePath) {
+	if (models_.contains(filePath)) {
+		return;
+	}
+
+	std::string fullDirectoryPath = "resources/" + directoryPath;
+
+	std::unique_ptr<Model> model = std::make_unique<Model>();
+	model->Initialize(modelCommon_.get(), fullDirectoryPath, filePath);
+
+	// モデルをmapコンテナに収納する
+	models_.insert(std::make_pair(filePath, std::move(model)));
+}
+
 Model* ModelManager::FindModel(const std::string& filePath) {
 	// 読み込み済みモデルを検索
 	if (models_.contains(filePath)) {

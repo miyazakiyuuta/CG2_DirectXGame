@@ -6,8 +6,8 @@ class AnimationPlayer {
 public:
 	void Update(float deltaTime, const std::string& nodeName);
 
-	Vector3 CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time);
-	Quaternion CalculateValue(const std::vector<KeyframeQuaternion>& keyframes, float time);
+	static Vector3 CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time);
+	static Quaternion CalculateValue(const std::vector<KeyframeQuaternion>& keyframes, float time);
 
 	void SetAnimation(const Animation* animation) { animation_ = animation; }
 

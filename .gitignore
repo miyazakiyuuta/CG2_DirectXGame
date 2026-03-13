@@ -322,3 +322,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 project/logs/
+
+imgui.ini

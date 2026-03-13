@@ -34,6 +34,7 @@ public: // メンバ関数
 	void Initialize(DirectXCommon* dxCommon);
 	// 共通描画設定 (PreDraw)
 	void CommonDrawSetting();
+	void SkinningDrawSetting();
 
 public:
 	// setter
@@ -49,8 +50,10 @@ public:
 private:
 	// ルートシグネチャの作成
 	void CreateRootSignature();
+	void CreateSkinningRootSignature();
 	// グラフィクスパイプラインの生成
 	void CreateGraphicsPipelineState();
+	void CreateSkinningGraphicsPipelineState();
 
 	void InitializePointLight();
 
@@ -63,6 +66,9 @@ private: // メンバ変数
 	DirectXCommon* dxCommon_;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> skinningRootSignature_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> skinningPipelineState_ = nullptr;
 
 	Camera* defaultCamera_ = nullptr;
 
