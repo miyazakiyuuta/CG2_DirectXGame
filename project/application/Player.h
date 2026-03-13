@@ -13,6 +13,14 @@ class Object3dCommon;
 class CameraController;
 
 class Player{
+
+	enum class MovementState{
+		Root,         // 接地（移動・チャージ可）
+		Jumping,      // 空中
+		WallClinging  // 壁張り付き
+	};
+
+
 public:
 	Player() = default;
 	~Player();
@@ -59,6 +67,9 @@ private:
 	void ExecuteChargedJump(int chargeLevel);
 	void CancelJumpCharge();
 
+	void UpdateWallClinging(float cameraYaw);
+	void TransitionTo(MovementState nextState);
+	const char* GetMovementStateName() const;
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -90,4 +101,14 @@ private:
 	static constexpr int kMaxChargeLevel_ = 3;
 
 	std::unique_ptr<Tongue> tongue_ = nullptr;
+
+	MovementState moveState_ = MovementState::Root;
+
+	float wallClingGauge_ = 100.0f;       // 壁張り付きゲージ
+	float maxWallClingGauge_ = 100.0f;    // 最大値
+	float wallClingConsumption_ = 0.5f;   // 消費速度
+	float wallMoveSpeed_ = 0.05f;         // 壁移動速度
+
+	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f }; // 壁上での左右移動軸
+	// 上下は Vector3(0, 1, 0) で固定
 };
