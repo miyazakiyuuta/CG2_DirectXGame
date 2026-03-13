@@ -103,6 +103,8 @@ void GamePlayScene::Update() {
 		ImGui::DragFloat3("rotate", &rotate.x, 0.01f);
 		ImGui::TreePop();
 	}
+	player_->DrawImGui();
+	cameraController_->DrawImGui();
 
 	ImGui::End();
 

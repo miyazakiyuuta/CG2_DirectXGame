@@ -101,7 +101,6 @@ void Player::Update(float cameraYaw){
 	}
 
 	object_->Update();
-	UpdateDebugImGui();
 }
 
 void Player::Draw(){
@@ -313,139 +312,141 @@ void Player::TransitionTo(MovementState nextState){
 	}
 }
 
-void Player::UpdateDebugImGui(){
-	ImGui::Begin("Player Position");
+void Player::DrawImGui(){
+	if(ImGui::TreeNode("Player")){
 
-	Vector3 position = GetPosition();
+		Vector3 position = GetPosition();
 
-	ImGui::Text("World Position");
-	ImGui::Separator();
-	ImGui::Text("X : %.3f", position.x);
-	ImGui::Text("Y : %.3f", position.y);
-	ImGui::Text("Z : %.3f", position.z);
+		ImGui::Text("World Position");
+		ImGui::Separator();
+		ImGui::Text("X : %.3f", position.x);
+		ImGui::Text("Y : %.3f", position.y);
+		ImGui::Text("Z : %.3f", position.z);
 
-	ImGui::Separator();
-	ImGui::Text("Velocity");
-	ImGui::Text("VX : %.3f", velocity_.x);
-	ImGui::Text("VY : %.3f", velocity_.y);
-	ImGui::Text("VZ : %.3f", velocity_.z);
+		ImGui::Separator();
+		ImGui::Text("Velocity");
+		ImGui::Text("VX : %.3f", velocity_.x);
+		ImGui::Text("VY : %.3f", velocity_.y);
+		ImGui::Text("VZ : %.3f", velocity_.z);
 
-	ImGui::Separator();
-	ImGui::Text("OnGround : %s", isOnGround_ ? "true" : "false");
+		ImGui::Separator();
+		ImGui::Text("OnGround : %s", isOnGround_ ? "true" : "false");
 
-	ImGui::End();
+		ImGui::Separator();
 
-	ImGui::Begin("Player State");
+		if(ImGui::TreeNode("State")){
+			ImGui::Text("Current State : %s", GetMovementStateName());
+			ImGui::Separator();
 
-	ImGui::Text("Current State : %s", GetMovementStateName());
-	ImGui::Separator();
+			if(ImGui::Button("To Root")){
+				TransitionTo(MovementState::Root);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("To Jumping")){
+				TransitionTo(MovementState::Jumping);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("To WallClinging")){
+				TransitionTo(MovementState::WallClinging);
+			}
 
-	if(ImGui::Button("To Root")){
-		TransitionTo(MovementState::Root);
-	}
-	ImGui::SameLine();
-	if(ImGui::Button("To Jumping")){
-		TransitionTo(MovementState::Jumping);
-	}
-	ImGui::SameLine();
-	if(ImGui::Button("To WallClinging")){
-		TransitionTo(MovementState::WallClinging);
-	}
+			ImGui::Separator();
+			ImGui::Text("Wall Gauge");
+			ImGui::ProgressBar(
+				maxWallClingGauge_ > 0.0f ? (wallClingGauge_ / maxWallClingGauge_) : 0.0f,
+				ImVec2(240.0f, 22.0f)
+			);
+			ImGui::Text("%.1f / %.1f", wallClingGauge_, maxWallClingGauge_);
 
-	ImGui::Separator();
-	ImGui::Text("Wall Gauge");
-	ImGui::ProgressBar(
-		maxWallClingGauge_ > 0.0f ? (wallClingGauge_ / maxWallClingGauge_) : 0.0f,
-		ImVec2(240.0f, 22.0f)
-	);
-	ImGui::Text("%.1f / %.1f", wallClingGauge_, maxWallClingGauge_);
-
-	ImGui::End();
-
-	ImGui::Begin("Player Jump");
-
-	ImGui::Text("Space : Hold to Charge Jump");
-	ImGui::Separator();
-
-	int stock = GetChargeStock();
-	int phase = GetCurrentChargePhase();
-	float phaseRate = GetCurrentChargePhaseRate();
-	int visibleLevel = GetCurrentVisibleChargeLevel();
-
-	ImGui::Text("Charge Stock : %d", stock);
-	ImGui::Text("Current Level : %d", visibleLevel);
-
-	int editableStock = stock;
-	if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
-		SetChargeStock(editableStock);
-		stock = editableStock;
-	}
-
-	if(ImGui::Button("+1 Stock")){
-		AddChargeStock(1);
-	}
-	ImGui::SameLine();
-	if(ImGui::Button("-1 Stock")){
-		AddChargeStock(-1);
-	}
-	ImGui::SameLine();
-	if(ImGui::Button("Max Stock")){
-		SetChargeStock(kMaxChargeLevel_);
-	}
-
-	ImGui::Separator();
-
-	if(stock <= 0){
-		ImGui::Text("Phase : Normal Jump Only");
-	} else{
-		if(IsChargeAtMaxPhase()){
-			ImGui::Text("Phase : MAX (%d / %d)", visibleLevel, stock);
-		} else{
-			ImGui::Text("Phase : %d / %d", phase + 1, stock);
+			ImGui::TreePop();
 		}
+		ImGui::TreePop();
 	}
 
-	ImGui::ProgressBar(phaseRate, ImVec2(240.0f, 22.0f));
-	ImGui::Text("Phase Charge : %d%%", static_cast<int>(phaseRate * 100.0f));
+	if(ImGui::TreeNode("Player Jump")){
 
-	if(IsChargeAtMaxPhase()){
-		ImGui::Text("Holding too long will cancel jump");
-	}
+		ImGui::Text("Space : Hold to Charge Jump");
+		ImGui::Separator();
 
-	ImGui::End();
+		int stock = GetChargeStock();
+		int phase = GetCurrentChargePhase();
+		float phaseRate = GetCurrentChargePhaseRate();
+		int visibleLevel = GetCurrentVisibleChargeLevel();
 
-	ImGui::Begin("Tongue");
+		ImGui::Text("Charge Stock : %d", stock);
+		ImGui::Text("Current Level : %d", visibleLevel);
 
-	if(tongue_){
-		Vector3 tonguePos = tongue_->GetPosition();
-		ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
-
-		const char* stateName = "Idle";
-		switch(tongue_->GetState()){
-			case Tongue::State::Idle:
-				stateName = "Idle";
-				break;
-			case Tongue::State::Extending:
-				stateName = "Extending";
-				break;
-			case Tongue::State::Returning:
-				stateName = "Returning";
-				break;
+		int editableStock = stock;
+		if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
+			SetChargeStock(editableStock);
+			stock = editableStock;
 		}
 
-		ImGui::Text("State : %s", stateName);
-		ImGui::Text("Shot Key : Z");
-
-		if(ImGui::Button("Shot Tongue")){
-			tongue_->Shot();
+		if(ImGui::Button("+1 Stock")){
+			AddChargeStock(1);
 		}
 		ImGui::SameLine();
-		if(ImGui::Button("Reset Tongue")){
-			tongue_->Reset();
+		if(ImGui::Button("-1 Stock")){
+			AddChargeStock(-1);
 		}
+		ImGui::SameLine();
+		if(ImGui::Button("Max Stock")){
+			SetChargeStock(kMaxChargeLevel_);
+		}
+
+		ImGui::Separator();
+
+		if(stock <= 0){
+			ImGui::Text("Phase : Normal Jump Only");
+		} else{
+			if(IsChargeAtMaxPhase()){
+				ImGui::Text("Phase : MAX (%d / %d)", visibleLevel, stock);
+			} else{
+				ImGui::Text("Phase : %d / %d", phase + 1, stock);
+			}
+		}
+
+		ImGui::ProgressBar(phaseRate, ImVec2(240.0f, 22.0f));
+		ImGui::Text("Phase Charge : %d%%", static_cast<int>(phaseRate * 100.0f));
+
+		if(IsChargeAtMaxPhase()){
+			ImGui::Text("Holding too long will cancel jump");
+		}
+		ImGui::TreePop();
 	}
 
-	ImGui::End();
+	if(ImGui::TreeNode("Tongue")){
+
+		if(tongue_){
+			Vector3 tonguePos = tongue_->GetPosition();
+			ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
+
+			const char* stateName = "Idle";
+			switch(tongue_->GetState()){
+				case Tongue::State::Idle:
+					stateName = "Idle";
+					break;
+				case Tongue::State::Extending:
+					stateName = "Extending";
+					break;
+				case Tongue::State::Returning:
+					stateName = "Returning";
+					break;
+			}
+
+			ImGui::Text("State : %s", stateName);
+			ImGui::Text("Shot Key : Z");
+
+			if(ImGui::Button("Shot Tongue")){
+				tongue_->Shot();
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("Reset Tongue")){
+				tongue_->Reset();
+			}
+		}
+		ImGui::TreePop();
+	}
 }
 
 float Player::GetJumpChargeRate() const{

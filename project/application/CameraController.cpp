@@ -23,22 +23,6 @@ void CameraController::Initialize(Camera* camera){
 }
 
 void CameraController::Update(const Vector3& target){
-	ImGui::Begin("CameraController");
-	ImGui::Checkbox("Use CameraController", &isUse_);
-
-	ImGui::SliderFloat("Distance", &targetDistance_, minZoom_, maxZoom_);
-	ImGui::SliderFloat("Min Zoom", &minZoom_, 0.5f, 30.0f);
-	ImGui::SliderFloat("Max Zoom", &maxZoom_, 1.0f, 60.0f);
-	ImGui::SliderFloat("Zoom Ease", &zoomEaseSpeed_, 0.01f, 1.0f);
-	ImGui::SliderFloat("Zoom Step", &zoomStep_, 0.0001f, 0.01f, "%.4f");
-
-	if(minZoom_ > maxZoom_){
-		std::swap(minZoom_, maxZoom_);
-	}
-	targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
-
-	ImGui::End();
-
 	if(!camera_ || !input_ || !isUse_){
 		return;
 	}
@@ -101,4 +85,23 @@ void CameraController::Update(const Vector3& target){
 
 	camera_->SetTranslate(cameraPos);
 	camera_->SetRotate({ pitch_, yaw_, 0.0f });
+}
+
+void CameraController::DrawImGui(){
+	if(ImGui::TreeNode("CameraController")){
+		ImGui::Checkbox("Use CameraController", &isUse_);
+
+		ImGui::SliderFloat("Distance", &targetDistance_, minZoom_, maxZoom_);
+		ImGui::SliderFloat("Min Zoom", &minZoom_, 0.5f, 30.0f);
+		ImGui::SliderFloat("Max Zoom", &maxZoom_, 1.0f, 60.0f);
+		ImGui::SliderFloat("Zoom Ease", &zoomEaseSpeed_, 0.01f, 1.0f);
+		ImGui::SliderFloat("Zoom Step", &zoomStep_, 0.0001f, 0.01f, "%.4f");
+
+		if(minZoom_ > maxZoom_){
+			std::swap(minZoom_, maxZoom_);
+		}
+		targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
+
+		ImGui::TreePop();
+	}
 }

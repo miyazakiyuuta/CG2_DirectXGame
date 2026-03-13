@@ -45,6 +45,8 @@ public:
 	bool SetIsUse(bool isUse){ return isUse_ = isUse; }
 	bool GetIsUse() const{ return isUse_; }
 
+	void DrawImGui();
+
 private:
 	Camera* camera_ = nullptr;
 	Input* input_ = nullptr;

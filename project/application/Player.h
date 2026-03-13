@@ -56,11 +56,12 @@ public:
 	float GetYaw() const;
 	Tongue* GetTongue() const{ return tongue_.get(); }
 
+	void DrawImGui();
+
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
 	void ApplyGravity();
-	void UpdateDebugImGui();
 
 	int GetCurrentChargeLevel() const;
 	int GetAllowedChargeLevel() const;
