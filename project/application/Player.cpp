@@ -41,6 +41,8 @@ void Player::Initialize(
 	isJumpChargeCanceled_ = false;
 	chargeTimer_ = 0.0f;
 	chargeMaxHoldTimer_ = 0.0f;
+	moveState_ = MovementState::Root;
+	wallClingGauge_ = maxWallClingGauge_;
 }
 
 void Player::SetCamera(Camera* camera){
@@ -68,20 +70,35 @@ void Player::Update(float cameraYaw){
 		return;
 	}
 
-	MoveHorizontal(cameraYaw);
-	UpdateJumpCharge();
-	ApplyGravity();
+	switch(moveState_){
+		case MovementState::Root:
+			MoveHorizontal(cameraYaw);
+			UpdateJumpCharge();
+			if(!isOnGround_){
+				TransitionTo(MovementState::Jumping);
+			}
+			break;
 
-	// 舌発射
+		case MovementState::Jumping:
+			MoveHorizontal(cameraYaw);
+			ApplyGravity();
+			if(isOnGround_){
+				TransitionTo(MovementState::Root);
+			}
+			break;
+
+		case MovementState::WallClinging:
+			UpdateWallClinging(cameraYaw);
+			break;
+	}
+
 	if(input_->IsTriggerKey(DIK_Z) && tongue_){
 		tongue_->Shot();
 	}
 
-	// 1/60 固定で仮運用
 	if(tongue_){
 		tongue_->Update(1.0f / 60.0f);
 	}
-
 
 	object_->Update();
 	UpdateDebugImGui();
@@ -100,7 +117,6 @@ void Player::MoveHorizontal(float cameraYaw){
 	Vector3 position = object_->GetTranslate();
 	lastMove_ = { 0.0f, 0.0f, 0.0f };
 
-	// カメラ基準の前方・右方向
 	Vector3 forward = { std::sin(cameraYaw), 0.0f, std::cos(cameraYaw) };
 	Vector3 right = { std::cos(cameraYaw), 0.0f, -std::sin(cameraYaw) };
 
@@ -138,7 +154,6 @@ void Player::MoveHorizontal(float cameraYaw){
 		position.x += lastMove_.x * moveSpeed_;
 		position.z += lastMove_.z * moveSpeed_;
 
-		// 移動方向へ回転
 		float yaw = std::atan2(lastMove_.x, lastMove_.z) + modelYawOffset_;
 		object_->SetRotate({ 0.0f, yaw, 0.0f });
 	}
@@ -188,6 +203,7 @@ void Player::UpdateJumpCharge(){
 			int chargeLevel = GetCurrentChargeLevel();
 			chargeLevel = std::min(chargeLevel, GetAllowedChargeLevel());
 			ExecuteChargedJump(chargeLevel);
+			TransitionTo(MovementState::Jumping);
 		}
 
 		isChargingJump_ = false;
@@ -237,7 +253,6 @@ void Player::ApplyGravity(){
 	velocity_.y += gravity_;
 	position.y += velocity_.y;
 
-	// 仮の床判定
 	if(position.y <= groundHeight_){
 		position.y = groundHeight_;
 		velocity_.y = 0.0f;
@@ -245,6 +260,57 @@ void Player::ApplyGravity(){
 	}
 
 	object_->SetTranslate(position);
+}
+
+const char* Player::GetMovementStateName() const{
+	switch(moveState_){
+		case MovementState::Root:
+			return "Root";
+		case MovementState::Jumping:
+			return "Jumping";
+		case MovementState::WallClinging:
+			return "WallClinging";
+	}
+	return "Unknown";
+}
+
+void Player::TransitionTo(MovementState nextState){
+	if(moveState_ == nextState){
+		return;
+	}
+
+	if(moveState_ == MovementState::Root && nextState != MovementState::Root){
+		CancelJumpCharge();
+	}
+
+	moveState_ = nextState;
+
+	switch(moveState_){
+		case MovementState::Root:{
+			Vector3 position = object_->GetTranslate();
+			if(position.y <= groundHeight_){
+				position.y = groundHeight_;
+				object_->SetTranslate(position);
+			}
+			velocity_.y = 0.0f;
+			isOnGround_ = true;
+			break;
+		}
+
+		case MovementState::Jumping:
+			isOnGround_ = false;
+			break;
+
+		case MovementState::WallClinging:{
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+			wallClingGauge_ = maxWallClingGauge_;
+
+			float yaw = GetYaw();
+			wallRightVec_ = { std::cos(yaw), 0.0f, -std::sin(yaw) };
+			isOnGround_ = false;
+			break;
+		}
+	}
 }
 
 void Player::UpdateDebugImGui(){
@@ -269,6 +335,33 @@ void Player::UpdateDebugImGui(){
 
 	ImGui::End();
 
+	ImGui::Begin("Player State");
+
+	ImGui::Text("Current State : %s", GetMovementStateName());
+	ImGui::Separator();
+
+	if(ImGui::Button("To Root")){
+		TransitionTo(MovementState::Root);
+	}
+	ImGui::SameLine();
+	if(ImGui::Button("To Jumping")){
+		TransitionTo(MovementState::Jumping);
+	}
+	ImGui::SameLine();
+	if(ImGui::Button("To WallClinging")){
+		TransitionTo(MovementState::WallClinging);
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Wall Gauge");
+	ImGui::ProgressBar(
+		maxWallClingGauge_ > 0.0f ? (wallClingGauge_ / maxWallClingGauge_) : 0.0f,
+		ImVec2(240.0f, 22.0f)
+	);
+	ImGui::Text("%.1f / %.1f", wallClingGauge_, maxWallClingGauge_);
+
+	ImGui::End();
+
 	ImGui::Begin("Player Jump");
 
 	ImGui::Text("Space : Hold to Charge Jump");
@@ -281,6 +374,26 @@ void Player::UpdateDebugImGui(){
 
 	ImGui::Text("Charge Stock : %d", stock);
 	ImGui::Text("Current Level : %d", visibleLevel);
+
+	int editableStock = stock;
+	if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
+		SetChargeStock(editableStock);
+		stock = editableStock;
+	}
+
+	if(ImGui::Button("+1 Stock")){
+		AddChargeStock(1);
+	}
+	ImGui::SameLine();
+	if(ImGui::Button("-1 Stock")){
+		AddChargeStock(-1);
+	}
+	ImGui::SameLine();
+	if(ImGui::Button("Max Stock")){
+		SetChargeStock(kMaxChargeLevel_);
+	}
+
+	ImGui::Separator();
 
 	if(stock <= 0){
 		ImGui::Text("Phase : Normal Jump Only");
@@ -322,10 +435,17 @@ void Player::UpdateDebugImGui(){
 
 		ImGui::Text("State : %s", stateName);
 		ImGui::Text("Shot Key : Z");
+
+		if(ImGui::Button("Shot Tongue")){
+			tongue_->Shot();
+		}
+		ImGui::SameLine();
+		if(ImGui::Button("Reset Tongue")){
+			tongue_->Reset();
+		}
 	}
 
 	ImGui::End();
-
 }
 
 float Player::GetJumpChargeRate() const{
@@ -385,6 +505,10 @@ float Player::GetCurrentChargePhaseRate() const{
 	}
 
 	float length = end - start;
+	if(length <= 0.0f){
+		return 1.0f;
+	}
+
 	float t = (chargeTimer_ - start) / length;
 	return std::clamp(t, 0.0f, 1.0f);
 }
@@ -400,4 +524,45 @@ float Player::GetYaw() const{
 		return 0.0f;
 	}
 	return object_->GetRotate().y;
+}
+
+void Player::UpdateWallClinging(float cameraYaw){
+	(void)cameraYaw;
+
+	Vector3 position = object_->GetTranslate();
+
+	wallClingGauge_ -= wallClingConsumption_;
+	if(wallClingGauge_ <= 0.0f){
+		wallClingGauge_ = 0.0f;
+		TransitionTo(MovementState::Jumping);
+		return;
+	}
+
+	Vector3 moveVec = { 0.0f, 0.0f, 0.0f };
+
+	if(input_->IsPushKey(DIK_W)) moveVec.y += 1.0f;
+	if(input_->IsPushKey(DIK_S)) moveVec.y -= 1.0f;
+
+	if(input_->IsPushKey(DIK_D)){
+		moveVec.x += wallRightVec_.x;
+		moveVec.z += wallRightVec_.z;
+	}
+	if(input_->IsPushKey(DIK_A)){
+		moveVec.x -= wallRightVec_.x;
+		moveVec.z -= wallRightVec_.z;
+	}
+
+	float len = std::sqrt(moveVec.x * moveVec.x + moveVec.y * moveVec.y + moveVec.z * moveVec.z);
+	if(len > 0.0f){
+		position.x += (moveVec.x / len) * wallMoveSpeed_;
+		position.y += (moveVec.y / len) * wallMoveSpeed_;
+		position.z += (moveVec.z / len) * wallMoveSpeed_;
+	}
+
+	if(input_->IsTriggerKey(DIK_SPACE)){
+		velocity_.y = jumpPowers_[0];
+		TransitionTo(MovementState::Jumping);
+	}
+
+	object_->SetTranslate(position);
 }

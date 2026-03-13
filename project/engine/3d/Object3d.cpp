@@ -3,7 +3,11 @@
 #include "Model.h"
 #include "ModelManager.h"
 #include "Camera.h"
+#include "debug/debugSphere.h"
 #include "utility/Logger.h"
+
+Object3d::Object3d() = default;
+Object3d::~Object3d() = default;
 
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
@@ -16,17 +20,19 @@ void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	
 	CreateTransformationMatrixData();
 	CreateDirectionalLightData();
-
-	animationPlayer_ = new AnimationPlayer(); // コンストラクタを切り替Matrix4x4::えられるようにする & unique_ptrにする
 }
 
 void Object3d::Update() {
 
 	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
 
-	if (animationPlayer_ && model_ && model_->GetAnimation().duration > 0.0f) {
-		animationPlayer_->Update(1.0f / 60.0f, model_->GetModelData().rootNode.name);
-		worldMatrix = animationPlayer_->GetLocalMatrix() * worldMatrix;
+	if (model_ && !model_->GetAnimation().nodeAnimations.empty()) {
+		float deltaTime = 1.0f / 60.0f; // 本来は受け取る
+		animationTime_ += 1.0f / 60.0f;
+		animationTime_ = std::fmod(animationTime_, model_->GetAnimation().duration);
+		ApplyAnimation(skeleton_, model_->GetAnimation(), animationTime_);
+		UpdateSkeleton(skeleton_);
+		model_->Update(skeleton_);
 	}
 
     Matrix4x4 finalWorldMatrix;
@@ -46,23 +52,18 @@ void Object3d::Update() {
 		transformationMatrixData_->WVP = finalWorldMatrix;
 	}
 	
-	/*
-	Matrix4x4 worldViewProjectionMatrix;
-	if (camera_) {
-		const Matrix4x4& viewProjectionMatrix = camera_->GetViewProjectionMatrix();
-		worldViewProjectionMatrix = Multiply(worldMatrix, viewProjectionMatrix);
-	} else {
-		worldViewProjectionMatrix = worldMatrix;
-	}
-
-	transformationMatrixData_->WVP = Multiply(model_->GetModelData().rootNode.localMatrix, worldViewProjectionMatrix);
-	transformationMatrixData_->World = Multiply(model_->GetModelData().rootNode.localMatrix, worldMatrix);
-	transformationMatrixData_->WorldInverseTranspose = Transpose(Inverse(worldMatrix));
-	*/
 }
 
 void Object3d::Draw() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+
+	if (model_) {
+		if (!model_->GetSkinCluster().inverseBindPoseMatrices.empty()) {
+			Object3dCommon::GetInstance()->SkinningDrawSetting();
+		} else {
+			Object3dCommon::GetInstance()->CommonDrawSetting();
+		}
+	}
 
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
@@ -79,6 +80,7 @@ void Object3d::Draw() {
 	// 3Dモデルが割り当てられていれば描画する
 	if (model_) {
 		model_->Draw();
+		//DrawDebugSkeleton();
 	}
 }
 
@@ -90,8 +92,18 @@ void Object3d::SetModel(const std::string& filePath) {
         return;
     }
 
-	if (animationPlayer_) {
+	if (model_ && !model_->GetAnimation().nodeAnimations.empty()) {
+		if (!animationPlayer_) {
+			animationPlayer_ = std::make_unique<AnimationPlayer>();
+		}
 		animationPlayer_->SetAnimation(&model_->GetAnimation());
+
+		// モデルのNode階層からスケルトンを生成
+		skeleton_ = CreateSkeleton(model_->GetModelData().rootNode);
+
+		model_->CreateSkinCluster(skeleton_);
+	} else {
+		animationPlayer_.reset();
 	}
 }
 
@@ -119,4 +131,26 @@ void Object3d::CreateDirectionalLightData() {
 	directionalLightData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	directionalLightData_->direction = Vector3{ 0.0f,-1.0f,0.0f };
 	directionalLightData_->intensity = 0.0f;
+	//directionalLightData_->intensity = 1.0f;
+}
+
+void Object3d::DrawDebugSkeleton() {
+	if (!model_ || !camera_)return;
+
+	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
+	std::vector<Vector3> jointPositions;
+	for (const Joint& joint : skeleton_.joints) {
+		// 骨のワールド行列
+		Matrix4x4 jointWorldMatrix = joint.skeletonSpaceMatrix * worldMatrix;
+
+		Vector3 jointWorldPos = {
+			jointWorldMatrix.m[3][0],
+			jointWorldMatrix.m[3][1],
+			jointWorldMatrix.m[3][2]
+		};
+
+		jointPositions.push_back(jointWorldPos);
+	}
+	float radius = 0.05f;
+	Vector4 color = { 0.0f,0.0f,0.0f,1.0f };
 }

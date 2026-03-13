@@ -5,6 +5,7 @@
 #include "math/Vector4.h"
 #include "math/Transform.h"
 #include "3d/AnimationPlayer.h"
+#include "3d/Skeleton.h"
 
 class Object3dCommon;
 class Model;
@@ -16,6 +17,9 @@ public: // メンバ関数
 	void Initialize(Object3dCommon* object3dCommon);
 	void Update();
 	void Draw();
+
+	Object3d();
+	~Object3d();
 
 public:
 	// setter
@@ -56,6 +60,7 @@ private: // メンバ関数
 
 	void CreateTransformationMatrixData();
 	void CreateDirectionalLightData();
+	void DrawDebugSkeleton();
 
 private: // メンバ変数
 
@@ -75,7 +80,9 @@ private: // メンバ変数
 
 	Model* model_ = nullptr;
 
-	AnimationPlayer* animationPlayer_ = nullptr;
+	std::unique_ptr<AnimationPlayer> animationPlayer_;
+	float animationTime_ = 0.0f;
+	Skeleton skeleton_;
 };
 
 
