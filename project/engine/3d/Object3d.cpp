@@ -29,7 +29,13 @@ void Object3d::Update() {
 		worldMatrix = animationPlayer_->GetLocalMatrix() * worldMatrix;
 	}
 
-	Matrix4x4 finalWorldMatrix = model_->GetModelData().rootNode.localMatrix * worldMatrix;
+    Matrix4x4 finalWorldMatrix;
+    if (model_) {
+        finalWorldMatrix = model_->GetModelData().rootNode.localMatrix * worldMatrix;
+    } else {
+        // No model assigned -> use worldMatrix directly
+        finalWorldMatrix = worldMatrix;
+    }
 
 	transformationMatrixData_->World = finalWorldMatrix;
 	transformationMatrixData_->WorldInverseTranspose = finalWorldMatrix.Inverse().Transpose();
@@ -78,8 +84,11 @@ void Object3d::Draw() {
 
 void Object3d::SetModel(const std::string& filePath) {
 	// モデルを検索してセットする
-	model_ = ModelManager::GetInstance()->FindModel(filePath);
-	assert(model_ && "Model not found. filePath key mismatch.");
+    model_ = ModelManager::GetInstance()->FindModel(filePath);
+    if (!model_) {
+        // Model not found: leave model_ as nullptr to skip drawing
+        return;
+    }
 
 	if (animationPlayer_) {
 		animationPlayer_->SetAnimation(&model_->GetAnimation());
