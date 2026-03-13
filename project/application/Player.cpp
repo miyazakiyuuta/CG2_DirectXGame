@@ -65,6 +65,127 @@ Vector3 Player::GetPosition() const{
 	return object_->GetTranslate();
 }
 
+CollisionUtility::AABB Player::GetPlayerAABB(const Vector3& position) const{
+	CollisionUtility::AABB box;
+	box.min = {
+		position.x - colliderHalfSize_.x,
+		position.y - colliderHalfSize_.y,
+		position.z - colliderHalfSize_.z
+	};
+	box.max = {
+		position.x + colliderHalfSize_.x,
+		position.y + colliderHalfSize_.y,
+		position.z + colliderHalfSize_.z
+	};
+	return box;
+}
+
+void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
+	if(!object_ || !blockColliders_){
+		return;
+	}
+
+	Vector3 position = object_->GetTranslate();
+
+	// 床との接触を横判定に混ぜないため、少しだけ上に持ち上げる
+	const float kGroundEpsilon = 0.05f;
+
+	if(position.x != previousPosition.x){
+		Vector3 testPos = {
+			position.x,
+			previousPosition.y + kGroundEpsilon,
+			previousPosition.z
+		};
+		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		for(const auto& block : *blockColliders_){
+			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+				position.x = previousPosition.x;
+				break;
+			}
+		}
+	}
+
+	if(position.z != previousPosition.z){
+		Vector3 testPos = {
+			position.x,
+			previousPosition.y + kGroundEpsilon,
+			position.z
+		};
+		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		for(const auto& block : *blockColliders_){
+			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+				position.z = previousPosition.z;
+				break;
+			}
+		}
+	}
+
+	object_->SetTranslate(position);
+}
+
+void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
+	if(!object_){
+		return;
+	}
+
+	Vector3 position = object_->GetTranslate();
+	isOnGround_ = false;
+
+	if(!blockColliders_){
+		object_->SetTranslate(position);
+		return;
+	}
+
+	for(const auto& block : *blockColliders_){
+		CollisionUtility::AABB playerBox = GetPlayerAABB(position);
+		if(!CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+			continue;
+		}
+
+		float prevBottom = previousPosition.y - colliderHalfSize_.y;
+		float prevTop = previousPosition.y + colliderHalfSize_.y;
+		float nowBottom = position.y - colliderHalfSize_.y;
+		float nowTop = position.y + colliderHalfSize_.y;
+
+		// 上から落ちて床に乗る
+		if(velocity_.y <= 0.0f && prevBottom >= block.max.y - 0.01f){
+			position.y = block.max.y + colliderHalfSize_.y;
+			velocity_.y = 0.0f;
+			isOnGround_ = true;
+			continue;
+		}
+
+		// 下から頭をぶつける
+		if(velocity_.y >= 0.0f && prevTop <= block.min.y + 0.01f){
+			position.y = block.min.y - colliderHalfSize_.y;
+			velocity_.y = 0.0f;
+			continue;
+		}
+
+		// 万一横や角で縦解決に食い込んだら、詳細判定の最小押し戻しを使う
+		CollisionUtility::CollisionResult hit =
+			CollisionUtility::IntersectAABB_AABB_Detailed(GetPlayerAABB(position), block);
+
+		if(hit.hit){
+			position.x -= hit.normal.x * hit.penetration;
+			position.y -= hit.normal.y * hit.penetration;
+			position.z -= hit.normal.z * hit.penetration;
+
+			if(hit.normal.y > 0.5f){
+				velocity_.y = 0.0f;
+				isOnGround_ = true;
+			}
+			if(hit.normal.y < -0.5f && velocity_.y > 0.0f){
+				velocity_.y = 0.0f;
+			}
+		}
+	}
+
+	object_->SetTranslate(position);
+}
+
 void Player::Update(float cameraYaw){
 	if(!object_){
 		return;
@@ -72,20 +193,25 @@ void Player::Update(float cameraYaw){
 
 	switch(moveState_){
 		case MovementState::Root:
+		case MovementState::Jumping:{
+			Vector3 previousPosition = object_->GetTranslate();
+
 			MoveHorizontal(cameraYaw);
+			ResolveHorizontalCollisions(previousPosition);
+
 			UpdateJumpCharge();
-			if(!isOnGround_){
+
+			Vector3 beforeVertical = object_->GetTranslate();
+			ApplyGravity();
+			ResolveVerticalCollisions(beforeVertical);
+
+			if(isOnGround_){
+				TransitionTo(MovementState::Root);
+			} else{
 				TransitionTo(MovementState::Jumping);
 			}
 			break;
-
-		case MovementState::Jumping:
-			MoveHorizontal(cameraYaw);
-			ApplyGravity();
-			if(isOnGround_){
-				TransitionTo(MovementState::Root);
-			}
-			break;
+		}
 
 		case MovementState::WallClinging:
 			UpdateWallClinging(cameraYaw);
@@ -252,10 +378,10 @@ void Player::ApplyGravity(){
 	velocity_.y += gravity_;
 	position.y += velocity_.y;
 
-	if(position.y <= groundHeight_){
-		position.y = groundHeight_;
-		velocity_.y = 0.0f;
-		isOnGround_ = true;
+	// 非常用の落下リセット
+	if(position.y <= -50.0f){
+		position = { 0.0f, resetHeight_, 0.0f };
+		velocity_ = { 0.0f, 0.0f, 0.0f };
 	}
 
 	object_->SetTranslate(position);
@@ -285,16 +411,10 @@ void Player::TransitionTo(MovementState nextState){
 	moveState_ = nextState;
 
 	switch(moveState_){
-		case MovementState::Root:{
-			Vector3 position = object_->GetTranslate();
-			if(position.y <= groundHeight_){
-				position.y = groundHeight_;
-				object_->SetTranslate(position);
-			}
+		case MovementState::Root:
 			velocity_.y = 0.0f;
 			isOnGround_ = true;
 			break;
-		}
 
 		case MovementState::Jumping:
 			isOnGround_ = false;
@@ -314,25 +434,27 @@ void Player::TransitionTo(MovementState nextState){
 
 void Player::DrawImGui(){
 	if(ImGui::TreeNode("Player")){
-
 		Vector3 position = GetPosition();
 
-		ImGui::Text("World Position");
-		ImGui::Separator();
-		ImGui::Text("X : %.3f", position.x);
-		ImGui::Text("Y : %.3f", position.y);
-		ImGui::Text("Z : %.3f", position.z);
+		if(ImGui::TreeNode("Position / Velocity")){
+			ImGui::Text("World Position");
+			ImGui::Separator();
+			ImGui::Text("X : %.3f", position.x);
+			ImGui::Text("Y : %.3f", position.y);
+			ImGui::Text("Z : %.3f", position.z);
 
-		ImGui::Separator();
-		ImGui::Text("Velocity");
-		ImGui::Text("VX : %.3f", velocity_.x);
-		ImGui::Text("VY : %.3f", velocity_.y);
-		ImGui::Text("VZ : %.3f", velocity_.z);
+			ImGui::Separator();
+			ImGui::Text("Velocity");
+			ImGui::Text("VX : %.3f", velocity_.x);
+			ImGui::Text("VY : %.3f", velocity_.y);
+			ImGui::Text("VZ : %.3f", velocity_.z);
 
-		ImGui::Separator();
-		ImGui::Text("OnGround : %s", isOnGround_ ? "true" : "false");
-
-		ImGui::Separator();
+			ImGui::Separator();
+			ImGui::Text("OnGround : %s", isOnGround_ ? "true" : "false");
+			ImGui::Text("Collider Half : %.2f %.2f %.2f", colliderHalfSize_.x, colliderHalfSize_.y, colliderHalfSize_.z);
+			ImGui::Text("BlockCollider Count : %d", blockColliders_ ? static_cast<int>(blockColliders_->size()) : 0);
+			ImGui::TreePop();
+		}
 
 		if(ImGui::TreeNode("State")){
 			ImGui::Text("Current State : %s", GetMovementStateName());
@@ -357,94 +479,93 @@ void Player::DrawImGui(){
 				ImVec2(240.0f, 22.0f)
 			);
 			ImGui::Text("%.1f / %.1f", wallClingGauge_, maxWallClingGauge_);
+			ImGui::TreePop();
+		}
+
+		if(ImGui::TreeNode("Jump")){
+			ImGui::Text("Space : Hold to Charge Jump");
+			ImGui::Separator();
+
+			int stock = GetChargeStock();
+			int phase = GetCurrentChargePhase();
+			float phaseRate = GetCurrentChargePhaseRate();
+			int visibleLevel = GetCurrentVisibleChargeLevel();
+
+			ImGui::Text("Charge Stock : %d", stock);
+			ImGui::Text("Current Level : %d", visibleLevel);
+
+			int editableStock = stock;
+			if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
+				SetChargeStock(editableStock);
+				stock = editableStock;
+			}
+
+			if(ImGui::Button("+1 Stock")){
+				AddChargeStock(1);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("-1 Stock")){
+				AddChargeStock(-1);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("Max Stock")){
+				SetChargeStock(kMaxChargeLevel_);
+			}
+
+			ImGui::Separator();
+
+			if(stock <= 0){
+				ImGui::Text("Phase : Normal Jump Only");
+			} else{
+				if(IsChargeAtMaxPhase()){
+					ImGui::Text("Phase : MAX (%d / %d)", visibleLevel, stock);
+				} else{
+					ImGui::Text("Phase : %d / %d", phase + 1, stock);
+				}
+			}
+
+			ImGui::ProgressBar(phaseRate, ImVec2(240.0f, 22.0f));
+			ImGui::Text("Phase Charge : %d%%", static_cast<int>(phaseRate * 100.0f));
+
+			if(IsChargeAtMaxPhase()){
+				ImGui::Text("Holding too long will cancel jump");
+			}
 
 			ImGui::TreePop();
 		}
-		ImGui::TreePop();
-	}
 
-	if(ImGui::TreeNode("Player Jump")){
+		if(ImGui::TreeNode("Tongue")){
+			if(tongue_){
+				Vector3 tonguePos = tongue_->GetPosition();
+				ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
 
-		ImGui::Text("Space : Hold to Charge Jump");
-		ImGui::Separator();
+				const char* stateName = "Idle";
+				switch(tongue_->GetState()){
+					case Tongue::State::Idle:
+						stateName = "Idle";
+						break;
+					case Tongue::State::Extending:
+						stateName = "Extending";
+						break;
+					case Tongue::State::Returning:
+						stateName = "Returning";
+						break;
+				}
 
-		int stock = GetChargeStock();
-		int phase = GetCurrentChargePhase();
-		float phaseRate = GetCurrentChargePhaseRate();
-		int visibleLevel = GetCurrentVisibleChargeLevel();
+				ImGui::Text("State : %s", stateName);
+				ImGui::Text("Shot Key : Z");
 
-		ImGui::Text("Charge Stock : %d", stock);
-		ImGui::Text("Current Level : %d", visibleLevel);
-
-		int editableStock = stock;
-		if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
-			SetChargeStock(editableStock);
-			stock = editableStock;
-		}
-
-		if(ImGui::Button("+1 Stock")){
-			AddChargeStock(1);
-		}
-		ImGui::SameLine();
-		if(ImGui::Button("-1 Stock")){
-			AddChargeStock(-1);
-		}
-		ImGui::SameLine();
-		if(ImGui::Button("Max Stock")){
-			SetChargeStock(kMaxChargeLevel_);
-		}
-
-		ImGui::Separator();
-
-		if(stock <= 0){
-			ImGui::Text("Phase : Normal Jump Only");
-		} else{
-			if(IsChargeAtMaxPhase()){
-				ImGui::Text("Phase : MAX (%d / %d)", visibleLevel, stock);
-			} else{
-				ImGui::Text("Phase : %d / %d", phase + 1, stock);
+				if(ImGui::Button("Shot Tongue")){
+					tongue_->Shot();
+				}
+				ImGui::SameLine();
+				if(ImGui::Button("Reset Tongue")){
+					tongue_->Reset();
+				}
 			}
+			ImGui::TreePop();
 		}
 
-		ImGui::ProgressBar(phaseRate, ImVec2(240.0f, 22.0f));
-		ImGui::Text("Phase Charge : %d%%", static_cast<int>(phaseRate * 100.0f));
-
-		if(IsChargeAtMaxPhase()){
-			ImGui::Text("Holding too long will cancel jump");
-		}
-		ImGui::TreePop();
-	}
-
-	if(ImGui::TreeNode("Tongue")){
-
-		if(tongue_){
-			Vector3 tonguePos = tongue_->GetPosition();
-			ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
-
-			const char* stateName = "Idle";
-			switch(tongue_->GetState()){
-				case Tongue::State::Idle:
-					stateName = "Idle";
-					break;
-				case Tongue::State::Extending:
-					stateName = "Extending";
-					break;
-				case Tongue::State::Returning:
-					stateName = "Returning";
-					break;
-			}
-
-			ImGui::Text("State : %s", stateName);
-			ImGui::Text("Shot Key : Z");
-
-			if(ImGui::Button("Shot Tongue")){
-				tongue_->Shot();
-			}
-			ImGui::SameLine();
-			if(ImGui::Button("Reset Tongue")){
-				tongue_->Reset();
-			}
-		}
 		ImGui::TreePop();
 	}
 }

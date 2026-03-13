@@ -1,5 +1,4 @@
 #include "CameraController.h"
-
 #include "3d/Camera.h"
 #include <algorithm>
 #include <cmath>

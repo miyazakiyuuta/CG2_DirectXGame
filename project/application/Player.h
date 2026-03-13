@@ -3,10 +3,13 @@
 #define NOMINMAX
 #include <memory>
 #include <string>
+#include <vector>
+
 #include "3d/Object3d.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include "Tongue.h"
+#include "utility/CollisionUtility.h"
 
 class Camera;
 class Object3dCommon;
@@ -15,11 +18,10 @@ class CameraController;
 class Player{
 
 	enum class MovementState{
-		Root,         // 接地（移動・チャージ可）
-		Jumping,      // 空中
-		WallClinging  // 壁張り付き
+		Root,
+		Jumping,
+		WallClinging
 	};
-
 
 public:
 	Player() = default;
@@ -34,6 +36,7 @@ public:
 
 	void Update(float cameraYaw);
 	void Draw();
+	void DrawImGui();
 
 	void SetCamera(Camera* camera);
 	void SetPosition(const Vector3& position);
@@ -42,6 +45,10 @@ public:
 
 	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
 	bool IsOnGround() const{ return isOnGround_; }
+
+	void SetBlockColliders(const std::vector<CollisionUtility::AABB>* blockColliders){
+		blockColliders_ = blockColliders;
+	}
 
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
@@ -56,8 +63,6 @@ public:
 	float GetYaw() const;
 	Tongue* GetTongue() const{ return tongue_.get(); }
 
-	void DrawImGui();
-
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
@@ -71,6 +76,11 @@ private:
 	void UpdateWallClinging(float cameraYaw);
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;
+
+	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
+	void ResolveHorizontalCollisions(const Vector3& previousPosition);
+	void ResolveVerticalCollisions(const Vector3& previousPosition);
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -105,11 +115,15 @@ private:
 
 	MovementState moveState_ = MovementState::Root;
 
-	float wallClingGauge_ = 100.0f;       // 壁張り付きゲージ
-	float maxWallClingGauge_ = 100.0f;    // 最大値
-	float wallClingConsumption_ = 0.5f;   // 消費速度
-	float wallMoveSpeed_ = 0.05f;         // 壁移動速度
+	float wallClingGauge_ = 100.0f;
+	float maxWallClingGauge_ = 100.0f;
+	float wallClingConsumption_ = 0.5f;
+	float wallMoveSpeed_ = 0.05f;
 
-	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f }; // 壁上での左右移動軸
-	// 上下は Vector3(0, 1, 0) で固定
+	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
+
+	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
+
+	// Cube プレイヤー前提
+	Vector3 colliderHalfSize_ = { 1.0f, 1.0f, 1.0f };
 };

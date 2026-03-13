@@ -16,17 +16,17 @@
 #include "3d/Object3d.h"
 #include "Player.h"
 #include "CameraController.h"
-#include "StageEditor.h"
+#include "StageEdit.h"
 #include "debug/DebugGrid.h"
 
 #include <imgui.h>
 #include <numbers>
 
-void GamePlayScene::Initialize() {
+void GamePlayScene::Initialize(){
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
-	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
+	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
+	camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
 
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
@@ -50,7 +50,6 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
 	ModelManager::GetInstance()->LoadModel("human", "walk.gltf");
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
-	//ModelManager::GetInstance()->LoadModel("AnimatedCube/AnimatedCube.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
 
@@ -62,9 +61,7 @@ void GamePlayScene::Initialize() {
 	object3d_->SetCamera(camera_.get());
 
 	player_ = std::make_unique<Player>();
-	//player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "sneakWalk.gltf", { 0.0f, 0.0f, 0.0f });
-	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", { 0.0f, 0.0f, 0.0f });
-	player_->SetGroundHeight(0.0f);
+	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", { 0.0f, 3.0f, 0.0f });
 
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
@@ -74,8 +71,8 @@ void GamePlayScene::Initialize() {
 	cameraController_->SetYawSpeed(0.03f);
 	cameraController_->SetPitchSpeed(0.02f);
 
-    stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
-    stageEditor_->Initialize("Cube.obj");
+	stageEditor_ = std::make_unique<StageEdit>();
+	stageEditor_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj");
 
 	  // 虫の生成と初期化
 	bug_ = std::make_unique<Bug>();
@@ -85,13 +82,12 @@ void GamePlayScene::Initialize() {
 	debugGrid_->Initialize(DirectXCommon::GetInstance());
 }
 
-void GamePlayScene::Finalize() {
-}
+void GamePlayScene::Finalize(){}
 
-void GamePlayScene::Update() {
+void GamePlayScene::Update(){
 	imGuiManager_->Begin();
+
 #ifdef USE_IMGUI
-	// デモウィンドウ(使い方紹介)
 	ImGui::ShowDemoWindow();
 
 	Vector3 rotate = object3d_->GetRotate();
@@ -99,29 +95,36 @@ void GamePlayScene::Update() {
 	ImGui::Begin("Window");
 
 	camera_->DrawImGui();
-	if (ImGui::TreeNode("object3d")) {
+
+	if(ImGui::TreeNode("object3d")){
 		ImGui::DragFloat3("rotate", &rotate.x, 0.01f);
 		ImGui::TreePop();
 	}
-	player_->DrawImGui();
+
+	if(player_){
+		player_->DrawImGui();
+	}
+
 	cameraController_->DrawImGui();
 
 	ImGui::End();
 
-
 	object3d_->SetRotate(rotate);
 #endif
 
-    stageEditor_->Update();
+	stageEditor_->Update();
 
-    if(!stageEditor_->IsEditMode()){
+	// 毎フレーム、生成ブロックの当たり判定をプレイヤーへ渡す
+	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
+	player_->SetBlockColliders(&stageBlockColliders_);
+
+	if(!stageEditor_->IsEditMode()){
 		// いつもの更新
 		player_->Update(cameraController_->GetYaw());
 		cameraController_->Update(player_->GetPosition());
-
-    } else{
+	} else{
         // StageEditor中はプレイヤー更新を止める
-        cameraController_->Update(player_->GetPosition());
+		cameraController_->Update(player_->GetPosition());
 	}
 
 	imGuiManager_->End();
@@ -135,12 +138,11 @@ void GamePlayScene::Update() {
 	camera_->TransferToGPU();
 
 	object3d_->Update();
-
-	
 }
 
-void GamePlayScene::Draw() {
+void GamePlayScene::Draw(){
 	SrvManager::GetInstance()->PreDraw();
+
 	object3d_->Draw();
 	player_->Draw();
 	stageEditor_->Draw();
@@ -154,5 +156,4 @@ void GamePlayScene::Draw() {
 }
 
 GamePlayScene::GamePlayScene() = default;
-
 GamePlayScene::~GamePlayScene() = default;
