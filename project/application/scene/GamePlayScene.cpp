@@ -74,6 +74,11 @@ void GamePlayScene::Initialize(){
 	stageEditor_ = std::make_unique<StageEdit>();
 	stageEditor_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj");
 
+
+	//ユキト製を使う場合Include、前方宣言を”StageEditor”に変更したうえで以下のコードを使用、上のStageEditorをコメントアウト
+	//stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
+	//stageEditor_->Initialize("Cube.obj");
+
 	  // 虫の生成と初期化
 	bug_ = std::make_unique<Bug>();
 	bug_->Initialize(camera_.get());

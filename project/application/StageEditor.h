@@ -21,6 +21,7 @@
 #include <cstring>
 #include <imgui.h>
 #include <unordered_map>
+#include "utility/CollisionUtility.h"
 
 /// <summary>
 /// ステージ内のオブジェクトを表す構造体
@@ -609,6 +610,43 @@ public:
     /// ステージデータへの参照を返す（外部から直接データを操作したい場合に使用）
     /// </summary>
     StageData& GetStageData() { return data_; }
+
+    std::vector<CollisionUtility::AABB> GetBlockAABBs() const{
+        std::vector<CollisionUtility::AABB> result;
+        result.reserve(data_.objects.size());
+
+        for(const auto& o : data_.objects){
+            // ひとまず Cube.obj だけをブロック判定対象にする
+            if(o.modelName != "Cube.obj"){
+                continue;
+            }
+
+            CollisionUtility::AABB aabb;
+
+            // scale は「等倍=1」の想定なので、半サイズに 0.5f を掛ける
+            // 必要ならモデルごとに基準半サイズを分けてもいい
+            Vector3 halfSize = {
+                1.0f * o.scale.x,
+                1.0f * o.scale.y,
+                1.0f * o.scale.z
+            };
+
+            aabb.min = {
+                o.position.x - halfSize.x,
+                o.position.y - halfSize.y,
+                o.position.z - halfSize.z
+            };
+            aabb.max = {
+                o.position.x + halfSize.x,
+                o.position.y + halfSize.y,
+                o.position.z + halfSize.z
+            };
+
+            result.push_back(aabb);
+        }
+
+        return result;
+    }
 
 private:
     // Object3dCommon と Camera への参照（StageLoader にも渡す）

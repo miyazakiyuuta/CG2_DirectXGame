@@ -65,6 +65,3 @@ private:
 	// Cube.obj を 1辺 1.0 とみなす
 	Vector3 blockHalfSize_ = { 1.0f, 1.0f, 1.0f };
 };
-
-// 既存コードが StageEditor 名を使っていても通しやすくするための別名
-using StageEditor = StageEdit;
