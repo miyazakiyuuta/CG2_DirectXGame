@@ -236,20 +236,6 @@ void GamePlayScene::Update() {
 
 	testSprite_->SetPos(testSpritePos);
 #endif
-	
-	// デバッグ用: チャージストック変更
-	if(Input::GetInstance()->IsTriggerKey(DIK_1)){
-		player_->SetChargeStock(0);
-	}
-	if(Input::GetInstance()->IsTriggerKey(DIK_2)){
-		player_->SetChargeStock(1);
-	}
-	if(Input::GetInstance()->IsTriggerKey(DIK_3)){
-		player_->SetChargeStock(2);
-	}
-	if(Input::GetInstance()->IsTriggerKey(DIK_4)){
-		player_->SetChargeStock(3);
-	}
 
     stageEditor_->Update();
 
