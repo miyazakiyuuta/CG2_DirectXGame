@@ -249,11 +249,12 @@ void Player::Update(float cameraYaw){
 		tongue_->Update(1.0f / 60.0f);
 	}
 
-	object_->Update();
+
 }
 
 void Player::Draw(){
 	if(object_){
+		object_->Update();
 		object_->Draw();
 	}
 	if(tongue_){

@@ -28,6 +28,8 @@
 enum class BlockID{
     Normal = 0,
     Water = 1,
+    BugSpawn = 2,
+    PlayerSpawn = 3,
 };
 
 /// <summary>
@@ -789,7 +791,9 @@ public:
                 continue;
             }
 
-            if(o.blockId == BlockID::Water){
+            if(o.blockId == BlockID::Water ||
+               o.blockId == BlockID::BugSpawn ||
+               o.blockId == BlockID::PlayerSpawn){
                 continue;
             }
 
@@ -861,6 +865,34 @@ public:
         }
 
         return result;
+    }
+
+    /// <summary>
+   /// 虫スポーン位置一覧を返す
+   /// </summary>
+    std::vector<Vector3> GetBugSpawnPositions() const{
+        std::vector<Vector3> result;
+        result.reserve(data_.objects.size());
+
+        for(const auto& o : data_.objects){
+            if(o.blockId == BlockID::BugSpawn){
+                result.push_back(o.position);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// プレイヤー開始位置を返す
+    /// </summary>
+    std::optional<Vector3> GetPlayerSpawnPosition() const{
+        for(const auto& o : data_.objects){
+            if(o.blockId == BlockID::PlayerSpawn){
+                return o.position;
+            }
+        }
+        return std::nullopt;
     }
 
 private:
@@ -1048,7 +1080,7 @@ private:
         }
 
         // 生成するブロック種類を選択
-        const char* blockTypes[] = { "Normal", "Water" };
+        const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn" };
         int blockTypeIndex = static_cast<int>(placingBlockId_);
         if(ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
             placingBlockId_ = static_cast<BlockID>(blockTypeIndex);

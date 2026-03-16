@@ -118,3 +118,13 @@ void Bug::OnTongueHit(){
 		object_->Update();
 	}
 }
+
+void Bug::SetPositionImmediate(const Vector3& pos){
+	position_ = pos;
+	velocity_ = { 0.0f, 0.0f, 0.0f };
+
+	if(object_){
+		object_->SetTranslate(position_);
+		object_->Update();
+	}
+}
