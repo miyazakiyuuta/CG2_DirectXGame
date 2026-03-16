@@ -18,6 +18,7 @@
 #include "CameraController.h"
 #include "StageEdit.h"
 #include "debug/DebugGrid.h"
+#include "Tongue.h"
 
 #include <imgui.h>
 #include <numbers>
@@ -138,6 +139,23 @@ void GamePlayScene::Update(){
 
 	// 虫の更新
 	bug_->Update();
+
+	// 舌先と虫の球判定
+	if(player_ && bug_){
+		Tongue* tongue = player_->GetTongue();
+		if(tongue && tongue->CanHitBug()){
+			const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
+			const CollisionUtility::Sphere bugSphere = bug_->GetHitSphere();
+
+			if(CollisionUtility::IntersectSphere_Sphere(tongueSphere, bugSphere)){
+				// 虫に当たったらジャンプチャージを1増やす
+				player_->AddChargeStock(1);
+
+				bug_->OnTongueHit();
+				tongue->Reset();
+			}
+		}
+	}
 
 	camera_->Update();
 	camera_->TransferToGPU();

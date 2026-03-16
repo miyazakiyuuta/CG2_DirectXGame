@@ -9,49 +9,47 @@
 Bug::Bug() = default;
 Bug::~Bug() = default;
 
-void Bug::Initialize(Camera* camera) {
+void Bug::Initialize(Camera* camera){
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(Object3dCommon::GetInstance());
 	object_->SetModel("sphere.obj");
 	object_->SetCamera(camera);
-	object_->SetScale({0.2f, 0.2f, 0.2f});
+	object_->SetScale({ 0.2f, 0.2f, 0.2f });
 
-	position_ = {0.0f, 2.0f, 0.0f};
-	velocity_ = {0.0f, 0.0f, 0.0f};
+	position_ = { 0.0f, 2.0f, 0.0f };
+	velocity_ = { 0.0f, 0.0f, 0.0f };
 	currentYaw_ = 0.0f;
 
 	object_->SetTranslate(position_);
 	ChangeRandomBehavior();
 }
 
-void Bug::Update() {
-	// 1. 挙動による操舵（目標速度の提示）
-	if (behavior_) {
+void Bug::Update(){
+	// 1. 挙動による操舵
+	if(behavior_){
 		behavior_->Update(this);
-		if (behavior_->IsFinished(this)) {
+		if(behavior_->IsFinished(this)){
 			ChangeRandomBehavior();
 		}
 	}
 
-	// 2. 物理計算（慣性と摩擦）
-	velocity_ = {velocity_.x * 0.92f, velocity_.y * 0.92f, velocity_.z * 0.92f};
+	// 2. 慣性と摩擦
+	velocity_ = { velocity_.x * 0.92f, velocity_.y * 0.92f, velocity_.z * 0.92f };
 	position_ += velocity_;
 
-	// 3. 滑らかな回転（LookAtの平滑化）
-	if (velocity_.Length() > 0.01f) {
+	// 3. 滑らかな回転
+	if(velocity_.Length() > 0.01f){
 		float targetYaw = std::atan2(velocity_.x, velocity_.z);
 
 		float diff = targetYaw - currentYaw_;
-		while (diff > 3.14159f)
-			diff -= 6.28318f;
-		while (diff < -3.14159f)
-			diff += 6.28318f;
+		while(diff > 3.14159f) diff -= 6.28318f;
+		while(diff < -3.14159f) diff += 6.28318f;
 
 		currentYaw_ += diff * 0.1f;
-		object_->SetRotate({0.0f, currentYaw_, 0.0f});
+		object_->SetRotate({ 0.0f, currentYaw_, 0.0f });
 	}
 
-	// 4. 生物的ゆらぎ（ボビング）
+	// 4. 生物的ゆらぎ
 	float moveSpeed = velocity_.Length();
 	jitterTimer_ += 0.04f;
 
@@ -66,33 +64,57 @@ void Bug::Update() {
 	object_->Update();
 }
 
-void Bug::ApplySteeringForce(const Vector3& desiredVelocity) {
+void Bug::ApplySteeringForce(const Vector3& desiredVelocity){
 	velocity_.x += (desiredVelocity.x - velocity_.x) * 0.05f;
 	velocity_.y += (desiredVelocity.y - velocity_.y) * 0.05f;
 	velocity_.z += (desiredVelocity.z - velocity_.z) * 0.05f;
 }
 
-void Bug::Draw() {
-	if (object_)
+void Bug::Draw(){
+	if(object_){
 		object_->Draw();
+	}
 }
 
-Vector3 Bug::GetRandomPositionInRange() const {
-	return Vector3(Random::GetFloat(-moveAreaRadius_, moveAreaRadius_), Random::GetFloat(moveAreaHeightMin_, moveAreaHeightMax_), Random::GetFloat(-moveAreaRadius_, moveAreaRadius_));
+Vector3 Bug::GetRandomPositionInRange() const{
+	return Vector3(
+		Random::GetFloat(-moveAreaRadius_, moveAreaRadius_),
+		Random::GetFloat(moveAreaHeightMin_, moveAreaHeightMax_),
+		Random::GetFloat(-moveAreaRadius_, moveAreaRadius_)
+	);
 }
 
-void Bug::LookAt(const Vector3& direction) {
-	// Update 内で自動回転するため、明示的な呼び出しは不要です。
+void Bug::LookAt(const Vector3& direction){
+	(void)direction;
 }
 
-void Bug::ChangeRandomBehavior() {
+void Bug::ChangeRandomBehavior(){
 	int r = Random::GetInt(0, 2);
-	if (r == 0)
+	if(r == 0){
 		behavior_ = std::make_unique<BehaviorStraight>();
-	else if (r == 1)
+	} else if(r == 1){
 		behavior_ = std::make_unique<BehaviorHover>();
-	else
+	} else{
 		behavior_ = std::make_unique<BehaviorCurve>();
+	}
 
 	behavior_->Initialize(this);
+}
+
+CollisionUtility::Sphere Bug::GetHitSphere() const{
+	CollisionUtility::Sphere sphere;
+	sphere.center = position_;
+	sphere.radius = hitRadius_;
+	return sphere;
+}
+
+void Bug::OnTongueHit(){
+	position_ = GetRandomPositionInRange();
+	velocity_ = { 0.0f, 0.0f, 0.0f };
+	ChangeRandomBehavior();
+
+	if(object_){
+		object_->SetTranslate(position_);
+		object_->Update();
+	}
 }

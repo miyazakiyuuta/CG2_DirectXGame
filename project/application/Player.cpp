@@ -218,7 +218,7 @@ void Player::Update(float cameraYaw){
 			break;
 	}
 
-	if(input_->IsTriggerKey(DIK_Z) && tongue_){
+	if(input_->IsTriggerMouse(0) && tongue_){
 		tongue_->Shot();
 	}
 

@@ -33,7 +33,7 @@ void Tongue::Initialize(
 	object_->Initialize(object3dCommon);
 	object_->SetModel(modelName);
 	object_->SetCamera(camera_);
-	object_->SetScale({ 0.3f,0.3f,0.3f });
+	object_->SetScale({ 0.3f, 0.3f, 0.3f });
 
 	Reset();
 }
@@ -186,4 +186,11 @@ Vector3 Tongue::GetMouthWorldPosition() const{
 	result.z += right.z * localOffset_.x + forward.z * localOffset_.z;
 
 	return result;
+}
+
+CollisionUtility::Sphere Tongue::GetHitSphere() const{
+	CollisionUtility::Sphere sphere;
+	sphere.center = worldPosition_;
+	sphere.radius = hitRadius_;
+	return sphere;
 }
