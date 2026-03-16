@@ -28,6 +28,8 @@ public:
 	CollisionUtility::Sphere GetHitSphere() const;
 	void OnTongueHit();
 
+	void SetPositionImmediate(const Vector3& pos);
+
 private:
 	void ChangeRandomBehavior();
 

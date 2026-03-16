@@ -56,11 +56,12 @@ void Tongue::Update(float deltaTime){
 	}
 
 	object_->SetTranslate(worldPosition_);
-	object_->Update();
+
 }
 
 void Tongue::Draw(){
 	if(object_){
+		object_->Update();
 		object_->Draw();
 	}
 }
