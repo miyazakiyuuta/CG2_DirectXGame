@@ -16,7 +16,7 @@ class DebugCamera;
 class Object3d;
 class Player;
 class CameraController;
-class StageEdit;
+class StageEditor;
 class DebugGrid;
 
 class GamePlayScene : public BaseScene{
@@ -37,10 +37,11 @@ private:
 	std::unique_ptr<Object3d> object3d_;
 	std::unique_ptr<Player> player_;
 	std::unique_ptr<CameraController> cameraController_;
-	std::unique_ptr<StageEdit> stageEditor_;
+	std::unique_ptr<StageEditor> stageEditor_;
 
 	std::unique_ptr<Bug> bug_ = nullptr;
 	std::unique_ptr<DebugGrid> debugGrid_;
 
 	std::vector<CollisionUtility::AABB> stageBlockColliders_;
+	std::vector<CollisionUtility::AABB> waterBlockColliders_;
 };

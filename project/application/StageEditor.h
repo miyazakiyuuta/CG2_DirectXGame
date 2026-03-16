@@ -23,6 +23,11 @@
 #include <unordered_map>
 #include "utility/CollisionUtility.h"
 
+enum class BlockID{
+    Normal = 0,
+    Water = 1,
+};
+
 /// <summary>
 /// ステージ内のオブジェクトを表す構造体
 /// </summary>
@@ -46,6 +51,11 @@ struct StageObject {
 
     // 拡縮率（初期値は等倍）
     Vector3 scale { 1.0f, 1.0f, 1.0f };
+
+    // ブロックの種類
+// Normal: 通常ブロック
+// Water : 水分回復用ブロック
+    BlockID blockId = BlockID::Normal;
 };
 
 /// <summary>
@@ -84,6 +94,7 @@ public:
             // ID、モデル名、位置、回転、拡縮率を保存
             jo["id"] = o.id; // ID を保存
             jo["modelName"] = o.modelName; // モデル名を保存
+            jo["blockId"] = static_cast<int>(o.blockId); // ブロック種類を保存
             nlohmann::json pos;
             pos["x"] = o.position.x;
             pos["y"] = o.position.y;
@@ -163,6 +174,11 @@ public:
                     // モデル名は必須とする
                     if (jo.contains("modelName")) {
                         o.modelName = jo["modelName"].get<std::string>();
+                    }
+
+                    // ブロック種類はオプションとする（未指定時は Normal のまま）
+                    if(jo.contains("blockId")){
+                        o.blockId = static_cast<BlockID>(jo["blockId"].get<int>());
                     }
 
                     // 位置はオプションとする（デフォルトは原点のまま）
@@ -499,6 +515,9 @@ public:
                 o.modelName = defaultModel_;
                 // カメラ前方に配置
                 o.position = GetCreateOrigin();
+
+                o.blockId = placingBlockId_;
+
                 // 回転はゼロ、拡縮は等倍のまま
                 data_.objects.push_back(o);
                 // 変更を反映してオブジェクトを再生成
@@ -621,10 +640,57 @@ public:
                 continue;
             }
 
+            if(o.blockId == BlockID::Water){
+                continue;
+            }
+
             CollisionUtility::AABB aabb;
 
             // scale は「等倍=1」の想定なので、半サイズに 0.5f を掛ける
             // 必要ならモデルごとに基準半サイズを分けてもいい
+            Vector3 halfSize = {
+                1.0f * o.scale.x,
+                1.0f * o.scale.y,
+                1.0f * o.scale.z
+            };
+
+            aabb.min = {
+                o.position.x - halfSize.x,
+                o.position.y - halfSize.y,
+                o.position.z - halfSize.z
+            };
+            aabb.max = {
+                o.position.x + halfSize.x,
+                o.position.y + halfSize.y,
+                o.position.z + halfSize.z
+            };
+
+            result.push_back(aabb);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+   /// 水ブロックの当たり判定一覧を返す
+   /// </summary>
+    std::vector<CollisionUtility::AABB> GetWaterBlockAABBs() const{
+        std::vector<CollisionUtility::AABB> result;
+        result.reserve(data_.objects.size());
+
+        for(const auto& o : data_.objects){
+            // ひとまず Cube.obj だけを水ブロック判定対象にする
+            if(o.modelName != "Cube.obj"){
+                continue;
+            }
+
+            // Water のみ対象
+            if(o.blockId != BlockID::Water){
+                continue;
+            }
+
+            CollisionUtility::AABB aabb;
+
             Vector3 halfSize = {
                 1.0f * o.scale.x,
                 1.0f * o.scale.y,
@@ -802,6 +868,13 @@ private:
             defaultModel_ = std::string(defaultModelBuf_);
         }
 
+        // 生成するブロック種類を選択
+        const char* blockTypes[] = { "Normal", "Water" };
+        int blockTypeIndex = static_cast<int>(placingBlockId_);
+        if(ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
+            placingBlockId_ = static_cast<BlockID>(blockTypeIndex);
+        }
+
         // 簡易作成ボタン（右クリックでも作成できます）
         ImGui::SameLine();
         if (ImGui::Button("Create")) {
@@ -809,6 +882,7 @@ private:
             o.id = nextId_++;
             o.modelName = defaultModel_;
             o.position = GetCreateOrigin();
+            o.blockId = placingBlockId_;
             data_.objects.push_back(o);
             loader_.UpdateOrCreateInstance(o);
             // 履歴に保存
@@ -897,6 +971,7 @@ private:
                     o.id = nextId_++;
                     o.modelName = model;
                     o.position = pos;
+                    o.blockId = placingBlockId_;
                     data_.objects.push_back(o);
                     loader_.UpdateOrCreateInstance(o);
                 }
@@ -922,6 +997,7 @@ private:
                 editPosition_ = o.position;
                 editRotation_ = o.rotation;
                 editScale_ = o.scale;
+                editBlockId_ = o.blockId;
                 // モデル名バッファに現在のモデル名をコピー
                 strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
             }
@@ -974,6 +1050,21 @@ private:
                 }
             }
 
+            // ブロック種類の編集
+            int editBlockTypeIndex = static_cast<int>(editBlockId_);
+            if(ImGui::Combo("Selected Block Type", &editBlockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
+                editBlockId_ = static_cast<BlockID>(editBlockTypeIndex);
+
+                if(liveEdit_){
+                    for(auto& obj : data_.objects){
+                        if(obj.id == selectedObjectId_){
+                            obj.blockId = editBlockId_;
+                            break;
+                        }
+                    }
+                }
+            }
+
             // 編集内容を反映するボタン
             if (ImGui::Button("Apply Transform")) {
                 // 編集内容を反映
@@ -984,6 +1075,7 @@ private:
                         obj.position = editPosition_;
                         obj.rotation = editRotation_;
                         obj.scale = editScale_;
+                        obj.blockId = editBlockId_;
                         break;
                     }
                 }
@@ -1092,4 +1184,10 @@ private:
     Vector3 editPosition_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式
     Vector3 editRotation_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式
     Vector3 editScale_ { 1.0f, 1.0f, 1.0f }; // 直接編集はせず、選択時にコピーして編集後に反映する方式
+
+    // 新規生成時のブロック種類
+    BlockID placingBlockId_ = BlockID::Normal;
+
+    // 選択中オブジェクトのブロック種類編集用
+    BlockID editBlockId_ = BlockID::Normal;
 };

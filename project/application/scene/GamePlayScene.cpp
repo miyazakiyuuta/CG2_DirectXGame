@@ -16,7 +16,7 @@
 #include "3d/Object3d.h"
 #include "Player.h"
 #include "CameraController.h"
-#include "StageEdit.h"
+#include "StageEditor.h"
 #include "debug/DebugGrid.h"
 #include "Tongue.h"
 
@@ -38,12 +38,10 @@ void GamePlayScene::Initialize(){
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
 
-	// TextureManager からテクスチャを読み込む
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
-	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
 	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
@@ -72,15 +70,9 @@ void GamePlayScene::Initialize(){
 	cameraController_->SetYawSpeed(0.03f);
 	cameraController_->SetPitchSpeed(0.02f);
 
-	stageEditor_ = std::make_unique<StageEdit>();
-	stageEditor_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj");
+	stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
+	stageEditor_->Initialize("Cube.obj");
 
-
-	//ユキト製を使う場合Include、前方宣言を”StageEditor”に変更したうえで以下のコードを使用、上のStageEditorをコメントアウト
-	//stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
-	//stageEditor_->Initialize("Cube.obj");
-
-	  // 虫の生成と初期化
 	bug_ = std::make_unique<Bug>();
 	bug_->Initialize(camera_.get());
 
@@ -120,24 +112,20 @@ void GamePlayScene::Update(){
 
 	stageEditor_->Update();
 
-	// 毎フレーム、生成ブロックの当たり判定をプレイヤーへ渡す
+	// 通常ブロックと水ブロックを分けて取得
 	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
+	waterBlockColliders_ = stageEditor_->GetWaterBlockAABBs();
 	player_->SetBlockColliders(&stageBlockColliders_);
 
 	if(!stageEditor_->IsEditMode()){
-		// いつもの更新
 		player_->Update(cameraController_->GetYaw());
 		cameraController_->Update(player_->GetPosition());
 	} else{
-        // StageEditor中はプレイヤー更新を止める
 		cameraController_->Update(player_->GetPosition());
 	}
 
 	imGuiManager_->End();
 
-
-
-	// 虫の更新
 	bug_->Update();
 
 	// 舌先と虫の球判定
@@ -148,13 +136,27 @@ void GamePlayScene::Update(){
 			const CollisionUtility::Sphere bugSphere = bug_->GetHitSphere();
 
 			if(CollisionUtility::IntersectSphere_Sphere(tongueSphere, bugSphere)){
-				// 虫に当たったらジャンプチャージを1増やす
 				player_->AddChargeStock(1);
-
 				bug_->OnTongueHit();
 				tongue->Reset();
 			}
 		}
+	}
+
+	// 水ブロックに触れている間は徐々に回復
+	bool isTouchingWater = false;
+	if(player_){
+		const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
+		for(const auto& waterBox : waterBlockColliders_){
+			if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
+				isTouchingWater = true;
+				break;
+			}
+		}
+	}
+
+	if(isTouchingWater){
+		player_->AddWater(15.0f / 60.0f);
 	}
 
 	camera_->Update();
@@ -170,7 +172,6 @@ void GamePlayScene::Draw(){
 	player_->Draw();
 	stageEditor_->Draw();
 
-	// 虫の描画
 	bug_->Draw();
 
 	debugGrid_->Draw(*camera_);

@@ -37,6 +37,8 @@ void Player::Initialize(
 	lastMove_ = { 0.0f, 0.0f, 0.0f };
 	isOnGround_ = false;
 
+	waterGauge_ = maxWaterGauge_;
+
 	isChargingJump_ = false;
 	isJumpChargeCanceled_ = false;
 	chargeTimer_ = 0.0f;
@@ -78,6 +80,27 @@ CollisionUtility::AABB Player::GetPlayerAABB(const Vector3& position) const{
 		position.z + colliderHalfSize_.z
 	};
 	return box;
+}
+
+void Player::AddWater(float amount){
+	waterGauge_ += amount;
+	if(waterGauge_ > maxWaterGauge_){
+		waterGauge_ = maxWaterGauge_;
+	}
+	if(waterGauge_ < 0.0f){
+		waterGauge_ = 0.0f;
+	}
+}
+
+bool Player::ConsumeWater(float amount){
+	if(waterGauge_ < amount){
+		return false;
+	}
+	waterGauge_ -= amount;
+	if(waterGauge_ < 0.0f){
+		waterGauge_ = 0.0f;
+	}
+	return true;
 }
 
 void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
@@ -146,8 +169,6 @@ void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
 
 		float prevBottom = previousPosition.y - colliderHalfSize_.y;
 		float prevTop = previousPosition.y + colliderHalfSize_.y;
-		float nowBottom = position.y - colliderHalfSize_.y;
-		float nowTop = position.y + colliderHalfSize_.y;
 
 		// 上から落ちて床に乗る
 		if(velocity_.y <= 0.0f && prevBottom >= block.max.y - 0.01f){
@@ -219,7 +240,9 @@ void Player::Update(float cameraYaw){
 	}
 
 	if(input_->IsTriggerMouse(0) && tongue_){
-		tongue_->Shot();
+		if(!tongue_->IsBusy() && ConsumeWater(tongueWaterCost_)){
+			tongue_->Shot();
+		}
 	}
 
 	if(tongue_){
@@ -456,6 +479,16 @@ void Player::DrawImGui(){
 			ImGui::TreePop();
 		}
 
+		if(ImGui::TreeNode("Water")){
+			ImGui::Text("Water Gauge : %.1f / %.1f", waterGauge_, maxWaterGauge_);
+			ImGui::ProgressBar(
+				maxWaterGauge_ > 0.0f ? (waterGauge_ / maxWaterGauge_) : 0.0f,
+				ImVec2(240.0f, 22.0f)
+			);
+			ImGui::Text("Tongue Cost : %.1f", tongueWaterCost_);
+			ImGui::TreePop();
+		}
+
 		if(ImGui::TreeNode("State")){
 			ImGui::Text("Current State : %s", GetMovementStateName());
 			ImGui::Separator();
@@ -553,10 +586,12 @@ void Player::DrawImGui(){
 				}
 
 				ImGui::Text("State : %s", stateName);
-				ImGui::Text("Shot Key : Z");
+				ImGui::Text("Shot Mouse : Left Click");
 
 				if(ImGui::Button("Shot Tongue")){
-					tongue_->Shot();
+					if(ConsumeWater(tongueWaterCost_)){
+						tongue_->Shot();
+					}
 				}
 				ImGui::SameLine();
 				if(ImGui::Button("Reset Tongue")){

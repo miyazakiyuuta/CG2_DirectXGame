@@ -50,6 +50,15 @@ public:
 		blockColliders_ = blockColliders;
 	}
 
+	// 外から水ブロック接触判定に使う
+	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
+
+	// 水分ゲージ
+	float GetWaterGauge() const{ return waterGauge_; }
+	float GetMaxWaterGauge() const{ return maxWaterGauge_; }
+	void AddWater(float amount);
+	bool ConsumeWater(float amount);
+
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
 	int GetCurrentVisibleChargeLevel() const;
@@ -77,7 +86,6 @@ private:
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;
 
-	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
 	void ResolveHorizontalCollisions(const Vector3& previousPosition);
 	void ResolveVerticalCollisions(const Vector3& previousPosition);
 
@@ -97,6 +105,11 @@ private:
 
 	// モデル正面ズレ補正
 	float modelYawOffset_ = 0.0f;
+
+	// 水分ゲージ
+	float waterGauge_ = 100.0f;
+	float maxWaterGauge_ = 100.0f;
+	float tongueWaterCost_ = 5.0f;
 
 	// チャージジャンプ
 	float jumpPowers_[4] = { 0.55f, 0.80f, 1.05f, 1.30f };
@@ -124,6 +137,6 @@ private:
 
 	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
 
-	// Cube プレイヤー前提
-	Vector3 colliderHalfSize_ = { 1.0f, 1.0f, 1.0f };
+	// 見た目より少し小さめにして歩きやすくする
+	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
 };
