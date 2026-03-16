@@ -38,6 +38,9 @@ public:
 	void SetZoomStep(float step){ zoomStep_ = step; }
 	void SetZoomEaseSpeed(float speed){ zoomEaseSpeed_ = speed; }
 
+	void SetMouseSensitivity(float sensitivity){ mouseSensitivity_ = sensitivity; }
+	void SetInvertY(bool invert){ invertY_ = invert; }
+
 	float GetYaw() const{ return yaw_; }
 	float GetPitch() const{ return pitch_; }
 	float GetDistance() const{ return distance_; }
@@ -69,6 +72,10 @@ private:
 	float maxZoom_ = 30.0f;
 	float zoomStep_ = 0.02f;
 	float zoomEaseSpeed_ = 0.2f;
+
+	// マウス回転設定
+	float mouseSensitivity_ = 0.01f;
+	bool invertY_ = false;
 
 	Vector3 targetOffset_ = { 0.0f, 1.0f, 0.0f };
 

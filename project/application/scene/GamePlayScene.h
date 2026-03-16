@@ -42,5 +42,6 @@ private:
     std::unique_ptr<Bug> bug_ = nullptr;
     std::unique_ptr<DebugGrid> debugGrid_;
 
-    std::vector<CollisionUtility::AABB> stageBlockColliders_;
+	std::vector<CollisionUtility::AABB> stageBlockColliders_;
+	std::vector<CollisionUtility::AABB> waterBlockColliders_;
 };

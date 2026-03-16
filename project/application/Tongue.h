@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include "math/Vector3.h"
+#include "utility/CollisionUtility.h"
 
 class Camera;
 class Object3d;
@@ -37,6 +38,10 @@ public:
 	State GetState() const{ return state_; }
 	Vector3 GetPosition() const{ return worldPosition_; }
 
+	// 舌先の虫判定用
+	bool CanHitBug() const{ return state_ == State::Extending; }
+	CollisionUtility::Sphere GetHitSphere() const;
+
 private:
 	void UpdateIdle();
 	void UpdateExtending(float deltaTime);
@@ -62,4 +67,7 @@ private:
 	float returnSpeed_ = 45.0f;
 
 	float currentDistance_ = 0.0f;
+
+	// 舌先球の半径
+	float hitRadius_ = 0.35f;
 };

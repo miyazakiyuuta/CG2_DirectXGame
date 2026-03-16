@@ -18,6 +18,7 @@
 #include "Player.h"
 #include "StageEditor.h"
 #include "debug/DebugGrid.h"
+#include "Tongue.h"
 
 #include <imgui.h>
 #include <numbers>
@@ -121,9 +122,10 @@ void GamePlayScene::Update()
 
     stageEditor_->Update();
 
-    // 毎フレーム、生成ブロックの当たり判定をプレイヤーへ渡す
-    stageBlockColliders_ = stageEditor_->GetBlockAABBs();
-    player_->SetBlockColliders(&stageBlockColliders_);
+	// 通常ブロックと水ブロックを分けて取得
+	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
+	waterBlockColliders_ = stageEditor_->GetWaterBlockAABBs();
+	player_->SetBlockColliders(&stageBlockColliders_);
 
     if (!stageEditor_->IsEditMode()) {
         // いつもの更新
@@ -136,8 +138,38 @@ void GamePlayScene::Update()
 
     imGuiManager_->End();
 
-    // 虫の更新
-    bug_->Update();
+	bug_->Update();
+
+	// 舌先と虫の球判定
+	if(player_ && bug_){
+		Tongue* tongue = player_->GetTongue();
+		if(tongue && tongue->CanHitBug()){
+			const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
+			const CollisionUtility::Sphere bugSphere = bug_->GetHitSphere();
+
+			if(CollisionUtility::IntersectSphere_Sphere(tongueSphere, bugSphere)){
+				player_->AddChargeStock(1);
+				bug_->OnTongueHit();
+				tongue->Reset();
+			}
+		}
+	}
+
+	// 水ブロックに触れている間は徐々に回復
+	bool isTouchingWater = false;
+	if(player_){
+		const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
+		for(const auto& waterBox : waterBlockColliders_){
+			if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
+				isTouchingWater = true;
+				break;
+			}
+		}
+	}
+
+	if(isTouchingWater){
+		player_->AddWater(15.0f / 60.0f);
+	}
 
     camera_->Update();
     camera_->TransferToGPU();
