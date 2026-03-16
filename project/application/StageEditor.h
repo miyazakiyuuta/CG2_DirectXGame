@@ -14,6 +14,8 @@
 #include "3d/Camera.h"
 #include "3d/Object3d.h"
 #include "3d/Object3dCommon.h"
+#include "debug/DebugSphere.h"
+#include "base/WinApp.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include <../externals/nlohmann/json.hpp>
@@ -468,6 +470,21 @@ public:
         // デフォルトモデルのバッファを初期化しておく（コンストラクタ時点で表示されるように）
         strcpy_s(defaultModelBuf_, sizeof(defaultModelBuf_), defaultModel_.c_str());
         strcpy_s(batchModelBuf_, sizeof(batchModelBuf_), defaultModel_.c_str());
+
+        // プレビュー用マーカーを作成
+        previewMarker_ = std::make_unique<Object3d>();
+        if (object3dCommon_) {
+            // プレビュー用マーカーを初期化
+            previewMarker_->Initialize(object3dCommon_);
+            // カメラもセットしておく（これも毎回セットする必要があるかもしれない）
+            previewMarker_->SetCamera(camera_);
+            // スケールを小さくしておく
+            previewMarker_->SetScale({0.5f, 0.5f, 0.5f});
+        }
+
+        // プレビュー用の球も作成しておく
+        previewSphere_ = std::make_unique<DebugSphere>();
+        previewSphere_->Initialize(Object3dCommon::GetInstance()->GetDxCommon());
     }
 
     /// <summary>
@@ -481,6 +498,12 @@ public:
         data_.name = "stage"; // ステージ名の初期値を設定
         // 初期状態を履歴に保存
         SaveHistorySnapshot();
+        
+        // プレビュー用マーカーのモデルも初期化しておく
+        if (previewMarker_) {
+            // デフォルトモデルをセットしておく
+            previewMarker_->SetModel(defaultModel_);
+        }
     }
 
     /// <summary>
@@ -522,6 +545,86 @@ public:
             }
         }
 
+        // ホットキーによる移動原点切り替え
+        if (isEditMode_ && useHotkey_) {
+            // ImGuiでキーボードがキャプチャされているときは切り替えない
+            if (!ImGui::GetIO().WantCaptureKeyboard) {
+                // トグルキーが設定されている場合のみチェックする
+                if (toggleKeyBuf_[0] != '\0') {
+                    // トグルキーの状態をチェック
+                    int vk = toupper(static_cast<unsigned char>(toggleKeyBuf_[0]));
+                    bool down = (GetAsyncKeyState(vk) & 0x8000) != 0;
+                    // トグルキーが押された瞬間に切り替える
+                    if (down && !hotkeyPrevDown_) {
+                        // 移動原点モードを切り替える
+                        moveOriginMode_ = !moveOriginMode_;
+                        // 移動原点モードの切り替えに応じて createReferenceIndex_ を変更する
+                        if (moveOriginMode_){ 
+                            createReferenceIndex_ = 3; // Custom
+                        }
+                    }
+
+                    // 前回の状態を保存
+                    hotkeyPrevDown_ = down;
+                }
+            }
+        }
+
+        if (isEditMode_ && moveOriginMode_ && camera_) {
+            // ImGuiでマウスがキャプチャされているときは移動しない
+            if (!ImGui::GetIO().WantCaptureMouse) {
+                // ウィンドウ内のカーソル位置を取得
+                POINT pt;
+                // マウスホイールで高さを調整
+                long wheel = Input::GetInstance()->GetMouseWheel();
+                bool skipXZUpdate = false;
+                if (wheel != 0) {
+                    // ホイールだけ操作した場合は Y のみ変更し、XZ の再計算は行わない
+                    createOrigin_.y += static_cast<float>(wheel) * createHeightSensitivity_ * 0.001f;
+                    skipXZUpdate = true;
+                }
+
+                if (GetCursorPos(&pt) && !skipXZUpdate) {
+                    HWND hwnd = WinApp::GetInstance()->GetHwnd();
+                    POINT clientPt = pt;
+                    ScreenToClient(hwnd, &clientPt);
+                    // クリッピング
+                    const float w = static_cast<float>(WinApp::kClientWidth);
+                    const float h = static_cast<float>(WinApp::kClientHeight);
+                    float px = static_cast<float>(clientPt.x);
+                    float py = static_cast<float>(clientPt.y);
+                    // 正規化デバイス座標に変換
+                    float nx = (px / w) * 2.0f - 1.0f;
+                    float ny = -((py / h) * 2.0f - 1.0f); // Y軸反転
+
+                    // ビュー・プロジェクション行列の逆行列を使ってワールド空間のレイを得る
+                    Matrix4x4 vp = camera_->GetViewProjectionMatrix();
+                    Matrix4x4 invVP = vp;
+                    invVP = invVP.Inverse();
+
+                    // 近クリップと遠クリップのクリップ空間座標
+                    Vector3 nearClip = { nx, ny, 0.0f };
+                    Vector3 farClip  = { nx, ny, 1.0f };
+
+                    // クリップ->ワールド (Matrix4x4::Transform を利用)
+                    Vector3 pNear = invVP.Transform(nearClip);
+                    Vector3 pFar = invVP.Transform(farClip);
+
+                    Vector3 dir = pFar - pNear;
+
+                    // 交差させる平面は Y = createOrigin_.y（水平面）とする
+                    float planeY = createOrigin_.y;
+                    if (std::abs(dir.y) > 1e-6f) {
+                        float t = (planeY - pNear.y) / dir.y;
+                        Vector3 intersect = pNear + dir * t;
+                        createOrigin_.x = intersect.x;
+                        createOrigin_.z = intersect.z;
+                        createOrigin_.y = planeY;
+                    }
+                }
+            }
+        }
+
         // ImGuiウィンドウは常に描画して、編集モードの切り替えやステージ確認を可能にする
         DrawImGui(); // ImGuiの描画呼び出し
     }
@@ -533,6 +636,52 @@ public:
     {
         // すべてのオブジェクトの描画を呼び出す
         loader_.DrawAndUpdate();
+
+        // プレビューを描画 (編集モード時のみ)
+        if (isEditMode_ && previewSphere_) {
+            std::vector<Vector3> centers;
+            // 単体生成位置プレビュー
+            if (showCreatePreview_) {
+                centers.push_back(GetCreateOrigin());
+                previewSphere_->Draw(centers, previewRadius_, {0.0f,1.0f,0.0f,1.0f}, *camera_);
+            }
+
+            // バッチ生成プレビュー
+            if (showBatchPreview_) {
+                centers.clear();
+                Vector3 dirA, dirB;
+                if (batchNormalIndex_ == 0) { // normal X -> grid on YZ
+                    dirA = Vector3{0.0f, 0.0f, 1.0f}; // Z
+                    dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                } else if (batchNormalIndex_ == 1) { // normal Y (floor) -> grid on XZ
+                    dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
+                    dirB = Vector3{0.0f, 0.0f, 1.0f}; // Z
+                } else { // normal Z -> grid on XY
+                    dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
+                    dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                }
+
+                // バッチの中心が createOrigin_ に来るように、半分ずつオフセットする
+                float halfA = (batchCountA_ - 1) * 0.5f * batchSpacing_;
+                float halfB = (batchCountB_ - 1) * 0.5f * batchSpacing_;
+
+                // バッチ生成の中心位置を取得
+                Vector3 origin = GetCreateOrigin();
+
+                // dirA と dirB の方向に batchCountA_ と batchCountB_ の数だけ等間隔に配置する
+                for (int ia = 0; ia < batchCountA_; ++ia) {
+                    for (int ib = 0; ib < batchCountB_; ++ib) {
+                        Vector3 pos = origin + dirA * ((ia * batchSpacing_) - halfA) + dirB * ((ib * batchSpacing_) - halfB);
+                        centers.push_back(pos);
+                    }
+                }
+
+                // 配置位置を描画
+                if (!centers.empty()) {
+                    previewSphere_->Draw(centers, previewRadius_, {0.0f,0.5f,1.0f,1.0f}, *camera_);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -785,13 +934,43 @@ private:
         const char* refs[] = { "Camera Forward", "World Origin", "Selected Object", "Custom" };
         ImGui::Combo("Reference", &createReferenceIndex_, refs, IM_ARRAYSIZE(refs));
         ImGui::SameLine();
+        // 生成基準点の参照タイプを選択するコンボボックスを配置し、選択肢は「Camera Forward」「World Origin」「Selected Object」「Custom」とする
         if (ImGui::Button("Set To Camera")) {
             // カメラ前方を生成基準点に設定するボタンが押されたら、現在のカメラ前方位置を createOrigin_ にセットして、参照タイプを Custom に切り替える
             createOrigin_ = controller_.GetCreatePosition();
             createReferenceIndex_ = 3; // Custom に切り替える
         }
+
+        // 生成基準点のオフセットを調整するためのドラッグコントロールを配置
         ImGui::DragFloat3("Origin Pos", &createOrigin_.x, 0.1f);
         ImGui::DragFloat3("Create Offset", &createOffset_.x, 0.1f);
+        // プレビュー表示のトグル
+        ImGui::Checkbox("Show Create Preview", &showCreatePreview_);
+        ImGui::SameLine();
+        ImGui::Checkbox("Show Batch Preview", &showBatchPreview_);
+        // 移動原点モードのトグル
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Move Origin Mode", &moveOriginMode_)) {
+            // Move Origin Mode が切り替えられたときの処理
+            if (moveOriginMode_) {
+                createReferenceIndex_ = 3; // Custom
+            }
+        }
+
+        // Move Origin Mode が有効な場合は、マウス操作で生成基準点を移動できるようにするための説明テキストと感度調整のスライダーを表示
+        if (moveOriginMode_) {
+            ImGui::TextWrapped("Move Origin Mode forces Reference = Custom. Move the mouse to pan the origin; mouse wheel moves depth.");
+            ImGui::SliderFloat("Move Sensitivity", &moveSensitivity_, 0.001f, 1.0f);
+            ImGui::SliderFloat("Depth Sensitivity", &moveDepthSensitivity_, 0.001f, 1.0f);
+        }
+
+        // ホットキーによる移動原点切り替えのUI
+        if (ImGui::Checkbox("Enable Hotkey Toggle", &useHotkey_)) {
+            // noop
+        }
+
+        ImGui::SameLine();
+        ImGui::InputText("Toggle Key (single char)", toggleKeyBuf_, sizeof(toggleKeyBuf_));
         
         // 区切り線を描画してUIを整理する
         ImGui::Separator();
@@ -1088,8 +1267,36 @@ private:
     int selectedObjectId_ = -1;
     // 選択中オブジェクトのモデル編集用バッファ
     char selectedModelBuf_[256] = {};
+
     // 選択中オブジェクトの編集用ワークバッファ
-    Vector3 editPosition_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式
-    Vector3 editRotation_ {}; // 直接編集はせず、選択時にコピーして編集後に反映する方式
-    Vector3 editScale_ { 1.0f, 1.0f, 1.0f }; // 直接編集はせず、選択時にコピーして編集後に反映する方式
+    // 直接編集はせず、選択時にコピーして編集後に反映する方式
+    Vector3 editPosition_ {}; 
+    Vector3 editRotation_ {}; 
+    Vector3 editScale_ { 1.0f, 1.0f, 1.0f };
+    
+    // 生成位置プレビュー用のオブジェクト（モデルは単純な球体などで十分）
+    std::unique_ptr<Object3d> previewMarker_;
+    // 生成位置プレビュー用のシンプルな球体モデル
+    std::unique_ptr<DebugSphere> previewSphere_;
+    // 単体生成のプレビュー表示フラグ
+    bool showCreatePreview_ = true;
+    // バッチ生成のプレビュー表示フラグ
+    bool showBatchPreview_ = false;
+    // バッチ生成プレビューのグリッドサイズ
+    float previewRadius_ = 1.0f;
+    
+    // インタラクティブな原点移動モードのフラグ
+    bool moveOriginMode_ = false;
+    // マウス移動での原点移動の感度
+    float moveSensitivity_ = 0.02f;
+    // マウスホイールでの深度移動の感度
+    float moveDepthSensitivity_ = 0.1f;
+    float createHeightSensitivity_ = 0.5f; // ホイールで高さ調整する感度
+
+    // ホットキーで原点移動モードをトグルする機能の有効フラグ
+    bool useHotkey_ = false;
+    // ホットキーのトグルに使用するキーを保存するバッファ（デフォルトは 'M'）
+    char toggleKeyBuf_[16] = "M";
+    // ホットキーの前回の状態を保持するフラグ（トグルのために必要）
+    bool hotkeyPrevDown_ = false;
 };
