@@ -14,20 +14,22 @@
 #include "3d/Camera.h"
 #include "3d/Object3d.h"
 #include "3d/Object3dCommon.h"
-#include "debug/DebugSphere.h"
 #include "base/WinApp.h"
+#include "debug/DebugSphere.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
+#include "utility/CollisionUtility.h"
 #include <../externals/nlohmann/json.hpp>
 #include <cmath>
 #include <cstring>
 #include <imgui.h>
 #include <unordered_map>
-#include "utility/CollisionUtility.h"
 
-enum class BlockID{
+enum class BlockID {
     Normal = 0,
     Water = 1,
+    BugSpawn = 2,
+    PlayerSpawn = 3,
 };
 
 /// <summary>
@@ -55,8 +57,8 @@ struct StageObject {
     Vector3 scale { 1.0f, 1.0f, 1.0f };
 
     // ブロックの種類
-// Normal: 通常ブロック
-// Water : 水分回復用ブロック
+    // Normal: 通常ブロック
+    // Water : 水分回復用ブロック
     BlockID blockId = BlockID::Normal;
 };
 
@@ -179,7 +181,7 @@ public:
                     }
 
                     // ブロック種類はオプションとする（未指定時は Normal のまま）
-                    if(jo.contains("blockId")){
+                    if (jo.contains("blockId")) {
                         o.blockId = static_cast<BlockID>(jo["blockId"].get<int>());
                     }
 
@@ -338,12 +340,12 @@ public:
     /// </summary>
     void UpdateInstanceTransform(int id, const Vector3& pos, const Vector3& rot, const Vector3& scale)
     {
-      
+
         for (auto& inst : instances_) {
             // ID で既存インスタンスを照合
             if (inst.id == id && inst.object) {
                 // ID が一致するインスタンスが見つかった場合は位置・回転・拡縮率を更新
-                inst.object->SetTranslate(pos); 
+                inst.object->SetTranslate(pos);
                 inst.object->SetRotate(rot);
                 inst.object->SetScale(scale);
                 inst.object->Update();
@@ -495,7 +497,7 @@ public:
             // カメラもセットしておく（これも毎回セットする必要があるかもしれない）
             previewMarker_->SetCamera(camera_);
             // スケールを小さくしておく
-            previewMarker_->SetScale({0.5f, 0.5f, 0.5f});
+            previewMarker_->SetScale({ 0.5f, 0.5f, 0.5f });
         }
 
         // プレビュー用の球も作成しておく
@@ -514,7 +516,7 @@ public:
         data_.name = "stage"; // ステージ名の初期値を設定
         // 初期状態を履歴に保存
         SaveHistorySnapshot();
-        
+
         // プレビュー用マーカーのモデルも初期化しておく
         if (previewMarker_) {
             // デフォルトモデルをセットしておく
@@ -578,7 +580,7 @@ public:
                         // 移動原点モードを切り替える
                         moveOriginMode_ = !moveOriginMode_;
                         // 移動原点モードの切り替えに応じて createReferenceIndex_ を変更する
-                        if (moveOriginMode_){ 
+                        if (moveOriginMode_) {
                             createReferenceIndex_ = 3; // Custom
                         }
                     }
@@ -623,7 +625,7 @@ public:
 
                     // 近クリップと遠クリップのクリップ空間座標
                     Vector3 nearClip = { nx, ny, 0.0f };
-                    Vector3 farClip  = { nx, ny, 1.0f };
+                    Vector3 farClip = { nx, ny, 1.0f };
 
                     // クリップ->ワールド (Matrix4x4::Transform を利用)
                     Vector3 pNear = invVP.Transform(nearClip);
@@ -662,7 +664,7 @@ public:
             // 単体生成位置プレビュー
             if (showCreatePreview_) {
                 centers.push_back(GetCreateOrigin());
-                previewSphere_->Draw(centers, previewRadius_, {0.0f,1.0f,0.0f,1.0f}, *camera_);
+                previewSphere_->Draw(centers, previewRadius_, { 0.0f, 1.0f, 0.0f, 1.0f }, *camera_);
             }
 
             // バッチ生成プレビュー
@@ -670,14 +672,14 @@ public:
                 centers.clear();
                 Vector3 dirA, dirB;
                 if (batchNormalIndex_ == 0) { // normal X -> grid on YZ
-                    dirA = Vector3{0.0f, 0.0f, 1.0f}; // Z
-                    dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                    dirA = Vector3 { 0.0f, 0.0f, 1.0f }; // Z
+                    dirB = Vector3 { 0.0f, 1.0f, 0.0f }; // Y
                 } else if (batchNormalIndex_ == 1) { // normal Y (floor) -> grid on XZ
-                    dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
-                    dirB = Vector3{0.0f, 0.0f, 1.0f}; // Z
+                    dirA = Vector3 { 1.0f, 0.0f, 0.0f }; // X
+                    dirB = Vector3 { 0.0f, 0.0f, 1.0f }; // Z
                 } else { // normal Z -> grid on XY
-                    dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
-                    dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                    dirA = Vector3 { 1.0f, 0.0f, 0.0f }; // X
+                    dirB = Vector3 { 0.0f, 1.0f, 0.0f }; // Y
                 }
 
                 // バッチの中心が createOrigin_ に来るように、半分ずつオフセットする
@@ -697,7 +699,7 @@ public:
 
                 // 配置位置を描画
                 if (!centers.empty()) {
-                    previewSphere_->Draw(centers, previewRadius_, {0.0f,0.5f,1.0f,1.0f}, *camera_);
+                    previewSphere_->Draw(centers, previewRadius_, { 0.0f, 0.5f, 1.0f, 1.0f }, *camera_);
                 }
             }
         }
@@ -779,17 +781,20 @@ public:
     /// </summary>
     StageData& GetStageData() { return data_; }
 
-    std::vector<CollisionUtility::AABB> GetBlockAABBs() const{
+    std::vector<CollisionUtility::AABB> GetBlockAABBs() const
+    {
         std::vector<CollisionUtility::AABB> result;
         result.reserve(data_.objects.size());
 
-        for(const auto& o : data_.objects){
+        for (const auto& o : data_.objects) {
             // ひとまず Cube.obj だけをブロック判定対象にする
-            if(o.modelName != "Cube.obj"){
+            if (o.modelName != "Cube.obj") {
                 continue;
             }
 
-            if(o.blockId == BlockID::Water){
+            if(o.blockId == BlockID::Water ||
+               o.blockId == BlockID::BugSpawn ||
+               o.blockId == BlockID::PlayerSpawn){
                 continue;
             }
 
@@ -821,20 +826,21 @@ public:
     }
 
     /// <summary>
-   /// 水ブロックの当たり判定一覧を返す
-   /// </summary>
-    std::vector<CollisionUtility::AABB> GetWaterBlockAABBs() const{
+    /// 水ブロックの当たり判定一覧を返す
+    /// </summary>
+    std::vector<CollisionUtility::AABB> GetWaterBlockAABBs() const
+    {
         std::vector<CollisionUtility::AABB> result;
         result.reserve(data_.objects.size());
 
-        for(const auto& o : data_.objects){
+        for (const auto& o : data_.objects) {
             // ひとまず Cube.obj だけを水ブロック判定対象にする
-            if(o.modelName != "Cube.obj"){
+            if (o.modelName != "Cube.obj") {
                 continue;
             }
 
             // Water のみ対象
-            if(o.blockId != BlockID::Water){
+            if (o.blockId != BlockID::Water) {
                 continue;
             }
 
@@ -861,6 +867,34 @@ public:
         }
 
         return result;
+    }
+
+    /// <summary>
+   /// 虫スポーン位置一覧を返す
+   /// </summary>
+    std::vector<Vector3> GetBugSpawnPositions() const{
+        std::vector<Vector3> result;
+        result.reserve(data_.objects.size());
+
+        for(const auto& o : data_.objects){
+            if(o.blockId == BlockID::BugSpawn){
+                result.push_back(o.position);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// プレイヤー開始位置を返す
+    /// </summary>
+    std::optional<Vector3> GetPlayerSpawnPosition() const{
+        for(const auto& o : data_.objects){
+            if(o.blockId == BlockID::PlayerSpawn){
+                return o.position;
+            }
+        }
+        return std::nullopt;
     }
 
 private:
@@ -902,19 +936,21 @@ private:
             base = controller_.GetCreatePosition();
             break;
         case 1: // World Origin
-            base = Vector3{0.0f, 0.0f, 0.0f};
+            base = Vector3 { 0.0f, 0.0f, 0.0f };
             break;
         case 2: // Selected Object
         {
             if (selectedObjectId_ != -1) {
                 for (const auto& o : data_.objects) {
-                    if (o.id == selectedObjectId_) { base = o.position; break; }
+                    if (o.id == selectedObjectId_) {
+                        base = o.position;
+                        break;
+                    }
                 }
             } else {
-                base = Vector3{0.0f, 0.0f, 0.0f};
+                base = Vector3 { 0.0f, 0.0f, 0.0f };
             }
-        }
-        break;
+        } break;
         case 3: // Custom
         default:
             base = createOrigin_;
@@ -929,7 +965,8 @@ private:
     /// </summary>
     void Undo()
     {
-        if (historyIndex_ <= 0) return;
+        if (historyIndex_ <= 0)
+            return;
         --historyIndex_;
         const auto& s = history_[historyIndex_];
         data_ = s.data;
@@ -943,7 +980,8 @@ private:
     /// </summary>
     void Redo()
     {
-        if (historyIndex_ + 1 >= (int)history_.size()) return;
+        if (historyIndex_ + 1 >= (int)history_.size())
+            return;
         ++historyIndex_;
         const auto& s = history_[historyIndex_];
         data_ = s.data;
@@ -1037,10 +1075,10 @@ private:
 
         ImGui::SameLine();
         ImGui::InputText("Toggle Key (single char)", toggleKeyBuf_, sizeof(toggleKeyBuf_));
-        
+
         // 区切り線を描画してUIを整理する
         ImGui::Separator();
-        
+
         // デフォルトモデル名の編集（安全な固定長バッファを使用）
         if (ImGui::InputText("Default Model", defaultModelBuf_, sizeof(defaultModelBuf_))) {
             // 変更があった場合のみ std::string に反映
@@ -1048,9 +1086,9 @@ private:
         }
 
         // 生成するブロック種類を選択
-        const char* blockTypes[] = { "Normal", "Water" };
+        const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn" };
         int blockTypeIndex = static_cast<int>(placingBlockId_);
-        if(ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
+        if (ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))) {
             placingBlockId_ = static_cast<BlockID>(blockTypeIndex);
         }
 
@@ -1112,14 +1150,16 @@ private:
         ImGui::InputInt("Count A", &batchCountA_);
         ImGui::InputInt("Count B", &batchCountB_);
         ImGui::InputFloat("Spacing", &batchSpacing_);
-        const char* axes[] = {"X","Y(floor)","Z"};
+        const char* axes[] = { "X", "Y(floor)", "Z" };
         ImGui::Combo("Normal Axis", &batchNormalIndex_, axes, IM_ARRAYSIZE(axes));
         ImGui::TextWrapped("Normal Axis selects the axis that is treated as the 'up' direction for the grid. For floor use Y.");
-        
+
         if (ImGui::Button("Batch Create")) {
             // バッチ生成のパラメータを検証して最低値を設定
-            if (batchCountA_ < 1) batchCountA_ = 1;
-            if (batchCountB_ < 1) batchCountB_ = 1;
+            if (batchCountA_ < 1)
+                batchCountA_ = 1;
+            if (batchCountB_ < 1)
+                batchCountB_ = 1;
             std::string model(batchModelBuf_);
             // 生成の基準点を取得
             Vector3 origin = GetCreateOrigin();
@@ -1127,21 +1167,20 @@ private:
             // バッチ生成の方向を決定するためのベクトルを設定
             Vector3 dirA, dirB;
             if (batchNormalIndex_ == 0) { // normal X -> grid on YZ
-                dirA = Vector3{0.0f, 0.0f, 1.0f}; // Z
-                dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                dirA = Vector3 { 0.0f, 0.0f, 1.0f }; // Z
+                dirB = Vector3 { 0.0f, 1.0f, 0.0f }; // Y
             } else if (batchNormalIndex_ == 1) { // normal Y (floor) -> grid on XZ
-                dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
-                dirB = Vector3{0.0f, 0.0f, 1.0f}; // Z
+                dirA = Vector3 { 1.0f, 0.0f, 0.0f }; // X
+                dirB = Vector3 { 0.0f, 0.0f, 1.0f }; // Z
             } else { // normal Z -> grid on XY
-                dirA = Vector3{1.0f, 0.0f, 0.0f}; // X
-                dirB = Vector3{0.0f, 1.0f, 0.0f}; // Y
+                dirA = Vector3 { 1.0f, 0.0f, 0.0f }; // X
+                dirB = Vector3 { 0.0f, 1.0f, 0.0f }; // Y
             }
 
             // バッチの中心を基準点にするために、半分のオフセットを計算
             float halfA = (batchCountA_ - 1) * 0.5f * batchSpacing_;
             float halfB = (batchCountB_ - 1) * 0.5f * batchSpacing_;
 
-            
             // 二重ループでバッチ生成
             for (int ia = 0; ia < batchCountA_; ++ia) {
                 for (int ib = 0; ib < batchCountB_; ++ib) {
@@ -1231,12 +1270,12 @@ private:
 
             // ブロック種類の編集
             int editBlockTypeIndex = static_cast<int>(editBlockId_);
-            if(ImGui::Combo("Selected Block Type", &editBlockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
+            if (ImGui::Combo("Selected Block Type", &editBlockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))) {
                 editBlockId_ = static_cast<BlockID>(editBlockTypeIndex);
 
-                if(liveEdit_){
-                    for(auto& obj : data_.objects){
-                        if(obj.id == selectedObjectId_){
+                if (liveEdit_) {
+                    for (auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
                             obj.blockId = editBlockId_;
                             break;
                         }
@@ -1276,6 +1315,54 @@ private:
                 selectedModelBuf_[0] = '\0';
                 // 履歴に保存
                 SaveHistorySnapshot();
+            }
+
+            ImGui::SameLine();
+            // 複製オプション: 個数とオフセット
+            ImGui::InputInt("Duplicate Count", &duplicateCount_);
+            if (duplicateCount_ < 1) duplicateCount_ = 1;
+            ImGui::Checkbox("Use Half-Size Offset", &useHalfSizeOffset_);
+            if (!useHalfSizeOffset_) {
+                ImGui::DragFloat3("Duplicate Offset", &duplicateOffset_.x, 0.1f);
+            } else {
+                ImGui::Text("Offset will use half of source scale");
+            }
+
+            ImGui::SameLine();
+            // 選択オブジェクトの複製ボタン
+            if (ImGui::Button("Duplicate Selected")) {
+                if (selectedObjectId_ != -1) {
+                    // 対象オブジェクトを探す
+                    for (const auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
+                            StageObject base = obj; // ベースをコピー
+                            StageObject lastCreated;
+                            // 決定するオフセット
+                            Vector3 perStepOffset = useHalfSizeOffset_
+                                ? Vector3{ base.scale.x * 2.0f, 0.0f, 0.0f }
+                                : duplicateOffset_;
+
+                            for (int i = 0; i < duplicateCount_; ++i) {
+                                StageObject newObj = base; // コピー
+                                newObj.id = nextId_++; // 新しい一意IDを付与
+                                // オフセットを積算
+                                newObj.position = newObj.position + perStepOffset * static_cast<float>(i + 1);
+                                // データに追加
+                                data_.objects.push_back(newObj);
+                                // インスタンスを作成
+                                loader_.UpdateOrCreateInstance(newObj);
+                                lastCreated = newObj;
+                            }
+                            // 選択を最後に作成したオブジェクトに切り替える
+                            selectedObjectId_ = lastCreated.id;
+                            // 選択モデルバッファを更新
+                            strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), lastCreated.modelName.c_str(), _TRUNCATE);
+                            // 履歴に保存
+                            SaveHistorySnapshot();
+                            break;
+                        }
+                    }
+                }
             }
 
             // モデル名の編集
@@ -1345,11 +1432,11 @@ private:
     int nextId_ = 1;
 
     // カメラ前方以外の位置を生成原点にする場合のカスタム原点
-    Vector3 createOrigin_ {0.0f, 0.0f, 5.0f};
+    Vector3 createOrigin_ { 0.0f, 0.0f, 5.0f };
     // 生成原点の参照選択（0=カメラ前方、1=ワールド原点、2=選択オブジェクト、3=カスタム）
     int createReferenceIndex_ = 1;
     // 生成位置に加算するオフセット
-    Vector3 createOffset_ {0.0f, 0.0f, 0.0f};
+    Vector3 createOffset_ { 0.0f, 0.0f, 0.0f };
 
     // 編集モード状態
     bool isEditMode_ = false;
@@ -1362,10 +1449,10 @@ private:
 
     // 選択中オブジェクトの編集用ワークバッファ
     // 直接編集はせず、選択時にコピーして編集後に反映する方式
-    Vector3 editPosition_ {}; 
-    Vector3 editRotation_ {}; 
+    Vector3 editPosition_ {};
+    Vector3 editRotation_ {};
     Vector3 editScale_ { 1.0f, 1.0f, 1.0f };
-    
+
     // 生成位置プレビュー用のオブジェクト（モデルは単純な球体などで十分）
     std::unique_ptr<Object3d> previewMarker_;
     // 生成位置プレビュー用のシンプルな球体モデル
@@ -1376,7 +1463,7 @@ private:
     bool showBatchPreview_ = false;
     // バッチ生成プレビューのグリッドサイズ
     float previewRadius_ = 1.0f;
-    
+
     // インタラクティブな原点移動モードのフラグ
     bool moveOriginMode_ = false;
     // マウス移動での原点移動の感度
@@ -1397,4 +1484,9 @@ private:
 
     // 選択中オブジェクトのブロック種類編集用
     BlockID editBlockId_ = BlockID::Normal;
+
+    // 複製オプション
+    int duplicateCount_ = 1;
+    Vector3 duplicateOffset_ = { 2.0f, 0.0f, 0.0f };
+    bool useHalfSizeOffset_ = true;
 };

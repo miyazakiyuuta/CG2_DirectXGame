@@ -19,7 +19,7 @@ class CameraController;
 class StageEditor;
 class DebugGrid;
 
-class GamePlayScene : public BaseScene {
+class GamePlayScene : public BaseScene{
 public:
     void Initialize() override;
     void Finalize() override;
@@ -39,9 +39,9 @@ private:
     std::unique_ptr<CameraController> cameraController_;
     std::unique_ptr<StageEditor> stageEditor_;
 
-    std::unique_ptr<Bug> bug_ = nullptr;
+    std::vector<std::unique_ptr<Bug>> bugs_;
     std::unique_ptr<DebugGrid> debugGrid_;
 
-	std::vector<CollisionUtility::AABB> stageBlockColliders_;
-	std::vector<CollisionUtility::AABB> waterBlockColliders_;
+    std::vector<CollisionUtility::AABB> stageBlockColliders_;
+    std::vector<CollisionUtility::AABB> waterBlockColliders_;
 };
