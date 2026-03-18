@@ -255,6 +255,7 @@ void Player::Update(float cameraYaw){
 void Player::Draw(){
 	if(object_){
 		object_->Update();
+		object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
 		object_->Draw();
 	}
 	if(tongue_){
@@ -723,4 +724,31 @@ void Player::UpdateWallClinging(float cameraYaw){
 	}
 
 	object_->SetTranslate(position);
+}
+
+void Player::UpdateTransparencyByCamera(const Vector3& cameraPosition){
+	if(!object_){
+		return;
+	}
+
+	Vector3 toPlayer = {
+		GetPosition().x - cameraPosition.x,
+		GetPosition().y - cameraPosition.y,
+		GetPosition().z - cameraPosition.z
+	};
+
+	float distance = toPlayer.Length();
+
+	if(distance >= fadeStartDistance_){
+		currentAlpha_ = 1.0f;
+	} else if(distance <= fadeEndDistance_){
+		currentAlpha_ = minAlpha_;
+	} else{
+		float t = (distance - fadeEndDistance_) / (fadeStartDistance_ - fadeEndDistance_);
+		currentAlpha_ = minAlpha_ + (1.0f - minAlpha_) * t;
+	}
+
+	if(tongue_){
+		tongue_->SetAlpha(currentAlpha_);
+	}
 }

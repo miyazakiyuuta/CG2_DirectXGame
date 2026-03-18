@@ -90,7 +90,7 @@ void GamePlayScene::Initialize(){
     cameraController_->Initialize(camera_.get());
     cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
     cameraController_->SetDistance(25.0f);
-    cameraController_->SetHeight(1.5f);
+    cameraController_->SetHeight(2.5f);
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
@@ -154,6 +154,8 @@ void GamePlayScene::Update(){
         cameraController_->Update(player_->GetPosition());
     }
 
+    player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+
     imGuiManager_->End();
 
     // 虫の更新
@@ -208,7 +210,7 @@ void GamePlayScene::Draw(){
     SrvManager::GetInstance()->PreDraw();
 
     object3d_->Draw();
-    player_->Draw();
+
     stageEditor_->Draw();
 
     // 虫の描画
@@ -217,6 +219,8 @@ void GamePlayScene::Draw(){
     }
 
 	skybox_->Draw(*camera_);
+
+    player_->Draw();
 
 	debugGrid_->Draw(*camera_);
 

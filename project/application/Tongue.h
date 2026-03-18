@@ -38,6 +38,9 @@ public:
 	State GetState() const{ return state_; }
 	Vector3 GetPosition() const{ return worldPosition_; }
 
+	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
+	float GetAlpha() const{ return currentAlpha_; }
+
 	// 舌先の虫判定用
 	bool CanHitBug() const{ return state_ == State::Extending; }
 	CollisionUtility::Sphere GetHitSphere() const;
@@ -70,4 +73,6 @@ private:
 
 	// 舌先球の半径
 	float hitRadius_ = 0.35f;
+
+	float currentAlpha_ = 1.0f;
 };
