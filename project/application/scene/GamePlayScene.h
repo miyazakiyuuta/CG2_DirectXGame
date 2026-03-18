@@ -17,6 +17,7 @@ class Object3d;
 class Player;
 class CameraController;
 class StageEditor;
+class Skybox;
 class DebugGrid;
 
 class GamePlayScene : public BaseScene{
@@ -40,8 +41,11 @@ private:
     std::unique_ptr<StageEditor> stageEditor_;
 
     std::vector<std::unique_ptr<Bug>> bugs_;
-    std::unique_ptr<DebugGrid> debugGrid_;
 
     std::vector<CollisionUtility::AABB> stageBlockColliders_;
     std::vector<CollisionUtility::AABB> waterBlockColliders_;
+    std::unique_ptr<Skybox> skybox_;
+
+	std::unique_ptr<DebugGrid> debugGrid_;
 };
+

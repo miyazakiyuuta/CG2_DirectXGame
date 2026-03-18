@@ -1,4 +1,5 @@
 #include "Object3d.h"
+#include "base/SrvManager.h"
 #include "Object3dCommon.h"
 #include "Model.h"
 #include "ModelManager.h"
@@ -12,12 +13,11 @@ Object3d::~Object3d() = default;
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
 	dxCommon_ = object3dCommon_->GetDxCommon();
-	// デフォルトカメラをセットする
-	camera_ = object3dCommon_->GetDefaultCamera();
-
-	// Transform変数を作る
+	
+	camera_ = object3dCommon_->GetDefaultCamera();// デフォルトカメラをセットする
 	transform_ = { {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
 	
+	CreateMaterialData();
 	CreateTransformationMatrixData();
 	CreateDirectionalLightData();
 }
@@ -65,6 +65,9 @@ void Object3d::Draw() {
 		}
 	}
 
+	// マテリアルCBufferの場所を設定
+	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
 	
@@ -77,8 +80,15 @@ void Object3d::Draw() {
 
 	commandList->SetGraphicsRootConstantBufferView(6, object3dCommon_->GetSpotLightGPUAddress());
 
+	D3D12_GPU_DESCRIPTOR_HANDLE envHandle = object3dCommon_->GetEnvironmentSrvHandle();
+	commandList->SetGraphicsRootDescriptorTable(8, envHandle);
+
 	// 3Dモデルが割り当てられていれば描画する
 	if (model_) {
+		if (!model_->GetSkinCluster().inverseBindPoseMatrices.empty()) {
+			auto* srvManager = object3dCommon_->GetSrvManager();
+			commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(model_->GetSkinCluster().paletteSrvIndex));
+		}
 		model_->Draw();
 		//DrawDebugSkeleton();
 	}
@@ -105,6 +115,22 @@ void Object3d::SetModel(const std::string& filePath) {
 	} else {
 		animationPlayer_.reset();
 	}
+}
+
+void Object3d::CreateMaterialData() {
+	// マテリアルリソースを作る
+	materialResource_ = dxCommon_->CreateBufferResource(sizeof(Material));
+
+	// マテリアルリソースにデータを書き込むためのアドレスを取得してmaterialDataに割り当てる
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
+
+	// マテリアルデータの初期値を書き込む
+	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
+	//materialData_->enableLighting = false; // ライティングを有効にしない
+	materialData_->enableLighting = true;
+	materialData_->useEnvironmentMap = false;
+	materialData_->uvTransform = Matrix4x4::Identity();
+	materialData_->shininess = 32.0f;
 }
 
 void Object3d::CreateTransformationMatrixData() {

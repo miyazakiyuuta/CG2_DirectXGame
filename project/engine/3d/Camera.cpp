@@ -4,9 +4,9 @@
 #include <cmath>
 
 
-#ifdef _DEBUG
+#ifdef USE_IMGUI
 #include "imgui.h"
-#endif // _DEBUG
+#endif
 
 Camera::Camera()
 	: transform_({ 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f }, { 0.0f,0.0f,0.0f })
@@ -21,7 +21,7 @@ Camera::Camera()
 }
 
 void Camera::DrawImGui() {
-#ifdef _DEBUG
+#ifdef USE_IMGUI
 	if (ImGui::TreeNode("Camera")) {
 		ImGui::DragFloat3("Camera Position", &transform_.translate.x, 0.01f);
 		ImGui::DragFloat3("Camera Rotation", &transform_.rotate.x, 0.01f);

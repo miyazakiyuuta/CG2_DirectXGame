@@ -15,7 +15,6 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& directoryPat
 	animation_ = LoadAnimationFile(directoryPath, filename);
 
 	CreateVertexData();
-	CreateMaterialData();
 	CreateIndexData();
 
 	// .objの参照しているテクスチャファイル読み込み
@@ -48,15 +47,11 @@ void Model::Draw() {
 			skinCluster_.influenceBufferView // InfluenceのVBV
 		};
 		commandList->IASetVertexBuffers(0, 2, vbvs);
-		commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(skinCluster_.paletteSrvIndex));
 	} else {
 		commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	}
 
 	commandList->IASetIndexBuffer(&indexBufferView_);
-	
-	// マテリアルCBufferの場所を設定
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
 	// SRVのDescriptorTableの先頭を設定
 	commandList->SetGraphicsRootDescriptorTable(2, srvManager->GetGPUDescriptorHandle(modelData_.material.srvIndex));
@@ -70,8 +65,7 @@ Animation Model::LoadAnimationFile(const std::string& directoryPath, const std::
 	Assimp::Importer importer;
 	std::string filePath = directoryPath + "/" + filename;
 	const aiScene* scene = importer.ReadFile(filePath.c_str(), 0);
-	//assert(scene->mNumAnimations != 0); // アニメーションがない
-	if (!scene || scene->mNumAnimations == 0) {
+	if (!scene || scene->mNumAnimations == 0) { // アニメーションがない
 		animation.duration = 0.0f;
 		return animation;
 	}
@@ -279,21 +273,6 @@ void Model::CreateVertexData() {
 	vertexData_ = { ptr,modelData_.vertices.size() }; // 範囲確定
 	// VertexResourceにデータを書き込むためのアドレスを取得してvertexDataに割り当てる
 	std::memcpy(vertexData_.data(), modelData_.vertices.data(), sizeof(VertexData) * modelData_.vertices.size());
-}
-
-void Model::CreateMaterialData() {
-	// マテリアルリソースを作る
-	materialResource_ = dxCommon_->CreateBufferResource(sizeof(Material));
-
-	// マテリアルリソースにデータを書き込むためのアドレスを取得してmaterialDataに割り当てる
-	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-
-	// マテリアルデータの初期値を書き込む
-	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
-	materialData_->enableLighting = false;
-	//materialData_->enableLighting = true;
-	materialData_->uvTransform = Matrix4x4::Identity();
-	materialData_->shininess = 32.0f;
 }
 
 void Model::CreateIndexData() {

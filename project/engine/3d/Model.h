@@ -30,14 +30,7 @@ public: // メンバ関数
 	void CreateSkinCluster(const Skeleton& skeleton);
 
 public: // メンバ構造体
-	struct Material {
-		Vector4 color;
-		int32_t enableLighting;
-		float padding[3];
-		Matrix4x4 uvTransform;
-		float shininess;
-		float padding1[3];
-	};
+	
 
 	struct MaterialData {
 		std::string textureFilePath;
@@ -110,7 +103,6 @@ private: // メンバ関数
 	static ModelData LoadModelFile(const std::string& directoryPath, const std::string& filename);
 
 	void CreateVertexData();
-	void CreateMaterialData();
 	void CreateIndexData();
 
 	static Node ReadNode(aiNode* node);
@@ -126,18 +118,12 @@ private: // メンバ変数
 
 	SkinCluster skinCluster_;
 
-	// バッファリソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
-
-	// バッファリソースの使い道を捕捉するバッファビュー
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_;
-	D3D12_INDEX_BUFFER_VIEW indexBufferView_;
-
-	// バッファリソース内のデータを指すポインタ
 	std::span<VertexData> vertexData_;
+	
+	Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
+	D3D12_INDEX_BUFFER_VIEW indexBufferView_;
 	std::span<uint32_t> indexData_;
-	Material* materialData_ = nullptr;
 };
 
