@@ -31,17 +31,26 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 		return;
 	}
 
-	// テクスチャファイルを読んでプログラムで扱えるようにする
-	DirectX::ScratchImage image{};
 	std::wstring filePathW = ConvertString(filePath);
+	DirectX::ScratchImage image{};
+	HRESULT hr;
 
-	HRESULT hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+	// 拡張子による読み込み関数の分岐
+	if (filePathW.ends_with(L".dds")) { // .ddsで終わっていたらdssとみなす。(より安全な方法はある)
+		hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
+	} else { // それ以外(WIC)として読み込む
+		hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+	}
 	assert(SUCCEEDED(hr));
 
-	// ミップマップの作成
 	DirectX::ScratchImage mipImages{};
-	hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
-	assert(SUCCEEDED(hr));
+
+	if (DirectX::IsCompressed(image.GetMetadata().format)) { // 圧縮フォーマットかどうか調べる
+		mipImages = std::move(image); // 圧縮フォーマットならそのまま使う
+	} else {
+		hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
+		assert(SUCCEEDED(hr));
+	}
 
 	TextureData& textureData = textureDatas_[filePath];
 	textureData.metadata = mipImages.GetMetadata();
@@ -55,7 +64,8 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
 
-	srvManager_->CreateSRVForTexture2D(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
+	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
+	//srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
 
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {

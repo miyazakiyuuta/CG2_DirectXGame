@@ -28,8 +28,8 @@ public:
 	const Matrix4x4& GetViewMatrix() const { return viewMatrix_; }
 	const Matrix4x4& GetProjectionMatrix() const { return projectionMatrix_; }
 	const Matrix4x4& GetViewProjectionMatrix() const { return viewProjectionMatrix_; }
-	Vector3& GetRotate() { return transform_.rotate; }
-	Vector3& GetTranslate() { return transform_.translate; }
+	const Vector3& GetRotate() const { return transform_.rotate; }
+	const Vector3& GetTranslate() const { return transform_.translate; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
 
 private:

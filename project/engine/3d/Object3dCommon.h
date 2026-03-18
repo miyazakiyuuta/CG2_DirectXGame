@@ -24,6 +24,8 @@ struct SpotLight {
 	float padding;
 };
 
+class SrvManager;
+
 // 3Dオブジェクト共通部
 class Object3dCommon {
 public:
@@ -31,7 +33,7 @@ public:
 
 
 public: // メンバ関数
-	void Initialize(DirectXCommon* dxCommon);
+	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 	// 共通描画設定 (PreDraw)
 	void CommonDrawSetting();
 	void SkinningDrawSetting();
@@ -41,11 +43,14 @@ public:
 	void SetDefaultCamera(Camera* camera) { defaultCamera_ = camera; }
 	void SetPointLight(const PointLight& light) { *pointLightData_ = light; }
 	void SetSpotLight(const SpotLight& light) { *spotLightData_ = light; }
+	void SetEnvironmentSrvIndex(uint32_t srvIndex) { environmentSrvIndex_ = srvIndex; }
 	// getter
 	DirectXCommon* GetDxCommon() const { return dxCommon_; }
 	Camera* GetDefaultCamera() const { return defaultCamera_; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetPointLightGPUAddress() const { return pointLightResource_->GetGPUVirtualAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS GetSpotLightGPUAddress() const { return spotLightResource_->GetGPUVirtualAddress(); }
+	SrvManager* GetSrvManager() { return srvManager_; }
+	D3D12_GPU_DESCRIPTOR_HANDLE GetEnvironmentSrvHandle() const;
 
 private:
 	// ルートシグネチャの作成
@@ -64,6 +69,8 @@ private:
 
 private: // メンバ変数
 	DirectXCommon* dxCommon_;
+	SrvManager* srvManager_;
+
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
 
@@ -77,5 +84,7 @@ private: // メンバ変数
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> spotLightResource_;
 	SpotLight* spotLightData_ = nullptr;
+
+	uint32_t environmentSrvIndex_ = 0;
 };
 

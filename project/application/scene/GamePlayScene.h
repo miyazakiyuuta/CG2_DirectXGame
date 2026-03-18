@@ -10,6 +10,7 @@ class Camera;
 class ImGuiManager;
 class DebugCamera;
 class Object3d;
+class Skybox;
 class DebugGrid;
 
 class GamePlayScene : public BaseScene {
@@ -33,6 +34,8 @@ private:
 	std::unique_ptr<DebugCamera> debugCamera_;
 
 	std::unique_ptr<Object3d> object3d_;
+
+	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;
 };
