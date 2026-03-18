@@ -324,3 +324,4 @@ FodyWeavers.xsd
 project/logs/
 
 imgui.ini
+/project/imgui.ini
