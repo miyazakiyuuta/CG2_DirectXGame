@@ -205,11 +205,9 @@ void GamePlayScene::Update(){
 
 }
 
-void GamePlayScene::Draw() {
-	skybox_->Draw(*camera_);
-
-	object3d_->Draw();
 void GamePlayScene::Draw(){
+
+    skybox_->Draw(*camera_);
 
     object3d_->Draw();
     player_->Draw();
