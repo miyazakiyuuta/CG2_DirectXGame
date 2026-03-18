@@ -1,8 +1,11 @@
 #pragma once
 
+#define NOMINMAX
 #include "io/Input.h"
 #include "math/Vector3.h"
+#include "utility/CollisionUtility.h"
 #include <algorithm>
+#include <vector>
 
 class Camera;
 
@@ -41,6 +44,14 @@ public:
 	void SetMouseSensitivity(float sensitivity){ mouseSensitivity_ = sensitivity; }
 	void SetInvertY(bool invert){ invertY_ = invert; }
 
+	// 遮蔽物として使うブロック群
+	void SetObstacleColliders(const std::vector<CollisionUtility::AABB>* obstacleColliders){
+		obstacleColliders_ = obstacleColliders;
+	}
+
+	// ヒット位置の手前にどれだけ余白を残すか
+	void SetCameraCollisionMargin(float margin){ cameraCollisionMargin_ = margin; }
+
 	float GetYaw() const{ return yaw_; }
 	float GetPitch() const{ return pitch_; }
 	float GetDistance() const{ return distance_; }
@@ -78,6 +89,10 @@ private:
 	bool invertY_ = false;
 
 	Vector3 targetOffset_ = { 0.0f, 1.0f, 0.0f };
+
+	// カメラ遮蔽対策
+	const std::vector<CollisionUtility::AABB>* obstacleColliders_ = nullptr;
+	float cameraCollisionMargin_ = 0.15f;
 
 	bool isUse_ = false;
 };

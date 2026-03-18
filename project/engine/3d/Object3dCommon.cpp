@@ -1,4 +1,5 @@
 #include "3d/Object3dCommon.h"
+#include "base/SrvManager.h"
 #include "utility/Logger.h"
 #include <iostream>
 #include <numbers>
@@ -12,8 +13,9 @@ Object3dCommon* Object3dCommon::GetInstance() {
 	return instance;
 }
 
-void Object3dCommon::Initialize(DirectXCommon* dxCommon) {
+void Object3dCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
+	srvManager_ = srvManager;
 	InitializePointLight();
 	InitializeSpotLight();
 	CreateGraphicsPipelineState();
@@ -39,18 +41,33 @@ void Object3dCommon::SkinningDrawSetting() {
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
+D3D12_GPU_DESCRIPTOR_HANDLE Object3dCommon::GetEnvironmentSrvHandle() const {
+	return srvManager_->GetGPUDescriptorHandle(environmentSrvIndex_);
+}
+
 void Object3dCommon::CreateRootSignature() {
 	// RootSignature作成
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	D3D12_DESCRIPTOR_RANGE srvRange[1] = {};
 	srvRange[0].BaseShaderRegister = 0; // 0から始まる
-	srvRange[0].NumDescriptors = 1; // 数は1つ
+	srvRange[0].NumDescriptors = 1;
 	srvRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRVを使う
 	srvRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
 
+	D3D12_DESCRIPTOR_RANGE paletteRange[1] = {};
+	paletteRange[0].BaseShaderRegister = 0; // t0
+	paletteRange[0].NumDescriptors = 1;
+	paletteRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+	D3D12_DESCRIPTOR_RANGE envRange[1] = {};
+	envRange[0].BaseShaderRegister = 1;
+	envRange[0].NumDescriptors = 1;
+	envRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	envRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
-	D3D12_ROOT_PARAMETER rootParameters[7] = {};
+	D3D12_ROOT_PARAMETER rootParameters[9] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
 	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド (PS)
@@ -79,6 +96,16 @@ void Object3dCommon::CreateRootSignature() {
 	rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[6].Descriptor.ShaderRegister = 4;
+
+	rootParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameters[7].DescriptorTable.pDescriptorRanges = paletteRange;
+	rootParameters[7].DescriptorTable.NumDescriptorRanges = 1;
+
+	rootParameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[8].DescriptorTable.pDescriptorRanges = envRange; // envRangeを使う
+	rootParameters[8].DescriptorTable.NumDescriptorRanges = _countof(envRange);
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
 	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // バイリニアフィルタ
@@ -117,7 +144,7 @@ void Object3dCommon::CreateSkinningRootSignature() {
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	D3D12_DESCRIPTOR_RANGE srvRange[1] = {};
 	srvRange[0].BaseShaderRegister = 0; // 0から始まる
-	srvRange[0].NumDescriptors = 1; // 数は1つ
+	srvRange[0].NumDescriptors = 1;
 	srvRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRVを使う
 	srvRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
 
@@ -126,8 +153,14 @@ void Object3dCommon::CreateSkinningRootSignature() {
 	paletteRange[0].NumDescriptors = 1;
 	paletteRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 
+	D3D12_DESCRIPTOR_RANGE envRange[1] = {};
+	envRange[0].BaseShaderRegister = 1;
+	envRange[0].NumDescriptors = 1;
+	envRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	envRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
-	D3D12_ROOT_PARAMETER rootParameters[8] = {};
+	D3D12_ROOT_PARAMETER rootParameters[9] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
 	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド (PS)
@@ -161,6 +194,11 @@ void Object3dCommon::CreateSkinningRootSignature() {
 	rootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // VS で使用
 	rootParameters[7].DescriptorTable.pDescriptorRanges = paletteRange;
 	rootParameters[7].DescriptorTable.NumDescriptorRanges = 1;
+
+	rootParameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[8].DescriptorTable.pDescriptorRanges = envRange;
+	rootParameters[8].DescriptorTable.NumDescriptorRanges = _countof(envRange);
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
 	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // バイリニアフィルタ
@@ -220,6 +258,13 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 	D3D12_BLEND_DESC blendDesc{};
 	// すべての色要素を書き込む
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
 
 	// RasiterzerStateの設定
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
@@ -258,7 +303,7 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 	depthStencilDesc.DepthEnable = true;
 	// 書き込みします
 	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	//depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない(これだと座標ではなくDrawを書いた順に前に描画される)
+	//depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 	// 比較関数はLessEqual。つまり、近ければ描画される
 	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
@@ -373,9 +418,11 @@ void Object3dCommon::InitializePointLight() {
 	HRESULT hr = pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
 	assert(SUCCEEDED(hr));
 
-	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLightData_->position = { 0.0f, 3.0f, 0.0f };
-	pointLightData_->intensity = 1.0f;
+	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+	pointLightData_->position = { 0.0f, 5.0f, 0.0f }; // 位置
+	pointLightData_->intensity = 1.0f; // 輝度
+	pointLightData_->radius = 1.0f; // ライトの届く最大距離
+	pointLightData_->decay = 1.0f; // 減衰率
 }
 
 void Object3dCommon::InitializeSpotLight() {
@@ -388,7 +435,7 @@ void Object3dCommon::InitializeSpotLight() {
 	spotLightData_->position = { 2.0f,1.25f,0.0f };
 	spotLightData_->distance = 7.0f;
 	spotLightData_->direction = Vector3::Normalized({ -1.0f,-1.0f,0.0f });
-	spotLightData_->intensity = 4.0f;
+	spotLightData_->intensity = 0.0f;
 	spotLightData_->decay = 2.0f;
 	spotLightData_->cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
 	spotLightData_->cosFalloffStart = std::cos(std::numbers::pi_v<float> / 18.0f);

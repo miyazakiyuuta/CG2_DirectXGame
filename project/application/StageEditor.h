@@ -1400,6 +1400,28 @@ private:
         ImGui::End();
     }
 
+    std::string ResolveDisplayModelName(const StageObject& o) const{
+        switch(o.blockId){
+            case BlockID::BugSpawn:
+                return "sphere.obj";   // 虫スポーンは球で仮表示
+            case BlockID::PlayerSpawn:
+                return "Cube.obj";     // プレイヤー開始位置は立方体で仮表示
+            default:
+                return o.modelName;    // それ以外は元のモデル名
+        }
+    }
+
+    Vector3 ResolveDisplayScale(const StageObject& o) const{
+        switch(o.blockId){
+            case BlockID::BugSpawn:
+                return { 0.35f, 0.35f, 0.35f }; // 小さめの球
+            case BlockID::PlayerSpawn:
+                return { 0.6f, 1.2f, 0.6f };    // 少し縦長で見分けやすく
+            default:
+                return o.scale;                 // 通常はそのまま
+        }
+    }
+
     // 保存データ本体
     StageData data_;
 

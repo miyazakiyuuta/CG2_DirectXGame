@@ -72,6 +72,11 @@ public:
 	float GetYaw() const;
 	Tongue* GetTongue() const{ return tongue_.get(); }
 
+	void UpdateTransparencyByCamera(const Vector3& cameraPosition);
+	float GetCurrentAlpha() const{ return currentAlpha_; }
+
+	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
+
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
@@ -137,6 +142,15 @@ private:
 
 	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
 
-	// 見た目より少し小さめにして歩きやすくする
+	
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
+
+	float currentAlpha_ = 1.0f;
+	float minAlpha_ = 0.3f;
+
+	// この距離より近づくと透け始める
+	float fadeStartDistance_ = 10.0f;
+
+	// この距離以下なら最小アルファ
+	float fadeEndDistance_ = 2.5f;
 };

@@ -94,8 +94,10 @@ void DebugGrid::Initialize(DirectXCommon* dxCommon, float gridSize, uint32_t sub
 void DebugGrid::Draw(const Camera& camera) {
 	auto commandList = dxCommon_->GetCommandList();
 
-	mappedConstantData_->matWVP = camera.GetViewProjectionMatrix();
-	mappedConstantData_->color = { 0.5f,0.5f,0.5f,1.0f }; // グレー
+	Matrix4x4 matWorld = Matrix4x4::Translate(position_);
+	mappedConstantData_->matWVP = matWorld * camera.GetViewProjectionMatrix();
+
+	mappedConstantData_->color = color_;
 
 	commandList->SetPipelineState(pipelineState_.Get());
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());
