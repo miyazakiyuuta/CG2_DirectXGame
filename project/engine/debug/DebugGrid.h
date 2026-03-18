@@ -17,6 +17,9 @@ public:
 	void Initialize(DirectXCommon* dxCommon, float gridSize = 10.0f, uint32_t subdivision = 10);
 	void Draw(const Camera& camera);
 
+	void SetPosition(Vector3 pos) { position_ = pos; }
+	void SetColor(Vector4 color) { color_ = color; }
+
 private:
 	DirectXCommon* dxCommon_ = nullptr;
 
@@ -30,5 +33,8 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_;
 
 	uint32_t vertexCount_ = 0;
+
+	Vector3 position_ = { 0.0f,0.0f,0.0f };
+	Vector4 color_ = { 0.5f,0.5f,0.5f,0.0f };
 };
 

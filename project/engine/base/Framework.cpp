@@ -26,7 +26,7 @@ void Framework::Initialize() {
 	SoundManager::GetInstance()->Initialize();
 
 	// 3Dオブジェクト共通部の初期化
-	Object3dCommon::GetInstance()->Initialize(DirectXCommon::GetInstance());
+	Object3dCommon::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	// スプライト共通部の初期化
 	SpriteCommon::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());

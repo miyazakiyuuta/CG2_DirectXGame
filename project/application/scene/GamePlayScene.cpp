@@ -17,6 +17,8 @@
 #include "Player.h"
 #include "CameraController.h"
 #include "StageEditor.h"
+#include "effect/ParticleEmitter.h"
+#include "3d/Skybox.h"
 #include "debug/DebugGrid.h"
 #include "Tongue.h"
 
@@ -42,22 +44,30 @@ void GamePlayScene::Initialize(){
     TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
     TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
-    ModelManager::GetInstance()->LoadModel("plane.obj");
-    ModelManager::GetInstance()->LoadModel("plane.gltf");
-    ModelManager::GetInstance()->LoadModel("sphere.obj");
-    ModelManager::GetInstance()->LoadModel("terrain.obj");
-    ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
-    ModelManager::GetInstance()->LoadModel("human", "walk.gltf");
-    ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
+	// .objファイルからモデルを読み込む
+	ModelManager::GetInstance()->LoadModel("plane.obj");
+	ModelManager::GetInstance()->LoadModel("plane.gltf");
+	ModelManager::GetInstance()->LoadModel("sphere.obj");
+	ModelManager::GetInstance()->LoadModel("terrain.obj");
+	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
     ModelManager::GetInstance()->LoadModel("Kanban1.obj");
     ModelManager::GetInstance()->LoadModel("Cube.obj");
 
-    object3d_ = std::make_unique<Object3d>();
-    object3d_->Initialize(Object3dCommon::GetInstance());
-    object3d_->SetModel("sneakWalk.gltf");
-    object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
-    object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-    object3d_->SetCamera(camera_.get());
+	object3d_ = std::make_unique<Object3d>();
+	object3d_->Initialize(Object3dCommon::GetInstance());
+	object3d_->SetModel("sneakWalk.gltf");
+	object3d_->SetCamera(camera_.get());
+	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
+	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
+	object3d_->SetUseEnvironmentMap(true); // 環境マップ
+
+	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
+	TextureManager::GetInstance()->LoadTexture(envMapPath);
+	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
+	Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
+
+	skybox_ = std::make_unique<Skybox>();
+	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
     // StageEditorの初期化
     stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
@@ -189,7 +199,9 @@ void GamePlayScene::Update(){
     camera_->Update();
     camera_->TransferToGPU();
 
-    object3d_->Update();
+	object3d_->Update();
+
+
 }
 
 void GamePlayScene::Draw(){
@@ -204,9 +216,11 @@ void GamePlayScene::Draw(){
         bug->Draw();
     }
 
-    debugGrid_->Draw(*camera_);
+	skybox_->Draw(*camera_);
 
-    imGuiManager_->Draw();
+	debugGrid_->Draw(*camera_);
+
+	imGuiManager_->Draw();
 }
 
 GamePlayScene::GamePlayScene() = default;

@@ -31,17 +31,28 @@ public:
 	void SetLightColor(Vector4 color) { directionalLightData_->color = color; }
 	void SetLightDirection(Vector3 direction) { directionalLightData_->direction = direction; }
 	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
+	void SetEnableLighting(bool enable) { materialData_->enableLighting = enable; }
+	void SetUseEnvironmentMap(bool use) { materialData_->useEnvironmentMap = use; }
 
 	// getter
 	const Vector3& GetScale() const { return transform_.scale; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }
-	//DirectionalLight* GetDirectionalLightData() const { return directionalLightData_; }
 	Vector4 GetLightColor() const { return directionalLightData_->color; }
 	Vector3 GetLightDirection() const { return directionalLightData_->direction; }
 	float GetLightIntensity() const { return directionalLightData_->intensity; }
 
 private: // メンバ構造体
+
+	struct Material {
+		Vector4 color;
+		int32_t enableLighting;
+		int32_t useEnvironmentMap;
+		float padding[2];
+		Matrix4x4 uvTransform;
+		float shininess;
+		float padding1[3];
+	};
 	
 	// 座標変換行列データ
 	struct TransformationMatrix {
@@ -58,6 +69,7 @@ private: // メンバ構造体
 
 private: // メンバ関数
 
+	void CreateMaterialData();
 	void CreateTransformationMatrixData();
 	void CreateDirectionalLightData();
 	void DrawDebugSkeleton();
@@ -67,12 +79,14 @@ private: // メンバ変数
 	Object3dCommon* object3dCommon_ = nullptr;
 	DirectXCommon* dxCommon_ = nullptr;
 
-	// バッファリソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
-	Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
-	// バッファリソース内のデータを指すポインタ
 	TransformationMatrix* transformationMatrixData_ = nullptr;
+	
+	Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
 	DirectionalLight* directionalLightData_ = nullptr;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
+	Material* materialData_ = nullptr;
 	
 	Transform transform_;
 	
