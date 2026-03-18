@@ -3,6 +3,21 @@
 #include <algorithm>
 #include <cmath>
 #include <imgui.h>
+#include <limits>
+
+namespace{
+	float LengthVec(const Vector3& v){
+		return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	}
+
+	Vector3 NormalizeVecSafe(const Vector3& v){
+		float len = LengthVec(v);
+		if(len <= 0.0001f){
+			return { 0.0f, 0.0f, -1.0f };
+		}
+		return { v.x / len, v.y / len, v.z / len };
+	}
+}
 
 void CameraController::Initialize(Camera* camera){
 	camera_ = camera;
@@ -40,8 +55,6 @@ void CameraController::Update(const Vector3& target){
 	}
 
 	// マウス操作
-	// 右クリック中だけ回転する想定
-	// GetMouseMoveX / GetMouseMoveY が Input 側にある前提
 	if(!ImGui::GetIO().WantCaptureMouse){
 		const int mouseMoveX = input_->GetMouseMove().x;
 		const int mouseMoveY = -input_->GetMouseMove().y;
@@ -64,7 +77,7 @@ void CameraController::Update(const Vector3& target){
 	distance_ = std::clamp(distance_, minZoom_, maxZoom_);
 
 	// 行き過ぎ防止
-	const float kMinPitch = 0.10f;
+	const float kMinPitch = -1.10f;
 	const float kMaxPitch = 1.10f;
 	pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 
@@ -85,13 +98,63 @@ void CameraController::Update(const Vector3& target){
 		-distance_ * cosYaw * cosPitch
 	};
 
-	Vector3 cameraPos = {
+	// 本来置きたい理想位置
+	Vector3 desiredCameraPos = {
 		focus.x + offset.x,
 		focus.y + offset.y,
 		focus.z + offset.z
 	};
 
-	camera_->SetTranslate(cameraPos);
+	// 遮蔽物があるなら、手前までカメラを寄せる
+	Vector3 finalCameraPos = desiredCameraPos;
+
+	if(obstacleColliders_){
+		Vector3 rayDir = {
+			desiredCameraPos.x - focus.x,
+			desiredCameraPos.y - focus.y,
+			desiredCameraPos.z - focus.z
+		};
+
+		float desiredLength = LengthVec(rayDir);
+		if(desiredLength > 0.0001f){
+			CollisionUtility::Ray ray;
+			ray.origin = focus;
+			ray.dir = NormalizeVecSafe(rayDir);
+
+			float nearestT = std::numeric_limits<float>::infinity();
+			bool hitSomething = false;
+
+			for(const auto& box : *obstacleColliders_){
+				CollisionUtility::RayHitResult hit =
+					CollisionUtility::RayIntersectAABB_Detailed(ray, box);
+
+				if(!hit.hit){
+					continue;
+				}
+
+				// プレイヤーより後ろや、理想カメラ位置より先は無視
+				if(hit.t < 0.0f || hit.t > desiredLength){
+					continue;
+				}
+
+				if(hit.t < nearestT){
+					nearestT = hit.t;
+					hitSomething = true;
+				}
+			}
+
+			if(hitSomething){
+				float safeT = std::max(minZoom_, nearestT - cameraCollisionMargin_);
+				finalCameraPos = {
+					focus.x + ray.dir.x * safeT,
+					focus.y + ray.dir.y * safeT,
+					focus.z + ray.dir.z * safeT
+				};
+			}
+		}
+	}
+
+	camera_->SetTranslate(finalCameraPos);
 	camera_->SetRotate({ pitch_, yaw_, 0.0f });
 }
 
@@ -109,12 +172,17 @@ void CameraController::DrawImGui(){
 		ImGui::SliderFloat("Mouse Sensitivity", &mouseSensitivity_, 0.001f, 0.05f, "%.4f");
 		ImGui::Checkbox("Invert Y", &invertY_);
 
+		ImGui::Separator();
+		ImGui::SliderFloat("Camera Collision Margin", &cameraCollisionMargin_, 0.01f, 1.0f, "%.2f");
+
 		if(minZoom_ > maxZoom_){
 			std::swap(minZoom_, maxZoom_);
 		}
 		targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
 
-		ImGui::Text("Mouse: Right Drag Rotate / Wheel Zoom");
+		ImGui::Text("Mouse: Drag Rotate / Wheel Zoom");
+		ImGui::Text("If a block comes between player and camera,");
+		ImGui::Text("camera moves forward until the block leaves view.");
 
 		ImGui::TreePop();
 	}

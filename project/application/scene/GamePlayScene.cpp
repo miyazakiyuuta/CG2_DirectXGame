@@ -83,6 +83,7 @@ void GamePlayScene::Initialize(){
     cameraController_->SetHeight(1.5f);
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
+    cameraController_->SetObstacleColliders(&stageBlockColliders_);
 
     // 虫の生成と初期化
     bugs_.clear();
