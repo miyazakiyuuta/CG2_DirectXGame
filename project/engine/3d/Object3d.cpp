@@ -113,7 +113,6 @@ void Object3d::CreateMaterialData() {
 
 	// マテリアルデータの初期値を書き込む
 	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
-	//materialData_->enableLighting = false; // ライティングを有効にしない
 	materialData_->enableLighting = true;
 	materialData_->useEnvironmentMap = false;
 	materialData_->uvTransform = Matrix4x4::Identity();
@@ -143,7 +142,6 @@ void Object3d::CreateDirectionalLightData() {
 	// デフォルト値を書き込んでおく
 	directionalLightData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	directionalLightData_->direction = Vector3{ 0.0f,-1.0f,0.0f };
-	directionalLightData_->intensity = 0.0f;
 	directionalLightData_->intensity = 1.0f;
 }
 

@@ -25,6 +25,7 @@ public:
 	void SetRotate(const Vector3& rotate) { transform_.rotate = rotate; }
 	void SetTranslate(const Vector3& translate) { transform_.translate = translate; }
 	void SetCamera(Camera* camera) { camera_ = camera; }
+	void SetColor(Vector4 color) { materialData_->color = color; }
 	void SetLightColor(Vector4 color) { directionalLightData_->color = color; }
 	void SetLightDirection(Vector3 direction) { directionalLightData_->direction = direction; }
 	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
@@ -95,5 +96,3 @@ private: // メンバ変数
 	float animationTime_ = 0.0f;
 	Skeleton skeleton_;
 };
-
-
