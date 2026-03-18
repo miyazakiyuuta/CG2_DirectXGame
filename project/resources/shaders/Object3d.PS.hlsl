@@ -31,7 +31,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
     float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
     float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
     
-    if (textureColor.a <= 0.5f) {
+    if (textureColor.a <= 0.01f) {
         discard;
     }
     
@@ -88,7 +88,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
             float3 cameraToPosition = normalize(input.worldPosition - gCamera.worldPosition);
             float3 reflectedVector = reflect(cameraToPosition, normalize(input.normal));
             float4 environmentColor = gEnvironmentTexture.Sample(gSampler, reflectedVector);
-            output.color.rgb += environmentColor.rgb;
+            //output.color.rgb += environmentColor.rgb;
+            output.color.rgb += environmentColor.rgb * gMaterial.color.a;
         }
         
         output.color.a = gMaterial.color.a * textureColor.a;

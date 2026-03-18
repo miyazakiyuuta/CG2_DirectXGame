@@ -54,6 +54,7 @@ void GamePlayScene::Initialize() {
 	object3d_->SetCamera(camera_.get());
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
+	object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
 	object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
@@ -104,10 +105,9 @@ void GamePlayScene::Update() {
 }
 
 void GamePlayScene::Draw() {
-	SrvManager::GetInstance()->PreDraw();
-	object3d_->Draw();
-
 	skybox_->Draw(*camera_);
+
+	object3d_->Draw();
 
 	debugGrid_->Draw(*camera_);
 
