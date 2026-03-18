@@ -91,7 +91,7 @@ void GamePlayScene::Initialize(){
     cameraController_->Initialize(camera_.get());
     cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
     cameraController_->SetDistance(25.0f);
-    cameraController_->SetHeight(2.5f);
+    cameraController_->SetHeight(1.5f);
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
@@ -214,6 +214,8 @@ void GamePlayScene::Draw(){
     object3d_->Draw();
 
     stageEditor_->Draw();
+
+	player_->Draw();
 
     // 虫の描画
     for(auto& bug : bugs_){
