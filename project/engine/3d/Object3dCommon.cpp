@@ -411,9 +411,11 @@ void Object3dCommon::InitializePointLight() {
 	HRESULT hr = pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
 	assert(SUCCEEDED(hr));
 
-	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLightData_->position = { 0.0f, 3.0f, 0.0f };
-	pointLightData_->intensity = 1.0f;
+	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f }; // 色
+	pointLightData_->position = { 0.0f, 5.0f, 0.0f }; // 位置
+	pointLightData_->intensity = 1.0f; // 輝度
+	pointLightData_->radius = 1.0f; // ライトの届く最大距離
+	pointLightData_->decay = 1.0f; // 減衰率
 }
 
 void Object3dCommon::InitializeSpotLight() {
@@ -426,7 +428,7 @@ void Object3dCommon::InitializeSpotLight() {
 	spotLightData_->position = { 2.0f,1.25f,0.0f };
 	spotLightData_->distance = 7.0f;
 	spotLightData_->direction = Vector3::Normalized({ -1.0f,-1.0f,0.0f });
-	spotLightData_->intensity = 4.0f;
+	spotLightData_->intensity = 0.0f;
 	spotLightData_->decay = 2.0f;
 	spotLightData_->cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
 	spotLightData_->cosFalloffStart = std::cos(std::numbers::pi_v<float> / 18.0f);

@@ -61,25 +61,6 @@ void GamePlayScene::Initialize(){
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
-	PointLight pointLight{};
-	pointLight.color = { 1.0f,1.0f,1.0f,1.0f };
-	pointLight.position = { 0.0f,2.0f,0.0f };
-	pointLight.intensity = 1.0f;
-	pointLight.radius = 3.0f;
-	pointLight.decay = 1.0f;
-	Object3dCommon::GetInstance()->SetPointLight(pointLight);
-
-	SpotLight spotLight{};
-	spotLight.color = { 1.0f,1.0f,1.0f,1.0f };
-	spotLight.position = { 2.0f,1.25f,0.0f };
-	spotLight.distance = 7.0f;
-	spotLight.direction = Vector3::Normalized({ -1.0f,-1.0f,0.0f });
-	spotLight.intensity = 4.0f;
-	spotLight.decay = 2.0f;
-	spotLight.cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
-	spotLight.cosFalloffStart = std::cos(std::numbers::pi_v<float> / 18.0f);
-	Object3dCommon::GetInstance()->SetSpotLight(spotLight);
-
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
 	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
