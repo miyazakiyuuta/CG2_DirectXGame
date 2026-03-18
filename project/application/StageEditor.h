@@ -22,8 +22,10 @@
 #include <../externals/nlohmann/json.hpp>
 #include <cmath>
 #include <cstring>
-#include <imgui.h>
 #include <unordered_map>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 enum class BlockID {
     Normal = 0,
@@ -529,6 +531,7 @@ public:
     /// </summary>
     void Update()
     {
+#ifdef USE_IMGUI
         // 生成・削除などの入力処理は編集モード時のみ行う
         if (isEditMode_) {
             // 生成処理（右クリックでカメラ前方にオブジェクトを生成）
@@ -645,6 +648,7 @@ public:
                 }
             }
         }
+#endif
 
         // ImGuiウィンドウは常に描画して、編集モードの切り替えやステージ確認を可能にする
         DrawImGui(); // ImGuiの描画呼び出し
@@ -995,6 +999,7 @@ private:
     /// </summary>
     void DrawImGui()
     {
+#ifdef USE_IMGUI
         // ImGuiウィンドウの開始
         ImGui::Begin("StageEditor");
 
@@ -1398,6 +1403,7 @@ private:
         ImGui::Begin("StageEditor Debug", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("Instances: %zu", loader_.GetInstanceCount());
         ImGui::End();
+#endif
     }
 
     std::string ResolveDisplayModelName(const StageObject& o) const{

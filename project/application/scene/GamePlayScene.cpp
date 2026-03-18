@@ -22,8 +22,10 @@
 #include "debug/DebugGrid.h"
 #include "Tongue.h"
 
-#include <imgui.h>
 #include <numbers>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 void GamePlayScene::Initialize(){
     camera_ = std::make_unique<Camera>();
@@ -112,9 +114,11 @@ void GamePlayScene::Initialize(){
 void GamePlayScene::Finalize(){}
 
 void GamePlayScene::Update(){
-    imGuiManager_->Begin();
 
 #ifdef USE_IMGUI
+
+    imGuiManager_->Begin();
+
     ImGui::ShowDemoWindow();
 
     Vector3 rotate = object3d_->GetRotate();
@@ -137,7 +141,6 @@ void GamePlayScene::Update(){
     ImGui::End();
 
     object3d_->SetRotate(rotate);
-#endif
 
     stageEditor_->Update();
 
@@ -158,6 +161,7 @@ void GamePlayScene::Update(){
     player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
     imGuiManager_->End();
+#endif
 
     // 虫の更新
     for(auto& bug : bugs_){
@@ -224,7 +228,9 @@ void GamePlayScene::Draw(){
 
 	debugGrid_->Draw(*camera_);
 
+#ifdef USE_IMGUI
 	imGuiManager_->Draw();
+#endif
 }
 
 GamePlayScene::GamePlayScene() = default;
