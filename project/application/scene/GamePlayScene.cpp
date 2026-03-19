@@ -205,13 +205,9 @@ void GamePlayScene::Update(){
         player_->AddWater(15.0f / 60.0f);
     }
 
-    camera_->Update();
-    camera_->TransferToGPU();
-	object3d_->SetRotate(rotate);
-#endif
-
 	camera_->Update();
 	camera_->TransferToGPU();
+
 	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
 		object3d_->StopAnimation();
 	}
