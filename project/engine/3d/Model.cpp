@@ -12,7 +12,7 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& directoryPat
 	dxCommon_ = modelCommon_->GetDxCommon();
 
 	modelData_ = LoadModelFile(directoryPath, filename);
-	animation_ = LoadAnimationFile(directoryPath, filename);
+	animations_ = LoadAnimationFile(directoryPath, filename);
 
 	CreateVertexData();
 	CreateIndexData();
@@ -60,48 +60,53 @@ void Model::Draw() {
 	commandList->DrawIndexedInstanced(UINT(modelData_.indices.size()), 1, 0, 0, 0);
 }
 
-Animation Model::LoadAnimationFile(const std::string& directoryPath, const std::string& filename) {
-	Animation animation;
+std::map<std::string, Animation> Model::LoadAnimationFile(const std::string& directoryPath, const std::string& filename) {
+	std::map<std::string, Animation> animations;
 	Assimp::Importer importer;
 	std::string filePath = directoryPath + "/" + filename;
 	const aiScene* scene = importer.ReadFile(filePath.c_str(), 0);
-	if (!scene || scene->mNumAnimations == 0) { // アニメーションがない
-		animation.duration = 0.0f;
-		return animation;
+	if (!scene || !scene->HasAnimations()) { // アニメーションがない
+		return animations;
 	}
-	aiAnimation* animationAssimp = scene->mAnimations[0]; // 最初のアニメーションだけ採用
-	animation.duration = float(animationAssimp->mDuration / animationAssimp->mTicksPerSecond); // 時間の単位を秒に変換
 
-	// assimpでは個々のNodeのAnimationをchannelと呼んでいるのでchannnelを回してNodeAnimationの情報をとってくる
-	for (uint32_t channelIndex = 0; channelIndex < animationAssimp->mNumChannels; ++channelIndex) {
-		aiNodeAnim* nodeAnimationAssimp = animationAssimp->mChannels[channelIndex];
-		NodeAnimation& nodeAnimation = animation.nodeAnimations[nodeAnimationAssimp->mNodeName.C_Str()];
-		// Position(Translate)の解析
-		for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumPositionKeys; ++keyIndex) {
-			aiVectorKey& keyAssimp = nodeAnimationAssimp->mPositionKeys[keyIndex];
-			KeyframeVector3 keyframe;
-			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond); // 秒に変換
-			keyframe.value = { -keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
-			nodeAnimation.translate.push_back(keyframe);
-		}
-		// Rotationの解析
-		for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumRotationKeys; ++keyIndex) {
-			aiQuatKey& keyAssimp = nodeAnimationAssimp->mRotationKeys[keyIndex];
-			KeyframeQuaternion keyframe;
-			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
-			keyframe.value = { keyAssimp.mValue.x,-keyAssimp.mValue.y,-keyAssimp.mValue.z, keyAssimp.mValue.w };
-			nodeAnimation.rotate.push_back(keyframe);
-		}
-		// Scaleの解析
-		for (uint32_t j = 0; j < nodeAnimationAssimp->mNumScalingKeys; ++j) {
-			aiVectorKey& keyAssimp = nodeAnimationAssimp->mScalingKeys[j];
-			KeyframeVector3 keyframe;
-			keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
-			keyframe.value = { keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
-			nodeAnimation.scale.push_back(keyframe);
+	for (int i = 0; i < (int)scene->mNumAnimations; ++i) {
+		aiAnimation* animationAssimp = scene->mAnimations[i]; // 最初のアニメーションだけ採用
+		Animation& animation = animations[animationAssimp->mName.C_Str()];
+		animation.duration = float(animationAssimp->mDuration / animationAssimp->mTicksPerSecond); // 時間の単位を秒に変換
+		//animations.duration = float(animationAssimp->mDuration / animationAssimp->mTicksPerSecond); 
+		
+		// assimpでは個々のNodeのAnimationをchannelと呼んでいるのでchannnelを回してNodeAnimationの情報をとってくる
+		for (uint32_t channelIndex = 0; channelIndex < animationAssimp->mNumChannels; ++channelIndex) {
+			aiNodeAnim* nodeAnimationAssimp = animationAssimp->mChannels[channelIndex];
+			NodeAnimation& nodeAnimation = animation.nodeAnimations[nodeAnimationAssimp->mNodeName.C_Str()];
+			// Position(Translate)の解析
+			for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumPositionKeys; ++keyIndex) {
+				aiVectorKey& keyAssimp = nodeAnimationAssimp->mPositionKeys[keyIndex];
+				KeyframeVector3 keyframe;
+				keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond); // 秒に変換
+				keyframe.value = { -keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
+				nodeAnimation.translate.push_back(keyframe);
+			}
+			// Rotationの解析
+			for (uint32_t keyIndex = 0; keyIndex < nodeAnimationAssimp->mNumRotationKeys; ++keyIndex) {
+				aiQuatKey& keyAssimp = nodeAnimationAssimp->mRotationKeys[keyIndex];
+				KeyframeQuaternion keyframe;
+				keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
+				keyframe.value = { keyAssimp.mValue.x,-keyAssimp.mValue.y,-keyAssimp.mValue.z, keyAssimp.mValue.w };
+				nodeAnimation.rotate.push_back(keyframe);
+			}
+			// Scaleの解析
+			for (uint32_t j = 0; j < nodeAnimationAssimp->mNumScalingKeys; ++j) {
+				aiVectorKey& keyAssimp = nodeAnimationAssimp->mScalingKeys[j];
+				KeyframeVector3 keyframe;
+				keyframe.time = float(keyAssimp.mTime / animationAssimp->mTicksPerSecond);
+				keyframe.value = { keyAssimp.mValue.x, keyAssimp.mValue.y, keyAssimp.mValue.z };
+				nodeAnimation.scale.push_back(keyframe);
+			}
 		}
 	}
-	return animation;
+
+	return animations;
 }
 
 void Model::CreateSkinCluster(const Skeleton& skeleton) {

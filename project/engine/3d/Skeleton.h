@@ -31,5 +31,3 @@ int32_t CreateJoint(const Model::Node& node, const std::optional<int32_t>& paren
 
 // スケルトンの全ジョイントの行列を更新する
 void UpdateSkeleton(Skeleton& skeleton);
-
-void ApplyAnimation(Skeleton& skeleton, const Animation& animation, float animationTime);

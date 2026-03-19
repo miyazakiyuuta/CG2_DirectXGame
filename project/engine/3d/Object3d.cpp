@@ -22,11 +22,8 @@ void Object3d::Update() {
 
 	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
 
-	if (model_ && !model_->GetAnimation().nodeAnimations.empty()) {
-		float deltaTime = 1.0f / 60.0f; // 本来は受け取る
-		animationTime_ += 1.0f / 60.0f;
-		animationTime_ = std::fmod(animationTime_, model_->GetAnimation().duration);
-		ApplyAnimation(skeleton_, model_->GetAnimation(), animationTime_);
+	if (model_ && animationPlayer_) {
+		animationPlayer_->Update(1.0f / 60.0f, skeleton_);
 		UpdateSkeleton(skeleton_);
 		model_->Update(skeleton_);
 	}
@@ -84,16 +81,30 @@ void Object3d::Draw() {
 	}
 }
 
+void Object3d::PlayAnimation(const std::string& name, bool loop, float blendDuration) {
+	if (!model_ || !animationPlayer_) return;
+
+	const auto& animations = model_->GetAnimations();
+	auto it = animations.find(name);
+
+	if (it != animations.end()) {
+		// 再生するアニメーションを切り替える
+		animationPlayer_->Play(&it->second, loop, blendDuration);
+	}
+}
+
 void Object3d::SetModel(const std::string& filePath) {
 	// モデルを検索してセットする
 	model_ = ModelManager::GetInstance()->FindModel(filePath);
 	assert(model_ && "Model not found. filePath key mismatch.");
 
-	if (model_ && !model_->GetAnimation().nodeAnimations.empty()) {
+	const std::map<std::string, Animation>& animations = model_->GetAnimations();
+
+	if (model_ && !animations.empty()) {
 		if (!animationPlayer_) {
 			animationPlayer_ = std::make_unique<AnimationPlayer>();
 		}
-		animationPlayer_->SetAnimation(&model_->GetAnimation());
+		//animationPlayer_->SetAnimation(&animations.begin()->second, true); // アニメーション開始は指定する
 
 		// モデルのNode階層からスケルトンを生成
 		skeleton_ = CreateSkeleton(model_->GetModelData().rootNode);

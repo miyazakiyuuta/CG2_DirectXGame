@@ -40,15 +40,3 @@ void UpdateSkeleton(Skeleton& skeleton) {
 		}
 	}
 }
-
-void ApplyAnimation(Skeleton& skeleton, const Animation& animation, float animationTime) {
-	for (Joint& joint : skeleton.joints) {
-		// 対象のJointのAnimationがあれば、値の適用を行う。
-		if (auto it = animation.nodeAnimations.find(joint.name); it != animation.nodeAnimations.end()) {
-			const NodeAnimation& rootNodeAnimation = (*it).second;
-			joint.transform.translate = AnimationPlayer::CalculateValue(rootNodeAnimation.translate, animationTime);
-			joint.transform.rotate = AnimationPlayer::CalculateValue(rootNodeAnimation.rotate, animationTime);
-			joint.transform.scale = AnimationPlayer::CalculateValue(rootNodeAnimation.scale, animationTime);
-		}
-	}
-}
