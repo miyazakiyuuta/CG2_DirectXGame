@@ -17,10 +17,21 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& directoryPat
 	CreateVertexData();
 	CreateIndexData();
 
+	if (modelData_.material.textureFilePath.empty()) {
+		modelData_.material.textureFilePath = TextureManager::kDefaultTextureName;
+	}
+
 	// .objの参照しているテクスチャファイル読み込み
 	TextureManager::GetInstance()->LoadTexture(modelData_.material.textureFilePath);
-	// 読み込んだテクスチャの番号を取得
 	modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(modelData_.material.textureFilePath);
+	
+	if (TextureManager::GetInstance()->GetSrvHandleGPU(modelData_.material.textureFilePath).ptr != 0) {
+		// 読み込んだテクスチャの番号を取得
+		modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(modelData_.material.textureFilePath);
+	} else {
+		modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(TextureManager::kDefaultTextureName);
+	}
+	
 }
 
 void Model::Update(const Skeleton& skeleton) {
