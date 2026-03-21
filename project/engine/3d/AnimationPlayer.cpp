@@ -11,9 +11,6 @@ void AnimationPlayer::Update(float deltaTime, Skeleton& skeleton) {
 	if (currentIsLoop_) {
 		currentTime_ = std::fmod(currentTime_, currentAnimation_->duration); // ※fmod(x,y)=x/yの余り(0に近いほうの整数に丸めた値)
 	} else {
-		// if (currentTime_ > currentAnimation_->duration) {
-		// 	currentTime_ = currentAnimation_->duration;
-		// }
 		currentTime_ = (std::min)(currentTime_, currentAnimation_->duration);
 	}
 
@@ -59,19 +56,16 @@ void AnimationPlayer::Update(float deltaTime, Skeleton& skeleton) {
 			joint.transform.rotate = curR;
 			joint.transform.scale = curS;
 		}
-
-		// 対象のJointのAnimationがあれば、値の適用を行う。
-		// if (it != currentAnimation_->nodeAnimations.end()) {
-		// 	const NodeAnimation& rootNodeAnimation = (*it).second;
-		// 	joint.transform.translate = CalculateValue(rootNodeAnimation.translate, currentTime_);
-		// 	joint.transform.rotate = CalculateValue(rootNodeAnimation.rotate, currentTime_);
-		// 	joint.transform.scale = CalculateValue(rootNodeAnimation.scale, currentTime_);
-		// }
 	}
 }
 
 void AnimationPlayer::Play(const Animation* animation, bool isLoop, float blendDuration) {
-	if (currentAnimation_ == animation) return; // 同じアニメーションが既に再生中なら何もしない
+	if (IsFinished()) {
+		blendDuration = 0.0f;
+	}
+
+	// 同じアニメーションが既に再生中なら何もしない
+	if (currentAnimation_ == animation && !IsFinished()) return;
 
 	// 今のアニメーションを「前のポーズ」に回す(「過去のもの」にする)
 	previousAnimation_ = currentAnimation_;
@@ -86,7 +80,6 @@ void AnimationPlayer::Play(const Animation* animation, bool isLoop, float blendD
 	blendDuration_ = blendDuration;
 	blendTimer_ = 0.0f;
 	isBlending_ = (previousAnimation_ != nullptr && blendDuration > 0.0f);
-
 }
 
 Vector3 AnimationPlayer::CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time) {

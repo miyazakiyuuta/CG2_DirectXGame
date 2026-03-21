@@ -22,10 +22,16 @@ void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 	srvManager_ = srvManager;
 	// SRVの数と同数
 	textureDatas_.reserve(DirectXCommon::kMaxSRVCount);
+
+	CreateDefaultTexture();
 }
 
 void TextureManager::LoadTexture(const std::string& filePath) {
 	
+	if (filePath.empty()) { // 空パスなら何もしない
+		return;
+	}
+
 	// 読み込み済みテクスチャを検索
 	if (textureDatas_.contains(filePath)) {
 		return;
@@ -84,4 +90,30 @@ D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& f
 	auto it = textureDatas_.find(filePath);
 	assert(it != textureDatas_.end());
 	return it->second.srvHandleGPU;
+}
+
+void TextureManager::CreateDefaultTexture() {
+	uint32_t white = 0xFFFFFFFF; // 1x1ピクセルの白データ(RGBA8)
+
+	DirectX::ScratchImage image;
+	HRESULT hr = image.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, 1, 1, 1, 1);
+	assert(SUCCEEDED(hr));
+
+	// 画素データ書き込み
+	std::memcpy(image.GetImages()->pixels, &white, sizeof(uint32_t));
+
+	// TextureDataを構築してmapに登録
+	TextureData& textureData = textureDatas_[kDefaultTextureName];
+	textureData.metadata = image.GetMetadata();
+	textureData.resource = dxCommon_->CreateTextureResource(textureData.metadata);
+	
+	// SRV確保と転送
+	textureData.srvIndex = srvManager_->Allocate();
+	textureData.srvHandleCPU = srvManager_->GetCPUDescriptorHandle(textureData.srvIndex);
+	textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
+
+	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, image);
+	
+	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
+
 }

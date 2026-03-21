@@ -55,11 +55,12 @@ void GamePlayScene::Initialize(){
     ModelManager::GetInstance()->LoadModel("Kanban1.obj");
     ModelManager::GetInstance()->LoadModel("Cube.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
+	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	//object3d_->SetModel("sneakWalk.gltf");
 	object3d_->SetModel("human_re.gltf");
+	//object3d_->SetModel("Frog.gltf");
 	object3d_->SetCamera(camera_.get());
 	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
@@ -214,17 +215,11 @@ void GamePlayScene::Update(){
 	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
 		object3d_->PauseSwitchingAnimation();
 	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_1)) {
-		object3d_->PlayAnimation("walk", true);
+	if (Input::GetInstance()->IsPushKey(DIK_1)) {
+		object3d_->PlayAnimation("walk", false, 1.0f);
 	}
 	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
-		object3d_->PlayAnimation("sneakWalk", true);
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_3)) {
-		object3d_->PlayAnimation("walk", false);
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_4)) {
-		object3d_->PlayAnimation("sneakWalk", false);
+		object3d_->PlayAnimation("sneakWalk", true, 1.0f);
 	}
 
 	object3d_->Update();
