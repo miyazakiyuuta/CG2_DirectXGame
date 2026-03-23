@@ -158,6 +158,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="application\EditorController.cpp" />
+    <ClCompile Include="application\StageEditor.cpp" />
+    <ClCompile Include="application\StageLoader.cpp" />
+    <ClCompile Include="application\StageSerializer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
     <ClCompile Include="engine\3d\Skeleton.cpp" />
@@ -230,6 +234,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="application\EditorController.h" />
+    <ClInclude Include="application\StageLoader.h" />
+    <ClInclude Include="application\StageSerializer.h" />
+    <ClInclude Include="application\StageTypes.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
     <ClInclude Include="engine\3d\Animation.h" />
