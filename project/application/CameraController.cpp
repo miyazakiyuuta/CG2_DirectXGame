@@ -2,8 +2,10 @@
 #include "3d/Camera.h"
 #include <algorithm>
 #include <cmath>
-#include <imgui.h>
 #include <limits>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 namespace{
 	float LengthVec(const Vector3& v){
@@ -32,7 +34,7 @@ void CameraController::Initialize(Camera* camera){
 		camera_->SetRotate({ pitch_, yaw_, 0.0f });
 	}
 
-	isUse_ = false;
+	isUse_ = true;
 }
 
 void CameraController::Update(const Vector3& target){
@@ -54,6 +56,7 @@ void CameraController::Update(const Vector3& target){
 		pitch_ -= pitchSpeed_;
 	}
 
+#ifdef USE_IMGUI
 	// マウス操作
 	if(!ImGui::GetIO().WantCaptureMouse){
 		const int mouseMoveX = input_->GetMouseMove().x;
@@ -64,6 +67,7 @@ void CameraController::Update(const Vector3& target){
 		const float ySign = invertY_ ? 1.0f : -1.0f;
 		pitch_ += static_cast<float>(mouseMoveY) * mouseSensitivity_ * ySign;
 	}
+#endif
 
 	// ホイール入力は目標距離だけを変える
 	const int wheel = input_->GetMouseWheel();
@@ -159,6 +163,7 @@ void CameraController::Update(const Vector3& target){
 }
 
 void CameraController::DrawImGui(){
+#ifdef USE_IMGUI
 	if(ImGui::TreeNode("CameraController")){
 		ImGui::Checkbox("Use CameraController", &isUse_);
 
@@ -186,4 +191,5 @@ void CameraController::DrawImGui(){
 
 		ImGui::TreePop();
 	}
+#endif
 }

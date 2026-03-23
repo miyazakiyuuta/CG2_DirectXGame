@@ -25,7 +25,7 @@ public: // メンバ関数
 	void Update(const Skeleton& skeleton);
 	void Draw();
 
-	static Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
+	static std::map<std::string, Animation> LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
 
 	void CreateSkinCluster(const Skeleton& skeleton);
 
@@ -93,7 +93,7 @@ public: // メンバ構造体
 
 public:
 	ModelData GetModelData() { return modelData_; }
-	const Animation& GetAnimation() const { return animation_; }
+	const std::map<std::string, Animation>& GetAnimations() const { return animations_; }
 	SkinCluster GetSkinCluster() { return skinCluster_; }
 
 private: // メンバ関数
@@ -114,7 +114,7 @@ private: // メンバ変数
 	// Objファイルのデータ
 	ModelData modelData_;
 
-	Animation animation_;
+	std::map<std::string, Animation> animations_;
 
 	SkinCluster skinCluster_;
 

@@ -18,12 +18,17 @@
 #include "debug/DebugSphere.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
+#include "math/Vector4.h"
 #include "utility/CollisionUtility.h"
 #include <../externals/nlohmann/json.hpp>
+#include <cfloat>
+#include <chrono>
 #include <cmath>
 #include <cstring>
-#include <imgui.h>
 #include <unordered_map>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 enum class BlockID {
     Normal = 0,
@@ -60,6 +65,9 @@ struct StageObject {
     // Normal: 通常ブロック
     // Water : 水分回復用ブロック
     BlockID blockId = BlockID::Normal;
+
+    // 表示色 (RGBA)
+    Vector4 color { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 /// <summary>
@@ -99,6 +107,13 @@ public:
             jo["id"] = o.id; // ID を保存
             jo["modelName"] = o.modelName; // モデル名を保存
             jo["blockId"] = static_cast<int>(o.blockId); // ブロック種類を保存
+            // カラー情報を保存
+            nlohmann::json color;
+            color["x"] = o.color.x;
+            color["y"] = o.color.y;
+            color["z"] = o.color.z;
+            color["w"] = o.color.w;
+            jo["color"] = color;
             nlohmann::json pos;
             pos["x"] = o.position.x;
             pos["y"] = o.position.y;
@@ -185,6 +200,14 @@ public:
                         o.blockId = static_cast<BlockID>(jo["blockId"].get<int>());
                     }
 
+                    // カラーはオプション
+                    if (jo.contains("color")) {
+                        o.color.x = jo["color"]["x"].get<float>();
+                        o.color.y = jo["color"]["y"].get<float>();
+                        o.color.z = jo["color"]["z"].get<float>();
+                        o.color.w = jo["color"]["w"].get<float>();
+                    }
+
                     // 位置はオプションとする（デフォルトは原点のまま）
                     if (jo.contains("position")) {
                         o.position.x = jo["position"]["x"].get<float>();
@@ -260,6 +283,7 @@ public:
                     inst.object->SetTranslate(o.position); // 位置は毎回セットする
                     inst.object->SetRotate(o.rotation); // 回転は毎回セットする
                     inst.object->SetScale(o.scale); // 拡縮率は毎回セットする
+                    inst.object->SetColor(o.color); // カラーを反映
                     inst.object->Update(); // ワールド行列などの更新を行う
                 }
 
@@ -277,6 +301,7 @@ public:
                 inst.object->SetTranslate(o.position); // 位置をセット
                 inst.object->SetRotate(o.rotation); // 回転をセット
                 inst.object->SetScale(o.scale); // 拡縮率をセット
+                inst.object->SetColor(o.color); // カラーをセット
                 inst.object->Update(); // ワールド行列などの更新を行う
 
                 // 新しいインスタンスを新しい一覧に追加
@@ -304,6 +329,7 @@ public:
                     inst.object->SetTranslate(o.position); // 位置は毎回セットする
                     inst.object->SetRotate(o.rotation); // 回転は毎回セットする
                     inst.object->SetScale(o.scale); // 拡縮率は毎回セットする
+                    inst.object->SetColor(o.color); // カラーを反映
                     inst.object->Update(); // ワールド行列などの更新を行う
                 }
 
@@ -321,6 +347,7 @@ public:
         inst.object->SetTranslate(o.position); // 位置をセット
         inst.object->SetRotate(o.rotation); // 回転をセット
         inst.object->SetScale(o.scale); // 拡縮率をセット
+        inst.object->SetColor(o.color); // カラーをセット
         inst.object->Update(); // ワールド行列などの更新を行う
 
         // 新しいインスタンスを一覧に追加
@@ -340,7 +367,6 @@ public:
     /// </summary>
     void UpdateInstanceTransform(int id, const Vector3& pos, const Vector3& rot, const Vector3& scale)
     {
-
         for (auto& inst : instances_) {
             // ID で既存インスタンスを照合
             if (inst.id == id && inst.object) {
@@ -348,8 +374,22 @@ public:
                 inst.object->SetTranslate(pos);
                 inst.object->SetRotate(rot);
                 inst.object->SetScale(scale);
+                // カラーはデータ側に保持されている想定なのでここでは変更しない
                 inst.object->Update();
 
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// インスタンスに直接カラーを設定する（選択ハイライト用）
+    /// </summary>
+    void SetInstanceColorById(int id, const Vector4& color)
+    {
+        for (auto& inst : instances_) {
+            if (inst.id == id && inst.object) {
+                inst.object->SetColor(color);
                 return;
             }
         }
@@ -503,6 +543,8 @@ public:
         // プレビュー用の球も作成しておく
         previewSphere_ = std::make_unique<DebugSphere>();
         previewSphere_->Initialize(Object3dCommon::GetInstance()->GetDxCommon());
+        // 初期の点滅タイムスタンプを初期化
+        selectionLastBlinkTime_ = std::chrono::steady_clock::now();
     }
 
     /// <summary>
@@ -529,6 +571,7 @@ public:
     /// </summary>
     void Update()
     {
+#ifdef USE_IMGUI
         // 生成・削除などの入力処理は編集モード時のみ行う
         if (isEditMode_) {
             // 生成処理（右クリックでカメラ前方にオブジェクトを生成）
@@ -542,11 +585,17 @@ public:
                 o.position = GetCreateOrigin();
 
                 o.blockId = placingBlockId_;
+                // 色を反映
+                o.color = placingColor_;
 
                 // 回転はゼロ、拡縮は等倍のまま
                 data_.objects.push_back(o);
                 // 変更を反映してオブジェクトを再生成
                 loader_.UpdateOrCreateInstance(o);
+                // 選択中ならハイライトを再適用
+                if (selectedObjectId_ == o.id) {
+                    loader_.SetInstanceColorById(o.id, selectionHighlightColor_);
+                }
                 // 履歴に保存
                 SaveHistorySnapshot();
             }
@@ -643,6 +692,33 @@ public:
                         createOrigin_.y = planeY;
                     }
                 }
+            }
+        }
+#endif
+
+        // 選択中オブジェクトの点滅（滑らかなアルファ補間）制御
+        if (selectedObjectId_ != -1) {
+            auto now = std::chrono::steady_clock::now();
+            float elapsed = std::chrono::duration_cast<std::chrono::duration<float>>(now - selectionLastBlinkTime_).count();
+
+            Vector4 originalColor { 1.0f, 1.0f, 1.0f, 1.0f };
+            bool found = false;
+            // data_ から選択中オブジェクトの元の色を探す
+            for (const auto& obj : data_.objects) {
+                if (obj.id == selectedObjectId_) {
+                    originalColor = obj.color;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found) {
+                // 点滅の周期を selectionBlinkInterval_ 秒とする
+                float phase = fmodf(elapsed, selectionBlinkInterval_) / selectionBlinkInterval_;
+                float t = 0.5f * (1.0f + std::sinf(2.0f * 3.14159265f * phase));
+                // selectionBlinkAlpha_ を点滅の最大アルファとする
+                float lerpedAlpha = originalColor.w * (1.0f - t) + selectionBlinkAlpha_ * t;
+                loader_.SetInstanceColorById(selectedObjectId_, { originalColor.x, originalColor.y, originalColor.z, lerpedAlpha });
             }
         }
 
@@ -792,9 +868,8 @@ public:
                 continue;
             }
 
-            if(o.blockId == BlockID::Water ||
-               o.blockId == BlockID::BugSpawn ||
-               o.blockId == BlockID::PlayerSpawn){
+            // 水ブロックとスポーン位置は当たり判定に含めない
+            if (o.blockId == BlockID::Water || o.blockId == BlockID::BugSpawn || o.blockId == BlockID::PlayerSpawn) {
                 continue;
             }
 
@@ -870,14 +945,15 @@ public:
     }
 
     /// <summary>
-   /// 虫スポーン位置一覧を返す
-   /// </summary>
-    std::vector<Vector3> GetBugSpawnPositions() const{
+    /// 虫スポーン位置一覧を返す
+    /// </summary>
+    std::vector<Vector3> GetBugSpawnPositions() const
+    {
         std::vector<Vector3> result;
         result.reserve(data_.objects.size());
 
-        for(const auto& o : data_.objects){
-            if(o.blockId == BlockID::BugSpawn){
+        for (const auto& o : data_.objects) {
+            if (o.blockId == BlockID::BugSpawn) {
                 result.push_back(o.position);
             }
         }
@@ -888,9 +964,10 @@ public:
     /// <summary>
     /// プレイヤー開始位置を返す
     /// </summary>
-    std::optional<Vector3> GetPlayerSpawnPosition() const{
-        for(const auto& o : data_.objects){
-            if(o.blockId == BlockID::PlayerSpawn){
+    std::optional<Vector3> GetPlayerSpawnPosition() const
+    {
+        for (const auto& o : data_.objects) {
+            if (o.blockId == BlockID::PlayerSpawn) {
                 return o.position;
             }
         }
@@ -930,7 +1007,7 @@ private:
     /// </summary>
     Vector3 GetCreateOrigin() const
     {
-        Vector3 base;
+        Vector3 base {};
         switch (createReferenceIndex_) {
         case 0: // Camera Forward
             base = controller_.GetCreatePosition();
@@ -939,7 +1016,6 @@ private:
             base = Vector3 { 0.0f, 0.0f, 0.0f };
             break;
         case 2: // Selected Object
-        {
             if (selectedObjectId_ != -1) {
                 for (const auto& o : data_.objects) {
                     if (o.id == selectedObjectId_) {
@@ -950,7 +1026,7 @@ private:
             } else {
                 base = Vector3 { 0.0f, 0.0f, 0.0f };
             }
-        } break;
+            break;
         case 3: // Custom
         default:
             base = createOrigin_;
@@ -995,6 +1071,7 @@ private:
     /// </summary>
     void DrawImGui()
     {
+#ifdef USE_IMGUI
         // ImGuiウィンドウの開始
         ImGui::Begin("StageEditor");
 
@@ -1085,6 +1162,9 @@ private:
             defaultModel_ = std::string(defaultModelBuf_);
         }
 
+        // 新規生成時のデフォルトカラー
+        ImGui::ColorEdit4("Placing Color", &placingColor_.x);
+
         // 生成するブロック種類を選択
         const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn" };
         int blockTypeIndex = static_cast<int>(placingBlockId_);
@@ -1100,8 +1180,12 @@ private:
             o.modelName = defaultModel_;
             o.position = GetCreateOrigin();
             o.blockId = placingBlockId_;
+            o.color = placingColor_;
             data_.objects.push_back(o);
             loader_.UpdateOrCreateInstance(o);
+            if (selectedObjectId_ == o.id) {
+                loader_.SetInstanceColorById(o.id, { o.color.x, o.color.y, o.color.z, selectionBlinkAlpha_ });
+            }
             // 履歴に保存
             SaveHistorySnapshot();
         }
@@ -1190,6 +1274,7 @@ private:
                     o.modelName = model;
                     o.position = pos;
                     o.blockId = placingBlockId_;
+                    o.color = placingColor_;
                     data_.objects.push_back(o);
                     loader_.UpdateOrCreateInstance(o);
                 }
@@ -1209,6 +1294,16 @@ private:
             snprintf(label, sizeof(label), "id:%d model:%s", o.id, o.modelName.c_str());
             bool isSelected = (selectedObjectId_ == o.id);
             if (ImGui::Selectable(label, isSelected)) {
+                // 選択中のオブジェクトは背景色を変える
+                if (selectedObjectId_ != -1 && selectedObjectId_ != o.id) {
+                    for (const auto& prevObj : data_.objects) {
+                        if (prevObj.id == selectedObjectId_) {
+                            loader_.SetInstanceColorById(prevObj.id, prevObj.color);
+                            break;
+                        }
+                    }
+                }
+
                 // 選択状態のトグル
                 selectedObjectId_ = o.id;
                 // 選択内容を編集バッファにコピー
@@ -1216,8 +1311,13 @@ private:
                 editRotation_ = o.rotation;
                 editScale_ = o.scale;
                 editBlockId_ = o.blockId;
+                editColor_ = o.color;
                 // モデル名バッファに現在のモデル名をコピー
                 strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
+
+                loader_.SetInstanceColorById(o.id, { o.color.x, o.color.y, o.color.z, selectionBlinkAlpha_ });
+                selectionLastBlinkTime_ = std::chrono::steady_clock::now();
+                selectionBlinkOn_ = true;
             }
         }
         ImGui::EndChild();
@@ -1283,6 +1383,20 @@ private:
                 }
             }
 
+            // カラー編集
+            if (ImGui::ColorEdit4("Color", &editColor_.x)) {
+                if (liveEdit_) {
+                    // ライブ編集が有効な場合は、カラーの変更を即時反映する
+                    for (auto& obj : data_.objects) {
+                        if (obj.id == selectedObjectId_) {
+                            obj.color = editColor_;
+                            loader_.SetInstanceColorById(obj.id, editColor_);
+                            break;
+                        }
+                    }
+                }
+            }
+
             // 編集内容を反映するボタン
             if (ImGui::Button("Apply Transform")) {
                 // 編集内容を反映
@@ -1294,12 +1408,16 @@ private:
                         obj.rotation = editRotation_;
                         obj.scale = editScale_;
                         obj.blockId = editBlockId_;
+                        obj.color = editColor_;
                         break;
                     }
                 }
 
                 // 履歴に保存
                 SaveHistorySnapshot();
+
+                // SaveHistorySnapshot() 内でデータをコピーしているため、ここで履歴に保存する前にデータを更新しておく必要がある
+                loader_.SetInstanceColorById(selectedObjectId_, selectionHighlightColor_);
             }
 
             ImGui::SameLine();
@@ -1320,7 +1438,8 @@ private:
             ImGui::SameLine();
             // 複製オプション: 個数とオフセット
             ImGui::InputInt("Duplicate Count", &duplicateCount_);
-            if (duplicateCount_ < 1) duplicateCount_ = 1;
+            if (duplicateCount_ < 1)
+                duplicateCount_ = 1;
             ImGui::Checkbox("Use Half-Size Offset", &useHalfSizeOffset_);
             if (!useHalfSizeOffset_) {
                 ImGui::DragFloat3("Duplicate Offset", &duplicateOffset_.x, 0.1f);
@@ -1339,7 +1458,7 @@ private:
                             StageObject lastCreated;
                             // 決定するオフセット
                             Vector3 perStepOffset = useHalfSizeOffset_
-                                ? Vector3{ base.scale.x * 2.0f, 0.0f, 0.0f }
+                                ? Vector3 { base.scale.x * 2.0f, 0.0f, 0.0f }
                                 : duplicateOffset_;
 
                             for (int i = 0; i < duplicateCount_; ++i) {
@@ -1347,6 +1466,8 @@ private:
                                 newObj.id = nextId_++; // 新しい一意IDを付与
                                 // オフセットを積算
                                 newObj.position = newObj.position + perStepOffset * static_cast<float>(i + 1);
+                                // カラーは元オブジェクトの色を引き継ぐ
+                                newObj.color = base.color;
                                 // データに追加
                                 data_.objects.push_back(newObj);
                                 // インスタンスを作成
@@ -1355,6 +1476,10 @@ private:
                             }
                             // 選択を最後に作成したオブジェクトに切り替える
                             selectedObjectId_ = lastCreated.id;
+
+                            loader_.SetInstanceColorById(selectedObjectId_, { lastCreated.color.x, lastCreated.color.y, lastCreated.color.z, selectionBlinkAlpha_ });
+                            selectionLastBlinkTime_ = std::chrono::steady_clock::now();
+                            selectionBlinkOn_ = true;
                             // 選択モデルバッファを更新
                             strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), lastCreated.modelName.c_str(), _TRUNCATE);
                             // 履歴に保存
@@ -1381,6 +1506,8 @@ private:
                         obj.modelName = std::string(selectedModelBuf_);
                         // インスタンスも更新
                         loader_.UpdateOrCreateInstance(obj);
+
+                        loader_.SetInstanceColorById(obj.id, selectionHighlightColor_);
                         break;
                     }
                 }
@@ -1398,27 +1525,30 @@ private:
         ImGui::Begin("StageEditor Debug", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("Instances: %zu", loader_.GetInstanceCount());
         ImGui::End();
+#endif
     }
 
-    std::string ResolveDisplayModelName(const StageObject& o) const{
-        switch(o.blockId){
-            case BlockID::BugSpawn:
-                return "sphere.obj";   // 虫スポーンは球で仮表示
-            case BlockID::PlayerSpawn:
-                return "Cube.obj";     // プレイヤー開始位置は立方体で仮表示
-            default:
-                return o.modelName;    // それ以外は元のモデル名
+    std::string ResolveDisplayModelName(const StageObject& o) const
+    {
+        switch (o.blockId) {
+        case BlockID::BugSpawn:
+            return "sphere.obj"; // 虫スポーンは球で仮表示
+        case BlockID::PlayerSpawn:
+            return "Cube.obj"; // プレイヤー開始位置は立方体で仮表示
+        default:
+            return o.modelName; // それ以外は元のモデル名
         }
     }
 
-    Vector3 ResolveDisplayScale(const StageObject& o) const{
-        switch(o.blockId){
-            case BlockID::BugSpawn:
-                return { 0.35f, 0.35f, 0.35f }; // 小さめの球
-            case BlockID::PlayerSpawn:
-                return { 0.6f, 1.2f, 0.6f };    // 少し縦長で見分けやすく
-            default:
-                return o.scale;                 // 通常はそのまま
+    Vector3 ResolveDisplayScale(const StageObject& o) const
+    {
+        switch (o.blockId) {
+        case BlockID::BugSpawn:
+            return { 0.35f, 0.35f, 0.35f }; // 小さめの球
+        case BlockID::PlayerSpawn:
+            return { 0.6f, 1.2f, 0.6f }; // 少し縦長で見分けやすく
+        default:
+            return o.scale; // 通常はそのまま
         }
     }
 
@@ -1474,6 +1604,13 @@ private:
     Vector3 editPosition_ {};
     Vector3 editRotation_ {};
     Vector3 editScale_ { 1.0f, 1.0f, 1.0f };
+    // 選択中オブジェクトの編集用カラー
+    Vector4 editColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    // 選択ハイライトの点滅制御
+    std::chrono::steady_clock::time_point selectionLastBlinkTime_;
+    float selectionBlinkInterval_ = 3.0f; // 秒
+    bool selectionBlinkOn_ = true;
 
     // 生成位置プレビュー用のオブジェクト（モデルは単純な球体などで十分）
     std::unique_ptr<Object3d> previewMarker_;
@@ -1503,6 +1640,13 @@ private:
 
     // 新規生成時のブロック種類
     BlockID placingBlockId_ = BlockID::Normal;
+    // 新規生成時のデフォルトカラー
+    Vector4 placingColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    // 選択表示用ハイライトカラー (RGB部分 unused when using alpha-blink)
+    Vector4 selectionHighlightColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
+    // 選択時に使用するアルファ値（点滅時にこの透明度を適用）。見えなくならない範囲に抑える
+    float selectionBlinkAlpha_ = 0.5f;
 
     // 選択中オブジェクトのブロック種類編集用
     BlockID editBlockId_ = BlockID::Normal;

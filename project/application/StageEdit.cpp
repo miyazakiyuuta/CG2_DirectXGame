@@ -105,6 +105,7 @@ std::vector<CollisionUtility::AABB> StageEdit::GetBlockAABBs() const{
 }
 
 void StageEdit::DrawImGui(){
+#ifdef USE_IMGUI
 	ImGui::Begin("StageEdit");
 
 	ImGui::Text("F1 : Toggle StageEdit");
@@ -136,4 +137,5 @@ void StageEdit::DrawImGui(){
 	}
 
 	ImGui::End();
+#endif
 }
