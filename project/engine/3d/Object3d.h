@@ -22,6 +22,19 @@ public: // メンバ関数
 	~Object3d();
 
 public:
+	void PlayAnimation(const std::string& name, bool loop = true, float blendDuration = 0.2f);
+	void StopAnimation() {
+		if (animationPlayer_) {
+			animationPlayer_->Stop();
+		}
+	}
+	void PauseSwitchingAnimation() {
+		if (animationPlayer_) {
+			animationPlayer_->SetPause(!animationPlayer_->GetIsPaused());
+		}
+	}
+
+public: // セッター&ゲッター
 	// setter
 	void SetModel(const std::string& filePath);
 	void SetScale(const Vector3& scale) { transform_.scale = scale; }
@@ -96,6 +109,5 @@ private: // メンバ変数
 	Model* model_ = nullptr;
 
 	std::unique_ptr<AnimationPlayer> animationPlayer_;
-	float animationTime_ = 0.0f;
 	Skeleton skeleton_;
 };

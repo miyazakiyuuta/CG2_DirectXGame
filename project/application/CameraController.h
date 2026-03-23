@@ -94,5 +94,5 @@ private:
 	const std::vector<CollisionUtility::AABB>* obstacleColliders_ = nullptr;
 	float cameraCollisionMargin_ = 0.15f;
 
-	bool isUse_ = false;
+	bool isUse_ = true;
 };

@@ -33,6 +33,9 @@ public:
 	// GPUハンドルの取得
 	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvHandleGPU(const std::string& filePath);
 
+	// デフォルトテクスチャの名前
+	static inline const std::string kDefaultTextureName = "white";
+
 private:
 	// テクスチャ1枚分のデータ
 	struct TextureData {
@@ -42,6 +45,8 @@ private:
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU;
 		D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPU;
 	};
+
+	void CreateDefaultTexture();
 
 	static TextureManager* instance;
 

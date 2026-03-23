@@ -458,6 +458,7 @@ void Player::TransitionTo(MovementState nextState){
 }
 
 void Player::DrawImGui(){
+#ifdef USE_IMGUI
 	if(ImGui::TreeNode("Player")){
 		Vector3 position = GetPosition();
 
@@ -605,6 +606,7 @@ void Player::DrawImGui(){
 
 		ImGui::TreePop();
 	}
+#endif
 }
 
 float Player::GetJumpChargeRate() const{

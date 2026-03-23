@@ -25,8 +25,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
-#include <imgui.h>
 #include <unordered_map>
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 
 #include "StageTypes.h"

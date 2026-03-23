@@ -4,18 +4,82 @@
 #include <cmath>
 #include <cassert>
 
-void AnimationPlayer::Update(float deltaTime, const std::string& nodeName) {
-	if (!animation_)return;
+void AnimationPlayer::Update(float deltaTime, Skeleton& skeleton) {
+	if (!currentAnimation_ || isPaused_)return;
 
-	animationTime_ += deltaTime;
-	animationTime_ = std::fmod(animationTime_, animation_->duration); // リピート再生※fmod(x,y)=x/yの余り(0に近いほうの整数に丸めた値)
+	currentTime_ += deltaTime;
+	if (currentIsLoop_) {
+		currentTime_ = std::fmod(currentTime_, currentAnimation_->duration); // ※fmod(x,y)=x/yの余り(0に近いほうの整数に丸めた値)
+	} else {
+		currentTime_ = (std::min)(currentTime_, currentAnimation_->duration);
+	}
 
-	const NodeAnimation& targetNodeAnimation = animation_->nodeAnimations.at(nodeName);
+	if (isBlending_) {
+		blendTimer_ += deltaTime;
+		previousTime_ += deltaTime; // 前のアニメーションも時間を進めておく
+		if (blendTimer_ >= blendDuration_) {
+			isBlending_ = false;
+			previousAnimation_ = nullptr;
+		}
+	}
 
-	Vector3 translate = CalculateValue(targetNodeAnimation.translate, animationTime_);
-	Quaternion rotate = CalculateValue(targetNodeAnimation.rotate, animationTime_);
-	Vector3 scale = CalculateValue(targetNodeAnimation.scale, animationTime_);
-	localMatrix_ = Matrix4x4::Affine(scale, rotate, translate);
+
+	float t = isBlending_ ? (blendTimer_ / blendDuration_) : 1.0f; // isBlendingがtrueならblendTimer_ / blendDuration_, falseなら1.0fを返す
+
+	for (Joint& joint : skeleton.joints) {
+
+		// 現在のアニメーション値を計算
+		Vector3 curT = joint.transform.translate;
+		Quaternion curR = joint.transform.rotate;
+		Vector3 curS = joint.transform.scale;
+
+		if (auto it = currentAnimation_->nodeAnimations.find(joint.name); it != currentAnimation_->nodeAnimations.end()) {
+			curT = CalculateValue(it->second.translate, currentTime_);
+			curR = CalculateValue(it->second.rotate, currentTime_);
+			curS = CalculateValue(it->second.scale, currentTime_);
+		}
+
+		if (isBlending_ && previousAnimation_) {
+			// 前のアニメーション値も計算して混ぜる
+			if (auto it = previousAnimation_->nodeAnimations.find(joint.name); it != previousAnimation_->nodeAnimations.end()) {
+				Vector3 preT = CalculateValue(it->second.translate, previousTime_);
+				Quaternion preR = CalculateValue(it->second.rotate, previousTime_);
+				Vector3 preS = CalculateValue(it->second.scale, previousTime_);
+
+				// 補間
+				joint.transform.translate = Lerp(preT, curT, t);
+				joint.transform.rotate = Slerp(preR, curR, t);
+				joint.transform.scale = Lerp(preS, curS, t);
+			}
+		} else { // ブレンド中でない
+			joint.transform.translate = curT;
+			joint.transform.rotate = curR;
+			joint.transform.scale = curS;
+		}
+	}
+}
+
+void AnimationPlayer::Play(const Animation* animation, bool isLoop, float blendDuration) {
+	if (IsFinished()) {
+		blendDuration = 0.0f;
+	}
+
+	// 同じアニメーションが既に再生中なら何もしない
+	if (currentAnimation_ == animation && !IsFinished()) return;
+
+	// 今のアニメーションを「前のポーズ」に回す(「過去のもの」にする)
+	previousAnimation_ = currentAnimation_;
+	previousTime_ = currentTime_;
+
+	// 新しいアニメーションをセット
+	currentAnimation_ = animation;
+	currentTime_ = 0.0f;
+	currentIsLoop_ = isLoop;
+
+	// ブレンド設定
+	blendDuration_ = blendDuration;
+	blendTimer_ = 0.0f;
+	isBlending_ = (previousAnimation_ != nullptr && blendDuration > 0.0f);
 }
 
 Vector3 AnimationPlayer::CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time) {
