@@ -78,6 +78,8 @@ void StageEditor::Initialize(const std::string& defaultModel)
 /// </summary>
 void StageEditor::Update()
 {
+#ifdef USE_IMGUI
+
     // 編集モードであれば、生成キーと削除キーの入力をチェックしてオブジェクトの追加・削除を行う
     if (isEditMode_) {
         // 生成キーが押された場合は、生成基準点に新しいオブジェクトを追加
@@ -216,6 +218,8 @@ void StageEditor::Update()
 
     // ImGui を使用して編集モードの UI を描画
     DrawImGui();
+
+#endif // !USE_IMGUI
 }
 
 /// <summary>
@@ -529,6 +533,8 @@ void StageEditor::Redo()
 /// </summary>
 void StageEditor::DrawImGui()
 {
+#ifdef USE_IMGUI
+
     ImGui::Begin("StageEditor");
     // ImGui のウィンドウを開始する
     if (ImGui::Button(isEditMode_ ? "Exit Edit Mode" : "Enter Edit Mode")) {
@@ -664,7 +670,7 @@ void StageEditor::DrawImGui()
     }
 
     ImGui::Separator();
-    
+
     // バッチ生成のオプションを表示する
     ImGui::Text("Batch Create");
     ImGui::InputText("Model for Batch", batchModelBuf_, sizeof(batchModelBuf_));
@@ -675,7 +681,7 @@ void StageEditor::DrawImGui()
     ImGui::Combo("Normal Axis", &batchNormalIndex_, axes, IM_ARRAYSIZE(axes));
     ImGui::TextWrapped("Normal Axis selects the axis that is treated as the 'up' direction for the grid. For floor use Y.");
 
-    //一括生成用のボタン表示
+    // 一括生成用のボタン表示
     if (ImGui::Button("Batch Create")) {
 
         if (batchCountA_ < 1) {
@@ -867,7 +873,7 @@ void StageEditor::DrawImGui()
             ImGui::DragFloat3("Duplicate Offset", &duplicateOffset_.x, 0.1f);
         } else {
             ImGui::Text("Offset will use half of source scale");
-        }          
+        }
 
         ImGui::SameLine();
         if (ImGui::Button("Duplicate Selected")) {
@@ -921,6 +927,7 @@ void StageEditor::DrawImGui()
     ImGui::Begin("StageEditor Debug", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("Instances: %zu", loader_.GetInstanceCount());
     ImGui::End();
+#endif // USE_IMGUI
 }
 
 /// <summary>
@@ -928,6 +935,7 @@ void StageEditor::DrawImGui()
 /// </summary>
 std::string StageEditor::ResolveDisplayModelName(const StageObject& o) const
 {
+#ifdef USE_IMGUI
     switch (o.blockId) {
     case BlockID::BugSpawn:
         return "sphere.obj";
@@ -936,6 +944,8 @@ std::string StageEditor::ResolveDisplayModelName(const StageObject& o) const
     default:
         return o.modelName;
     }
+
+#endif // !USE_IMGUI
 }
 
 /// <summary>
@@ -943,6 +953,7 @@ std::string StageEditor::ResolveDisplayModelName(const StageObject& o) const
 /// </summary>
 Vector3 StageEditor::ResolveDisplayScale(const StageObject& o) const
 {
+#ifdef USE_IMGUI
     // ブロックIDに応じて、編集画面での表示用スケールを返す
     switch (o.blockId) {
     case BlockID::BugSpawn:
@@ -952,4 +963,5 @@ Vector3 StageEditor::ResolveDisplayScale(const StageObject& o) const
     default:
         return o.scale;
     }
+#endif // !USE_IMGUI
 }
