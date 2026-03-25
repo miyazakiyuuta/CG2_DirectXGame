@@ -4,7 +4,7 @@
 #include "utility/CollisionUtility.h"
 
 #include "Bug.h"
-#include "Slug.h" // これがエラーなく読み込める必要があります
+#include "Slug.h" // ���ꂪ�G���[�Ȃ��ǂݍ��߂�K�v������܂�
 
 #include <cstdint>
 #include <d3d12.h>
@@ -17,6 +17,7 @@ class DebugCamera;
 class Object3d;
 class Player;
 class CameraController;
+class Stage;
 class StageEditor;
 class Skybox;
 class DebugGrid;
@@ -41,10 +42,12 @@ private:
     std::unique_ptr<Object3d> wellObject_;
     std::unique_ptr<Player> player_;
     std::unique_ptr<CameraController> cameraController_;
+
+    std::unique_ptr<Stage> stage_;
     std::unique_ptr<StageEditor> stageEditor_;
 
 	std::vector<std::unique_ptr<Bug>> bugs_;
-	std::unique_ptr<Slug> slug_; // ナメクジのポインタを追加
+	std::unique_ptr<Slug> slug_; // �i���N�W�̃|�C���^��ǉ�
 
 	std::vector<CollisionUtility::AABB> stageBlockColliders_;
 	std::vector<CollisionUtility::AABB> waterBlockColliders_;

@@ -19,6 +19,10 @@
 #include "Player.h"
 #include "Slug.h"
 #include "StageEditor.h"
+#include "StageSerializer.h"
+#include "effect/ParticleEmitter.h"
+#include "3d/Skybox.h"
+#include "debug/DebugGrid.h"
 #include "Tongue.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
@@ -98,19 +102,26 @@ void GamePlayScene::Initialize() {
 	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
 	Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
 
-	skybox_ = std::make_unique<Skybox>();
-	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
+    skybox_ = std::make_unique<Skybox>();
+    skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-	stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
-	stageEditor_->Initialize("Cube.obj");
-	stageEditor_->Load("resources/stage.json");
+    // 実行時ステージを生成
+    stage_ = std::make_unique<Stage>(Object3dCommon::GetInstance(), camera_.get());
 
-	Vector3 playerStart = {0.0f, 3.0f, 0.0f};
-	if (auto spawn = stageEditor_->GetPlayerSpawnPosition()) {
-		playerStart = *spawn;
-	}
-	player_ = std::make_unique<Player>();
-	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
+    // ステージファイルの読み込みは GamePlayScene が担当
+    auto loadedStage = StageSerializer::LoadFromFile("resources/stage.json");
+    if(loadedStage){
+        stage_->SetStageData(*loadedStage);
+    }
+
+    // プレイヤー開始位置を Stage から取得
+    Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
+    if(auto spawn = stage_->GetPlayerSpawnPosition()){
+        playerStart = *spawn;
+    }
+
+    player_ = std::make_unique<Player>();
+    player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
 
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
@@ -121,13 +132,18 @@ void GamePlayScene::Initialize() {
     cameraController_->SetPitchSpeed(0.02f);
 	cameraController_->SetObstacleColliders(&stageBlockColliders_);
 
-	bugs_.clear();
-	for (const auto& spawnPos : stageEditor_->GetBugSpawnPositions()) {
-		auto bug = std::make_unique<Bug>();
-		bug->Initialize(camera_.get());
-		bug->SetPositionImmediate(spawnPos);
-		bugs_.push_back(std::move(bug));
-	}
+    // StageEditor は Stage を受け取って編集するだけ
+    stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
+    stageEditor_->Initialize("Cube.obj");
+
+    // 虫の生成と初期化
+    bugs_.clear();
+    for(const auto& spawnPos : stage_->GetBugSpawnPositions()){
+        auto bug = std::make_unique<Bug>();
+        bug->Initialize(camera_.get());
+        bug->SetPositionImmediate(spawnPos);
+        bugs_.push_back(std::move(bug));
+    }
 	// ナメクジの初期化 (DirectXCommonのインスタンスを渡すように変更)
 	slug_ = std::make_unique<Slug>();
 	slug_->Initialize(
@@ -150,7 +166,6 @@ void GamePlayScene::Finalize() {
 
 void GamePlayScene::Update() {
 #ifdef USE_IMGUI
-
     imGuiManager_->Begin();
 
     ImGui::ShowDemoWindow();
@@ -200,10 +215,15 @@ void GamePlayScene::Update() {
 	ImGui::End();
 
 
-	stageEditor_->Update();
-	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
-	waterBlockColliders_ = stageEditor_->GetWaterBlockAABBs();
-	player_->SetBlockColliders(&stageBlockColliders_);
+    stageEditor_->Update();
+
+    imGuiManager_->End();
+#endif
+
+    // 実行時ステージから必要情報を取得
+    stageBlockColliders_ = stage_->GetBlockAABBs();
+    waterBlockColliders_ = stage_->GetWaterBlockAABBs();
+    player_->SetBlockColliders(&stageBlockColliders_);
 
 	if (!stageEditor_->IsEditMode()) {
             player_->Update(cameraController_->GetYaw());
@@ -219,12 +239,10 @@ void GamePlayScene::Update() {
 
 	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
-	imGuiManager_->End();
-
-#endif
-		for (auto& bug : bugs_) {
-			bug->Update();
-		}
+    // 虫の更新
+    for(auto& bug : bugs_){
+        bug->Update();
+    }
 
 		if (player_) {
 			Tongue* tongue = player_->GetTongue();
@@ -241,33 +259,37 @@ void GamePlayScene::Update() {
 			}
 		}
 
-		 // 水ブロックに触れている間は徐々に回復
-         bool isTouchingWater = false;
-         if (player_) {
-             const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
-             for (const auto& waterBox : waterBlockColliders_) {
-                 if (CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)) {
-                  isTouchingWater = true;
-                  break;
-                 }
-             }
-         }
-	
-	camera_->Update();
-	camera_->TransferToGPU();
+    // 水ブロックに触れている間は徐々に回復
+    bool isTouchingWater = false;
+    if(player_){
+        const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
+        for(const auto& waterBox : waterBlockColliders_){
+            if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
+                isTouchingWater = true;
+                break;
+            }
+        }
+    }
 
-	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
-		object3d_->StopAnimation();
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
-		object3d_->PauseSwitchingAnimation();
-	}
-	if (Input::GetInstance()->IsPushKey(DIK_1)) {
-		object3d_->PlayAnimation("walk", false, 1.0f);
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
-		object3d_->PlayAnimation("sneakWalk", true, 1.0f);
-	}
+    if(isTouchingWater){
+        player_->AddWater(15.0f / 60.0f);
+    }
+
+    camera_->Update();
+    camera_->TransferToGPU();
+
+    if(Input::GetInstance()->IsTriggerKey(DIK_0)){
+        object3d_->StopAnimation();
+    }
+    if(Input::GetInstance()->IsTriggerKey(DIK_9)){
+        object3d_->PauseSwitchingAnimation();
+    }
+    if(Input::GetInstance()->IsPushKey(DIK_1)){
+        object3d_->PlayAnimation("walk", false, 1.0f);
+    }
+    if(Input::GetInstance()->IsTriggerKey(DIK_2)){
+        object3d_->PlayAnimation("sneakWalk", true, 1.0f);
+    }
 
     object3d_->Update();
 
@@ -285,6 +307,7 @@ void GamePlayScene::Draw() {
     object3d_->Draw();
 
 	// --- 不透明オブジェクトの描画 ---
+    stage_->Draw();
 	stageEditor_->Draw();
 	player_->Draw();
 	for (auto& bug : bugs_) {
@@ -304,7 +327,7 @@ void GamePlayScene::Draw() {
 	debugGrid_->Draw(*camera_);
 
 #ifdef USE_IMGUI
-	imGuiManager_->Draw();
+    imGuiManager_->Draw();
 #endif
 }
 
