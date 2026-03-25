@@ -24,7 +24,7 @@ public:
 
 private:
 	// X,Y,Z軸回りのローカル回転角
-	//Vector3 rotation_ = {};
+	// Vector3 rotation_ = {};
 	Vector3 pivot_;
 	// 累積回転行列
 	Matrix4x4 matRot_;
