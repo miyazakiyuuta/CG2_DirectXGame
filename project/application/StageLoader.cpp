@@ -1,0 +1,208 @@
+#include "StageLoader.h"
+#include <algorithm>
+
+/// <summary>
+/// コンストラクタ
+/// </summary>
+StageLoader::StageLoader(Object3dCommon* objCommon, Camera* camera)
+    : object3dCommon_(objCommon)
+    , camera_(camera)
+{
+}
+
+/// <summary>
+/// StageData の内容を元に Object3d インスタンスを生成
+/// </summary>
+void StageLoader::CreateFromData(const StageData& data)
+{
+    // 差分更新のために既存インスタンスのマップを作成
+    std::unordered_map<int, size_t> idToIndex;
+    for (size_t i = 0; i < instances_.size(); ++i) {
+        idToIndex[instances_[i].id] = i;
+    }
+
+    // 新しいインスタンスリストを作成
+    std::vector<Instance> newInstances;
+    // 事前にサイズを予約しておく（パフォーマンス向上のため）
+    newInstances.reserve(data.objects.size());
+
+    // データ内のオブジェクトをすべて処理
+    for (const auto& o : data.objects) {
+        // オブジェクトIDで既存インスタンスを検索
+        auto it = idToIndex.find(o.id);
+        // 既存インスタンスが見つかった場合は更新、見つからない場合は新規作成
+        if (it != idToIndex.end()) {
+            // 既存インスタンスを更新
+            Instance inst = std::move(instances_[it->second]);
+
+            // ID は同じなのでそのまま、オブジェクトの内容を更新
+            if (inst.object) {
+                inst.object->SetModel(o.modelName); // モデルは変更される可能性があるので毎回セットする
+                inst.object->SetCamera(camera_); // カメラも毎回セットする必要があるかもしれない
+                inst.object->SetTranslate(o.position); // 位置は毎回セットする必要がある
+                inst.object->SetRotate(o.rotation); // 回転も毎回セットする必要がある
+                inst.object->SetScale(o.scale); // 拡縮率も毎回セットする必要がある
+                inst.object->SetColor(o.color); // 色も毎回セットする必要がある
+                inst.object->Update(); // 更新も呼び出しておく
+            }
+
+            // 更新したインスタンスを新しいリストに追加
+            newInstances.push_back(std::move(inst));
+
+        } else {
+            // 新規作成
+            Instance inst;
+            // オブジェクトIDをセット
+            inst.id = o.id;
+            // Object3d を生成して初期化
+            inst.object = std::make_unique<Object3d>();
+            // 初期化
+            inst.object->Initialize(object3dCommon_);
+            // データをセット
+            inst.object->SetModel(o.modelName);
+            // カメラもセットしておく
+            inst.object->SetCamera(camera_);
+            // 位置をセット
+            inst.object->SetTranslate(o.position);
+            // 回転をセット
+            inst.object->SetRotate(o.rotation);
+            // 拡縮率をセット
+            inst.object->SetScale(o.scale);
+            // 色をセット
+            inst.object->SetColor(o.color);
+            // 更新も呼び出しておく
+            inst.object->Update();
+            // 新規作成したインスタンスを新しいリストに追加
+            newInstances.push_back(std::move(inst));
+        }
+    }
+
+    // 置き換え
+    instances_ = std::move(newInstances);
+}
+
+/// <summary>
+/// StageObject の内容を元に Object3d インスタンスを更新・作成する
+/// </summary>
+void StageLoader::UpdateOrCreateInstance(const StageObject& o)
+{
+    // 既存を検索して更新
+    for (auto& inst : instances_) {
+        // オブジェクトIDで既存インスタンスを検索
+        if (inst.id == o.id) {
+            // ID は同じなのでそのまま、オブジェクトの内容を更新
+            if (inst.object) {
+                inst.object->SetModel(o.modelName); // モデルは変更される可能性があるので毎回セットする
+                inst.object->SetTranslate(o.position); // 位置は毎回セットする必要がある
+                inst.object->SetRotate(o.rotation); // 回転も毎回セットする必要がある
+                inst.object->SetScale(o.scale); // 拡縮率も毎回セットする必要がある
+                inst.object->SetColor(o.color); // 色も毎回セットする必要がある
+                inst.object->Update(); // 更新も呼び出しておく
+            }
+            return;
+        }
+    }
+
+    /// 既存インスタンスが見つからなかったので新規作成
+    Instance inst;
+    // オブジェクトIDをセット
+    inst.id = o.id;
+    // Object3d を生成して初期化
+    inst.object = std::make_unique<Object3d>();
+    // 初期化
+    inst.object->Initialize(object3dCommon_);
+    // データをセット
+    inst.object->SetModel(o.modelName);
+    // カメラもセットしておく
+    inst.object->SetCamera(camera_);
+    // 位置をセット
+    inst.object->SetTranslate(o.position);
+    // 回転をセット
+    inst.object->SetRotate(o.rotation);
+    // 拡縮率をセット
+    inst.object->SetScale(o.scale);
+    // 色をセット
+    inst.object->SetColor(o.color);
+    // 更新も呼び出しておく
+    inst.object->Update();
+
+    // 新規作成したインスタンスをリストに追加
+    instances_.push_back(std::move(inst));
+}
+
+/// <summary>
+/// ID でインスタンスを照合して削除
+/// </summary>
+void StageLoader::RemoveInstanceById(int id)
+{
+    // 指定ID以外のインスタンスだけを残す
+    instances_.erase(std::remove_if(instances_.begin(), instances_.end(), [id](const Instance& a) { return a.id == id; }), instances_.end());
+}
+
+/// <summary>
+/// ID でインスタンスを照合して位置・回転・拡縮率を更新
+/// </summary>
+void StageLoader::UpdateInstanceTransform(int id, const Vector3& pos, const Vector3& rot, const Vector3& scale)
+{
+    // 指定IDのインスタンスを検索して更新
+    for (auto& inst : instances_) {
+        // オブジェクトIDで既存インスタンスを検索
+        if (inst.id == id && inst.object) {
+            // ID は同じなのでそのまま、位置・回転・拡縮率を更新
+            inst.object->SetTranslate(pos);
+            inst.object->SetRotate(rot);
+            inst.object->SetScale(scale);
+            // 更新も呼び出しておく
+            inst.object->Update();
+            return;
+        }
+    }
+}
+
+/// <summary>
+/// 色を直接設定する（選択ハイライト用）
+/// </summary>
+void StageLoader::SetInstanceColorById(int id, const Vector4& color)
+{
+    // 指定IDのインスタンスを検索して更新
+    for (auto& inst : instances_) {
+        // オブジェクトIDで既存インスタンスを検索
+        if (inst.id == id && inst.object) {
+            // ID は同じなのでそのまま、色を更新
+            inst.object->SetColor(color);
+            return;
+        }
+    }
+}
+
+/// <summary>
+/// すべてのインスタンスを破棄
+/// </summary>
+void StageLoader::Clear()
+{
+    // unique_ptr なので clear するだけで破棄される
+    instances_.clear();
+}
+
+/// <summary>
+/// 管理している全インスタンスの Update と Draw を呼び出す
+/// </summary>
+void StageLoader::DrawAndUpdate()
+{
+    // すべてのインスタンスに対して Update と Draw を呼び出す
+    for (auto& i : instances_) {
+        if (i.object) {
+            // 更新と描画を呼び出す
+            i.object->Update();
+            i.object->Draw();
+        }
+    }
+}
+
+/// <summary>
+/// Debug: インスタンス数を返す
+/// </summary>
+size_t StageLoader::GetInstanceCount() const
+{
+    return instances_.size();
+}
