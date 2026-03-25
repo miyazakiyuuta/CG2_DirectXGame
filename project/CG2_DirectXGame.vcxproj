@@ -208,6 +208,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\StageEdit.cpp" />
     <ClCompile Include="application\Tongue.cpp" />
     <ClCompile Include="engine\3d\Skybox.cpp" />
+    <ClCompile Include="application\Slug.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -288,6 +289,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Tongue.h" />
     <ClInclude Include="externals\nlohmann\json.hpp" />
     <ClInclude Include="engine\3d\Skybox.h" />
+    <ClInclude Include="application\Slug.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
