@@ -49,15 +49,15 @@ void GamePlayScene::Initialize() {
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
 	// .objファイルからモデルを読み込む
-	ModelManager::GetInstance()->LoadModel("plane.obj");
-	ModelManager::GetInstance()->LoadModel("plane.gltf");
-	ModelManager::GetInstance()->LoadModel("sphere.obj");
-	ModelManager::GetInstance()->LoadModel("terrain.obj");
-	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
+    ModelManager::GetInstance()->LoadModel("plane.obj");
+    ModelManager::GetInstance()->LoadModel("plane.gltf");
+    ModelManager::GetInstance()->LoadModel("sphere.obj");
+    ModelManager::GetInstance()->LoadModel("terrain.obj");
+    ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
     ModelManager::GetInstance()->LoadModel("Kanban1.obj");
-	ModelManager::GetInstance()->LoadModel("Cube.obj");
-	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
-	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
+    ModelManager::GetInstance()->LoadModel("Cube.obj");
+    ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
+    ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
     // Load the single well model so it can be placed in the scene
     ModelManager::GetInstance()->LoadModel("well","well.obj");
@@ -197,15 +197,8 @@ void GamePlayScene::Update() {
         ImGui::TreePop();
     }
 
-    if(player_){
-        player_->DrawImGui();
-    }
+	ImGui::End();
 
-    cameraController_->DrawImGui();
-
-    ImGui::End();
-
-    object3d_->SetRotate(rotate);
 
 	stageEditor_->Update();
 	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
@@ -213,13 +206,22 @@ void GamePlayScene::Update() {
 	player_->SetBlockColliders(&stageBlockColliders_);
 
 	if (!stageEditor_->IsEditMode()) {
-		player_->Update(cameraController_->GetYaw());
-		cameraController_->Update(player_->GetPosition());
-
-		if (slug_) {
+            player_->Update(cameraController_->GetYaw());
+            cameraController_->Update(player_->GetPosition());
+    } else {
+        // StageEditor中はプレイヤー更新を止める
+        cameraController_->Update(player_->GetPosition());
+    }
+	
+	if (slug_) {
 			slug_->Update(1.0f / 60.0f);
-		}
+	}
 
+	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+
+	imGuiManager_->End();
+
+#endif
 		for (auto& bug : bugs_) {
 			bug->Update();
 		}
@@ -236,25 +238,21 @@ void GamePlayScene::Update() {
 						break;
 					}
 				}
-        }
-    }
-
-    // 水ブロックに触れている間は徐々に回復
-    bool isTouchingWater = false;
-    if(player_){
-        const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
-        for(const auto& waterBox : waterBlockColliders_){
-            if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
-                isTouchingWater = true;
-                break;
 			}
 		}
-	} else {
-		cameraController_->Update(player_->GetPosition());
-	}
 
-	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
-
+		 // 水ブロックに触れている間は徐々に回復
+         bool isTouchingWater = false;
+         if (player_) {
+             const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
+             for (const auto& waterBox : waterBlockColliders_) {
+                 if (CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)) {
+                  isTouchingWater = true;
+                  break;
+                 }
+             }
+         }
+	
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -275,9 +273,6 @@ void GamePlayScene::Update() {
 
     wellObject_->Update();
 
-#ifdef USE_IMGUI
-	imGuiManager_->End();
-#endif
 }
 
 void GamePlayScene::Draw() {

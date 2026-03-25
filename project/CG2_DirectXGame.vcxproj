@@ -117,7 +117,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>imgui.lib;assimp-vc143-mt.lib</AdditionalDependencies>
+      <AdditionalDependencies>DirectXTex.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration);$(ProjectDir)externals\assimp\lib\Release</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
