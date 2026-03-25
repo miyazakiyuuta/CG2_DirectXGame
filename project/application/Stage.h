@@ -34,6 +34,8 @@ public:
 
     std::vector<CollisionUtility::AABB> GetBlockAABBs() const;
     std::vector<CollisionUtility::AABB> GetWaterBlockAABBs() const;
+    std::vector<CollisionUtility::OBB> GetBlockOBBs() const;
+    std::vector<CollisionUtility::OBB> GetWaterBlockOBBs() const;
     std::vector<Vector3> GetBugSpawnPositions() const;
     std::optional<Vector3> GetPlayerSpawnPosition() const;
 

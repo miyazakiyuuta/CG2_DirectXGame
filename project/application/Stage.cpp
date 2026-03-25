@@ -119,3 +119,61 @@ std::optional<Vector3> Stage::GetPlayerSpawnPosition() const{
     }
     return std::nullopt;
 }
+
+std::vector<CollisionUtility::OBB> Stage::GetBlockOBBs() const{
+    std::vector<CollisionUtility::OBB> result;
+    result.reserve(data_.objects.size());
+
+    for(const auto& o : data_.objects){
+        if(o.modelName != "Cube.obj"){
+            continue;
+        }
+        if(o.blockId == BlockID::Water ||
+           o.blockId == BlockID::BugSpawn ||
+           o.blockId == BlockID::PlayerSpawn){
+            continue;
+        }
+
+        Transform t;
+        t.translate = o.position;
+        t.rotate = o.rotation;
+        t.scale = o.scale;
+
+        result.push_back(
+            CollisionUtility::MakeOBBFromTransform(
+            t,
+            { 1.0f, 1.0f, 1.0f }
+        )
+        );
+    }
+
+    return result;
+}
+
+std::vector<CollisionUtility::OBB> Stage::GetWaterBlockOBBs() const{
+    std::vector<CollisionUtility::OBB> result;
+    result.reserve(data_.objects.size());
+
+    for(const auto& o : data_.objects){
+        if(o.modelName != "Cube.obj"){
+            continue;
+        }
+        if(o.blockId != BlockID::Water){
+            continue;
+        }
+
+        Transform t;
+        t.translate = o.position;
+        t.rotate = o.rotation;
+        t.scale = o.scale;
+
+        result.push_back(
+            CollisionUtility::MakeOBBFromTransform(
+            t,
+            { 1.0f, 1.0f, 1.0f }
+        )
+        );
+    }
+
+    return result;
+}

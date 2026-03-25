@@ -67,19 +67,13 @@ Vector3 Player::GetPosition() const{
 	return object_->GetTranslate();
 }
 
-CollisionUtility::AABB Player::GetPlayerAABB(const Vector3& position) const{
-	CollisionUtility::AABB box;
-	box.min = {
-		position.x - colliderHalfSize_.x,
-		position.y - colliderHalfSize_.y,
-		position.z - colliderHalfSize_.z
-	};
-	box.max = {
-		position.x + colliderHalfSize_.x,
-		position.y + colliderHalfSize_.y,
-		position.z + colliderHalfSize_.z
-	};
-	return box;
+CollisionUtility::OBB Player::GetPlayerOBB(const Vector3& position) const{
+	Transform t;
+	t.translate = position;
+	t.rotate = object_ ? object_->GetRotate() : Vector3{ 0.0f, 0.0f, 0.0f };
+	t.scale = { 1.0f, 1.0f, 1.0f };
+
+	return CollisionUtility::MakeOBBFromTransform(t, colliderHalfSize_);
 }
 
 void Player::AddWater(float amount){
@@ -109,8 +103,6 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 	}
 
 	Vector3 position = object_->GetTranslate();
-
-	// 床との接触を横判定に混ぜないため、少しだけ上に持ち上げる
 	const float kGroundEpsilon = 0.05f;
 
 	if(position.x != previousPosition.x){
@@ -119,10 +111,11 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 			previousPosition.y + kGroundEpsilon,
 			previousPosition.z
 		};
-		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
 		for(const auto& block : *blockColliders_){
-			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+			if(CollisionUtility::IntersectOBB_OBB(playerObb, block)){
 				position.x = previousPosition.x;
 				break;
 			}
@@ -135,10 +128,11 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 			previousPosition.y + kGroundEpsilon,
 			position.z
 		};
-		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
 		for(const auto& block : *blockColliders_){
-			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+			if(CollisionUtility::IntersectOBB_OBB(playerObb, block)){
 				position.z = previousPosition.z;
 				break;
 			}
@@ -162,45 +156,22 @@ void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
 	}
 
 	for(const auto& block : *blockColliders_){
-		CollisionUtility::AABB playerBox = GetPlayerAABB(position);
-		if(!CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+		CollisionUtility::OBB playerObb = GetPlayerOBB(position);
+		auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+
+		if(!hit.hit){
 			continue;
 		}
 
-		float prevBottom = previousPosition.y - colliderHalfSize_.y;
-		float prevTop = previousPosition.y + colliderHalfSize_.y;
+		const float kSkinWidth = 0.001f;
+		position -= hit.normal * (hit.penetration + kSkinWidth);
 
-		// 上から落ちて床に乗る
-		if(velocity_.y <= 0.0f && prevBottom >= block.max.y - 0.01f){
-			position.y = block.max.y + colliderHalfSize_.y;
+		if(hit.normal.y < -0.5f){
 			velocity_.y = 0.0f;
 			isOnGround_ = true;
-			continue;
 		}
-
-		// 下から頭をぶつける
-		if(velocity_.y >= 0.0f && prevTop <= block.min.y + 0.01f){
-			position.y = block.min.y - colliderHalfSize_.y;
+		if(hit.normal.y > 0.5f && velocity_.y > 0.0f){
 			velocity_.y = 0.0f;
-			continue;
-		}
-
-		// 万一横や角で縦解決に食い込んだら、詳細判定の最小押し戻しを使う
-		CollisionUtility::CollisionResult hit =
-			CollisionUtility::IntersectAABB_AABB_Detailed(GetPlayerAABB(position), block);
-
-		if(hit.hit){
-			position.x -= hit.normal.x * hit.penetration;
-			position.y -= hit.normal.y * hit.penetration;
-			position.z -= hit.normal.z * hit.penetration;
-
-			if(hit.normal.y > 0.5f){
-				velocity_.y = 0.0f;
-				isOnGround_ = true;
-			}
-			if(hit.normal.y < -0.5f && velocity_.y > 0.0f){
-				velocity_.y = 0.0f;
-			}
 		}
 	}
 

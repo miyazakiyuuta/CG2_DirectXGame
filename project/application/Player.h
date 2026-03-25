@@ -46,12 +46,11 @@ public:
 	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
 	bool IsOnGround() const{ return isOnGround_; }
 
-	void SetBlockColliders(const std::vector<CollisionUtility::AABB>* blockColliders){
+	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders){
 		blockColliders_ = blockColliders;
 	}
 
-	// 外から水ブロック接触判定に使う
-	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
+	CollisionUtility::OBB GetPlayerOBB(const Vector3& position) const;
 
 	// 水分ゲージ
 	float GetWaterGauge() const{ return waterGauge_; }
@@ -140,7 +139,7 @@ private:
 
 	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
 
-	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
+	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 
 	
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };

@@ -49,8 +49,8 @@ private:
 	std::vector<std::unique_ptr<Bug>> bugs_;
 	std::unique_ptr<Slug> slug_; // �i���N�W�̃|�C���^��ǉ�
 
-	std::vector<CollisionUtility::AABB> stageBlockColliders_;
-	std::vector<CollisionUtility::AABB> waterBlockColliders_;
+	std::vector<CollisionUtility::OBB> stageBlockColliders_;
+	std::vector<CollisionUtility::OBB> waterBlockColliders_;
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;
