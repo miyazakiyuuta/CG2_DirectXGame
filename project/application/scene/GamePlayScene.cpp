@@ -26,12 +26,20 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
+#include "utility/Logger.h"
+#include <sstream>
 
 void GamePlayScene::Initialize(){
     camera_ = std::make_unique<Camera>();
     camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
     camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
     camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
+
+    // Set the default camera for Object3dCommon so objects initialized without explicit camera
+    // get a valid camera pointer.
+    if (Object3dCommon::GetInstance()) {
+        Object3dCommon::GetInstance()->SetDefaultCamera(camera_.get());
+    }
 
     imGuiManager_ = std::make_unique<ImGuiManager>();
     imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
@@ -57,6 +65,9 @@ void GamePlayScene::Initialize(){
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
+    // Load the single well model so it can be placed in the scene
+    ModelManager::GetInstance()->LoadModel("well","well.obj");
+
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
 	object3d_->SetModel("human_re.gltf");
@@ -66,6 +77,27 @@ void GamePlayScene::Initialize(){
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
 	object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
 	object3d_->SetUseEnvironmentMap(true); // 環境マップ
+
+    // Create the well object and place it at a fixed position only if model is loaded
+    if (Object3dCommon::GetInstance() && camera_) {
+        // Ensure model was actually loaded
+        if (ModelManager::GetInstance()->FindModel("well.obj")) {
+            wellObject_ = std::make_unique<Object3d>();
+            wellObject_->Initialize(Object3dCommon::GetInstance());
+            wellObject_->SetModel("well.obj");
+            wellObject_->SetCamera(camera_.get());
+            // Adjust this position as needed
+            // Move the well slightly further from the camera and make it very small
+            wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
+            wellObject_->SetScale({ 60.0f, 60.0f, 60.0f });
+            wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+        } else {
+            // Model not found; skip creating wellObject_
+            wellObject_.reset();
+        }
+    } else {
+        wellObject_.reset();
+    }
 
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
@@ -129,6 +161,37 @@ void GamePlayScene::Update(){
     ImGui::Begin("Window");
 
     camera_->DrawImGui();
+
+    // Well object debug / info
+    if (wellObject_) {
+        ImGui::Separator();
+        ImGui::Text("Well Object");
+
+        // show and allow editing position
+        Vector3 wpos = wellObject_->GetTranslate();
+        if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
+            wellObject_->SetTranslate(wpos);
+        }
+
+        // show and allow editing scale
+        Vector3 wscale = wellObject_->GetScale();
+        if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
+            wellObject_->SetScale(wscale);
+        }
+
+        // show rotation (read-only)
+        Vector3 wrot = wellObject_->GetRotate();
+        ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
+
+        if (ImGui::Button("Reset Well")) {
+            wellObject_->SetTranslate({0.0f,0.0f,0.0f});
+            wellObject_->SetScale({1.0f,1.0f,1.0f});
+        }
+
+    } else {
+        ImGui::Separator();
+        ImGui::Text("Well: not created");
+    }
 
     if(ImGui::TreeNode("object3d")){
         ImGui::DragFloat3("rotate", &rotate.x, 0.01f);
@@ -222,13 +285,19 @@ void GamePlayScene::Update(){
 		object3d_->PlayAnimation("sneakWalk", true, 1.0f);
 	}
 
-	object3d_->Update();
+    object3d_->Update();
+
+    wellObject_->Update();
 
 }
 
 void GamePlayScene::Draw(){
 
     skybox_->Draw(*camera_);
+
+    if (wellObject_) {
+        wellObject_->Draw();
+    }
 
     object3d_->Draw();
 

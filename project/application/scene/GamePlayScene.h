@@ -36,6 +36,8 @@ private:
     std::unique_ptr<DebugCamera> debugCamera_;
 
     std::unique_ptr<Object3d> object3d_;
+    // Single static well object placed in the scene
+    std::unique_ptr<Object3d> wellObject_;
     std::unique_ptr<Player> player_;
     std::unique_ptr<CameraController> cameraController_;
     std::unique_ptr<StageEditor> stageEditor_;
