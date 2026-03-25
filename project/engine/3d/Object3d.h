@@ -55,6 +55,14 @@ public: // セッター&ゲッター
 	Vector4 GetLightColor() const { return directionalLightData_->color; }
 	Vector3 GetLightDirection() const { return directionalLightData_->direction; }
 	float GetLightIntensity() const { return directionalLightData_->intensity; }
+	float GetAnimationDuration(const std::string& name) {
+		const auto& animations = model_->GetAnimations();
+		auto it = animations.find(name);
+		if (it != animations.end()) {
+			return it->second.duration;
+		}
+		return 0.0f;
+	}
 
 private: // メンバ構造体
 

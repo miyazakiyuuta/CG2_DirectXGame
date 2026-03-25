@@ -1,26 +1,27 @@
 #include "scene/GamePlayScene.h"
 
-#include "base/ImGuiManager.h"
-#include "io/Input.h"
-#include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
-#include "3d/ModelManager.h"
+#include "2d/TextureManager.h"
 #include "3d/DebugCamera.h"
+#include "3d/ModelManager.h"
 #include "3d/Object3dCommon.h"
+#include "audio/SoundManager.h"
+#include "base/ImGuiManager.h"
+#include "effect/CylinderManager.h"
 #include "effect/ParticleManager.h"
 #include "effect/RingManager.h"
-#include "effect/CylinderManager.h"
-#include "audio/SoundManager.h"
+#include "io/Input.h"
 
 #include "2d/Sprite.h"
 #include "3d/Object3d.h"
-#include "Player.h"
-#include "CameraController.h"
-#include "StageEditor.h"
-#include "effect/ParticleEmitter.h"
 #include "3d/Skybox.h"
-#include "debug/DebugGrid.h"
+#include "CameraController.h"
+#include "Player.h"
+#include "Slug.h"
+#include "StageEditor.h"
 #include "Tongue.h"
+#include "debug/DebugGrid.h"
+#include "effect/ParticleEmitter.h"
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -29,30 +30,23 @@
 #include "utility/Logger.h"
 #include <sstream>
 
-void GamePlayScene::Initialize(){
-    camera_ = std::make_unique<Camera>();
-    camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-    camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
-    camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
+void GamePlayScene::Initialize() {
+	camera_ = std::make_unique<Camera>();
+	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
+	camera_->SetRotate({std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f});
+	camera_->SetTranslate({0.0f, 7.5f, -20.0f});
 
-    // Set the default camera for Object3dCommon so objects initialized without explicit camera
-    // get a valid camera pointer.
-    if (Object3dCommon::GetInstance()) {
-        Object3dCommon::GetInstance()->SetDefaultCamera(camera_.get());
-    }
+	imGuiManager_ = std::make_unique<ImGuiManager>();
+	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
-    imGuiManager_ = std::make_unique<ImGuiManager>();
-    imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	ParticleManager::GetInstance()->SetCamera(camera_.get());
 
-    ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
-    ParticleManager::GetInstance()->SetCamera(camera_.get());
+	debugCamera_ = std::make_unique<DebugCamera>();
+	debugCamera_->Initialize();
 
-    debugCamera_ = std::make_unique<DebugCamera>();
-    debugCamera_->Initialize();
-
-    TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
-    TextureManager::GetInstance()->LoadTexture("resources/monsterBall.png");
-    TextureManager::GetInstance()->LoadTexture("resources/grass.png");
+	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
@@ -61,7 +55,7 @@ void GamePlayScene::Initialize(){
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
     ModelManager::GetInstance()->LoadModel("Kanban1.obj");
-    ModelManager::GetInstance()->LoadModel("Cube.obj");
+	ModelManager::GetInstance()->LoadModel("Cube.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
@@ -107,49 +101,54 @@ void GamePlayScene::Initialize(){
 	skybox_ = std::make_unique<Skybox>();
 	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-    // StageEditorの初期化
-    stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
-    stageEditor_->Initialize("Cube.obj");
+	stageEditor_ = std::make_unique<StageEditor>(Object3dCommon::GetInstance(), camera_.get());
+	stageEditor_->Initialize("Cube.obj");
+	stageEditor_->Load("resources/stage.json");
 
-    // 起動時にステージJSONがあれば読み込んでオブジェクトを生成する
-    // resources/stage.json を期待する
-    stageEditor_->Load("resources/stage.json");
+	Vector3 playerStart = {0.0f, 3.0f, 0.0f};
+	if (auto spawn = stageEditor_->GetPlayerSpawnPosition()) {
+		playerStart = *spawn;
+	}
+	player_ = std::make_unique<Player>();
+	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
 
-    // プレイヤー開始位置を StageEditor から取得
-    Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
-    if(auto spawn = stageEditor_->GetPlayerSpawnPosition()){
-        playerStart = *spawn;
-    }
-
-    player_ = std::make_unique<Player>();
-    player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
-
-    cameraController_ = std::make_unique<CameraController>();
-    cameraController_->Initialize(camera_.get());
+	cameraController_ = std::make_unique<CameraController>();
+	cameraController_->Initialize(camera_.get());
     cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
     cameraController_->SetDistance(25.0f);
     cameraController_->SetHeight(1.5f);
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
-    cameraController_->SetObstacleColliders(&stageBlockColliders_);
+	cameraController_->SetObstacleColliders(&stageBlockColliders_);
 
-    // 虫の生成と初期化
-    bugs_.clear();
-    for(const auto& spawnPos : stageEditor_->GetBugSpawnPositions()){
-        auto bug = std::make_unique<Bug>();
-        bug->Initialize(camera_.get());
-        bug->SetPositionImmediate(spawnPos);
-        bugs_.push_back(std::move(bug));
-    }
+	bugs_.clear();
+	for (const auto& spawnPos : stageEditor_->GetBugSpawnPositions()) {
+		auto bug = std::make_unique<Bug>();
+		bug->Initialize(camera_.get());
+		bug->SetPositionImmediate(spawnPos);
+		bugs_.push_back(std::move(bug));
+	}
+	// ナメクジの初期化 (DirectXCommonのインスタンスを渡すように変更)
+	slug_ = std::make_unique<Slug>();
+	slug_->Initialize(
+	    DirectXCommon::GetInstance(), // 追加
+	    Object3dCommon::GetInstance(), camera_.get(), "sphere.obj");
+	slug_->SetPosition({5.0f, 0.5f, 5.0f});
+	// ブロックの上面（通常 Y=1.0）より少し上に配置して埋まりを確実に防止
+	slug_->SetPosition({5.0f, 1.2f, 5.0f});
 
-    debugGrid_ = std::make_unique<DebugGrid>();
-    debugGrid_->Initialize(DirectXCommon::GetInstance());
+	slug_->SetBodyColor({0.8f, 0.2f, 0.2f, 1.0f});  // 目立つように赤系
+	slug_->SetTrailColor({1.0f, 0.0f, 1.0f, 1.0f}); // ネオンピンクのヌルヌル
+
+	debugGrid_ = std::make_unique<DebugGrid>();
+	debugGrid_->Initialize(DirectXCommon::GetInstance());
 }
 
-void GamePlayScene::Finalize(){}
+void GamePlayScene::Finalize() {
+	// 終了処理の実体を追加（LNK2001エラー対策）
+}
 
-void GamePlayScene::Update(){
-
+void GamePlayScene::Update() {
 #ifdef USE_IMGUI
 
     imGuiManager_->Begin();
@@ -208,48 +207,35 @@ void GamePlayScene::Update(){
 
     object3d_->SetRotate(rotate);
 
-    stageEditor_->Update();
+	stageEditor_->Update();
+	stageBlockColliders_ = stageEditor_->GetBlockAABBs();
+	waterBlockColliders_ = stageEditor_->GetWaterBlockAABBs();
+	player_->SetBlockColliders(&stageBlockColliders_);
 
-    // 通常ブロックと水ブロックを分けて取得
-    stageBlockColliders_ = stageEditor_->GetBlockAABBs();
-    waterBlockColliders_ = stageEditor_->GetWaterBlockAABBs();
-    player_->SetBlockColliders(&stageBlockColliders_);
+	if (!stageEditor_->IsEditMode()) {
+		player_->Update(cameraController_->GetYaw());
+		cameraController_->Update(player_->GetPosition());
 
-    if(!stageEditor_->IsEditMode()){
-        // いつもの更新
-        player_->Update(cameraController_->GetYaw());
-        cameraController_->Update(player_->GetPosition());
-    } else{
-        // StageEditor中はプレイヤー更新を止める
-        cameraController_->Update(player_->GetPosition());
-    }
+		if (slug_) {
+			slug_->Update(1.0f / 60.0f);
+		}
 
-    player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+		for (auto& bug : bugs_) {
+			bug->Update();
+		}
 
-    imGuiManager_->End();
-#endif
-
-    // 虫の更新
-    for(auto& bug : bugs_){
-        bug->Update();
-    }
-
-    // 舌先と虫の球判定
-    if(player_){
-        Tongue* tongue = player_->GetTongue();
-        if(tongue && tongue->CanHitBug()){
-            const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-
-            for(auto& bug : bugs_){
-                const CollisionUtility::Sphere bugSphere = bug->GetHitSphere();
-
-                if(CollisionUtility::IntersectSphere_Sphere(tongueSphere, bugSphere)){
-                    player_->AddChargeStock(1);
-                    bug->OnTongueHit();
-                    tongue->Reset();
-                    break;
-                }
-            }
+		if (player_) {
+			Tongue* tongue = player_->GetTongue();
+			if (tongue && tongue->CanHitBug()) {
+				const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
+				for (auto& bug : bugs_) {
+					if (CollisionUtility::IntersectSphere_Sphere(tongueSphere, bug->GetHitSphere())) {
+						player_->AddChargeStock(1);
+						bug->OnTongueHit();
+						tongue->Reset();
+						break;
+					}
+				}
         }
     }
 
@@ -261,13 +247,13 @@ void GamePlayScene::Update(){
             if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
                 isTouchingWater = true;
                 break;
-            }
-        }
-    }
+			}
+		}
+	} else {
+		cameraController_->Update(player_->GetPosition());
+	}
 
-    if(isTouchingWater){
-        player_->AddWater(15.0f / 60.0f);
-    }
+	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -289,11 +275,13 @@ void GamePlayScene::Update(){
 
     wellObject_->Update();
 
+#ifdef USE_IMGUI
+	imGuiManager_->End();
+#endif
 }
 
-void GamePlayScene::Draw(){
-
-    skybox_->Draw(*camera_);
+void GamePlayScene::Draw() {
+	skybox_->Draw(*camera_);
 
     if (wellObject_) {
         wellObject_->Draw();
@@ -301,14 +289,22 @@ void GamePlayScene::Draw(){
 
     object3d_->Draw();
 
-    stageEditor_->Draw();
-
+	// --- 不透明オブジェクトの描画 ---
+	stageEditor_->Draw();
 	player_->Draw();
+	for (auto& bug : bugs_) {
+		bug->Draw();
+	}
 
-    // 虫の描画
-    for(auto& bug : bugs_){
-        bug->Draw();
-    }
+	if (slug_) {
+		slug_->Draw(); // 本体
+	}
+
+ // 半透明 (引数にカメラが必要になったため修正)
+	if (slug_) {
+		slug_->DrawTransparent(*camera_);
+	}
+
 
 	debugGrid_->Draw(*camera_);
 
