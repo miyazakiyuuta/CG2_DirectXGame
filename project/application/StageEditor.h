@@ -2,12 +2,10 @@
 #define NOMINMAX
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -19,32 +17,25 @@
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include "math/Vector4.h"
-#include "utility/CollisionUtility.h"
-#include <../externals/nlohmann/json.hpp>
-#include <cfloat>
-#include <chrono>
-#include <cmath>
-#include <cstring>
-#include <unordered_map>
+
+#include "StageTypes.h"
+#include "StageSerializer.h"
+#include "EditorController.h"
+#include "Stage.h"
+
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
 
-
-#include "StageTypes.h"
-#include "StageSerializer.h"
-#include "StageLoader.h"
-#include "EditorController.h"
-
 /// <summary>
 /// ステージエディタクラス
 /// </summary>
-class StageEditor {
+class StageEditor{
 public:
     /// <summary>
     /// コンストラクタ
     /// </summary>
-    StageEditor(Object3dCommon* objCommon, Camera* camera);
+    StageEditor(Stage* stage, Object3dCommon* objCommon, Camera* camera);
 
     /// <summary>
     /// 初期化
@@ -57,7 +48,7 @@ public:
     void Update();
 
     /// <summary>
-    /// 描画処理（StageLoaderの描画呼び出し）
+    /// 描画処理（エディタプレビュー描画）
     /// </summary>
     void Draw();
 
@@ -87,31 +78,17 @@ public:
     void Clear();
 
     /// <summary>
-    /// ステージデータへの参照を返す（外部から直接データを操作したい場合に使用）
+    /// ステージデータへの参照を返す
     /// </summary>
     StageData& GetStageData();
 
-    /// <summary>
-    /// ブロック用の AABB 一覧を返す
-    /// </summary>
-    std::vector<CollisionUtility::AABB> GetBlockAABBs() const;
-
-    /// <summary>
-    /// 水ブロック用の AABB 一覧を返す
-    /// </summary>
-    std::vector<CollisionUtility::AABB> GetWaterBlockAABBs() const;
-
-    /// <summary>
-    /// 虫スポーン位置一覧を返す
-    /// </summary>
-    std::vector<Vector3> GetBugSpawnPositions() const;
-
-    /// <summary>
-    /// プレイヤー開始位置を返す（存在しない場合は std::nullopt）
-    /// </summary>
-    std::optional<Vector3> GetPlayerSpawnPosition() const;
-
 private:
+    enum class EditorUIMode{
+        SingleCreate = 0,
+        BatchCreate,
+        SelectedEdit,
+    };
+
     // スナップショット構造体（履歴保存用）
     struct Snapshot {
         StageData data;
@@ -122,19 +99,19 @@ private:
     std::vector<Snapshot> history_;
     int historyIndex_ = -1;
 
-    /// <summary>
-    /// 現在のステージデータのスナップショットを履歴に保存する関数
-    /// </summary>
+/// <summary>
+/// 現在のステージデータのスナップショットを履歴に保存する関数
+/// </summary>
     void SaveHistorySnapshot();
-
+    
     /// <summary>
-    /// 生成基準点を取得する関数
-    /// </summary>
+/// 生成基準点を取得する関数
+/// </summary>
     Vector3 GetCreateOrigin() const;
 
     /// <summary>
-    /// Undo / Redo
-    /// </summary>
+/// Undo / Redo
+/// </summary>
     void Undo();
     void Redo();
 
@@ -142,42 +119,35 @@ private:
     /// ImGui を使用して編集モードの UI を描画する関数
     /// </summary>
     void DrawImGui();
+    void ClearSelection();
 
-    /// <summary>
-    /// UI 表示用: ブロック種別に応じた表示モデル名を返す
-    /// </summary>
+/// <summary>
+/// UI 表示用: ブロック種別に応じた表示モデル名を返す
+/// </summary>
     std::string ResolveDisplayModelName(const StageObject& o) const;
 
     /// <summary>
-    /// UI 表示用: ブロック種別に応じた表示拡縮を返す
-    /// </summary>
+/// UI 表示用: ブロック種別に応じた表示拡縮を返す
+/// </summary>
     Vector3 ResolveDisplayScale(const StageObject& o) const;
 
-    // 保存データ本体
-    StageData data_;
+    Stage* stage_ = nullptr;
 
-    // 描画インスタンス管理
-    StageLoader loader_;
-
-    // 入力処理
     EditorController controller_;
 
     // Object3d 初期化用
     Object3dCommon* object3dCommon_ = nullptr;
-
     // 描画時に使用するカメラ
     Camera* camera_ = nullptr;
 
     // ------------------------------------------------------------------
-    // 以下はエディタの状態
-    // ------------------------------------------------------------------
+// 以下はエディタの状態
+// ------------------------------------------------------------------
 
-    // 新規生成オブジェクトのデフォルトモデル名
+// 新規生成オブジェクトのデフォルトモデル名
     std::string defaultModel_ = "Cube.obj";
     // ImGui 用固定長バッファ: std::string の内部バッファを直接渡さない安全な実装
     char defaultModelBuf_[256] = {};
-    // バッチ生成用モデルバッファ
-    char batchModelBuf_[256] = {};
 
     // バッチ生成設定
     int batchCountA_ = 3; // 横方向の数
@@ -198,16 +168,17 @@ private:
     // リアルタイム編集フラグ（Apply 押下不要で即時反映）
     bool liveEdit_ = true;
 
+    EditorUIMode uiMode_ = EditorUIMode::SingleCreate;
     // 選択中のオブジェクトID
     int selectedObjectId_ = -1;
     // 選択中オブジェクトのモデル編集用バッファ
     char selectedModelBuf_[256] = {};
 
     // 選択中オブジェクトの編集用ワークバッファ
-    Vector3 editPosition_ {};
-    Vector3 editRotation_ {};
-    Vector3 editScale_ { 1.0f, 1.0f, 1.0f };
-    Vector4 editColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
+    Vector3 editPosition_{};
+    Vector3 editRotation_{};
+    Vector3 editScale_{ 1.0f, 1.0f, 1.0f };
+    Vector4 editColor_{ 1.0f, 1.0f, 1.0f, 1.0f };
 
     // 選択ハイライトの点滅制御
     std::chrono::steady_clock::time_point selectionLastBlinkTime_;
@@ -217,8 +188,6 @@ private:
     // プレビュー表示用
     std::unique_ptr<Object3d> previewMarker_;
     std::unique_ptr<DebugSphere> previewSphere_;
-    bool showCreatePreview_ = true;
-    bool showBatchPreview_ = false;
     float previewRadius_ = 1.0f;
 
     // 原点移動モード
@@ -234,12 +203,10 @@ private:
 
     // 新規生成時の設定
     BlockID placingBlockId_ = BlockID::Normal;
-    Vector4 placingColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
-
+    Vector4 placingColor_{ 1.0f, 1.0f, 1.0f, 1.0f };
     // 選択表示用ハイライトカラー
     Vector4 selectionHighlightColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
     float selectionBlinkAlpha_ = 0.5f;
-
     // 編集用ブロック種別
     BlockID editBlockId_ = BlockID::Normal;
 

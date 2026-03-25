@@ -16,6 +16,7 @@ class DebugCamera;
 class Object3d;
 class Player;
 class CameraController;
+class Stage;
 class StageEditor;
 class Skybox;
 class DebugGrid;
@@ -38,6 +39,8 @@ private:
     std::unique_ptr<Object3d> object3d_;
     std::unique_ptr<Player> player_;
     std::unique_ptr<CameraController> cameraController_;
+
+    std::unique_ptr<Stage> stage_;
     std::unique_ptr<StageEditor> stageEditor_;
 
     std::vector<std::unique_ptr<Bug>> bugs_;
@@ -46,6 +49,5 @@ private:
     std::vector<CollisionUtility::AABB> waterBlockColliders_;
     std::unique_ptr<Skybox> skybox_;
 
-	std::unique_ptr<DebugGrid> debugGrid_;
+    std::unique_ptr<DebugGrid> debugGrid_;
 };
-
