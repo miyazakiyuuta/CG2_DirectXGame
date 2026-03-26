@@ -12,6 +12,18 @@ namespace{
 	float LengthXZ(const Vector3& v){
 		return std::sqrt(v.x * v.x + v.z * v.z);
 	}
+
+	float Length3(const Vector3& v){
+		return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	}
+
+	Vector3 Normalize3(const Vector3& v){
+		float len = Length3(v);
+		if(len <= 0.0001f){
+			return { 0.0f, 0.0f, 1.0f };
+		}
+		return { v.x / len, v.y / len, v.z / len };
+	}
 }
 
 void Player::Initialize(
@@ -143,6 +155,8 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 }
 
 void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
+	(void)previousPosition;
+
 	if(!object_){
 		return;
 	}
@@ -178,6 +192,60 @@ void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
 	object_->SetTranslate(position);
 }
 
+void Player::CheckTongueBlockHook(){
+	if(!tongue_ || !blockColliders_){
+		return;
+	}
+
+	if(tongue_->GetState() != Tongue::State::Extending){
+		return;
+	}
+
+	CollisionUtility::Sphere tongueSphere = tongue_->GetHitSphere();
+
+	for(const auto& block : *blockColliders_){
+		auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(tongueSphere, block);
+		if(!hit.hit){
+			continue;
+		}
+
+		Vector3 hookPos = hit.point + hit.normal * tongueHookSurfaceOffset_;
+		tongue_->SetHooked(hookPos);
+		tonguePullTarget_ = hookPos;
+
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		CancelJumpCharge();
+		TransitionTo(MovementState::TonguePulling);
+		return;
+	}
+}
+
+void Player::UpdateTonguePulling(){
+	if(!object_ || !tongue_){
+		return;
+	}
+
+	Vector3 position = object_->GetTranslate();
+	Vector3 toTarget = tonguePullTarget_ - position;
+	float distance = Length3(toTarget);
+
+	if(distance <= tonguePullEndDistance_){
+		object_->SetTranslate(tonguePullTarget_);
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		isOnGround_ = false;
+		tongue_->StartReturn();
+		TransitionTo(MovementState::Jumping);
+		return;
+	}
+
+	Vector3 dir = Normalize3(toTarget);
+	position += dir * tonguePullSpeed_;
+	object_->SetTranslate(position);
+
+	float yaw = std::atan2(dir.x, dir.z) + modelYawOffset_;
+	object_->SetRotate({ 0.0f, yaw, 0.0f });
+}
+
 void Player::Update(float cameraYaw){
 	if(!object_){
 		return;
@@ -208,6 +276,10 @@ void Player::Update(float cameraYaw){
 		case MovementState::WallClinging:
 			UpdateWallClinging(cameraYaw);
 			break;
+
+		case MovementState::TonguePulling:
+			UpdateTonguePulling();
+			break;
 	}
 
 	if(input_->IsTriggerMouse(0) && tongue_){
@@ -218,9 +290,8 @@ void Player::Update(float cameraYaw){
 
 	if(tongue_){
 		tongue_->Update(1.0f / 60.0f);
+		CheckTongueBlockHook();
 	}
-
-
 }
 
 void Player::Draw(){
@@ -263,6 +334,10 @@ void Player::MoveHorizontal(float cameraYaw){
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
 		CancelJumpCharge();
+		if(tongue_){
+			tongue_->Reset();
+		}
+		TransitionTo(MovementState::Jumping);
 		object_->SetTranslate(position);
 		return;
 	}
@@ -378,6 +453,9 @@ void Player::ApplyGravity(){
 	if(position.y <= -50.0f){
 		position = { 0.0f, resetHeight_, 0.0f };
 		velocity_ = { 0.0f, 0.0f, 0.0f };
+		if(tongue_){
+			tongue_->Reset();
+		}
 	}
 
 	object_->SetTranslate(position);
@@ -391,6 +469,8 @@ const char* Player::GetMovementStateName() const{
 			return "Jumping";
 		case MovementState::WallClinging:
 			return "WallClinging";
+		case MovementState::TonguePulling:
+			return "TonguePulling";
 	}
 	return "Unknown";
 }
@@ -425,6 +505,11 @@ void Player::TransitionTo(MovementState nextState){
 			isOnGround_ = false;
 			break;
 		}
+
+		case MovementState::TonguePulling:
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+			isOnGround_ = false;
+			break;
 	}
 }
 
@@ -477,6 +562,10 @@ void Player::DrawImGui(){
 			ImGui::SameLine();
 			if(ImGui::Button("To WallClinging")){
 				TransitionTo(MovementState::WallClinging);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("To TonguePulling")){
+				TransitionTo(MovementState::TonguePulling);
 			}
 
 			ImGui::Separator();
@@ -554,6 +643,9 @@ void Player::DrawImGui(){
 					case Tongue::State::Extending:
 						stateName = "Extending";
 						break;
+					case Tongue::State::Hooked:
+						stateName = "Hooked";
+						break;
 					case Tongue::State::Returning:
 						stateName = "Returning";
 						break;
@@ -561,15 +653,19 @@ void Player::DrawImGui(){
 
 				ImGui::Text("State : %s", stateName);
 				ImGui::Text("Shot Mouse : Left Click");
+				ImGui::Text("Pull Target : %.3f %.3f %.3f", tonguePullTarget_.x, tonguePullTarget_.y, tonguePullTarget_.z);
 
 				if(ImGui::Button("Shot Tongue")){
-					if(ConsumeWater(tongueWaterCost_)){
+					if(!tongue_->IsBusy() && ConsumeWater(tongueWaterCost_)){
 						tongue_->Shot();
 					}
 				}
 				ImGui::SameLine();
 				if(ImGui::Button("Reset Tongue")){
 					tongue_->Reset();
+					if(moveState_ == MovementState::TonguePulling){
+						TransitionTo(MovementState::Jumping);
+					}
 				}
 			}
 			ImGui::TreePop();

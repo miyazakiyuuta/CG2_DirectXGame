@@ -20,7 +20,8 @@ class Player{
 	enum class MovementState{
 		Root,
 		Jumping,
-		WallClinging
+		WallClinging,
+		TonguePulling
 	};
 
 public:
@@ -87,6 +88,9 @@ private:
 	void CancelJumpCharge();
 
 	void UpdateWallClinging(float cameraYaw);
+	void UpdateTonguePulling();
+	void CheckTongueBlockHook();
+
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;
 
@@ -141,8 +145,13 @@ private:
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 
-	
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
+
+	// 舌で引っ張られる処理
+	Vector3 tonguePullTarget_ = { 0.0f, 0.0f, 0.0f };
+	float tonguePullSpeed_ = 18.0f / 60.0f;
+	float tonguePullEndDistance_ = 0.35f;
+	float tongueHookSurfaceOffset_ = 0.05f;
 
 	float currentAlpha_ = 1.0f;
 	float minAlpha_ = 0.3f;
