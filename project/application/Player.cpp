@@ -12,6 +12,18 @@ namespace{
 	float LengthXZ(const Vector3& v){
 		return std::sqrt(v.x * v.x + v.z * v.z);
 	}
+
+	float Length3(const Vector3& v){
+		return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	}
+
+	Vector3 Normalize3(const Vector3& v){
+		float len = Length3(v);
+		if(len <= 0.0001f){
+			return { 0.0f, 0.0f, 1.0f };
+		}
+		return { v.x / len, v.y / len, v.z / len };
+	}
 }
 
 void Player::Initialize(
@@ -67,19 +79,13 @@ Vector3 Player::GetPosition() const{
 	return object_->GetTranslate();
 }
 
-CollisionUtility::AABB Player::GetPlayerAABB(const Vector3& position) const{
-	CollisionUtility::AABB box;
-	box.min = {
-		position.x - colliderHalfSize_.x,
-		position.y - colliderHalfSize_.y,
-		position.z - colliderHalfSize_.z
-	};
-	box.max = {
-		position.x + colliderHalfSize_.x,
-		position.y + colliderHalfSize_.y,
-		position.z + colliderHalfSize_.z
-	};
-	return box;
+CollisionUtility::OBB Player::GetPlayerOBB(const Vector3& position) const{
+	Transform t;
+	t.translate = position;
+	t.rotate = object_ ? object_->GetRotate() : Vector3{ 0.0f, 0.0f, 0.0f };
+	t.scale = { 1.0f, 1.0f, 1.0f };
+
+	return CollisionUtility::MakeOBBFromTransform(t, colliderHalfSize_);
 }
 
 void Player::AddWater(float amount){
@@ -109,8 +115,6 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 	}
 
 	Vector3 position = object_->GetTranslate();
-
-	// 床との接触を横判定に混ぜないため、少しだけ上に持ち上げる
 	const float kGroundEpsilon = 0.05f;
 
 	if(position.x != previousPosition.x){
@@ -119,10 +123,11 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 			previousPosition.y + kGroundEpsilon,
 			previousPosition.z
 		};
-		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
 		for(const auto& block : *blockColliders_){
-			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+			if(CollisionUtility::IntersectOBB_OBB(playerObb, block)){
 				position.x = previousPosition.x;
 				break;
 			}
@@ -135,10 +140,11 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 			previousPosition.y + kGroundEpsilon,
 			position.z
 		};
-		CollisionUtility::AABB playerBox = GetPlayerAABB(testPos);
+
+		CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
 		for(const auto& block : *blockColliders_){
-			if(CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+			if(CollisionUtility::IntersectOBB_OBB(playerObb, block)){
 				position.z = previousPosition.z;
 				break;
 			}
@@ -149,6 +155,8 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
 }
 
 void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
+	(void)previousPosition;
+
 	if(!object_){
 		return;
 	}
@@ -162,49 +170,80 @@ void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
 	}
 
 	for(const auto& block : *blockColliders_){
-		CollisionUtility::AABB playerBox = GetPlayerAABB(position);
-		if(!CollisionUtility::IntersectAABB_AABB(playerBox, block)){
+		CollisionUtility::OBB playerObb = GetPlayerOBB(position);
+		auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+
+		if(!hit.hit){
 			continue;
 		}
 
-		float prevBottom = previousPosition.y - colliderHalfSize_.y;
-		float prevTop = previousPosition.y + colliderHalfSize_.y;
+		const float kSkinWidth = 0.001f;
+		position -= hit.normal * (hit.penetration + kSkinWidth);
 
-		// 上から落ちて床に乗る
-		if(velocity_.y <= 0.0f && prevBottom >= block.max.y - 0.01f){
-			position.y = block.max.y + colliderHalfSize_.y;
+		if(hit.normal.y < -0.5f){
 			velocity_.y = 0.0f;
 			isOnGround_ = true;
-			continue;
 		}
-
-		// 下から頭をぶつける
-		if(velocity_.y >= 0.0f && prevTop <= block.min.y + 0.01f){
-			position.y = block.min.y - colliderHalfSize_.y;
+		if(hit.normal.y > 0.5f && velocity_.y > 0.0f){
 			velocity_.y = 0.0f;
-			continue;
-		}
-
-		// 万一横や角で縦解決に食い込んだら、詳細判定の最小押し戻しを使う
-		CollisionUtility::CollisionResult hit =
-			CollisionUtility::IntersectAABB_AABB_Detailed(GetPlayerAABB(position), block);
-
-		if(hit.hit){
-			position.x -= hit.normal.x * hit.penetration;
-			position.y -= hit.normal.y * hit.penetration;
-			position.z -= hit.normal.z * hit.penetration;
-
-			if(hit.normal.y > 0.5f){
-				velocity_.y = 0.0f;
-				isOnGround_ = true;
-			}
-			if(hit.normal.y < -0.5f && velocity_.y > 0.0f){
-				velocity_.y = 0.0f;
-			}
 		}
 	}
 
 	object_->SetTranslate(position);
+}
+
+void Player::CheckTongueBlockHook(){
+	if(!tongue_ || !blockColliders_){
+		return;
+	}
+
+	if(tongue_->GetState() != Tongue::State::Extending){
+		return;
+	}
+
+	CollisionUtility::Sphere tongueSphere = tongue_->GetHitSphere();
+
+	for(const auto& block : *blockColliders_){
+		auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(tongueSphere, block);
+		if(!hit.hit){
+			continue;
+		}
+
+		Vector3 hookPos = hit.point + hit.normal * tongueHookSurfaceOffset_;
+		tongue_->SetHooked(hookPos);
+		tonguePullTarget_ = hookPos;
+
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		CancelJumpCharge();
+		TransitionTo(MovementState::TonguePulling);
+		return;
+	}
+}
+
+void Player::UpdateTonguePulling(){
+	if(!object_ || !tongue_){
+		return;
+	}
+
+	Vector3 position = object_->GetTranslate();
+	Vector3 toTarget = tonguePullTarget_ - position;
+	float distance = Length3(toTarget);
+
+	if(distance <= tonguePullEndDistance_){
+		object_->SetTranslate(tonguePullTarget_);
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		isOnGround_ = false;
+		tongue_->StartReturn();
+		TransitionTo(MovementState::Jumping);
+		return;
+	}
+
+	Vector3 dir = Normalize3(toTarget);
+	position += dir * tonguePullSpeed_;
+	object_->SetTranslate(position);
+
+	float yaw = std::atan2(dir.x, dir.z) + modelYawOffset_;
+	object_->SetRotate({ 0.0f, yaw, 0.0f });
 }
 
 void Player::Update(float cameraYaw){
@@ -237,6 +276,10 @@ void Player::Update(float cameraYaw){
 		case MovementState::WallClinging:
 			UpdateWallClinging(cameraYaw);
 			break;
+
+		case MovementState::TonguePulling:
+			UpdateTonguePulling();
+			break;
 	}
 
 	if(input_->IsTriggerMouse(0) && tongue_){
@@ -247,9 +290,8 @@ void Player::Update(float cameraYaw){
 
 	if(tongue_){
 		tongue_->Update(1.0f / 60.0f);
+		CheckTongueBlockHook();
 	}
-
-
 }
 
 void Player::Draw(){
@@ -292,6 +334,10 @@ void Player::MoveHorizontal(float cameraYaw){
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
 		CancelJumpCharge();
+		if(tongue_){
+			tongue_->Reset();
+		}
+		TransitionTo(MovementState::Jumping);
 		object_->SetTranslate(position);
 		return;
 	}
@@ -407,6 +453,9 @@ void Player::ApplyGravity(){
 	if(position.y <= -50.0f){
 		position = { 0.0f, resetHeight_, 0.0f };
 		velocity_ = { 0.0f, 0.0f, 0.0f };
+		if(tongue_){
+			tongue_->Reset();
+		}
 	}
 
 	object_->SetTranslate(position);
@@ -420,6 +469,8 @@ const char* Player::GetMovementStateName() const{
 			return "Jumping";
 		case MovementState::WallClinging:
 			return "WallClinging";
+		case MovementState::TonguePulling:
+			return "TonguePulling";
 	}
 	return "Unknown";
 }
@@ -454,6 +505,11 @@ void Player::TransitionTo(MovementState nextState){
 			isOnGround_ = false;
 			break;
 		}
+
+		case MovementState::TonguePulling:
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+			isOnGround_ = false;
+			break;
 	}
 }
 
@@ -506,6 +562,10 @@ void Player::DrawImGui(){
 			ImGui::SameLine();
 			if(ImGui::Button("To WallClinging")){
 				TransitionTo(MovementState::WallClinging);
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("To TonguePulling")){
+				TransitionTo(MovementState::TonguePulling);
 			}
 
 			ImGui::Separator();
@@ -583,6 +643,9 @@ void Player::DrawImGui(){
 					case Tongue::State::Extending:
 						stateName = "Extending";
 						break;
+					case Tongue::State::Hooked:
+						stateName = "Hooked";
+						break;
 					case Tongue::State::Returning:
 						stateName = "Returning";
 						break;
@@ -590,15 +653,19 @@ void Player::DrawImGui(){
 
 				ImGui::Text("State : %s", stateName);
 				ImGui::Text("Shot Mouse : Left Click");
+				ImGui::Text("Pull Target : %.3f %.3f %.3f", tonguePullTarget_.x, tonguePullTarget_.y, tonguePullTarget_.z);
 
 				if(ImGui::Button("Shot Tongue")){
-					if(ConsumeWater(tongueWaterCost_)){
+					if(!tongue_->IsBusy() && ConsumeWater(tongueWaterCost_)){
 						tongue_->Shot();
 					}
 				}
 				ImGui::SameLine();
 				if(ImGui::Button("Reset Tongue")){
 					tongue_->Reset();
+					if(moveState_ == MovementState::TonguePulling){
+						TransitionTo(MovementState::Jumping);
+					}
 				}
 			}
 			ImGui::TreePop();

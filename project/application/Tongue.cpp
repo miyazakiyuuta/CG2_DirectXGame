@@ -47,16 +47,21 @@ void Tongue::Update(float deltaTime){
 		case State::Idle:
 			UpdateIdle();
 			break;
+
 		case State::Extending:
 			UpdateExtending(deltaTime);
 			break;
+
+		case State::Hooked:
+			worldPosition_ = hookPosition_;
+			break;
+
 		case State::Returning:
 			UpdateReturning(deltaTime);
 			break;
 	}
 
 	object_->SetTranslate(worldPosition_);
-
 }
 
 void Tongue::Draw(){
@@ -84,6 +89,7 @@ void Tongue::Shot(){
 
 	shotStartPosition_ = GetMouthWorldPosition();
 	worldPosition_ = shotStartPosition_;
+	hookPosition_ = {};
 	currentDistance_ = 0.0f;
 
 	state_ = State::Extending;
@@ -92,11 +98,28 @@ void Tongue::Shot(){
 	object_->SetRotate({ 0.0f, tongueYaw, 0.0f });
 }
 
+void Tongue::SetHooked(const Vector3& worldPos){
+	hookPosition_ = worldPos;
+	worldPosition_ = worldPos;
+	state_ = State::Hooked;
+
+	if(object_){
+		object_->SetTranslate(worldPosition_);
+	}
+}
+
+void Tongue::StartReturn(){
+	if(state_ != State::Idle){
+		state_ = State::Returning;
+	}
+}
+
 void Tongue::Reset(){
 	state_ = State::Idle;
 	currentDistance_ = 0.0f;
 	shotDirection_ = { 0.0f, 0.0f, 1.0f };
 	shotStartPosition_ = {};
+	hookPosition_ = {};
 	worldPosition_ = GetMouthWorldPosition();
 
 	if(object_){

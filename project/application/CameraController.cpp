@@ -130,13 +130,12 @@ void CameraController::Update(const Vector3& target){
 
 			for(const auto& box : *obstacleColliders_){
 				CollisionUtility::RayHitResult hit =
-					CollisionUtility::RayIntersectAABB_Detailed(ray, box);
+					CollisionUtility::RayIntersectOBB_Detailed(ray, box);
 
 				if(!hit.hit){
 					continue;
 				}
 
-				// プレイヤーより後ろや、理想カメラ位置より先は無視
 				if(hit.t < 0.0f || hit.t > desiredLength){
 					continue;
 				}

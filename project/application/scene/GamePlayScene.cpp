@@ -212,6 +212,8 @@ void GamePlayScene::Update() {
         ImGui::TreePop();
     }
 
+    player_->DrawImGui();
+
 	ImGui::End();
 
 
@@ -221,9 +223,10 @@ void GamePlayScene::Update() {
 #endif
 
     // 実行時ステージから必要情報を取得
-    stageBlockColliders_ = stage_->GetBlockAABBs();
-    waterBlockColliders_ = stage_->GetWaterBlockAABBs();
+    stageBlockColliders_ = stage_->GetBlockOBBs();
+    waterBlockColliders_ = stage_->GetWaterBlockOBBs();
     player_->SetBlockColliders(&stageBlockColliders_);
+    cameraController_->SetObstacleColliders(&stageBlockColliders_);
 
 	if (!stageEditor_->IsEditMode()) {
             player_->Update(cameraController_->GetYaw());
@@ -260,16 +263,16 @@ void GamePlayScene::Update() {
 		}
 
     // 水ブロックに触れている間は徐々に回復
-    bool isTouchingWater = false;
-    if(player_){
-        const CollisionUtility::AABB playerBox = player_->GetPlayerAABB(player_->GetPosition());
-        for(const auto& waterBox : waterBlockColliders_){
-            if(CollisionUtility::IntersectAABB_AABB(playerBox, waterBox)){
-                isTouchingWater = true;
-                break;
+        bool isTouchingWater = false;
+        if(player_){
+            const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+            for(const auto& waterBox : waterBlockColliders_){
+                if(CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)){
+                    isTouchingWater = true;
+                    break;
+                }
             }
         }
-    }
 
     if(isTouchingWater){
         player_->AddWater(15.0f / 60.0f);

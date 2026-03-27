@@ -45,7 +45,7 @@ public:
 	void SetInvertY(bool invert){ invertY_ = invert; }
 
 	// 遮蔽物として使うブロック群
-	void SetObstacleColliders(const std::vector<CollisionUtility::AABB>* obstacleColliders){
+	void SetObstacleColliders(const std::vector<CollisionUtility::OBB>* obstacleColliders){
 		obstacleColliders_ = obstacleColliders;
 	}
 
@@ -91,7 +91,7 @@ private:
 	Vector3 targetOffset_ = { 0.0f, 1.0f, 0.0f };
 
 	// カメラ遮蔽対策
-	const std::vector<CollisionUtility::AABB>* obstacleColliders_ = nullptr;
+	const std::vector<CollisionUtility::OBB>* obstacleColliders_ = nullptr;
 	float cameraCollisionMargin_ = 0.15f;
 
 	bool isUse_ = true;

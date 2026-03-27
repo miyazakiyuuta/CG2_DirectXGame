@@ -1592,57 +1592,26 @@ RayHitResult RayIntersectSphere_Detailed(const Ray& ray, const Sphere& s)
 /// <summary>
 /// Transform から OBB を作成する関数
 /// </summary>
-namespace CollisionUtility {
-OBB MakeOBBFromTransform(const Transform& t, const Vector3& halfLengths)
-{
-    // OBB を初期化する
-    OBB obb {};
+namespace CollisionUtility{
+    OBB MakeOBBFromTransform(const Transform& t, const Vector3& halfLengths){
+        OBB obb{};
 
-    // OBB の中心は、Transform の translate になる
-    obb.center = t.translate;
+        obb.center = t.translate;
 
-    // Transform の回転をオイラー角から回転行列に変換する
-    float cx = std::cos(t.rotate.x), sx = std::sin(t.rotate.x); // X軸回転のコサインとサインを計算する
-    float cy = std::cos(t.rotate.y), sy = std::sin(t.rotate.y); // Y軸回転のコサインとサインを計算する
-    float cz = std::cos(t.rotate.z), sz = std::sin(t.rotate.z); // Z軸回転のコサインとサインを計算する
+        // 見た目側と同じ回転規約を使う
+        Matrix4x4 rot = Matrix4x4::Rotate(t.rotate);
 
-    // 回転行列は、Z軸回転、Y軸回転、X軸回転の順で掛け合わせる（右手系の回転順序）
-    // 回転行列の要素を計算する
-    // 回転行列の要素は、以下のように計算される
-    // Rz * Ry * Rx の順で回転行列を掛け合わせると、以下のような要素になる
+        // Matrix4x4::Transform の規約に合わせて、列ベクトルをローカル軸として使う
+        obb.axis[0] = NormalizeVec({ rot.m[0][0], rot.m[0][1], rot.m[0][2] });
+        obb.axis[1] = NormalizeVec({ rot.m[1][0], rot.m[1][1], rot.m[1][2] });
+        obb.axis[2] = NormalizeVec({ rot.m[2][0], rot.m[2][1], rot.m[2][2] });
 
-    // 回転行列の (0,0) 要素を計算する
-    float r00 = cy * cz;
-    // 回転行列の (0,1) 要素を計算する
-    float r01 = cy * sz;
-    // 回転行列の (0,2) 要素を計算する
-    float r02 = -sy;
+        // halfLengths はローカル空間の基準半サイズ
+        // t.scale で最終サイズへ拡大する
+        obb.halfLength[0] = halfLengths.x * t.scale.x;
+        obb.halfLength[1] = halfLengths.y * t.scale.y;
+        obb.halfLength[2] = halfLengths.z * t.scale.z;
 
-    // 回転行列の (1,0) 要素を計算する
-    float r10 = sx * sy * cz - cx * sz;
-    // 回転行列の (1,1) 要素を計算する
-    float r11 = sx * sy * sz + cx * cz;
-    // 回転行列の (1,2) 要素を計算する
-    float r12 = sx * cy;
-
-    // 回転行列の (2,0) 要素を計算する
-    float r20 = cx * sy * cz + sx * sz;
-    // 回転行列の (2,1) 要素を計算する
-    float r21 = cx * sy * sz - sx * cz;
-    // 回転行列の (2,2) 要素を計算する
-    float r22 = cx * cy;
-
-    // 回転行列の要素を OBB の軸に設定する
-    obb.axis[0] = NormalizeVec({ r00, r10, r20 }); // OBB の軸[0] に回転行列の第1列を設定（正規化）
-    obb.axis[1] = NormalizeVec({ r01, r11, r21 }); // OBB の軸[1] に回転行列の第2列を設定（正規化）
-    obb.axis[2] = NormalizeVec({ r02, r12, r22 }); // OBB の軸[2] に回転行列の第3列を設定（正規化）
-
-    // OBB の半長さは、Transform の scale を掛けた halfLengths になる
-    obb.halfLength[0] = halfLengths.x * t.scale.x; // OBB の半長さ[0] に halfLengths.x に Transform の scale.x を掛けた値を設定する
-    obb.halfLength[1] = halfLengths.y * t.scale.y; // OBB の半長さ[1] に halfLengths.y に Transform の scale.y を掛けた値を設定する
-    obb.halfLength[2] = halfLengths.z * t.scale.z; // OBB の半長さ[2] に halfLengths.z に Transform の scale.z を掛けた値を設定する
-
-    // OBB を返す
-    return obb;
-}
+        return obb;
+    }
 } // namespace CollisionUtility

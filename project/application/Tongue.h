@@ -15,6 +15,7 @@ public:
 	enum class State{
 		Idle,
 		Extending,
+		Hooked,
 		Returning,
 	};
 
@@ -33,8 +34,11 @@ public:
 
 	void Shot();
 	void Reset();
+	void StartReturn();
+	void SetHooked(const Vector3& worldPos);
 
 	bool IsBusy() const{ return state_ != State::Idle; }
+	bool IsHooked() const{ return state_ == State::Hooked; }
 	State GetState() const{ return state_; }
 	Vector3 GetPosition() const{ return worldPosition_; }
 
@@ -62,6 +66,7 @@ private:
 	Vector3 localOffset_ = { 0.0f, 0.0f, 1.0f };
 
 	Vector3 worldPosition_ = {};
+	Vector3 hookPosition_ = {};
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 

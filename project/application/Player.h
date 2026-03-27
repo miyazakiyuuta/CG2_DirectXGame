@@ -20,7 +20,8 @@ class Player{
 	enum class MovementState{
 		Root,
 		Jumping,
-		WallClinging
+		WallClinging,
+		TonguePulling
 	};
 
 public:
@@ -46,12 +47,11 @@ public:
 	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
 	bool IsOnGround() const{ return isOnGround_; }
 
-	void SetBlockColliders(const std::vector<CollisionUtility::AABB>* blockColliders){
+	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders){
 		blockColliders_ = blockColliders;
 	}
 
-	// 外から水ブロック接触判定に使う
-	CollisionUtility::AABB GetPlayerAABB(const Vector3& position) const;
+	CollisionUtility::OBB GetPlayerOBB(const Vector3& position) const;
 
 	// 水分ゲージ
 	float GetWaterGauge() const{ return waterGauge_; }
@@ -88,6 +88,9 @@ private:
 	void CancelJumpCharge();
 
 	void UpdateWallClinging(float cameraYaw);
+	void UpdateTonguePulling();
+	void CheckTongueBlockHook();
+
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;
 
@@ -140,10 +143,15 @@ private:
 
 	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
 
-	const std::vector<CollisionUtility::AABB>* blockColliders_ = nullptr;
+	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 
-	
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
+
+	// 舌で引っ張られる処理
+	Vector3 tonguePullTarget_ = { 0.0f, 0.0f, 0.0f };
+	float tonguePullSpeed_ = 18.0f / 60.0f;
+	float tonguePullEndDistance_ = 0.35f;
+	float tongueHookSurfaceOffset_ = 0.05f;
 
 	float currentAlpha_ = 1.0f;
 	float minAlpha_ = 0.3f;
