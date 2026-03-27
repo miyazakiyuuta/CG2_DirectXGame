@@ -186,9 +186,8 @@ void GamePlayScene::Update(){
     /*ImGui::ShowDemoWindow();*/
     Vector3 rotate = object3d_->GetRotate();
     ImGui::Begin("Window");
-#else
-    Vector3 rotate = object3d_->GetRotate();
-#endif
+
+
 
     camera_->DrawImGui();
 
@@ -229,6 +228,7 @@ void GamePlayScene::Update(){
 
     ImGui::End();
 
+#endif
     stageEditor_->Update();
 
     // Debug overlay to help diagnose warp issues (rendered inside ImGui frame)
