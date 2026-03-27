@@ -95,9 +95,6 @@ void CameraController::Update(const Vector3& target){
 		pitch_ -= pitchSpeed_;
 	}
 
-#ifdef USE_IMGUI
-	// マウス操作
-	if(!ImGui::GetIO().WantCaptureMouse){
 		const int mouseMoveX = input_->GetMouseMove().x;
 		const int mouseMoveY = -input_->GetMouseMove().y;
 
@@ -105,8 +102,6 @@ void CameraController::Update(const Vector3& target){
 
 		const float ySign = invertY_ ? 1.0f : -1.0f;
 		pitch_ += static_cast<float>(mouseMoveY) * mouseSensitivity_ * ySign;
-	}
-#endif
 
 	// ホイール入力は通常時だけ反映
 	if(!isAimMode_){
