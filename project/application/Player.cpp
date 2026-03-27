@@ -305,7 +305,11 @@ void Player::CheckTongueBlockHook(){
 
 			velocity_ = { 0.0f, 0.0f, 0.0f };
 			CancelJumpCharge();
-			TransitionTo(MovementState::TonguePulling);
+			if(useTonguePull_){
+				TransitionTo(MovementState::TonguePulling);
+			} else{
+				tongue_->StartReturn();
+			}
 			return;
 		}
 	}
@@ -537,7 +541,7 @@ void Player::ExecuteChargedJump(int chargeLevel){
 	isOnGround_ = false;
 
 	if(chargeLevel > 0){
-		chargeStock_ -= chargeLevel;
+		//chargeStock_ -= chargeLevel;
 		if(chargeStock_ < 0){
 			chargeStock_ = 0;
 		}
@@ -784,6 +788,7 @@ void Player::DrawImGui(){
 						TransitionTo(MovementState::Jumping);
 					}
 				}
+				ImGui::Checkbox("Use Tongue Pull", &useTonguePull_);
 			}
 			ImGui::TreePop();
 		}

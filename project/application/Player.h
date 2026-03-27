@@ -118,7 +118,7 @@ private:
 	Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
 	Vector3 lastMove_ = { 0.0f, 0.0f, 0.0f };
 
-	float moveSpeed_ = 5.0f / 60.0f;
+	float moveSpeed_ = 20.0f / 60.0f;
 	float gravity_ = -0.02f;
 	float groundHeight_ = 0.0f;
 	float resetHeight_ = 3.0f;
@@ -130,7 +130,7 @@ private:
 	// 水分ゲージ
 	float waterGauge_ = 100.0f;
 	float maxWaterGauge_ = 100.0f;
-	float tongueWaterCost_ = 5.0f;
+	float tongueWaterCost_ = 0.0f;
 
 	// チャージジャンプ
 	float jumpPowers_[4] = { 0.55f, 0.80f, 1.05f, 1.30f };
@@ -194,4 +194,6 @@ private:
 
 	float wallDetachMargin_ = 0.05f;
 	float wallKeepDistance_ = 0.03f;
+
+	bool useTonguePull_ = true;
 };
