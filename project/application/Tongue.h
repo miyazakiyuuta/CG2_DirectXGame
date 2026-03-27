@@ -32,7 +32,7 @@ public:
 	void Update(float deltaTime);
 	void Draw();
 
-	void Shot();
+	void Shot(const Vector3& direction);
 	void Reset();
 	void StartReturn();
 	void SetHooked(const Vector3& worldPos);
@@ -40,7 +40,9 @@ public:
 	bool IsBusy() const{ return state_ != State::Idle; }
 	bool IsHooked() const{ return state_ == State::Hooked; }
 	State GetState() const{ return state_; }
+
 	Vector3 GetPosition() const{ return worldPosition_; }
+	Vector3 GetPrevPosition() const{ return prevWorldPosition_; }
 
 	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
 	float GetAlpha() const{ return currentAlpha_; }
@@ -63,21 +65,22 @@ private:
 	State state_ = State::Idle;
 
 	// プレイヤー口元からのローカルオフセット
-	Vector3 localOffset_ = { 0.0f, 0.0f, 1.0f };
+	Vector3 localOffset_ = { 0.0f, 0.0f, 0.4f };
 
 	Vector3 worldPosition_ = {};
+	Vector3 prevWorldPosition_ = {};
 	Vector3 hookPosition_ = {};
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 
 	float speed_ = 35.0f;
-	float maxDistance_ = 10.0f;
+	float maxDistance_ = 20.0f;
 	float returnSpeed_ = 45.0f;
 
 	float currentDistance_ = 0.0f;
 
 	// 舌先球の半径
-	float hitRadius_ = 0.35f;
+	float hitRadius_ = 0.3f;
 
 	float currentAlpha_ = 1.0f;
 };
