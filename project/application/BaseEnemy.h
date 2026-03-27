@@ -8,7 +8,7 @@ class Object3dCommon;
 class Camera;
 
 /// <summary>
-/// 敵の基底クラス。コンストラクタとデストラクタをcppに書くことで不完全型エラーを防止。
+/// 敵の基底クラス。Player.h の重力設定に合わせて調整。
 /// </summary>
 class BaseEnemy {
 public:
@@ -24,7 +24,7 @@ public:
 	void Kill() { isDead_ = true; }
 
 protected:
-	// 重力計算：groundY_ でピタッと止まる
+	// 重力計算：接地高さ(groundY_)で止まるように調整
 	void ApplyGravity(float deltaTime);
 
 protected:
@@ -33,8 +33,9 @@ protected:
 	Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
 	bool isDead_ = false;
 
-	// --- 物理パラメータ (ここで重力の強さを変えられます) ---
-	float gravity_ = -32.0f;
-	// --- 接地高さ (これより下にいかない。Initializeで設定します) ---
+	// --- 物理パラメータ ---
+	// 修正：Player.h の -0.02f/frame に合わせるため、秒間重力を -1.2f に設定
+	// (-1.2f * 1/60 = -0.02f)
+	float gravity_ = -1.2f;
 	float groundY_ = 0.0f;
 };
