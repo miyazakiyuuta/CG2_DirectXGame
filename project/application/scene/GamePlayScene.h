@@ -21,6 +21,7 @@ class Stage;
 class StageEditor;
 class Skybox;
 class DebugGrid;
+class EnemyManager; // 追加
 
 class GamePlayScene : public BaseScene {
 public:
@@ -48,6 +49,9 @@ private:
 
 	std::vector<std::unique_ptr<Bug>> bugs_;
 	std::unique_ptr<Slug> slug_; // �i���N�W�̃|�C���^��ǉ�
+
+	// 追加：エネミーを一括管理するマネージャー
+	std::unique_ptr<EnemyManager> enemyManager_;
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
 	std::vector<CollisionUtility::OBB> waterBlockColliders_;
