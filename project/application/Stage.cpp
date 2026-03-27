@@ -1,14 +1,135 @@
 #define NOMINMAX
 #include "Stage.h"
+#include "effect/ParticleManager.h"
+#include "effect/ParticleConfig.h"
+#include "utility/Logger.h"
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <cmath>
 
 Stage::Stage(Object3dCommon* objCommon, Camera* camera)
     : loader_(objCommon, camera){
     data_.name = "stage";
 }
 
+void Stage::ApplyDamageAtSphere(const CollisionUtility::Sphere& sphere, int damage){
+    // iterate over objects and find first breakable block that intersects sphere
+    for(auto it = data_.objects.begin(); it != data_.objects.end(); ++it){
+        const StageObject& o = *it;
+
+        if(o.modelName != "Cube.obj") continue;
+        if(o.blockId != BlockID::Breakable) continue;
+
+        Transform t;
+        t.translate = o.position;
+        t.rotate = o.rotation;
+        t.scale = o.scale;
+
+        CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, { 1.0f, 1.0f, 1.0f });
+        auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(sphere, obb);
+        if(!hit.hit) continue;
+
+        // apply damage
+        int newHp = o.hp - damage;
+
+        int targetId = o.id;
+
+        if(newHp <= 0){
+            // remove from stage data and loader
+            loader_.RemoveInstanceById(targetId);
+            data_.objects.erase(it);
+
+            // spawn simple particles (if group exists)
+            ParticleConfig cfg;
+            cfg.minScale = { 0.2f,0.2f,0.2f };
+            cfg.maxScale = { 0.6f,0.6f,0.6f };
+            cfg.minVelocity = { -1.0f, -1.0f, -1.0f };
+            cfg.maxVelocity = { 1.0f, 1.5f, 1.0f };
+            cfg.lifeTime = 1.0f;
+            cfg.startColor = { 1.0f,1.0f,1.0f,1.0f };
+
+            try{
+                ParticleManager::GetInstance()->Emit("break", o.position, cfg, 16);
+            } catch(...) {
+                // if particle group not found, ignore
+            }
+
+        } else {
+            // just update hp in data
+            it->hp = newHp;
+        }
+
+        // only apply to the first hit object
+        return;
+    }
+}
+
 void Stage::SetStageData(const StageData& data){
     data_ = data;
     loader_.CreateFromData(data_);
+}
+
+void Stage::Update(float deltaTime){
+    // Maintain runtime phase and base positions for moving platforms
+    static std::unordered_map<int, float> movePhase;
+    static std::unordered_map<int, Vector3> basePos;
+
+    // Clean up maps for removed objects
+    std::unordered_set<int> existingIds;
+    for(const auto& o : data_.objects) existingIds.insert(o.id);
+    for(auto it = movePhase.begin(); it != movePhase.end(); ){ if(existingIds.find(it->first)==existingIds.end()) it = movePhase.erase(it); else ++it; }
+    for(auto it = basePos.begin(); it != basePos.end(); ){ if(existingIds.find(it->first)==existingIds.end()) it = basePos.erase(it); else ++it; }
+
+    // clear previous frame deltas
+    platformMoveDeltas_.clear();
+
+    for(auto& o : data_.objects){
+        if(o.blockId != BlockID::MovingPlatform) continue;
+        // Debug: log platform params
+        {
+            std::string msg = "Stage::Update platform id:" + std::to_string(o.id) +
+                " dir:" + std::to_string(o.moveDirection) +
+                " speed:" + std::to_string(o.moveSpeed) +
+                " range:" + std::to_string(o.moveRange) +
+                " phase(norm):" + std::to_string(o.movePhase) + "\n";
+            Logger::Log(msg);
+        }
+        if(o.moveRange <= 0.0f || o.moveSpeed == 0.0f) continue;
+
+        // ensure base position is recorded
+        if(basePos.find(o.id) == basePos.end()){
+            basePos[o.id] = o.position;
+            // initialize phase from object (normalized 0..1 -> radians)
+            movePhase[o.id] = o.movePhase * 2.0f * 3.14159265f;
+        }
+
+        // previous position
+        Vector3 prevPos = o.position;
+
+        // advance phase
+        movePhase[o.id] += deltaTime * o.moveSpeed;
+
+        // compute offset using sine wave
+        float halfRange = o.moveRange * 0.5f;
+        float offset = std::sinf(movePhase[o.id]) * halfRange;
+
+        Vector3 axis{0.0f, 0.0f, 0.0f};
+        if(o.moveDirection == 1 || o.moveDirection == 2){ // vertical
+            axis = {0.0f, 1.0f, 0.0f};
+        } else if(o.moveDirection == 3 || o.moveDirection == 4){ // horizontal (X)
+            axis = {1.0f, 0.0f, 0.0f};
+        }
+
+        Vector3 newPos = basePos[o.id] + axis * offset;
+
+        // record delta
+        platformMoveDeltas_[o.id] = newPos - prevPos;
+
+        // apply to data and instances
+        o.position = newPos;
+        loader_.UpdateInstanceTransform(o.id, newPos, o.rotation, o.scale);
+    }
 }
 
 StageData& Stage::GetStageData(){
@@ -57,12 +178,11 @@ std::vector<CollisionUtility::AABB> Stage::GetBlockAABBs() const{
     result.reserve(data_.objects.size());
 
     for(const auto& o : data_.objects){
-        if(o.modelName != "Cube.obj"){
-            continue;
-        }
-        if(o.blockId == BlockID::Water ||
-           o.blockId == BlockID::BugSpawn ||
-           o.blockId == BlockID::PlayerSpawn){
+        // Include only solid block types for block AABBs
+        if(!(o.blockId == BlockID::Normal ||
+             o.blockId == BlockID::Breakable ||
+             o.blockId == BlockID::Warp ||
+             o.blockId == BlockID::MovingPlatform)){
             continue;
         }
 
@@ -76,14 +196,18 @@ std::vector<CollisionUtility::AABB> Stage::GetBlockAABBs() const{
     return result;
 }
 
+std::unordered_map<int, Vector3> Stage::ConsumePlatformDeltas(){
+    auto copy = platformMoveDeltas_;
+    platformMoveDeltas_.clear();
+    return copy;
+}
+
 std::vector<CollisionUtility::AABB> Stage::GetWaterBlockAABBs() const{
     std::vector<CollisionUtility::AABB> result;
     result.reserve(data_.objects.size());
 
     for(const auto& o : data_.objects){
-        if(o.modelName != "Cube.obj"){
-            continue;
-        }
+        // Include only water blocks
         if(o.blockId != BlockID::Water){
             continue;
         }
@@ -125,12 +249,11 @@ std::vector<CollisionUtility::OBB> Stage::GetBlockOBBs() const{
     result.reserve(data_.objects.size());
 
     for(const auto& o : data_.objects){
-        if(o.modelName != "Cube.obj"){
-            continue;
-        }
-        if(o.blockId == BlockID::Water ||
-           o.blockId == BlockID::BugSpawn ||
-           o.blockId == BlockID::PlayerSpawn){
+        // Include only solid block types for block OBBs
+        if(!(o.blockId == BlockID::Normal ||
+             o.blockId == BlockID::Breakable ||
+             o.blockId == BlockID::Warp ||
+             o.blockId == BlockID::MovingPlatform)){
             continue;
         }
 
@@ -155,9 +278,7 @@ std::vector<CollisionUtility::OBB> Stage::GetWaterBlockOBBs() const{
     result.reserve(data_.objects.size());
 
     for(const auto& o : data_.objects){
-        if(o.modelName != "Cube.obj"){
-            continue;
-        }
+        // Include only water blocks
         if(o.blockId != BlockID::Water){
             continue;
         }

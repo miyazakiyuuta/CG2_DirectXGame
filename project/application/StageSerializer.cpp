@@ -55,6 +55,20 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
         jo["rotation"] = rot;
         jo["scale"] = scl;
 
+        // block 固有プロパティを保存
+        jo["hp"] = o.hp;
+
+        nlohmann::json warpTarget;
+        warpTarget["x"] = o.warpTargetPosition.x;
+        warpTarget["y"] = o.warpTargetPosition.y;
+        warpTarget["z"] = o.warpTargetPosition.z;
+        jo["warpTargetPosition"] = warpTarget;
+        jo["warpTargetSceneId"] = o.warpTargetSceneId;
+
+        jo["moveDirection"] = o.moveDirection;
+        jo["moveSpeed"] = o.moveSpeed;
+        jo["moveRange"] = o.moveRange;
+
         // オブジェクトをオブジェクト配列に追加
         j["objects"].push_back(jo);
     }
@@ -151,6 +165,30 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                     o.scale.x = jo["scale"]["x"].get<float>();
                     o.scale.y = jo["scale"]["y"].get<float>();
                     o.scale.z = jo["scale"]["z"].get<float>();
+                }
+
+                // block 固有プロパティの読み込み（存在しなければデフォルト値のまま）
+                if (jo.contains("hp")) {
+                    o.hp = jo["hp"].get<int>();
+                }
+
+                if (jo.contains("warpTargetPosition")) {
+                    o.warpTargetPosition.x = jo["warpTargetPosition"]["x"].get<float>();
+                    o.warpTargetPosition.y = jo["warpTargetPosition"]["y"].get<float>();
+                    o.warpTargetPosition.z = jo["warpTargetPosition"]["z"].get<float>();
+                }
+                if (jo.contains("warpTargetSceneId")) {
+                    o.warpTargetSceneId = jo["warpTargetSceneId"].get<int>();
+                }
+
+                if (jo.contains("moveDirection")) {
+                    o.moveDirection = jo["moveDirection"].get<int>();
+                }
+                if (jo.contains("moveSpeed")) {
+                    o.moveSpeed = jo["moveSpeed"].get<float>();
+                }
+                if (jo.contains("moveRange")) {
+                    o.moveRange = jo["moveRange"].get<float>();
                 }
 
                 // 読み込んだオブジェクトを StageData に追加

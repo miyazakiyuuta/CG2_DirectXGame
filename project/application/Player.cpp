@@ -5,6 +5,8 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include "utility/Logger.h"
+#include <string>
 
 Player::~Player() = default;
 
@@ -70,6 +72,19 @@ void Player::SetPosition(const Vector3& position){
 	if(object_){
 		object_->SetTranslate(position);
 	}
+}
+
+void Player::SetPendingTeleport(const Vector3& position){
+	pendingTeleport_ = true;
+	pendingTeleportPosition_ = position;
+}
+
+void Player::SetRidingPlatformDelta(const Vector3& delta){
+	ridingPlatformDelta_ = delta;
+}
+
+void Player::ClearRidingPlatformDelta(){
+	ridingPlatformDelta_ = {0.0f,0.0f,0.0f};
 }
 
 Vector3 Player::GetPosition() const{
@@ -251,6 +266,22 @@ void Player::Update(float cameraYaw){
 		return;
 	}
 
+	// If an external system requested a teleport, apply it here at the
+	// start of the update so player internal logic (collisions, gravity,
+	// etc.) won't overwrite the requested position.
+	if(pendingTeleport_){
+		object_->SetTranslate(pendingTeleportPosition_);
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		// reset movement state to jumping so physics will be applied
+		// consistently from the new position.
+		TransitionTo(MovementState::Jumping);
+		pendingTeleport_ = false;
+	}
+
+    // Note: ridingPlatformDelta_ will be applied after physics so it is not
+	// overwritten by collision resolution. GamePlayScene sets this value each frame
+	// when the player is detected to be standing on a moving platform.
+
 	switch(moveState_){
 		case MovementState::Root:
 		case MovementState::Jumping:{
@@ -280,6 +311,29 @@ void Player::Update(float cameraYaw){
 		case MovementState::TonguePulling:
 			UpdateTonguePulling();
 			break;
+	}
+
+    // Apply riding platform delta after physics and collision resolution so it is
+	// not overwritten by movement/collision corrections.
+	if(ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f){
+		Vector3 pos = object_->GetTranslate();
+		pos.x += ridingPlatformDelta_.x;
+		pos.y += ridingPlatformDelta_.y;
+		pos.z += ridingPlatformDelta_.z;
+		object_->SetTranslate(pos);
+
+		// Convert per-frame displacement to approximate velocity contribution.
+		const float kInvDt = 60.0f;
+		velocity_.x += ridingPlatformDelta_.x * kInvDt;
+		velocity_.z += ridingPlatformDelta_.z * kInvDt;
+		if(std::fabs(ridingPlatformDelta_.y) > 1e-6f) velocity_.y = 0.0f;
+
+		Logger::Log(std::string("Player applied riding delta posAfter:") +
+					std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) +
+					" delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
+
+		// Clear after applying; GamePlayScene will set it again next frame if still riding.
+		ridingPlatformDelta_ = {0.0f,0.0f,0.0f};
 	}
 
 	if(input_->IsTriggerMouse(0) && tongue_){

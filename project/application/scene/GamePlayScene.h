@@ -51,6 +51,10 @@ private:
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
 	std::vector<CollisionUtility::OBB> waterBlockColliders_;
+
+	// warp cooldown to avoid immediate re-triggering
+	int warpCooldownCounter_ = 0;
+	int lastWarpId_ = -1;
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;

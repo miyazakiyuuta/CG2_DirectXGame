@@ -41,8 +41,18 @@ public:
 
 	void SetCamera(Camera* camera);
 	void SetPosition(const Vector3& position);
+
+	// Request a teleport to be applied on the next Player::Update call.
+	// Using this avoids other systems overwriting the teleport by
+	// ensuring the player applies it inside its own update logic.
+	void SetPendingTeleport(const Vector3& position);
+
 	Vector3 GetPosition() const;
 	Vector3 GetVelocity() const{ return velocity_; }
+	void SetVelocity(const Vector3& v){ velocity_ = v; }
+	// Moving platform support: set per-frame platform delta applied to player
+	void SetRidingPlatformDelta(const Vector3& delta);
+	void ClearRidingPlatformDelta();
 
 	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
 	bool IsOnGround() const{ return isOnGround_; }
@@ -147,6 +157,10 @@ private:
 
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
 
+	// Pending teleport requested by external systems (applied inside Update)
+	bool pendingTeleport_ = false;
+	Vector3 pendingTeleportPosition_ = { 0.0f, 0.0f, 0.0f };
+
 	// 舌で引っ張られる処理
 	Vector3 tonguePullTarget_ = { 0.0f, 0.0f, 0.0f };
 	float tonguePullSpeed_ = 18.0f / 60.0f;
@@ -161,4 +175,7 @@ private:
 
 	// この距離以下なら最小アルファ
 	float fadeEndDistance_ = 2.5f;
+
+	// Per-frame delta applied when standing on a moving platform
+	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};
 };

@@ -221,11 +221,31 @@ private:
     // 新規生成時の設定
     BlockID placingBlockId_ = BlockID::Normal;
     Vector4 placingColor_{ 1.0f, 1.0f, 1.0f, 1.0f };
+    // 新規生成時のHP（破壊可能ブロック用）
+    int placingHp_ = 1;
+    // 新規生成時のワープターゲット
+    Vector3 placingWarpTargetPosition_ { 0.0f, 0.0f, 0.0f };
+    int placingWarpTargetSceneId_ = -1;
+    // 新規生成時の移動床設定
+    int placingMoveDirection_ = 0;
+    float placingMoveSpeed_ = 0.0f;
+    float placingMoveRange_ = 0.0f;
+    float placingMovePhase_ = 0.0f;
     // 選択表示用ハイライトカラー
     Vector4 selectionHighlightColor_ { 1.0f, 1.0f, 1.0f, 1.0f };
     float selectionBlinkAlpha_ = 0.5f;
     // 編集用ブロック種別
     BlockID editBlockId_ = BlockID::Normal;
+    // 選択中オブジェクトのHP編集用ワークバッファ
+    int editHp_ = 0;
+    // 選択中オブジェクトのワープターゲット編集用ワークバッファ
+    Vector3 editWarpTargetPosition_ { 0.0f, 0.0f, 0.0f };
+    int editWarpTargetSceneId_ = -1;
+    // 選択中オブジェクトの移動床編集用ワークバッファ
+    int editMoveDirection_ = 0;
+    float editMoveSpeed_ = 0.0f;
+    float editMoveRange_ = 0.0f;
+    float editMovePhase_ = 0.0f;
 
     // 複製オプション
     int duplicateCount_ = 1;

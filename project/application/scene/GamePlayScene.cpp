@@ -10,6 +10,7 @@
 #include "effect/CylinderManager.h"
 #include "effect/ParticleManager.h"
 #include "effect/RingManager.h"
+#include "effect/ParticleConfig.h"
 #include "io/Input.h"
 
 #include "2d/Sprite.h"
@@ -23,6 +24,7 @@
 #include "effect/ParticleEmitter.h"
 #include "3d/Skybox.h"
 #include "debug/DebugGrid.h"
+#include "math/Transform.h"
 #include "Tongue.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
@@ -45,6 +47,8 @@ void GamePlayScene::Initialize() {
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
+    // simple particle group used for block destruction
+    ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
@@ -165,14 +169,15 @@ void GamePlayScene::Finalize() {
 }
 
 void GamePlayScene::Update() {
+    // ImGui frame begin (only when enabled)
 #ifdef USE_IMGUI
     imGuiManager_->Begin();
-
-    ImGui::ShowDemoWindow();
-
+    /*ImGui::ShowDemoWindow();*/
     Vector3 rotate = object3d_->GetRotate();
-
     ImGui::Begin("Window");
+#else
+    Vector3 rotate = object3d_->GetRotate();
+#endif
 
     camera_->DrawImGui();
 
@@ -214,13 +219,76 @@ void GamePlayScene::Update() {
 
     player_->DrawImGui();
 
-	ImGui::End();
+    ImGui::End();
 
-
+    // Stage editor update always runs
     stageEditor_->Update();
+
+    // Debug overlay to help diagnose warp issues (rendered inside ImGui frame)
+#ifdef USE_IMGUI
+    ImGui::Begin("Warp Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+    ImGui::Text("EditMode: %s", stageEditor_ && stageEditor_->IsEditMode() ? "ON" : "OFF");
+    int warpCount = 0;
+    for (const auto& o : stage_->GetStageData().objects) if (o.blockId == BlockID::Warp) ++warpCount;
+    ImGui::Text("Warp objects: %d", warpCount);
+    ImGui::Text("LastWarpId: %d", lastWarpId_);
+    ImGui::Text("WarpCooldown: %d", warpCooldownCounter_);
+    ImGui::End();
 
     imGuiManager_->End();
 #endif
+
+    // Advance stage runtime (moving platforms, etc.) with fixed timestep
+    if(stage_){
+        stage_->Update(1.0f / 60.0f);
+        // Apply platform movement deltas to any player standing on them
+        auto deltas = stage_->ConsumePlatformDeltas();
+        if(player_){
+            Vector3 ppos = player_->GetPosition();
+            bool applied = false;
+            // assume player's half-height ~1.0f (matches Player::colliderHalfSize_ default)
+            const float playerHalfY = 1.0f;
+
+            for(const auto& o : stage_->GetStageData().objects){
+                if(o.blockId != BlockID::MovingPlatform) continue;
+                auto it = deltas.find(o.id);
+                if(it == deltas.end()) continue;
+                const Vector3 delta = it->second;
+
+                // compute platform top Y using half-height = o.scale.y
+                float topY = o.position.y + o.scale.y;
+                float playerBottom = ppos.y - playerHalfY;
+
+                const float kVertEps = 0.25f; // tolerance for standing on top
+                // horizontal extents (use o.scale as half extents)
+                float halfX = o.scale.x;
+                float halfZ = o.scale.z;
+
+                if(std::fabs(playerBottom - topY) <= kVertEps &&
+                   std::fabs(ppos.x - o.position.x) <= halfX + 0.5f &&
+                   std::fabs(ppos.z - o.position.z) <= halfZ + 0.5f){
+                    // Apply full delta (or only horizontal components depending on direction)
+                    Vector3 applyDelta = {0.0f,0.0f,0.0f};
+                    if(o.moveDirection == 3 || o.moveDirection == 4){
+                        applyDelta.x = delta.x;
+                        applyDelta.z = delta.z;
+                    } else if(o.moveDirection == 1 || o.moveDirection == 2){
+                        applyDelta.y = delta.y;
+                    } else {
+                        applyDelta = delta;
+                    }
+                    player_->SetRidingPlatformDelta(applyDelta);
+                    Logger::Log(std::string("Platform carry apply id:") + std::to_string(o.id)
+                                + " delta:" + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z)
+                                + " apply:" + std::to_string(applyDelta.x) + "," + std::to_string(applyDelta.y) + "," + std::to_string(applyDelta.z)
+                                + " playerPos:" + std::to_string(ppos.x) + "," + std::to_string(ppos.y) + "," + std::to_string(ppos.z) + "\n");
+                    applied = true;
+                    break;
+                }
+            }
+            if(!applied) player_->ClearRidingPlatformDelta();
+        }
+    }
 
     // 実行時ステージから必要情報を取得
     stageBlockColliders_ = stage_->GetBlockOBBs();
@@ -228,7 +296,52 @@ void GamePlayScene::Update() {
     player_->SetBlockColliders(&stageBlockColliders_);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
 
-	if (!stageEditor_->IsEditMode()) {
+    // Warp detection: run before player update so teleport is immediate in gameplay mode
+    if(player_){
+        const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+        for(const auto& o : stage_->GetStageData().objects){
+            if(o.blockId != BlockID::Warp) continue;
+
+            Transform t;
+            t.translate = o.position;
+            t.rotate = o.rotation;
+            t.scale = o.scale;
+
+            // Inflate warp OBB a bit to make triggering more forgiving
+            const float warpInflation = 1.5f;
+            CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(
+                t,
+                { 1.0f * o.scale.x * warpInflation,
+                  1.0f * o.scale.y * warpInflation,
+                  1.0f * o.scale.z * warpInflation }
+            );
+            std::string msg = "Checking warp id:" + std::to_string(o.id) + " pos:" + std::to_string(o.position.x) + "," + std::to_string(o.position.y) + "," + std::to_string(o.position.z) + "\n";
+            Logger::Log(msg);
+
+            if(CollisionUtility::IntersectOBB_OBB(playerObb, obb)){
+                std::string hitmsg = "Player intersects warp id:" + std::to_string(o.id) + "\n";
+                Logger::Log(hitmsg);
+
+                if(warpCooldownCounter_ == 0 || lastWarpId_ != o.id){
+                    // Request teleport to be applied inside the player's
+                    // own Update to avoid being overwritten by other systems.
+                    player_->SetPendingTeleport(o.warpTargetPosition);
+                    lastWarpId_ = o.id;
+                    // set a cooldown to avoid immediate re-trigger loops
+                    warpCooldownCounter_ = 90; // frames (~1.5 seconds at 60fps)
+                    Logger::Log(std::string("Warped to ") + std::to_string(o.warpTargetPosition.x) + "," + std::to_string(o.warpTargetPosition.y) + "," + std::to_string(o.warpTargetPosition.z) + "\n");
+                } else {
+                    Logger::Log(std::string("Warp ignored due to cooldown. id:") + std::to_string(o.id) + " counter:" + std::to_string(warpCooldownCounter_) + "\n");
+                }
+                break;
+            }
+        }
+
+        if(warpCooldownCounter_ > 0) --warpCooldownCounter_;
+        else lastWarpId_ = -1;
+    }
+
+    if (!stageEditor_->IsEditMode()) {
             player_->Update(cameraController_->GetYaw());
             cameraController_->Update(player_->GetPosition());
     } else {
@@ -260,6 +373,19 @@ void GamePlayScene::Update() {
 					}
 				}
 			}
+
+            // Tongue hitting stage blocks (apply damage to breakable blocks)
+            if (tongue) {
+                const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
+                for (const auto& obb : stageBlockColliders_) {
+                    if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
+                        // apply damage (1) at tongue sphere
+                        stage_->ApplyDamageAtSphere(tongueSphere, 1);
+                        tongue->Reset();
+                        break;
+                    }
+                }
+            }
 		}
 
     // 水ブロックに触れている間は徐々に回復
@@ -277,6 +403,8 @@ void GamePlayScene::Update() {
     if(isTouchingWater){
         player_->AddWater(15.0f / 60.0f);
     }
+
+    // (Warp detection handled earlier before player update.)
 
     camera_->Update();
     camera_->TransferToGPU();

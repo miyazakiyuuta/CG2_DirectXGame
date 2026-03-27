@@ -13,6 +13,7 @@
 
 #include "StageTypes.h"
 #include "StageLoader.h"
+#include <unordered_map>
 
 class Stage{
 public:
@@ -24,6 +25,10 @@ public:
 
     void RefreshInstances();
     void Draw();
+    // Update runtime behaviors (moving platforms, etc.)
+    void Update(float deltaTime);
+    // Consume and return platform movement deltas computed during Update
+    std::unordered_map<int, Vector3> ConsumePlatformDeltas();
     void Clear();
 
     void UpdateOrCreateInstance(const StageObject& o);
@@ -39,7 +44,12 @@ public:
     std::vector<Vector3> GetBugSpawnPositions() const;
     std::optional<Vector3> GetPlayerSpawnPosition() const;
 
+    // ダメージ判定: 指定した球に当たった破壊可能ブロックにダメージを与える
+    void ApplyDamageAtSphere(const CollisionUtility::Sphere& sphere, int damage);
+
 private:
     StageData data_;
     StageLoader loader_;
+    // Runtime movement deltas for moving platforms (filled by Update)
+    std::unordered_map<int, Vector3> platformMoveDeltas_;
 };

@@ -614,6 +614,12 @@ void StageEditor::DrawImGui(){
                     editScale_ = o.scale;
                     editBlockId_ = o.blockId;
                     editColor_ = o.color;
+                    editHp_ = o.hp;
+                    editWarpTargetPosition_ = o.warpTargetPosition;
+                    editWarpTargetSceneId_ = o.warpTargetSceneId;
+                    editMoveDirection_ = o.moveDirection;
+                    editMoveSpeed_ = o.moveSpeed;
+                    editMoveRange_ = o.moveRange;
                     strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
 
                     stage_->SetInstanceColorById(o.id, { o.color.x, o.color.y, o.color.z, selectionBlinkAlpha_ });
@@ -645,7 +651,7 @@ void StageEditor::DrawImGui(){
 
     ImGui::Separator();
 
-    const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn" };
+    const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn", "Breakable", "Warp", "MovingPlatform" };
 
     if(currentMode != EditorUIMode::SelectedEdit){
         ImGui::Text("Create Origin");
@@ -684,12 +690,32 @@ void StageEditor::DrawImGui(){
         if(ImGui::InputText("Model", defaultModelBuf_, sizeof(defaultModelBuf_))){
             defaultModel_ = std::string(defaultModelBuf_);
         }
-
         ImGui::ColorEdit4("Placing Color", &placingColor_.x);
 
         int blockTypeIndex = static_cast<int>(placingBlockId_);
         if(ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
             placingBlockId_ = static_cast<BlockID>(blockTypeIndex);
+        }
+
+        // Placing HP (only relevant for Breakable)
+        if(placingBlockId_ == BlockID::Breakable){
+            ImGui::InputInt("Placing HP", &placingHp_);
+            if(placingHp_ < 0) placingHp_ = 0;
+        }
+
+        // Placing Warp settings
+        if(placingBlockId_ == BlockID::Warp){
+            ImGui::InputFloat3("Warp Target Pos", &placingWarpTargetPosition_.x);
+            ImGui::InputInt("Warp Target SceneId", &placingWarpTargetSceneId_);
+        }
+
+        // Placing MovingPlatform settings
+        if(placingBlockId_ == BlockID::MovingPlatform){
+            const char* moveDirs[] = { "None", "Up/Down", "Down/Up", "Left/Right", "Right/Left" };
+            ImGui::Combo("Move Direction", &placingMoveDirection_, moveDirs, IM_ARRAYSIZE(moveDirs));
+            ImGui::InputFloat("Move Speed", &placingMoveSpeed_);
+            ImGui::InputFloat("Move Range", &placingMoveRange_);
+            ImGui::InputFloat("Move Phase (0..1)", &placingMovePhase_);
         }
 
         ImGui::Separator();
@@ -709,6 +735,17 @@ void StageEditor::DrawImGui(){
                 o.scale = createScale_;
                 o.blockId = placingBlockId_;
                 o.color = placingColor_;
+                o.hp = placingHp_;
+                if(o.blockId == BlockID::Warp){
+                    o.warpTargetPosition = placingWarpTargetPosition_;
+                    o.warpTargetSceneId = placingWarpTargetSceneId_;
+                }
+                if(o.blockId == BlockID::MovingPlatform){
+                    o.moveDirection = placingMoveDirection_;
+                    o.moveSpeed = placingMoveSpeed_;
+                    o.moveRange = placingMoveRange_;
+                    o.movePhase = placingMovePhase_;
+                }
 
                 data.objects.push_back(o);
                 stage_->UpdateOrCreateInstance(o);
@@ -756,6 +793,13 @@ void StageEditor::DrawImGui(){
                         int blockTypeIndex = static_cast<int>(sobj.blockId);
                         if(ImGui::Combo("Block Type", &blockTypeIndex, blockTypes, IM_ARRAYSIZE(blockTypes))){
                             sobj.blockId = static_cast<BlockID>(blockTypeIndex);
+                        }
+                    }
+
+                    // HP field for breakable
+                    if(sobj.blockId == BlockID::Breakable){
+                        if(ImGui::InputInt("HP", &sobj.hp)){
+                            if(sobj.hp < 0) sobj.hp = 0;
                         }
                     }
 
@@ -857,6 +901,17 @@ void StageEditor::DrawImGui(){
                         o.scale = createScale_;
                         o.blockId = placingBlockId_;
                         o.color = placingColor_;
+                        o.hp = placingHp_;
+                        if(o.blockId == BlockID::Warp){
+                            o.warpTargetPosition = placingWarpTargetPosition_;
+                            o.warpTargetSceneId = placingWarpTargetSceneId_;
+                        }
+                        if(o.blockId == BlockID::MovingPlatform){
+                            o.moveDirection = placingMoveDirection_;
+                            o.moveSpeed = placingMoveSpeed_;
+                            o.moveRange = placingMoveRange_;
+                            o.movePhase = placingMovePhase_;
+                        }
                         data.objects.push_back(o);
                         stage_->UpdateOrCreateInstance(o);
                     }
@@ -933,6 +988,66 @@ void StageEditor::DrawImGui(){
                     }
                 }
 
+                // HP for breakable blocks
+                if(editBlockId_ == BlockID::Breakable){
+                    if(ImGui::InputInt("HP", &editHp_)){
+                        if(editHp_ < 0) editHp_ = 0;
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){
+                                if(obj.id == selectedObjectId_){
+                                    obj.hp = editHp_;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Warp fields
+                if(editBlockId_ == BlockID::Warp){
+                    if(ImGui::InputFloat3("Warp Target Pos", &editWarpTargetPosition_.x)){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){
+                                if(obj.id == selectedObjectId_){
+                                    obj.warpTargetPosition = editWarpTargetPosition_;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if(ImGui::InputInt("Warp Target SceneId", &editWarpTargetSceneId_)){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){
+                                if(obj.id == selectedObjectId_){
+                                    obj.warpTargetSceneId = editWarpTargetSceneId_;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // MovingPlatform fields
+                if(editBlockId_ == BlockID::MovingPlatform){
+                    const char* moveDirs[] = { "None", "Up/Down", "Down/Up", "Left/Right", "Right/Left" };
+                    if(ImGui::Combo("Move Direction", &editMoveDirection_, moveDirs, IM_ARRAYSIZE(moveDirs))){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.moveDirection = editMoveDirection_; break; } }
+                        }
+                    }
+                    if(ImGui::InputFloat("Move Speed", &editMoveSpeed_)){
+                        if(liveEdit_){ for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.moveSpeed = editMoveSpeed_; break; } } }
+                    }
+                    if(ImGui::InputFloat("Move Range", &editMoveRange_)){
+                        if(liveEdit_){ for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.moveRange = editMoveRange_; break; } } }
+                    }
+                    if(ImGui::InputFloat("Move Phase (0..1)", &editMovePhase_)){
+                        if(editMovePhase_ < 0.0f) editMovePhase_ = 0.0f;
+                        if(editMovePhase_ > 1.0f) editMovePhase_ = 1.0f;
+                        if(liveEdit_){ for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.movePhase = editMovePhase_; break; } } }
+                    }
+                }
+
                 if(showFieldColor_){
                     if(ImGui::ColorEdit4("Color", &editColor_.x)){
                         if(liveEdit_){
@@ -964,6 +1079,17 @@ void StageEditor::DrawImGui(){
                             obj.scale = editScale_;
                             obj.blockId = editBlockId_;
                             obj.color = editColor_;
+                            obj.hp = editHp_;
+                            if(obj.blockId == BlockID::Warp){
+                                obj.warpTargetPosition = editWarpTargetPosition_;
+                                obj.warpTargetSceneId = editWarpTargetSceneId_;
+                            }
+                            if(obj.blockId == BlockID::MovingPlatform){
+                                obj.moveDirection = editMoveDirection_;
+                                obj.moveSpeed = editMoveSpeed_;
+                                obj.moveRange = editMoveRange_;
+                        obj.movePhase = editMovePhase_;
+                            }
                             break;
                         }
                     }
