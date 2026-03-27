@@ -53,6 +53,7 @@ void Tongue::Update(float deltaTime){
 			break;
 
 		case State::Hooked:
+			prevWorldPosition_ = worldPosition_;
 			worldPosition_ = hookPosition_;
 			break;
 
@@ -72,23 +73,19 @@ void Tongue::Draw(){
 	}
 }
 
-void Tongue::Shot(){
+void Tongue::Shot(const Vector3& direction){
 	if(!owner_ || state_ != State::Idle){
 		return;
 	}
 
-	float yaw = owner_->GetYaw();
+	shotDirection_ = Normalize(direction);
 
-	shotDirection_ = {
-		std::sin(yaw),
-		0.0f,
-		std::cos(yaw)
-	};
+	Vector3 playerPos = owner_->GetPosition();
+	shotStartPosition_ = playerPos + shotDirection_ * localOffset_.z;
+	shotStartPosition_.y += localOffset_.y;
 
-	shotDirection_ = Normalize(shotDirection_);
-
-	shotStartPosition_ = GetMouthWorldPosition();
 	worldPosition_ = shotStartPosition_;
+	prevWorldPosition_ = worldPosition_;
 	hookPosition_ = {};
 	currentDistance_ = 0.0f;
 
@@ -99,6 +96,7 @@ void Tongue::Shot(){
 }
 
 void Tongue::SetHooked(const Vector3& worldPos){
+	prevWorldPosition_ = worldPosition_;
 	hookPosition_ = worldPos;
 	worldPosition_ = worldPos;
 	state_ = State::Hooked;
@@ -110,6 +108,7 @@ void Tongue::SetHooked(const Vector3& worldPos){
 
 void Tongue::StartReturn(){
 	if(state_ != State::Idle){
+		prevWorldPosition_ = worldPosition_;
 		state_ = State::Returning;
 	}
 }
@@ -121,6 +120,7 @@ void Tongue::Reset(){
 	shotStartPosition_ = {};
 	hookPosition_ = {};
 	worldPosition_ = GetMouthWorldPosition();
+	prevWorldPosition_ = worldPosition_;
 
 	if(object_){
 		object_->SetTranslate(worldPosition_);
@@ -130,15 +130,24 @@ void Tongue::Reset(){
 }
 
 void Tongue::UpdateIdle(){
+	prevWorldPosition_ = worldPosition_;
 	worldPosition_ = GetMouthWorldPosition();
 
 	if(owner_){
 		float yaw = owner_->GetYaw();
+
+		// 直前に撃った方向が残っているなら、その見た目を少し優先
+		if(std::abs(shotDirection_.x) > 0.0001f || std::abs(shotDirection_.z) > 0.0001f){
+			yaw = std::atan2(shotDirection_.x, shotDirection_.z);
+		}
+
 		object_->SetRotate({ 0.0f, yaw, 0.0f });
 	}
 }
 
 void Tongue::UpdateExtending(float deltaTime){
+	prevWorldPosition_ = worldPosition_;
+
 	float move = speed_ * deltaTime;
 
 	worldPosition_.x += shotDirection_.x * move;
@@ -153,6 +162,8 @@ void Tongue::UpdateExtending(float deltaTime){
 }
 
 void Tongue::UpdateReturning(float deltaTime){
+	prevWorldPosition_ = worldPosition_;
+
 	Vector3 target = GetMouthWorldPosition();
 
 	Vector3 toTarget = {

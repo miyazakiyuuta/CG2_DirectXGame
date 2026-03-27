@@ -2,6 +2,7 @@
 
 #include "3d/Camera.h"
 #include "3d/Object3dCommon.h"
+#include "CameraController.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -26,6 +27,33 @@ namespace{
 		}
 		return { v.x / len, v.y / len, v.z / len };
 	}
+}
+
+float Dot3(const Vector3& a, const Vector3& b){
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+float ComputeOBBSupportRadiusAlongNormal(const CollisionUtility::OBB& obb, const Vector3& normal){
+	return
+		std::abs(Dot3(obb.axis[0], normal)) * obb.halfLength[0] +
+		std::abs(Dot3(obb.axis[1], normal)) * obb.halfLength[1] +
+		std::abs(Dot3(obb.axis[2], normal)) * obb.halfLength[2];
+}
+
+float AbsDot3(const Vector3& a, const Vector3& b){
+	return std::abs(Dot3(a, b));
+}
+
+Vector3 Cross3(const Vector3& a, const Vector3& b){
+	return {
+		a.y * b.z - a.z * b.y,
+		a.z * b.x - a.x * b.z,
+		a.x * b.y - a.y * b.x
+	};
+}
+
+float ClampFloat(float v, float minV, float maxV){
+	return std::max(minV, std::min(v, maxV));
 }
 
 void Player::Initialize(
@@ -59,6 +87,7 @@ void Player::Initialize(
 	chargeMaxHoldTimer_ = 0.0f;
 	moveState_ = MovementState::Root;
 	wallClingGauge_ = maxWallClingGauge_;
+	prevAimMode_ = false;
 }
 
 void Player::SetCamera(Camera* camera){
@@ -122,6 +151,31 @@ bool Player::ConsumeWater(float amount){
 		waterGauge_ = 0.0f;
 	}
 	return true;
+}
+
+bool Player::TryShotTongue(const Vector3& direction){
+	if(!tongue_){
+		return false;
+	}
+
+	if(tongue_->IsBusy()){
+		return false;
+	}
+
+	if(!ConsumeWater(tongueWaterCost_)){
+		return false;
+	}
+
+	tongue_->Shot(direction);
+	return true;
+}
+
+void Player::SetYawFromCamera(float cameraYaw){
+	if(!object_){
+		return;
+	}
+
+	object_->SetRotate({ 0.0f, cameraYaw + modelYawOffset_, 0.0f });
 }
 
 void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
@@ -216,22 +270,59 @@ void Player::CheckTongueBlockHook(){
 		return;
 	}
 
-	CollisionUtility::Sphere tongueSphere = tongue_->GetHitSphere();
+	Vector3 start = tongue_->GetPrevPosition();
+	Vector3 end = tongue_->GetPosition();
+	Vector3 delta = end - start;
+	float moveLen = Length3(delta);
 
-	for(const auto& block : *blockColliders_){
-		auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(tongueSphere, block);
-		if(!hit.hit){
-			continue;
+	CollisionUtility::Sphere baseSphere = tongue_->GetHitSphere();
+
+	// 半径より大きく飛ぶなら分割数を増やす
+	int steps = std::max(1, static_cast<int>(std::ceil(moveLen / std::max(0.05f, baseSphere.radius * 0.5f))));
+
+	for(int s = 1; s <= steps; ++s){
+		float t = static_cast<float>(s) / static_cast<float>(steps);
+
+		CollisionUtility::Sphere testSphere = baseSphere;
+		testSphere.center = start + delta * t;
+
+		for(const auto& block : *blockColliders_){
+			auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, block);
+			if(!hit.hit){
+				continue;
+			}
+
+			Vector3 hitNormal = hit.normal;
+
+			Vector3 toPlayer = Normalize3(GetPosition() - hit.point);
+			if(Dot3(hitNormal, toPlayer) < 0.0f){
+				hitNormal = hitNormal * -1.0f;
+			}
+
+			SetupClingSurfaceFromHit(block, hit.point, hitNormal);
+
+			Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
+			tongue_->SetHooked(hookPos);
+
+			CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
+			const float kPullSkin = 0.03f;
+			float playerRadiusAlongNormal =
+				ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
+
+			Vector3 clingAnchorPoint =
+				clingSurfaceCenter_ +
+				clingSurfaceRight_ * clingHitRightOffset_ +
+				clingSurfaceUp_ * clingHitUpOffset_;
+
+			tonguePullTarget_ =
+				clingAnchorPoint +
+				clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
+
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+			CancelJumpCharge();
+			TransitionTo(MovementState::TonguePulling);
+			return;
 		}
-
-		Vector3 hookPos = hit.point + hit.normal * tongueHookSurfaceOffset_;
-		tongue_->SetHooked(hookPos);
-		tonguePullTarget_ = hookPos;
-
-		velocity_ = { 0.0f, 0.0f, 0.0f };
-		CancelJumpCharge();
-		TransitionTo(MovementState::TonguePulling);
-		return;
 	}
 }
 
@@ -245,11 +336,17 @@ void Player::UpdateTonguePulling(){
 	float distance = Length3(toTarget);
 
 	if(distance <= tonguePullEndDistance_){
-		object_->SetTranslate(tonguePullTarget_);
+		Vector3 snapped = tonguePullTarget_;
+		if(hasClingSurface_){
+			snapped = ClampPositionToCurrentClingSurface(snapped);
+			ResolveCurrentClingPenetration(snapped);
+		}
+
+		object_->SetTranslate(snapped);
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
 		tongue_->StartReturn();
-		TransitionTo(MovementState::Jumping);
+		TransitionTo(MovementState::WallClinging);
 		return;
 	}
 
@@ -261,9 +358,19 @@ void Player::UpdateTonguePulling(){
 	object_->SetRotate({ 0.0f, yaw, 0.0f });
 }
 
-void Player::Update(float cameraYaw){
+void Player::Update(){
 	if(!object_){
 		return;
+	}
+
+	float cameraYaw = 0.0f;
+	bool isAimMode = false;
+	Vector3 cameraForward = { 0.0f, 0.0f, 1.0f };
+
+	if(cameraController_){
+		cameraYaw = cameraController_->GetYaw();
+		isAimMode = cameraController_->IsAimMode();
+		cameraForward = cameraController_->GetForwardDirection();
 	}
 
 	// If an external system requested a teleport, apply it here at the
@@ -336,10 +443,14 @@ void Player::Update(float cameraYaw){
 		ridingPlatformDelta_ = {0.0f,0.0f,0.0f};
 	}
 
-	if(input_->IsTriggerMouse(0) && tongue_){
-		if(!tongue_->IsBusy() && ConsumeWater(tongueWaterCost_)){
-			tongue_->Shot();
-		}
+	
+	// エイム中はプレイヤーの正面をカメラへ合わせる
+	if(isAimMode){
+		SetYawFromCamera(cameraYaw);
+	}
+
+	if(input_->IsTriggerMouse(0)){
+		TryShotTongue(cameraForward);
 	}
 
 	if(tongue_){
@@ -349,13 +460,13 @@ void Player::Update(float cameraYaw){
 }
 
 void Player::Draw(){
+	if(tongue_){
+		tongue_->Draw();
+	}
 	if(object_){
 		object_->Update();
 		object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
 		object_->Draw();
-	}
-	if(tongue_){
-		tongue_->Draw();
 	}
 }
 
@@ -554,8 +665,12 @@ void Player::TransitionTo(MovementState nextState){
 			velocity_ = { 0.0f, 0.0f, 0.0f };
 			wallClingGauge_ = maxWallClingGauge_;
 
-			float yaw = GetYaw();
-			wallRightVec_ = { std::cos(yaw), 0.0f, -std::sin(yaw) };
+			if(hasClingSurface_){
+				wallRightVec_ = clingSurfaceRight_;
+			} else{
+				wallRightVec_ = { 1.0f, 0.0f, 0.0f };
+			}
+
 			isOnGround_ = false;
 			break;
 		}
@@ -706,13 +821,16 @@ void Player::DrawImGui(){
 				}
 
 				ImGui::Text("State : %s", stateName);
-				ImGui::Text("Shot Mouse : Left Click");
+				ImGui::Text("Shot : Right Click Release");
 				ImGui::Text("Pull Target : %.3f %.3f %.3f", tonguePullTarget_.x, tonguePullTarget_.y, tonguePullTarget_.z);
 
 				if(ImGui::Button("Shot Tongue")){
-					if(!tongue_->IsBusy() && ConsumeWater(tongueWaterCost_)){
-						tongue_->Shot();
+					Vector3 debugDirection = { 0.0f, 0.0f, 1.0f };
+					if(cameraController_){
+						debugDirection = cameraController_->GetForwardDirection();
 					}
+
+					TryShotTongue(debugDirection);
 				}
 				ImGui::SameLine();
 				if(ImGui::Button("Reset Tongue")){
@@ -813,37 +931,71 @@ void Player::UpdateWallClinging(float cameraYaw){
 
 	Vector3 position = object_->GetTranslate();
 
+	if(!hasClingSurface_){
+		TransitionTo(MovementState::Jumping);
+		return;
+	}
+
 	wallClingGauge_ -= wallClingConsumption_;
 	if(wallClingGauge_ <= 0.0f){
 		wallClingGauge_ = 0.0f;
+		hasClingSurface_ = false;
 		TransitionTo(MovementState::Jumping);
 		return;
 	}
 
 	Vector3 moveVec = { 0.0f, 0.0f, 0.0f };
 
-	if(input_->IsPushKey(DIK_W)) moveVec.y += 1.0f;
-	if(input_->IsPushKey(DIK_S)) moveVec.y -= 1.0f;
-
+	if(input_->IsPushKey(DIK_W)){
+		moveVec += clingSurfaceUp_;
+	}
+	if(input_->IsPushKey(DIK_S)){
+		moveVec -= clingSurfaceUp_;
+	}
 	if(input_->IsPushKey(DIK_D)){
-		moveVec.x += wallRightVec_.x;
-		moveVec.z += wallRightVec_.z;
+		moveVec -= wallRightVec_;
 	}
 	if(input_->IsPushKey(DIK_A)){
-		moveVec.x -= wallRightVec_.x;
-		moveVec.z -= wallRightVec_.z;
+		moveVec += wallRightVec_;
 	}
 
 	float len = std::sqrt(moveVec.x * moveVec.x + moveVec.y * moveVec.y + moveVec.z * moveVec.z);
-	if(len > 0.0f){
-		position.x += (moveVec.x / len) * wallMoveSpeed_;
-		position.y += (moveVec.y / len) * wallMoveSpeed_;
-		position.z += (moveVec.z / len) * wallMoveSpeed_;
+	if(len > 0.0001f){
+		moveVec = moveVec * (1.0f / len);
+		position += moveVec * wallMoveSpeed_;
+	}
+
+	// 先に張り付いた面へ向きをそろえる
+	float yaw = std::atan2(-clingSurfaceNormal_.x, -clingSurfaceNormal_.z) + modelYawOffset_;
+	object_->SetRotate({ 0.0f, yaw, 0.0f });
+
+	// まず張り付き面の範囲に拘束
+	position = ClampPositionToCurrentClingSurface(position);
+
+	// 張り付いている元の面へのめり込みを解消
+	ResolveCurrentClingPenetration(position);
+
+	// 他のブロックへのめり込みも解消
+	ResolveWallClingBlockCollisions(position);
+
+	// 押し戻し後にもう一度面へそろえる
+	position = ClampPositionToCurrentClingSurface(position);
+
+	// 面の外へ出たら壁のぼり解除
+	if(!IsInsideCurrentClingSurface(position)){
+		hasClingSurface_ = false;
+		object_->SetTranslate(position);
+		TransitionTo(MovementState::Jumping);
+		return;
 	}
 
 	if(input_->IsTriggerKey(DIK_SPACE)){
+		velocity_ = clingSurfaceNormal_ * 0.25f;
 		velocity_.y = jumpPowers_[0];
+		hasClingSurface_ = false;
+		object_->SetTranslate(position);
 		TransitionTo(MovementState::Jumping);
+		return;
 	}
 
 	object_->SetTranslate(position);
@@ -872,6 +1024,181 @@ void Player::UpdateTransparencyByCamera(const Vector3& cameraPosition){
 	}
 
 	if(tongue_){
-		tongue_->SetAlpha(currentAlpha_);
+		if(tongue_->IsBusy()){
+			tongue_->SetAlpha(1.0f);
+		} else{
+			tongue_->SetAlpha(currentAlpha_);
+		}
+	}
+}
+
+void Player::SetupClingSurfaceFromHit(
+	const CollisionUtility::OBB& block,
+	const Vector3& hitPoint,
+	const Vector3& hitNormal
+){
+	clingBlockObb_ = block;
+	clingSurfaceNormal_ = Normalize3(hitNormal);
+
+	// どの面に当たったかを、法線に最も近いブロック軸で決める
+	int normalAxisIndex = 0;
+	float bestDot = AbsDot3(block.axis[0], clingSurfaceNormal_);
+
+	for(int i = 1; i < 3; ++i){
+		float d = AbsDot3(block.axis[i], clingSurfaceNormal_);
+		if(d > bestDot){
+			bestDot = d;
+			normalAxisIndex = i;
+		}
+	}
+
+	Vector3 faceNormal = block.axis[normalAxisIndex];
+	if(Dot3(faceNormal, clingSurfaceNormal_) < 0.0f){
+		faceNormal = faceNormal * -1.0f;
+	}
+	clingSurfaceNormal_ = faceNormal;
+
+	// 面の中心
+	clingSurfaceCenter_ =
+		block.center +
+		clingSurfaceNormal_ * block.halfLength[normalAxisIndex];
+
+	// 面上の2軸を決める
+	int axisA = (normalAxisIndex + 1) % 3;
+	int axisB = (normalAxisIndex + 2) % 3;
+
+	// 上方向に近いほうを面の縦方向にする
+	Vector3 worldUp = { 0.0f, 1.0f, 0.0f };
+	float dotA = AbsDot3(block.axis[axisA], worldUp);
+	float dotB = AbsDot3(block.axis[axisB], worldUp);
+
+	int upAxis = axisA;
+	int rightAxis = axisB;
+	if(dotB > dotA){
+		upAxis = axisB;
+		rightAxis = axisA;
+	}
+
+	clingSurfaceUp_ = block.axis[upAxis];
+	if(Dot3(clingSurfaceUp_, worldUp) < 0.0f){
+		clingSurfaceUp_ = clingSurfaceUp_ * -1.0f;
+	}
+
+	clingSurfaceRight_ = block.axis[rightAxis];
+
+	// 右方向は right × up = normal になる向きへ揃える
+	Vector3 cross = Cross3(clingSurfaceRight_, clingSurfaceUp_);
+	if(Dot3(cross, clingSurfaceNormal_) < 0.0f){
+		clingSurfaceRight_ = clingSurfaceRight_ * -1.0f;
+	}
+
+	clingSurfaceHalfWidth_ = block.halfLength[rightAxis];
+	clingSurfaceHalfHeight_ = block.halfLength[upAxis];
+
+	// 既存の壁移動ベクトルにも反映
+	wallRightVec_ = clingSurfaceRight_;
+	tongueHookNormal_ = clingSurfaceNormal_;
+	hasClingSurface_ = true;
+
+	// 面の中の「どこに当たったか」を保存
+	Vector3 toHit = hitPoint - clingSurfaceCenter_;
+	clingHitRightOffset_ = Dot3(toHit, clingSurfaceRight_);
+	clingHitUpOffset_ = Dot3(toHit, clingSurfaceUp_);
+}
+
+bool Player::IsInsideCurrentClingSurface(const Vector3& position) const{
+	if(!hasClingSurface_){
+		return false;
+	}
+
+	Vector3 toPos = position - clingSurfaceCenter_;
+	float rightDist = Dot3(toPos, clingSurfaceRight_);
+	float upDist = Dot3(toPos, clingSurfaceUp_);
+
+	return
+		std::abs(rightDist) <= (clingSurfaceHalfWidth_ + wallDetachMargin_) &&
+		std::abs(upDist) <= (clingSurfaceHalfHeight_ + wallDetachMargin_);
+}
+
+Vector3 Player::ClampPositionToCurrentClingSurface(const Vector3& position) const{
+	if(!hasClingSurface_){
+		return position;
+	}
+
+	Vector3 toPos = position - clingSurfaceCenter_;
+
+	float rightDist = Dot3(toPos, clingSurfaceRight_);
+	float upDist = Dot3(toPos, clingSurfaceUp_);
+
+	rightDist = ClampFloat(rightDist, -clingSurfaceHalfWidth_, clingSurfaceHalfWidth_);
+	upDist = ClampFloat(upDist, -clingSurfaceHalfHeight_, clingSurfaceHalfHeight_);
+
+	CollisionUtility::OBB playerObb = GetPlayerOBB(position);
+	float pushOut = ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_) + wallKeepDistance_;
+
+	return
+		clingSurfaceCenter_ +
+		clingSurfaceRight_ * rightDist +
+		clingSurfaceUp_ * upDist +
+		clingSurfaceNormal_ * pushOut;
+}
+
+void Player::ResolveCurrentClingPenetration(Vector3& position) const{
+	if(!hasClingSurface_){
+		return;
+	}
+
+	CollisionUtility::OBB playerObb = GetPlayerOBB(position);
+	auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, clingBlockObb_);
+
+	if(!hit.hit){
+		return;
+	}
+
+	Vector3 pushNormal = hit.normal;
+
+	// 壁の外向きにそろえる
+	if(Dot3(pushNormal, clingSurfaceNormal_) < 0.0f){
+		pushNormal = pushNormal * -1.0f;
+	}
+
+	const float kSkin = 0.001f;
+
+	// 外側へ押し出す
+	position += pushNormal * (hit.penetration + kSkin);
+}
+
+void Player::ResolveWallClingBlockCollisions(Vector3& position) const{
+	if(!blockColliders_){
+		return;
+	}
+
+	// 2〜3回まわして、複数ブロックへの重なりを少し安定させる
+	for(int iteration = 0; iteration < 3; ++iteration){
+		bool anyHit = false;
+
+		CollisionUtility::OBB playerObb = GetPlayerOBB(position);
+
+		for(const auto& block : *blockColliders_){
+			auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+			if(!hit.hit || hit.penetration <= 0.0f){
+				continue;
+			}
+
+			Vector3 pushNormal = hit.normal;
+
+			// プレイヤー -> ブロック の法線なので、プレイヤーを外へ出す向きへ反転
+			pushNormal = pushNormal * -1.0f;
+
+			const float kSkin = 0.001f;
+			position += pushNormal * (hit.penetration + kSkin);
+
+			playerObb = GetPlayerOBB(position);
+			anyHit = true;
+		}
+
+		if(!anyHit){
+			break;
+		}
 	}
 }

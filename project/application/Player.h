@@ -35,11 +35,13 @@ public:
 		const Vector3& startPosition = { 0.0f, 0.0f, 0.0f }
 	);
 
-	void Update(float cameraYaw);
+	void Update();
 	void Draw();
 	void DrawImGui();
 
 	void SetCamera(Camera* camera);
+	void SetCameraController(CameraController* cameraController){ cameraController_ = cameraController; }
+
 	void SetPosition(const Vector3& position);
 
 	// Request a teleport to be applied on the next Player::Update call.
@@ -87,6 +89,9 @@ public:
 
 	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
 
+	bool TryShotTongue(const Vector3& direction);
+	void SetYawFromCamera(float cameraYaw);
+
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
@@ -107,9 +112,17 @@ private:
 	void ResolveHorizontalCollisions(const Vector3& previousPosition);
 	void ResolveVerticalCollisions(const Vector3& previousPosition);
 
+	void SetupClingSurfaceFromHit(const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& hitNormal);
+	bool IsInsideCurrentClingSurface(const Vector3& position) const;
+	Vector3 ClampPositionToCurrentClingSurface(const Vector3& position) const;
+	void ResolveCurrentClingPenetration(Vector3& position) const;
+
+	void ResolveWallClingBlockCollisions(Vector3& position) const;
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
+	CameraController* cameraController_ = nullptr;
 	Input* input_ = nullptr;
 
 	Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
@@ -168,13 +181,33 @@ private:
 	float tongueHookSurfaceOffset_ = 0.05f;
 
 	float currentAlpha_ = 1.0f;
-	float minAlpha_ = 0.3f;
+	float minAlpha_ = 0.0f;
 
 	// この距離より近づくと透け始める
 	float fadeStartDistance_ = 10.0f;
 
 	// この距離以下なら最小アルファ
 	float fadeEndDistance_ = 2.5f;
+
+	bool prevAimMode_ = false;
+
+	Vector3 tongueHookNormal_ = { 0.0f, 0.0f, -1.0f };
+
+	bool hasClingSurface_ = false;
+	CollisionUtility::OBB clingBlockObb_ = {};
+	Vector3 clingSurfaceNormal_ = { 0.0f, 0.0f, -1.0f };
+	Vector3 clingSurfaceRight_ = { 1.0f, 0.0f, 0.0f };
+	Vector3 clingSurfaceUp_ = { 0.0f, 1.0f, 0.0f };
+	Vector3 clingSurfaceCenter_ = { 0.0f, 0.0f, 0.0f };
+
+	float clingSurfaceHalfWidth_ = 0.0f;
+	float clingSurfaceHalfHeight_ = 0.0f;
+
+	float clingHitRightOffset_ = 0.0f;
+	float clingHitUpOffset_ = 0.0f;
+
+	float wallDetachMargin_ = 0.05f;
+	float wallKeepDistance_ = 0.03f;
 
 	// Per-frame delta applied when standing on a moving platform
 	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};

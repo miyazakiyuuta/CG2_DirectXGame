@@ -36,27 +36,27 @@
 #include "utility/Logger.h"
 #include <sstream>
 
-void GamePlayScene::Initialize() {
-	camera_ = std::make_unique<Camera>();
-	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-	camera_->SetRotate({std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f});
-	camera_->SetTranslate({0.0f, 7.5f, -20.0f});
+void GamePlayScene::Initialize(){
+    camera_ = std::make_unique<Camera>();
+    camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
+    camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
+    camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
 
-	imGuiManager_ = std::make_unique<ImGuiManager>();
-	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
+    imGuiManager_ = std::make_unique<ImGuiManager>();
+    imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
     // simple particle group used for block destruction
     ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
 
-	debugCamera_ = std::make_unique<DebugCamera>();
-	debugCamera_->Initialize();
+    debugCamera_ = std::make_unique<DebugCamera>();
+    debugCamera_->Initialize();
 
-	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
-	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
+    TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+    TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 
-	// .objファイルからモデルを読み込む
+    // .objファイルからモデルを読み込む
     ModelManager::GetInstance()->LoadModel("plane.obj");
     ModelManager::GetInstance()->LoadModel("plane.gltf");
     ModelManager::GetInstance()->LoadModel("sphere.obj");
@@ -68,22 +68,22 @@ void GamePlayScene::Initialize() {
     ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
     // Load the single well model so it can be placed in the scene
-    ModelManager::GetInstance()->LoadModel("well","well.obj");
+    ModelManager::GetInstance()->LoadModel("well", "well.obj");
 
-	object3d_ = std::make_unique<Object3d>();
-	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("human_re.gltf");
-	//object3d_->SetModel("Frog.gltf");
-	object3d_->SetCamera(camera_.get());
-	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
-	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-	object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
-	object3d_->SetUseEnvironmentMap(true); // 環境マップ
+    object3d_ = std::make_unique<Object3d>();
+    object3d_->Initialize(Object3dCommon::GetInstance());
+    object3d_->SetModel("human_re.gltf");
+    //object3d_->SetModel("Frog.gltf");
+    object3d_->SetCamera(camera_.get());
+    object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
+    object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
+    object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
+    object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
     // Create the well object and place it at a fixed position only if model is loaded
-    if (Object3dCommon::GetInstance() && camera_) {
+    if(Object3dCommon::GetInstance() && camera_){
         // Ensure model was actually loaded
-        if (ModelManager::GetInstance()->FindModel("well.obj")) {
+        if(ModelManager::GetInstance()->FindModel("well.obj")){
             wellObject_ = std::make_unique<Object3d>();
             wellObject_->Initialize(Object3dCommon::GetInstance());
             wellObject_->SetModel("well.obj");
@@ -93,18 +93,18 @@ void GamePlayScene::Initialize() {
             wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
             wellObject_->SetScale({ 60.0f, 60.0f, 60.0f });
             wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
-        } else {
+        } else{
             // Model not found; skip creating wellObject_
             wellObject_.reset();
         }
-    } else {
+    } else{
         wellObject_.reset();
     }
 
-	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
-	TextureManager::GetInstance()->LoadTexture(envMapPath);
-	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
-	Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
+    std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
+    TextureManager::GetInstance()->LoadTexture(envMapPath);
+    uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
+    Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
 
     skybox_ = std::make_unique<Skybox>();
     skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
@@ -127,14 +127,16 @@ void GamePlayScene::Initialize() {
     player_ = std::make_unique<Player>();
     player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
 
-	cameraController_ = std::make_unique<CameraController>();
-	cameraController_->Initialize(camera_.get());
+    cameraController_ = std::make_unique<CameraController>();
+    cameraController_->Initialize(camera_.get());
     cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
     cameraController_->SetDistance(25.0f);
     cameraController_->SetHeight(1.5f);
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
-	cameraController_->SetObstacleColliders(&stageBlockColliders_);
+    cameraController_->SetObstacleColliders(&stageBlockColliders_);
+
+    player_->SetCameraController(cameraController_.get());
 
     // StageEditor は Stage を受け取って編集するだけ
     stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
@@ -148,28 +150,27 @@ void GamePlayScene::Initialize() {
         bug->SetPositionImmediate(spawnPos);
         bugs_.push_back(std::move(bug));
     }
-	// ナメクジの初期化 (DirectXCommonのインスタンスを渡すように変更)
-	slug_ = std::make_unique<Slug>();
-	slug_->Initialize(
-	    DirectXCommon::GetInstance(), // 追加
-	    Object3dCommon::GetInstance(), camera_.get(), "sphere.obj");
-	slug_->SetPosition({5.0f, 0.5f, 5.0f});
-	// ブロックの上面（通常 Y=1.0）より少し上に配置して埋まりを確実に防止
-	slug_->SetPosition({5.0f, 1.2f, 5.0f});
 
-	slug_->SetBodyColor({0.8f, 0.2f, 0.2f, 1.0f});  // 目立つように赤系
-	slug_->SetTrailColor({1.0f, 0.0f, 1.0f, 1.0f}); // ネオンピンクのヌルヌル
+    // ナメクジの初期化
+    slug_ = std::make_unique<Slug>();
+    slug_->Initialize(
+        DirectXCommon::GetInstance(),
+        Object3dCommon::GetInstance(), camera_.get(), "sphere.obj");
+    slug_->SetPosition({ 5.0f, 0.5f, 5.0f });
+    slug_->SetPosition({ 5.0f, 1.2f, 5.0f });
 
-	debugGrid_ = std::make_unique<DebugGrid>();
-	debugGrid_->Initialize(DirectXCommon::GetInstance());
+    slug_->SetBodyColor({ 0.8f, 0.2f, 0.2f, 1.0f });
+    slug_->SetTrailColor({ 1.0f, 0.0f, 1.0f, 1.0f });
+
+    debugGrid_ = std::make_unique<DebugGrid>();
+    debugGrid_->Initialize(DirectXCommon::GetInstance());
 }
 
-void GamePlayScene::Finalize() {
-	// 終了処理の実体を追加（LNK2001エラー対策）
+void GamePlayScene::Finalize(){
+    // 終了処理の実体を追加
 }
 
-void GamePlayScene::Update() {
-    // ImGui frame begin (only when enabled)
+void GamePlayScene::Update(){
 #ifdef USE_IMGUI
     imGuiManager_->Begin();
     /*ImGui::ShowDemoWindow();*/
@@ -182,32 +183,29 @@ void GamePlayScene::Update() {
     camera_->DrawImGui();
 
     // Well object debug / info
-    if (wellObject_) {
+    if(wellObject_){
         ImGui::Separator();
         ImGui::Text("Well Object");
 
-        // show and allow editing position
         Vector3 wpos = wellObject_->GetTranslate();
-        if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
+        if(ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)){
             wellObject_->SetTranslate(wpos);
         }
 
-        // show and allow editing scale
         Vector3 wscale = wellObject_->GetScale();
-        if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
+        if(ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)){
             wellObject_->SetScale(wscale);
         }
 
-        // show rotation (read-only)
         Vector3 wrot = wellObject_->GetRotate();
         ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
 
-        if (ImGui::Button("Reset Well")) {
-            wellObject_->SetTranslate({0.0f,0.0f,0.0f});
-            wellObject_->SetScale({1.0f,1.0f,1.0f});
+        if(ImGui::Button("Reset Well")){
+            wellObject_->SetTranslate({ 0.0f,0.0f,0.0f });
+            wellObject_->SetScale({ 1.0f,1.0f,1.0f });
         }
 
-    } else {
+    } else{
         ImGui::Separator();
         ImGui::Text("Well: not created");
     }
@@ -221,7 +219,6 @@ void GamePlayScene::Update() {
 
     ImGui::End();
 
-    // Stage editor update always runs
     stageEditor_->Update();
 
     // Debug overlay to help diagnose warp issues (rendered inside ImGui frame)
@@ -341,19 +338,20 @@ void GamePlayScene::Update() {
         else lastWarpId_ = -1;
     }
 
-    if (!stageEditor_->IsEditMode()) {
-            player_->Update(cameraController_->GetYaw());
-            cameraController_->Update(player_->GetPosition());
-    } else {
+    if(!stageEditor_->IsEditMode()){
+        // 先にカメラを更新して、そのフレームの aim 状態と forward を Player が読めるようにする
+        cameraController_->Update(player_->GetPosition());
+        player_->Update();
+    } else{
         // StageEditor中はプレイヤー更新を止める
         cameraController_->Update(player_->GetPosition());
     }
-	
-	if (slug_) {
-			slug_->Update(1.0f / 60.0f);
-	}
 
-	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+    if(slug_){
+        slug_->Update(1.0f / 60.0f);
+    }
+
+    player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
     // 虫の更新
     for(auto& bug : bugs_){
@@ -389,16 +387,16 @@ void GamePlayScene::Update() {
 		}
 
     // 水ブロックに触れている間は徐々に回復
-        bool isTouchingWater = false;
-        if(player_){
-            const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
-            for(const auto& waterBox : waterBlockColliders_){
-                if(CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)){
-                    isTouchingWater = true;
-                    break;
-                }
+    bool isTouchingWater = false;
+    if(player_){
+        const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+        for(const auto& waterBox : waterBlockColliders_){
+            if(CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)){
+                isTouchingWater = true;
+                break;
             }
         }
+    }
 
     if(isTouchingWater){
         player_->AddWater(15.0f / 60.0f);
@@ -424,38 +422,38 @@ void GamePlayScene::Update() {
 
     object3d_->Update();
 
-    wellObject_->Update();
-
+    if(wellObject_){
+        wellObject_->Update();
+    }
 }
 
-void GamePlayScene::Draw() {
-	skybox_->Draw(*camera_);
+void GamePlayScene::Draw(){
+    skybox_->Draw(*camera_);
 
-    if (wellObject_) {
+    if(wellObject_){
         wellObject_->Draw();
     }
 
     object3d_->Draw();
 
-	// --- 不透明オブジェクトの描画 ---
+    // --- 不透明オブジェクトの描画 ---
     stage_->Draw();
-	stageEditor_->Draw();
-	player_->Draw();
-	for (auto& bug : bugs_) {
-		bug->Draw();
-	}
+    stageEditor_->Draw();
+    player_->Draw();
+    for(auto& bug : bugs_){
+        bug->Draw();
+    }
 
-	if (slug_) {
-		slug_->Draw(); // 本体
-	}
+    if(slug_){
+        slug_->Draw();
+    }
 
- // 半透明 (引数にカメラが必要になったため修正)
-	if (slug_) {
-		slug_->DrawTransparent(*camera_);
-	}
+    // 半透明
+    if(slug_){
+        slug_->DrawTransparent(*camera_);
+    }
 
-
-	debugGrid_->Draw(*camera_);
+    debugGrid_->Draw(*camera_);
 
 #ifdef USE_IMGUI
     imGuiManager_->Draw();
