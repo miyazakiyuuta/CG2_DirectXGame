@@ -26,6 +26,8 @@
 #include "debug/DebugGrid.h"
 #include "math/Transform.h"
 #include "Tongue.h"
+// エネミーのインクルードを追加
+#include "EnemyManager.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
 
@@ -162,6 +164,14 @@ void GamePlayScene::Initialize(){
     slug_->SetBodyColor({ 0.8f, 0.2f, 0.2f, 1.0f });
     slug_->SetTrailColor({ 1.0f, 0.0f, 1.0f, 1.0f });
 
+     // --- エネミーマネージャーの初期化 ---
+	enemyManager_ = std::make_unique<EnemyManager>();
+	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
+
+	// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
+	enemyManager_->CreateEnemy(EnemyType::Chasing, {10.0f, 5.0f, 10.0f});   // 赤
+	enemyManager_->CreateEnemy(EnemyType::Shooting, {-10.0f, 5.0f, 15.0f}); // 青
+
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());
 }
@@ -176,9 +186,8 @@ void GamePlayScene::Update(){
     /*ImGui::ShowDemoWindow();*/
     Vector3 rotate = object3d_->GetRotate();
     ImGui::Begin("Window");
-#else
-    Vector3 rotate = object3d_->GetRotate();
-#endif
+
+
 
     camera_->DrawImGui();
 
@@ -219,6 +228,7 @@ void GamePlayScene::Update(){
 
     ImGui::End();
 
+#endif
     stageEditor_->Update();
 
     // Debug overlay to help diagnose warp issues (rendered inside ImGui frame)
@@ -342,6 +352,12 @@ void GamePlayScene::Update(){
         // 先にカメラを更新して、そのフレームの aim 状態と forward を Player が読めるようにする
         cameraController_->Update(player_->GetPosition());
         player_->Update();
+
+        
+        // 【追加】エネミーの更新
+		if (enemyManager_) {
+			enemyManager_->Update(1.0f / 60.0f, player_->GetPosition());
+		}
     } else{
         // StageEditor中はプレイヤー更新を止める
         cameraController_->Update(player_->GetPosition());
@@ -447,6 +463,9 @@ void GamePlayScene::Draw(){
     if(slug_){
         slug_->Draw();
     }
+
+    // 【追加】エネミーの描画
+    if(enemyManager_) enemyManager_->Draw();
 
     // 半透明
     if(slug_){
