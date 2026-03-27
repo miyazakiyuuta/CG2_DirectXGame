@@ -19,6 +19,31 @@ namespace{
 		}
 		return { v.x / len, v.y / len, v.z / len };
 	}
+
+	Vector3 CrossVec(const Vector3& a, const Vector3& b){
+		return {
+			a.y * b.z - a.z * b.y,
+			a.z * b.x - a.x * b.z,
+			a.x * b.y - a.y * b.x
+		};
+	}
+
+	float DotVec(const Vector3& a, const Vector3& b){
+		return a.x * b.x + a.y * b.y + a.z * b.z;
+	}
+
+	Vector3 ClosestPointOnOBB(const Vector3& point, const CollisionUtility::OBB& obb){
+		Vector3 d = point - obb.center;
+		Vector3 result = obb.center;
+
+		for(int i = 0; i < 3; ++i){
+			float dist = DotVec(d, obb.axis[i]);
+			dist = std::clamp(dist, -obb.halfLength[i], obb.halfLength[i]);
+			result += obb.axis[i] * dist;
+		}
+
+		return result;
+	}
 }
 
 void CameraController::Initialize(Camera* camera){
@@ -101,8 +126,8 @@ void CameraController::Update(const Vector3& target){
 	distance_ = std::clamp(distance_, clampMin, clampMax);
 
 	// 行き過ぎ防止
-	const float kMinPitch = -1.10f;
-	const float kMaxPitch = 1.10f;
+	const float kMinPitch = -3.14f / 2.0f;
+	const float kMaxPitch = 3.14f / 2.0f;
 	pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 
 	Vector3 focus = target;
@@ -143,46 +168,112 @@ void CameraController::Update(const Vector3& target){
 
 	if(obstacleColliders_){
 		Vector3 rayDir = {
-			desiredCameraPos.x - focus.x,
-			desiredCameraPos.y - focus.y,
-			desiredCameraPos.z - focus.z
+	desiredCameraPos.x - focus.x,
+	desiredCameraPos.y - focus.y,
+	desiredCameraPos.z - focus.z
 		};
 
 		float desiredLength = LengthVec(rayDir);
 		if(desiredLength > 0.0001f){
-			CollisionUtility::Ray ray;
-			ray.origin = focus;
-			ray.dir = NormalizeVecSafe(rayDir);
+			Vector3 dir = NormalizeVecSafe(rayDir);
+
+			Vector3 worldUp = { 0.0f, 1.0f, 0.0f };
+			Vector3 right = NormalizeVecSafe(CrossVec(worldUp, dir));
+			Vector3 up = NormalizeVecSafe(CrossVec(dir, right));
+
+			// 上下方向を少し強めに見る
+			const float horizontalProbe = 0.12f;
+			const float verticalProbe = 0.66f;
+
+			Vector3 rayOrigins[] = {
+				focus,
+				focus + up * verticalProbe,
+				focus - up * verticalProbe,
+				focus + right * horizontalProbe,
+				focus - right * horizontalProbe,
+			};
 
 			float nearestT = std::numeric_limits<float>::infinity();
 			bool hitSomething = false;
 
-			for(const auto& box : *obstacleColliders_){
-				CollisionUtility::RayHitResult hit =
-					CollisionUtility::RayIntersectOBB_Detailed(ray, box);
+			for(const auto& origin : rayOrigins){
+				CollisionUtility::Ray ray;
+				ray.origin = origin;
+				ray.dir = dir;
 
-				if(!hit.hit){
-					continue;
-				}
+				for(const auto& box : *obstacleColliders_){
+					CollisionUtility::RayHitResult hit =
+						CollisionUtility::RayIntersectOBB_Detailed(ray, box);
 
-				if(hit.t < 0.0f || hit.t > desiredLength){
-					continue;
-				}
+					if(!hit.hit){
+						continue;
+					}
 
-				if(hit.t < nearestT){
-					nearestT = hit.t;
-					hitSomething = true;
+					if(hit.t < 0.0f || hit.t > desiredLength){
+						continue;
+					}
+
+					if(hit.t < nearestT){
+						nearestT = hit.t;
+						hitSomething = true;
+					}
 				}
 			}
 
 			if(hitSomething){
-				float minAllowed = isAimMode_ ? -0.50f : minZoom_;
-				float safeT = std::max(minAllowed, nearestT - cameraCollisionMargin_);
+				float minAllowed = isAimMode_ ? -0.50f : cameraCollisionMinDistance_;
+
+				const float extraPushBack = 0.08f;
+				float safeT = std::max(minAllowed, nearestT - cameraCollisionMargin_ - extraPushBack);
+
 				finalCameraPos = {
-					focus.x + ray.dir.x * safeT,
-					focus.y + ray.dir.y * safeT,
-					focus.z + ray.dir.z * safeT
+					focus.x + dir.x * safeT,
+					focus.y + dir.y * safeT,
+					focus.z + dir.z * safeT
 				};
+			}
+		}
+	}
+
+	if(obstacleColliders_){
+		for(int iteration = 0; iteration < 3; ++iteration){
+			bool pushed = false;
+
+			for(const auto& box : *obstacleColliders_){
+				Vector3 closest = ClosestPointOnOBB(finalCameraPos, box);
+				Vector3 diff = finalCameraPos - closest;
+
+				float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+				float radiusSq = cameraBodyRadius_ * cameraBodyRadius_;
+
+				if(distSq >= radiusSq){
+					continue;
+				}
+
+				float dist = std::sqrt(std::max(distSq, 0.000001f));
+				Vector3 pushDir;
+
+				if(dist > 0.0001f){
+					pushDir = diff * (1.0f / dist);
+
+					// 上下方向を少し優先して逃がす
+					if(std::abs(pushDir.y) < 0.6f){
+						pushDir.y += (finalCameraPos.y < focus.y) ? 0.6f : -0.6f;
+						pushDir = NormalizeVecSafe(pushDir);
+					}
+				} else{
+					pushDir = (finalCameraPos.y < focus.y)
+						? Vector3{ 0.0f, 1.0f, 0.0f }
+					: Vector3{ 0.0f, -1.0f, 0.0f };
+				}
+
+				float penetration = cameraBodyRadius_ - dist + 0.01f;
+				finalCameraPos += pushDir * penetration;
+				pushed = true;
+			}
+
+			if(!pushed){
+				break;
 			}
 		}
 	}

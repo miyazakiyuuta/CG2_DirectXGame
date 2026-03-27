@@ -167,7 +167,7 @@ private:
 	float tongueHookSurfaceOffset_ = 0.05f;
 
 	float currentAlpha_ = 1.0f;
-	float minAlpha_ = 0.3f;
+	float minAlpha_ = 0.0f;
 
 	// この距離より近づくと透け始める
 	float fadeStartDistance_ = 10.0f;

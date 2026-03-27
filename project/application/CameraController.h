@@ -88,7 +88,7 @@ private:
 	float pitchSpeed_ = 0.02f;
 
 	// ズーム設定
-	float minZoom_ = 3.0f;
+	float minZoom_ = 1.0f;
 	float maxZoom_ = 30.0f;
 	float zoomStep_ = 0.02f;
 	float zoomEaseSpeed_ = 0.2f;
@@ -111,9 +111,13 @@ private:
 
 	// カメラ遮蔽対策
 	const std::vector<CollisionUtility::OBB>* obstacleColliders_ = nullptr;
-	float cameraCollisionMargin_ = 0.15f;
+	float cameraCollisionMargin_ = 0.50f;
 
 	bool isUse_ = true;
 
 	Vector3 currentForward_ = { 0.0f, 0.0f, 1.0f };
+
+	float cameraBodyRadius_ = 0.28f;
+
+	float cameraCollisionMinDistance_ = 0.15f;
 };
