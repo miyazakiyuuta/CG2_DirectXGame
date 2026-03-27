@@ -87,6 +87,7 @@ private:
         SingleCreate = 0,
         BatchCreate,
         SelectedEdit,
+        MultiSelected,
     };
 
     // スナップショット構造体（履歴保存用）
@@ -162,6 +163,9 @@ private:
     Vector3 createOrigin_ { 0.0f, 0.0f, 5.0f };
     int createReferenceIndex_ = 1; // 0=Camera Forward,1=World Origin,2=Selected,3=Custom
     Vector3 createOffset_ { 0.0f, 0.0f, 0.0f };
+    // 新規作成時の回転と拡縮
+    Vector3 createRotation_ { 0.0f, 0.0f, 0.0f };
+    Vector3 createScale_ { 1.0f, 1.0f, 1.0f };
 
     // 編集モード状態
     bool isEditMode_ = false;
@@ -169,8 +173,18 @@ private:
     bool liveEdit_ = true;
 
     EditorUIMode uiMode_ = EditorUIMode::SingleCreate;
-    // 選択中のオブジェクトID
+    // 選択中のオブジェクトID（単一選択互換）
     int selectedObjectId_ = -1;
+    // 複数選択サポート
+    std::vector<int> selectedObjectIds_;
+    // オブジェクトリスト表示カラムの切替
+    bool showFieldId_ = true;
+    bool showFieldModel_ = true;
+    bool showFieldPosition_ = false;
+    bool showFieldRotation_ = false;
+    bool showFieldScale_ = false;
+    bool showFieldBlockType_ = false;
+    bool showFieldColor_ = false;
     // 選択中オブジェクトのモデル編集用バッファ
     char selectedModelBuf_[256] = {};
 
@@ -184,6 +198,9 @@ private:
     std::chrono::steady_clock::time_point selectionLastBlinkTime_;
     float selectionBlinkInterval_ = 3.0f; // 秒
     bool selectionBlinkOn_ = true;
+    // 最後に反映した点滅アルファ（更新を間引くため）
+    float selectionLastAppliedAlpha_ = -1.0f;
+    std::chrono::steady_clock::time_point selectionLastAppliedTime_;
 
     // プレビュー表示用
     std::unique_ptr<Object3d> previewMarker_;
