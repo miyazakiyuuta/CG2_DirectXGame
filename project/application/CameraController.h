@@ -21,9 +21,13 @@ public:
 	void SetDistance(float distance){
 		distance_ = distance;
 		targetDistance_ = distance;
+		normalDistance_ = distance;
 	}
 
-	void SetHeight(float height){ height_ = height; }
+	void SetHeight(float height){
+		height_ = height;
+		normalHeight_ = height;
+	}
 
 	void SetYawSpeed(float speed){ yawSpeed_ = speed; }
 	void SetPitchSpeed(float speed){ pitchSpeed_ = speed; }
@@ -36,6 +40,7 @@ public:
 		}
 		targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
 		distance_ = std::clamp(distance_, minZoom_, maxZoom_);
+		normalDistance_ = std::clamp(normalDistance_, minZoom_, maxZoom_);
 	}
 
 	void SetZoomStep(float step){ zoomStep_ = step; }
@@ -58,6 +63,10 @@ public:
 
 	bool SetIsUse(bool isUse){ return isUse_ = isUse; }
 	bool GetIsUse() const{ return isUse_; }
+
+	// 右クリック中の一人称寄り視点
+	bool IsAimMode() const{ return isAimMode_; }
+	Vector3 GetForwardDirection() const;
 
 	void DrawImGui();
 
@@ -90,9 +99,21 @@ private:
 
 	Vector3 targetOffset_ = { 0.0f, 1.0f, 0.0f };
 
+	// 通常時のカメラ値
+	float normalDistance_ = 10.0f;
+	float normalHeight_ = 2.5f;
+
+	// 右クリック中の一人称寄りカメラ値
+	bool isAimMode_ = false;
+	float aimDistance_ = -0.20f;
+	float aimHeight_ = 0.10f;
+	Vector3 aimTargetOffset_ = { 0.0f, 1.35f, 0.0f };
+
 	// カメラ遮蔽対策
 	const std::vector<CollisionUtility::OBB>* obstacleColliders_ = nullptr;
 	float cameraCollisionMargin_ = 0.15f;
 
 	bool isUse_ = true;
+
+	Vector3 currentForward_ = { 0.0f, 0.0f, 1.0f };
 };

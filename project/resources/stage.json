@@ -3,6 +3,12 @@
   "objects": [
     {
       "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 1,
       "modelName": "Cube.obj",
       "position": {
@@ -23,6 +29,12 @@
     },
     {
       "blockId": 1,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 2,
       "modelName": "Cube.obj",
       "position": {
@@ -43,6 +55,12 @@
     },
     {
       "blockId": 2,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 3,
       "modelName": "",
       "position": {
@@ -63,6 +81,12 @@
     },
     {
       "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 4,
       "modelName": "Cube.obj",
       "position": {
@@ -83,6 +107,12 @@
     },
     {
       "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 5,
       "modelName": "Cube.obj",
       "position": {
@@ -103,6 +133,12 @@
     },
     {
       "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 6,
       "modelName": "Cube.obj",
       "position": {
@@ -123,6 +159,12 @@
     },
     {
       "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
       "id": 7,
       "modelName": "Cube.obj",
       "position": {
@@ -139,6 +181,32 @@
         "x": 1.0,
         "y": 6.0,
         "z": 10.0
+      }
+    },
+    {
+      "blockId": 1,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "id": 8,
+      "modelName": "Cube.obj",
+      "position": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 60.0,
+        "y": 0.009999999776482582,
+        "z": 60.0
       }
     }
   ]

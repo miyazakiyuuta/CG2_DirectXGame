@@ -29,6 +29,8 @@ void CameraController::Initialize(Camera* camera){
 	targetDistance_ = distance_;
 	distance_ = std::clamp(distance_, minZoom_, maxZoom_);
 	targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
+	normalDistance_ = distance_;
+	normalHeight_ = height_;
 
 	if(camera_){
 		camera_->SetRotate({ pitch_, yaw_, 0.0f });
@@ -37,10 +39,22 @@ void CameraController::Initialize(Camera* camera){
 	isUse_ = true;
 }
 
+Vector3 CameraController::GetForwardDirection() const{
+	Vector3 forward = {
+		std::sin(yaw_) * std::cos(pitch_),
+		-std::sin(pitch_),
+		std::cos(yaw_) * std::cos(pitch_)
+	};
+	return NormalizeVecSafe(forward);
+}
+
 void CameraController::Update(const Vector3& target){
 	if(!camera_ || !input_ || !isUse_){
 		return;
 	}
+
+	// 右クリック中は一人称寄りのエイム視点
+	isAimMode_ = input_->IsPressMouse(1);
 
 	// キーボード操作
 	if(input_->IsPushKey(DIK_LEFT)){
@@ -69,27 +83,42 @@ void CameraController::Update(const Vector3& target){
 	}
 #endif
 
-	// ホイール入力は目標距離だけを変える
-	const int wheel = input_->GetMouseWheel();
-	if(wheel != 0){
-		targetDistance_ -= static_cast<float>(wheel) * zoomStep_;
-		targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
+	// ホイール入力は通常時だけ反映
+	if(!isAimMode_){
+		const int wheel = input_->GetMouseWheel();
+		if(wheel != 0){
+			targetDistance_ -= static_cast<float>(wheel) * zoomStep_;
+			targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
+		}
 	}
 
 	// 現在距離を目標距離へなめらかに近づける
-	distance_ += (targetDistance_ - distance_) * zoomEaseSpeed_;
-	distance_ = std::clamp(distance_, minZoom_, maxZoom_);
+	const float desiredDistance = isAimMode_ ? aimDistance_ : targetDistance_;
+	distance_ += (desiredDistance - distance_) * zoomEaseSpeed_;
+
+	const float clampMin = isAimMode_ ? -0.50f : minZoom_;
+	const float clampMax = isAimMode_ ? 0.30f : maxZoom_;
+	distance_ = std::clamp(distance_, clampMin, clampMax);
 
 	// 行き過ぎ防止
 	const float kMinPitch = -1.10f;
 	const float kMaxPitch = 1.10f;
 	pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 
-	Vector3 focus = {
-		target.x + targetOffset_.x,
-		target.y + targetOffset_.y,
-		target.z + targetOffset_.z
-	};
+	Vector3 focus = target;
+	float usingHeight = height_;
+
+	if(isAimMode_){
+		focus.x += aimTargetOffset_.x;
+		focus.y += aimTargetOffset_.y;
+		focus.z += aimTargetOffset_.z;
+		usingHeight = aimHeight_;
+	} else{
+		focus.x += targetOffset_.x;
+		focus.y += targetOffset_.y;
+		focus.z += targetOffset_.z;
+		usingHeight = normalHeight_;
+	}
 
 	float cosPitch = std::cos(pitch_);
 	float sinPitch = std::sin(pitch_);
@@ -98,7 +127,7 @@ void CameraController::Update(const Vector3& target){
 
 	Vector3 offset = {
 		-distance_ * sinYaw * cosPitch,
-		 distance_ * sinPitch + height_,
+		 distance_ * sinPitch + usingHeight,
 		-distance_ * cosYaw * cosPitch
 	};
 
@@ -147,7 +176,8 @@ void CameraController::Update(const Vector3& target){
 			}
 
 			if(hitSomething){
-				float safeT = std::max(minZoom_, nearestT - cameraCollisionMargin_);
+				float minAllowed = isAimMode_ ? -0.50f : minZoom_;
+				float safeT = std::max(minAllowed, nearestT - cameraCollisionMargin_);
 				finalCameraPos = {
 					focus.x + ray.dir.x * safeT,
 					focus.y + ray.dir.y * safeT,
@@ -156,6 +186,13 @@ void CameraController::Update(const Vector3& target){
 			}
 		}
 	}
+
+	currentForward_ = {
+		focus.x - finalCameraPos.x,
+		focus.y - finalCameraPos.y,
+		focus.z - finalCameraPos.z
+	};
+	currentForward_ = NormalizeVecSafe(currentForward_);
 
 	camera_->SetTranslate(finalCameraPos);
 	camera_->SetRotate({ pitch_, yaw_, 0.0f });
@@ -178,6 +215,13 @@ void CameraController::DrawImGui(){
 
 		ImGui::Separator();
 		ImGui::SliderFloat("Camera Collision Margin", &cameraCollisionMargin_, 0.01f, 1.0f, "%.2f");
+
+		ImGui::Separator();
+		ImGui::Text("Aim Camera");
+		ImGui::Text("Hold Right Mouse Button");
+		ImGui::SliderFloat("Aim Distance", &aimDistance_, -1.0f, 1.0f, "%.2f");
+		ImGui::SliderFloat("Aim Height", &aimHeight_, -1.0f, 1.0f, "%.2f");
+		ImGui::DragFloat3("Aim Target Offset", &aimTargetOffset_.x, 0.01f);
 
 		if(minZoom_ > maxZoom_){
 			std::swap(minZoom_, maxZoom_);
