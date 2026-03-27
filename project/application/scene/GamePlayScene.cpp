@@ -17,8 +17,11 @@
 #include "effect/ParticleEmitter.h"
 #include "3d/Skybox.h"
 #include "debug/DebugGrid.h"
+#include "debug/DebugRenderer.h"
 
+#ifdef USE_IMGUI
 #include <imgui.h>
+#endif
 #include <numbers>
 
 void GamePlayScene::Initialize() {
@@ -72,14 +75,19 @@ void GamePlayScene::Initialize() {
 	debugGrid_->Initialize(DirectXCommon::GetInstance());
 	debugGrid_->SetPosition({ 0.0f,0.0f,0.0f });
 	debugGrid_->SetColor({ 0.0f,0.0f,0.0f,1.0f });
+
+	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
+
 }
 
 void GamePlayScene::Finalize() {
 }
 
 void GamePlayScene::Update() {
-	imGuiManager_->Begin();
 #ifdef USE_IMGUI
+
+	imGuiManager_->Begin();
+	
 	// デモウィンドウ(使い方紹介)
 	ImGui::ShowDemoWindow();
 
@@ -117,6 +125,10 @@ void GamePlayScene::Update() {
 
 	object3d_->Update();
 
+	DebugRenderer::GetInstance()->AddGrid({}, 1.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddBox2D({}, { 100.0f,100.0f }, { 0.0f,1.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddBox2D({ 100.0f,100.0f }, { 100.0f,100.0f }, { 1.0f,0.0f,0.0f,1.0f });
+
 }
 
 void GamePlayScene::Draw() {
@@ -124,9 +136,13 @@ void GamePlayScene::Draw() {
 
 	object3d_->Draw();
 
-	debugGrid_->Draw(*camera_);
+	//debugGrid_->Draw(*camera_);
 
+	DebugRenderer::GetInstance()->RenderAll(*camera_);
+
+#ifdef USE_IMGUI
 	imGuiManager_->Draw();
+#endif
 }
 
 GamePlayScene::GamePlayScene() = default;
