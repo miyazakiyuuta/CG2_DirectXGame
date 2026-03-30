@@ -30,6 +30,7 @@
 #include "EnemyManager.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
+#include "debug/DebugRenderer.h"
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -441,6 +442,9 @@ void GamePlayScene::Update(){
     if(wellObject_){
         wellObject_->Update();
     }
+	//DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,0.0f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
+
 }
 
 void GamePlayScene::Draw(){
@@ -476,6 +480,7 @@ void GamePlayScene::Draw(){
 
 #ifdef USE_IMGUI
     imGuiManager_->Draw();
+#endif
 #endif
 }
 
