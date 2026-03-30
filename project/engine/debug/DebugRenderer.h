@@ -18,6 +18,8 @@ public:
 	void AddSphere(const Vector3& center, float radius, const Vector4& color = { 1.0f,1.0f,1.0f,1.0f });
 	void AddLine(const Vector3& start, const Vector3& end, const Vector4& color = { 0.5f,0.5f,0.5f,1.0f });
 	void AddGrid(const Vector3& pos, float gridSize = 10.0f, uint32_t subdivision = 10, const Vector4& color = { 0.5f,0.5f,0.5f,1.0f });
+	void AddBox3D(const Vector3& center, const Vector3& size, const Vector4& color = { 1.0f,1.0f,1.0f,1.0f });
+	void AddBox3DSolid(const Vector3& center, const Vector3& size, const Vector4& color = { 1.0f,1.0f,1.0f,1.0f });
 	void AddBox2D(const Vector2& leftTop, const Vector2& size, const Vector4& color = { 1.0f,1.0f,1.0f,1.0f });
 
 	void RenderAll(const Camera& camera);
@@ -34,12 +36,19 @@ private:
 		struct TransformationMatrix {
 			Matrix4x4 matWVP;
 			Vector4 color;
+			float padding[44];
 		} data[128];
 	};
 
 	struct SphereRequest {
 		Vector3 center;
 		float radius;
+		Vector4 color;
+	};
+
+	struct Box3DSolidRequest {
+		Vector3 center;
+		Vector3 size;
 		Vector4 color;
 	};
 
@@ -58,6 +67,7 @@ private:
 	};
 
 	void CreateSphereMesh();
+	void CreateBox3DMesh();
 	void CreateBox2DMesh();
 
 private:
@@ -68,6 +78,8 @@ private:
 	// 固定形状
 	std::vector<SphereRequest> sphereRequests_;
 	Mesh sphereMesh_;
+	std::vector<Box3DSolidRequest> box3DSolidRequests_;
+	Mesh box3DMesh_;
 	std::vector<Box2DRequest> box2DRequests_;
 	Mesh box2DMesh_;
 	// 動的形状
@@ -81,6 +93,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pso3DLine_;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> pso3DSolid_;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pso2DSolid_;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> constBuffer_;

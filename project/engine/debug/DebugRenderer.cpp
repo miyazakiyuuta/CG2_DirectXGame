@@ -82,10 +82,16 @@ void DebugRenderer::Initialize(DirectXCommon* dxCommon) {
 
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	psoDesc.DepthStencilState.DepthEnable = TRUE; // 3Dなので深度テストを有効にする
+	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso3DSolid_));
+
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	psoDesc.DepthStencilState.DepthEnable = FALSE; // 2Dは常に前面
 	device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso2DSolid_));
 
 	CreateSphereMesh();
+	CreateBox3DMesh();
 	CreateBox2DMesh();
 
 	lineBuffer_ = dxCommon_->CreateBufferResource(sizeof(Vertex) * kMaxLineVertices);
@@ -113,11 +119,39 @@ void DebugRenderer::AddGrid(const Vector3& center, float gridSize, uint32_t subd
 	const float kStep = kGridSize / kSubdivision;
 
 	// X軸方向の線(Z軸と平行な線)
-	for (int i = -kSubdivision; i <= (int)kSubdivision; ++i) {
+	for (int i = -(int)kSubdivision; i <= (int)kSubdivision; ++i) {
 		float pos = i * kStep;
 		AddLine(center + Vector3{ pos,0,-kGridSize }, center + Vector3{ pos,0,kGridSize }, color);
 		AddLine(center + Vector3{ -kGridSize,0, pos }, center + Vector3{ kGridSize,0, pos }, color);
 	}
+}
+
+void DebugRenderer::AddBox3D(const Vector3& center, const Vector3& size, const Vector4& color) {
+	// 8つの頂点の座標を計算
+	Vector3 min = { center.x - size.x / 2.0f, center.y - size.y / 2.0f, center.z - size.z / 2.0f };
+	Vector3 max = { center.x + size.x / 2.0f, center.y + size.y / 2.0f, center.z + size.z / 2.0f };
+
+	// 底面の4本
+	AddLine({ min.x, min.y, min.z }, { max.x, min.y, min.z }, color);
+	AddLine({ max.x, min.y, min.z }, { max.x, min.y, max.z }, color);
+	AddLine({ max.x, min.y, max.z }, { min.x, min.y, max.z }, color);
+	AddLine({ min.x, min.y, max.z }, { min.x, min.y, min.z }, color);
+
+	// 天面の4本
+	AddLine({ min.x, max.y, min.z }, { max.x, max.y, min.z }, color);
+	AddLine({ max.x, max.y, min.z }, { max.x, max.y, max.z }, color);
+	AddLine({ max.x, max.y, max.z }, { min.x, max.y, max.z }, color);
+	AddLine({ min.x, max.y, max.z }, { min.x, max.y, min.z }, color);
+
+	// 柱の4本
+	AddLine({ min.x, min.y, min.z }, { min.x, max.y, min.z }, color);
+	AddLine({ max.x, min.y, min.z }, { max.x, max.y, min.z }, color);
+	AddLine({ max.x, min.y, max.z }, { max.x, max.y, max.z }, color);
+	AddLine({ min.x, min.y, max.z }, { min.x, max.y, max.z }, color);
+}
+
+void DebugRenderer::AddBox3DSolid(const Vector3& center, const Vector3& size, const Vector4& color) {
+	box3DSolidRequests_.push_back({ center,size,color });
 }
 
 void DebugRenderer::AddBox2D(const Vector2& leftTop, const Vector2& size, const Vector4& color) {
@@ -152,7 +186,9 @@ void DebugRenderer::RenderAll(const Camera& camera) {
 			mappedData_->data[usedCount].matWVP = matWorld * camera.GetViewProjectionMatrix();
 			mappedData_->data[usedCount].color = request.color;
 
-			commandList->DrawIndexedInstanced(sphereMesh_.indexCount, 1, 0, 0, usedCount);
+			D3D12_GPU_VIRTUAL_ADDRESS cbvAddr = constBuffer_->GetGPUVirtualAddress() + (sizeof(ConstBufferData::TransformationMatrix) * usedCount);
+			commandList->SetGraphicsRootConstantBufferView(0, cbvAddr);
+			commandList->DrawIndexedInstanced(sphereMesh_.indexCount, 1, 0, 0, 0);
 
 			usedCount++;
 		}
@@ -173,11 +209,36 @@ void DebugRenderer::RenderAll(const Camera& camera) {
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 			commandList->IASetVertexBuffers(0, 1, &lineBufferView_);
 
-			commandList->DrawInstanced((UINT)lineVertices_.size(), 1, 0, usedCount);
+			D3D12_GPU_VIRTUAL_ADDRESS cbvAddr = constBuffer_->GetGPUVirtualAddress() + (sizeof(ConstBufferData::TransformationMatrix) * usedCount);
+			commandList->SetGraphicsRootConstantBufferView(0, cbvAddr);
+			commandList->DrawInstanced((UINT)lineVertices_.size(), 1, 0, 0);
 
 			usedCount++;
 		}
 		lineVertices_.clear();
+	}
+
+	if (!box3DSolidRequests_.empty()) {
+		commandList->SetPipelineState(pso3DSolid_.Get());
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		commandList->IASetVertexBuffers(0, 1, &box3DMesh_.vertexBufferView);
+		commandList->IASetIndexBuffer(&box3DMesh_.indexBufferView);
+
+		for (const auto& request : box3DSolidRequests_) {
+			if (usedCount >= 128) break;
+
+			Matrix4x4 matWorld = Matrix4x4::Scale(request.size) * Matrix4x4::Translate(request.center);
+			mappedData_->data[usedCount].matWVP = matWorld * camera.GetViewProjectionMatrix();
+			mappedData_->data[usedCount].color = request.color;
+
+			// 正解の「256バイトずらし」アドレスをセット
+			D3D12_GPU_VIRTUAL_ADDRESS cbvAddr = constBuffer_->GetGPUVirtualAddress() + (sizeof(ConstBufferData::TransformationMatrix) * usedCount);
+			commandList->SetGraphicsRootConstantBufferView(0, cbvAddr);
+
+			commandList->DrawIndexedInstanced(box3DMesh_.indexCount, 1, 0, 0, 0);
+			usedCount++;
+		}
+		box3DSolidRequests_.clear();
 	}
 
 	if (!box2DRequests_.empty()) {
@@ -207,7 +268,9 @@ void DebugRenderer::RenderAll(const Camera& camera) {
 			mappedData_->data[usedCount].matWVP = matWorld * matProjection;
 			mappedData_->data[usedCount].color = request.color;
 
-			commandList->DrawInstanced(box2DMesh_.indexCount, 1, 0, usedCount);
+			D3D12_GPU_VIRTUAL_ADDRESS cbvAddr = constBuffer_->GetGPUVirtualAddress() + (sizeof(ConstBufferData::TransformationMatrix) * usedCount);
+			commandList->SetGraphicsRootConstantBufferView(0, cbvAddr);
+			commandList->DrawInstanced(box2DMesh_.indexCount, 1, 0, 0);
 
 			usedCount++;
 		}
@@ -229,6 +292,8 @@ void DebugRenderer::CreateSphereMesh() {
 			v.pos.x = std::sin(theta) * std::cos(phi);
 			v.pos.y = std::cos(theta);
 			v.pos.z = std::sin(theta) * std::sin(phi);
+			v.color = { 1.0f,1.0f,1.0f,1.0f };
+			v.uv = { 0.0f,0.0f };
 			vertices.push_back(v);
 		}
 	}
@@ -267,6 +332,44 @@ void DebugRenderer::CreateSphereMesh() {
 	sphereMesh_.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 	sphereMesh_.indexBufferView.SizeInBytes = sizeof(uint32_t) * (uint32_t)indices.size();
 
+}
+
+void DebugRenderer::CreateBox3DMesh() {
+	// 立方体の8頂点 (1x1x1)
+	std::vector<Vertex> vertices = {
+		{{-0.5f,-0.5f,-0.5f}, {0,0}, {1,1,1,1}}, {{-0.5f, 0.5f,-0.5f}, {0,0}, {1,1,1,1}},
+		{{ 0.5f, 0.5f,-0.5f}, {0,0}, {1,1,1,1}}, {{ 0.5f,-0.5f,-0.5f}, {0,0}, {1,1,1,1}},
+		{{-0.5f,-0.5f, 0.5f}, {0,0}, {1,1,1,1}}, {{-0.5f, 0.5f, 0.5f}, {0,0}, {1,1,1,1}},
+		{{ 0.5f, 0.5f, 0.5f}, {0,0}, {1,1,1,1}}, {{ 0.5f,-0.5f, 0.5f}, {0,0}, {1,1,1,1}},
+	};
+	// インデックス (三角形リスト)
+	std::vector<uint32_t> indices = {
+		0,1,2, 0,2,3, 4,6,5, 4,7,6, 0,5,1, 0,4,5,
+		1,5,6, 1,6,2, 2,6,7, 2,7,3, 3,7,4, 3,4,0
+	};
+	box3DMesh_.indexCount = (uint32_t)indices.size();
+
+	// 頂点バッファの生成
+	box3DMesh_.vertexBufferResource = dxCommon_->CreateBufferResource(sizeof(Vertex) * vertices.size());
+	Vertex* vertexData = nullptr;
+	box3DMesh_.vertexBufferResource->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
+	std::memcpy(vertexData, vertices.data(), sizeof(Vertex) * vertices.size());
+	box3DMesh_.vertexBufferResource->Unmap(0, nullptr);
+
+	box3DMesh_.vertexBufferView.BufferLocation = box3DMesh_.vertexBufferResource->GetGPUVirtualAddress();
+	box3DMesh_.vertexBufferView.SizeInBytes = sizeof(Vertex) * (uint32_t)vertices.size();
+	box3DMesh_.vertexBufferView.StrideInBytes = sizeof(Vertex);
+
+	// インデックスバッファ生成
+	box3DMesh_.indexBufferResource = dxCommon_->CreateBufferResource(sizeof(uint32_t) * indices.size());
+	uint32_t* indexData = nullptr;
+	box3DMesh_.indexBufferResource->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+	std::memcpy(indexData, indices.data(), sizeof(uint32_t) * indices.size());
+	box3DMesh_.indexBufferResource->Unmap(0, nullptr);
+
+	box3DMesh_.indexBufferView.BufferLocation = box3DMesh_.indexBufferResource->GetGPUVirtualAddress();
+	box3DMesh_.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+	box3DMesh_.indexBufferView.SizeInBytes = sizeof(uint32_t) * (uint32_t)indices.size();
 }
 
 void DebugRenderer::CreateBox2DMesh() {
