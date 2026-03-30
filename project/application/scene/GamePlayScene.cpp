@@ -175,6 +175,8 @@ void GamePlayScene::Initialize(){
 
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());
+
+	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 }
 
 void GamePlayScene::Finalize(){
@@ -443,7 +445,7 @@ void GamePlayScene::Update(){
         wellObject_->Update();
     }
 	//DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
-	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,0.0f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,1.5f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
 
 }
 
@@ -478,10 +480,12 @@ void GamePlayScene::Draw(){
 
     debugGrid_->Draw(*camera_);
 
+    DebugRenderer::GetInstance()->RenderAll(*camera_);
+
 #ifdef USE_IMGUI
     imGuiManager_->Draw();
 #endif
-#endif
+
 }
 
 GamePlayScene::GamePlayScene() = default;
