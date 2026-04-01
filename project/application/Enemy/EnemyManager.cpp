@@ -3,6 +3,7 @@
 #include "BaseEnemy.h"
 #include "ChasingEnemy.h"
 #include "ShootingEnemy.h"
+#include "SentinelEnemy.h"
 
 EnemyManager::EnemyManager() = default;
 EnemyManager::~EnemyManager() = default;
@@ -31,10 +32,14 @@ void EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos) {
 	if (!common_)
 		return;
 	std::unique_ptr<BaseEnemy> e;
-	if (type == EnemyType::Chasing)
+
+	if (type == EnemyType::Chasing) {
 		e = std::make_unique<ChasingEnemy>();
-	else
+	} else if (type == EnemyType::Shooting) {
 		e = std::make_unique<ShootingEnemy>();
+	} else if (type == EnemyType::Sentinel) {
+		e = std::make_unique<SentinelEnemy>(); // 正しく生成するように修正
+	}
 
 	if (e) {
 		e->Initialize(common_, camera_, pos);

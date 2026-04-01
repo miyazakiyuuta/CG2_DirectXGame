@@ -27,7 +27,7 @@
 #include "math/Transform.h"
 #include "Tongue.h"
 // エネミーのインクルードを追加
-#include "EnemyManager.h"
+#include "Enemy/EnemyManager.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
 #include "debug/DebugRenderer.h"
@@ -38,6 +38,7 @@
 #endif
 #include "utility/Logger.h"
 #include <sstream>
+#include <Enemy/Bug.h>
 
 void GamePlayScene::Initialize(){
     camera_ = std::make_unique<Camera>();
@@ -172,6 +173,7 @@ void GamePlayScene::Initialize(){
 	// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
 	enemyManager_->CreateEnemy(EnemyType::Chasing, {10.0f, 5.0f, 10.0f});   // 赤
 	enemyManager_->CreateEnemy(EnemyType::Shooting, {-10.0f, 5.0f, 15.0f}); // 青
+	enemyManager_->CreateEnemy(EnemyType::Sentinel, {0.0f, 5.0f, 0.0f});
 
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());

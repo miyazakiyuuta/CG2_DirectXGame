@@ -1,6 +1,6 @@
 #pragma once
-#include "BaseEnemy.h"
-#include "EnemyBullet.h"
+#include "Enemy/BaseEnemy.h"
+#include "Enemy/EnemyBullet.h"
 #include <list>
 
 class ShootingEnemy : public BaseEnemy {
