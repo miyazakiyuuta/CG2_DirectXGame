@@ -27,7 +27,7 @@
 #include "math/Transform.h"
 #include "Tongue.h"
 // エネミーのインクルードを追加
-#include "Enemy/EnemyManager.h"
+#include "Enemy/Manager/EnemyManager.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
 #include "debug/DebugRenderer.h"
@@ -38,7 +38,7 @@
 #endif
 #include "utility/Logger.h"
 #include <sstream>
-#include <Enemy/Bug.h>
+
 
 void GamePlayScene::Initialize(){
     camera_ = std::make_unique<Camera>();
