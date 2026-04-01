@@ -1,5 +1,5 @@
 #pragma once
-#include "Enemy/BaseEnemy.h"
+#include "../Core/BaseEnemy.h"
 
 /// <summary>
 /// センチネル・エネミー：プレイヤーが近づくと素早く逃げ、見失うと元の場所に戻る
