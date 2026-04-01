@@ -5,6 +5,7 @@
 
 #include "Bug.h"
 #include "Slug.h" // ���ꂪ�G���[�Ȃ��ǂݍ��߂�K�v������܂�
+#include "Reticle.h"
 
 #include <cstdint>
 #include <d3d12.h>
@@ -64,4 +65,6 @@ private:
 	std::unique_ptr<DebugGrid> debugGrid_;
 
 	CollisionUtility::Cylinder wellCylinder_ = {};
+
+	std::unique_ptr<Reticle> reticle_ = nullptr;
 };

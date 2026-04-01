@@ -96,6 +96,15 @@ public:
 	bool TryShotTongue(const Vector3& direction);
 	void SetYawFromCamera(float cameraYaw);
 
+	void SetAimTargetPoint(const Vector3& point){
+		aimTargetPoint_ = point;
+		hasAimTargetPoint_ = true;
+	}
+
+	void ClearAimTargetPoint(){
+		hasAimTargetPoint_ = false;
+	}
+
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
@@ -220,4 +229,7 @@ private:
 
 	// Per-frame delta applied when standing on a moving platform
 	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};
+
+	Vector3 aimTargetPoint_ = { 0.0f, 0.0f, 0.0f };
+	bool hasAimTargetPoint_ = false;
 };

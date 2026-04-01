@@ -51,6 +51,8 @@ public:
 	bool CanHitBug() const{ return state_ == State::Extending; }
 	CollisionUtility::Sphere GetHitSphere() const;
 
+	Vector3 GetMouthWorldPositionPublic() const{ return GetMouthWorldPosition(); }
+
 private:
 	void UpdateIdle();
 	void UpdateExtending(float deltaTime);
@@ -73,8 +75,8 @@ private:
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 
-	float speed_ = 35.0f;
-	float maxDistance_ = 20.0f;
+	float speed_ = 65.0f;
+	float maxDistance_ = 30.0f;
 	float returnSpeed_ = 45.0f;
 
 	float currentDistance_ = 0.0f;

@@ -492,7 +492,24 @@ void Player::Update(){
 	}
 
 	if(input_->IsTriggerMouse(0)){
-		TryShotTongue(cameraForward);
+		Vector3 shotDirection = cameraForward;
+
+		if(hasAimTargetPoint_ && tongue_){
+			Vector3 mouthPos = tongue_->GetMouthWorldPositionPublic();
+			Vector3 toAim = aimTargetPoint_ - mouthPos;
+
+			float lenSq = toAim.x * toAim.x + toAim.y * toAim.y + toAim.z * toAim.z;
+			if(lenSq > 1e-8f){
+				float invLen = 1.0f / std::sqrt(lenSq);
+				shotDirection = {
+					toAim.x * invLen,
+					toAim.y * invLen,
+					toAim.z * invLen
+				};
+			}
+		}
+
+		TryShotTongue(shotDirection);
 	}
 
 	if(tongue_){

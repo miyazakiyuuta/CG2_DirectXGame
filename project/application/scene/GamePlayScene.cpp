@@ -152,6 +152,15 @@ void GamePlayScene::Initialize(){
     player_->SetCameraController(cameraController_.get());
     player_->SetMovementLimitCylinder(&wellCylinder_);
 
+    reticle_ = std::make_unique<Reticle>();
+    reticle_->Initialize(
+        SpriteCommon::GetInstance(),
+        camera_.get(),
+        cameraController_.get(),
+        player_.get(),
+        &stageBlockColliders_
+    );
+
     // StageEditor は Stage を受け取って編集するだけ
     stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
     stageEditor_->Initialize("Cube.obj");
@@ -316,6 +325,19 @@ void GamePlayScene::Update(){
     waterBlockColliders_ = stage_->GetWaterBlockOBBs();
     player_->SetBlockColliders(&stageBlockColliders_);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
+    if(reticle_){
+        reticle_->Update();
+
+        if(player_){
+            if(reticle_->HasAimTargetPoint()){
+                player_->SetAimTargetPoint(reticle_->GetAimTargetPoint());
+            } else{
+                player_->ClearAimTargetPoint();
+            }
+        }
+    }
+
+
 
     // Warp detection: run before player update so teleport is immediate in gameplay mode
     if(player_){
@@ -492,6 +514,11 @@ void GamePlayScene::Draw(){
     debugGrid_->Draw(*camera_);
 
     DebugRenderer::GetInstance()->RenderAll(*camera_);
+
+    SpriteCommon::GetInstance()->CommonDrawSetting();
+    if(reticle_){
+        reticle_->Draw();
+    }
 
 #ifdef USE_IMGUI
     imGuiManager_->Draw();

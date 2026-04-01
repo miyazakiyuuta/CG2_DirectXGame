@@ -80,9 +80,11 @@ void Tongue::Shot(const Vector3& direction){
 
 	shotDirection_ = Normalize(direction);
 
-	Vector3 playerPos = owner_->GetPosition();
-	shotStartPosition_ = playerPos + shotDirection_ * localOffset_.z;
-	shotStartPosition_.y += localOffset_.y;
+	Vector3 mouthPos = GetMouthWorldPosition();
+
+	// 口元から少しだけ前に出して開始
+	const float kShotStartForwardOffset = 0.15f;
+	shotStartPosition_ = mouthPos + shotDirection_ * kShotStartForwardOffset;
 
 	worldPosition_ = shotStartPosition_;
 	prevWorldPosition_ = worldPosition_;
