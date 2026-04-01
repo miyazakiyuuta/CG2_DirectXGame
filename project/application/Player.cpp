@@ -2,9 +2,9 @@
 
 #include "3d/Camera.h"
 #include "3d/Object3dCommon.h"
-#include "BaseEnemy.h"
+#include "Enemy/Core/BaseEnemy.h"
 #include "CameraController.h"
-#include "EnemyManager.h"
+#include "Enemy/Manager/EnemyManager.h"
 #include "utility/Logger.h"
 #include <algorithm>
 #include <cmath>
