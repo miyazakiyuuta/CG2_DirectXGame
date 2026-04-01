@@ -81,5 +81,5 @@ private:
 	Vector3 aimTargetPoint_ = { 0.0f, 0.0f, 0.0f };
 	bool hasAimTargetPoint_ = false;
 
-	float fallbackDistance_ = 200.0f;
+	float aimMaxDistance_ = 50.0f;
 };

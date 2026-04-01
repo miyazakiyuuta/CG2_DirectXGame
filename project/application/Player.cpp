@@ -213,6 +213,25 @@ void Player::ResolveMovementLimitCylinder()
     velocity_.z = 0.0f;
 }
 
+bool Player::CanStartTongueShot() const{
+    if(!tongue_){
+        return false;
+    }
+
+    // すでに舌が発射状態なら不可
+    // Idle 以外は Extending / Hooked / Returning を含めて全部禁止
+    if(tongue_->GetState() != Tongue::State::Idle){
+        return false;
+    }
+
+
+
+    // 舌で引っ張られている間や壁張り付き中も止めたいならここで追加できる
+     if(moveState_ == MovementState::TonguePulling || moveState_ == MovementState::WallClinging){ return false; }
+
+    return true;
+}
+
 void Player::SetCamera(Camera* camera)
 {
     camera_ = camera;
@@ -285,17 +304,12 @@ bool Player::ConsumeWater(float amount)
     return true;
 }
 
-bool Player::TryShotTongue(const Vector3& direction)
-{
-    if (!tongue_) {
+bool Player::TryShotTongue(const Vector3& direction){
+    if(!CanStartTongueShot()){
         return false;
     }
 
-    if (tongue_->IsBusy()) {
-        return false;
-    }
-
-    if (!ConsumeWater(tongueWaterCost_)) {
+    if(!ConsumeWater(tongueWaterCost_)){
         return false;
     }
 
@@ -616,7 +630,7 @@ void Player::Update()
                 // If tongue is idle, animate it sweeping for visual feedback
                 if (!tongue_->IsBusy()) {
                     // Use beamHalfAngle_ from Player and a slightly longer duration for a slower sweep
-                    tongue_->ShotSweep(beamDir, beamHalfAngleDeg_, 0.6f);
+                    tongue_->ShotSweep(beamDir, beamHalfAngleDeg_);
                 }
             }
         }

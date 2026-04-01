@@ -135,7 +135,7 @@ CollisionUtility::RayHitResult Reticle::CastCameraAimRay() const{
 		CollisionUtility::RayHitResult hit =
 			CollisionUtility::RayIntersectOBB_Detailed(ray, obb);
 
-		if(!hit.hit || hit.t < 0.0f){
+		if(!hit.hit || hit.t < 0.0f || hit.t > aimMaxDistance_){
 			continue;
 		}
 
@@ -199,10 +199,10 @@ void Reticle::UpdateAimTarget(){
 
 	CollisionUtility::RayHitResult cameraHit = CastCameraAimRay();
 
-	Vector3 fallbackTarget =
-		camera_->GetTranslate() + cameraController_->GetForwardDirection() * fallbackDistance_;
+	Vector3 maxDistanceTarget =
+		camera_->GetTranslate() + cameraController_->GetForwardDirection() * aimMaxDistance_;
 
-	Vector3 cameraTargetPoint = cameraHit.hit ? cameraHit.point : fallbackTarget;
+	Vector3 cameraTargetPoint = cameraHit.hit ? cameraHit.point : maxDistanceTarget;
 
 	CollisionUtility::RayHitResult playerHit = CastPlayerAimRay(cameraTargetPoint);
 

@@ -33,7 +33,7 @@ public:
 	void Draw();
 
 	void Shot(const Vector3& direction);
-	void ShotSweep(const Vector3& direction, float halfAngleDeg, float duration);
+	void ShotSweep(const Vector3& direction, float halfAngleDeg);
 	void Reset();
 	void StartReturn();
 	void SetHooked(const Vector3& worldPos);
@@ -76,17 +76,21 @@ private:
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 
-	float speed_ = 65.0f;
+	
 	float maxDistance_ = 30.0f;
-	float returnSpeed_ = 45.0f;
 
-	// スイープ用のオリジナル速度
-	float originalSpeed_ = 35.0f;
-	float originalReturnSpeed_ = 45.0f;
+	// 通常ショット用
+	float normalExtendSpeed_ = 120.0f;
+	float normalReturnSpeed_ = 90.0f;
 
-	// スイープ用の速度倍率（これを掛けると速くなり、スイープ中の見た目がより顕著になる）
-	float launchSpeedMultiplier_ = 2.0f; 
-	float returnSpeedMultiplier_ = 2.0f; 
+	// 振る攻撃用
+	float sweepExtendSpeed_ = 180.0f;
+	float sweepReturnSpeed_ = 180.0f;
+	float sweepArcDuration_ = 0.40f;
+
+	// その時点で実際に使う速度
+	float currentExtendSpeed_ = 120.0f;
+	float currentReturnSpeed_ = 90.0f;
 
 	float currentDistance_ = 0.0f;
 

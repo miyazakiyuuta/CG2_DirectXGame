@@ -137,6 +137,8 @@ private:
 
 	void ResolveMovementLimitCylinder();
 
+	bool CanStartTongueShot() const;
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;

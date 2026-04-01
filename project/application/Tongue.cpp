@@ -84,13 +84,14 @@ void Tongue::Shot(const Vector3& direction){
 		return;
 	}
 
-    shotDirection_ = Normalize(direction);
-        // スイープ攻撃のフラグをリセット
+	currentExtendSpeed_ = normalExtendSpeed_;
+	currentReturnSpeed_ = normalReturnSpeed_;
+
+	shotDirection_ = Normalize(direction);
 	sweeping_ = false;
 
 	Vector3 mouthPos = GetMouthWorldPosition();
 
-	// 口元から少しだけ前に出して開始
 	const float kShotStartForwardOffset = 0.15f;
 	shotStartPosition_ = mouthPos + shotDirection_ * kShotStartForwardOffset;
 
@@ -105,29 +106,29 @@ void Tongue::Shot(const Vector3& direction){
 	object_->SetRotate({ 0.0f, tongueYaw, 0.0f });
 }
 
-void Tongue::ShotSweep(const Vector3& direction, float halfAngleDeg, float duration){
+void Tongue::ShotSweep(const Vector3& direction, float halfAngleDeg){
 	if(!owner_ || state_ != State::Idle){
 		return;
 	}
 
-    // スイープ攻撃の基本方向は、入力されたdirectionの水平成分（yを0にしたもの）を正規化したもの
-    baseDirection_ = direction;
+	baseDirection_ = direction;
 	baseDirection_.y = 0.0f;
 	baseDirection_ = Normalize(baseDirection_);
+
 	sweepHalfAngleRad_ = halfAngleDeg * (3.14159265f / 180.0f);
 	sweepLaunchDirection_ = Normalize(RotateY(baseDirection_, -sweepHalfAngleRad_));
-	sweepDuration_ = std::max(0.001f, duration);
+
+	// duration が正なら引数優先、そうでなければ既定値
+	sweepDuration_ = sweepArcDuration_;
 	sweepTimer_ = 0.0f;
 	sweeping_ = true;
 
-	// スイープ攻撃中は、舌の伸びる速度と戻る速度をそれぞれ倍率分だけ速くする
-	originalSpeed_ = speed_;
-	originalReturnSpeed_ = returnSpeed_;
-	speed_ = originalSpeed_ * launchSpeedMultiplier_;
-	returnSpeed_ = originalReturnSpeed_ * returnSpeedMultiplier_;
+	// 振る攻撃専用速度を使う
+	currentExtendSpeed_ = sweepExtendSpeed_;
+	currentReturnSpeed_ = sweepReturnSpeed_;
+
 	shotDirection_ = baseDirection_;
 
-    // 口元からsweepLaunchDirection_に沿ってlocalOffset_.zだけ伸びた位置を、スイープ攻撃の開始位置とする
 	Vector3 mouth = GetMouthWorldPosition();
 	shotStartPosition_ = {
 		mouth.x + sweepLaunchDirection_.x * localOffset_.z,
@@ -173,14 +174,18 @@ void Tongue::Reset(){
 	worldPosition_ = GetMouthWorldPosition();
 	prevWorldPosition_ = worldPosition_;
 
+	// 通常ショット速度へ戻す
+	currentExtendSpeed_ = normalExtendSpeed_;
+	currentReturnSpeed_ = normalReturnSpeed_;
+
+	sweeping_ = false;
+	sweepTimer_ = 0.0f;
+
 	if(object_){
 		object_->SetTranslate(worldPosition_);
 		object_->SetRotate({ 0.0f, 0.0f, 0.0f });
 		object_->Update();
 	}
-
-	speed_ = originalSpeed_;
-	returnSpeed_ = originalReturnSpeed_;
 }
 
 void Tongue::UpdateIdle(){
@@ -206,7 +211,7 @@ void Tongue::UpdateExtending(float deltaTime){
 	if(sweeping_){
         // 距離がまだmaxDistance_に達していないなら、通常の伸びる挙動で進む
         if(currentDistance_ < maxDistance_){
-			float move = speed_ * deltaTime;
+			float move = currentExtendSpeed_ * deltaTime;
             // スイープ中は、舌先が当たり判定から少し先まで伸びるようにするため、
 			// maxDistance_をextraExtendDistance_分だけ先に設定しておく
 			float remain = maxDistance_ - currentDistance_;
@@ -255,7 +260,7 @@ void Tongue::UpdateExtending(float deltaTime){
 	}
 
 	// 通常の伸びる挙動
-	float move = speed_ * deltaTime;
+	float move = currentExtendSpeed_ * deltaTime;
 	Vector3 dir = shotDirection_;
 
 	worldPosition_.x += dir.x * move;
@@ -289,7 +294,7 @@ void Tongue::UpdateReturning(float deltaTime){
 	}
 
 	Vector3 dir = Normalize(toTarget);
-	float move = returnSpeed_ * deltaTime;
+	float move = currentReturnSpeed_ * deltaTime;
 
 	if(move >= distance){
 		worldPosition_ = target;
