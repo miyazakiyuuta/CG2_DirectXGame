@@ -172,6 +172,11 @@ void GamePlayScene::Initialize(){
 	enemyManager_->CreateEnemy(EnemyType::Chasing, {10.0f, 5.0f, 10.0f});   // 赤
 	enemyManager_->CreateEnemy(EnemyType::Shooting, {-10.0f, 5.0f, 15.0f}); // 青
 
+    // プレイヤーにエネミーマネージャーを渡して、プレイヤーからエネミーを参照できるようにする
+    if(player_){
+        player_->SetEnemyManager(enemyManager_.get());
+    }
+
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());
 }

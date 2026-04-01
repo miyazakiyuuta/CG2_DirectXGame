@@ -2,6 +2,7 @@
 #include <list>
 #include <memory>
 #include <vector>
+#include <functional>
 
 class BaseEnemy;
 class Object3dCommon;
@@ -19,6 +20,7 @@ public:
 	void Draw();
 	void CreateEnemy(EnemyType type, const Vector3& pos);
 	void Clear();
+	void ForEachEnemy(const std::function<void(class BaseEnemy*)>& cb);
 
 private:
 	Object3dCommon* common_ = nullptr;

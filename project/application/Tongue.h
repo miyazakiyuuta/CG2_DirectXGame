@@ -33,6 +33,7 @@ public:
 	void Draw();
 
 	void Shot(const Vector3& direction);
+	void ShotSweep(const Vector3& direction, float halfAngleDeg, float duration);
 	void Reset();
 	void StartReturn();
 	void SetHooked(const Vector3& worldPos);
@@ -77,10 +78,29 @@ private:
 	float maxDistance_ = 20.0f;
 	float returnSpeed_ = 45.0f;
 
+	// スイープ用のオリジナル速度
+	float originalSpeed_ = 35.0f;
+	float originalReturnSpeed_ = 45.0f;
+
+	// スイープ用の速度倍率（これを掛けると速くなり、スイープ中の見た目がより顕著になる）
+	float launchSpeedMultiplier_ = 2.0f; 
+	float returnSpeedMultiplier_ = 2.0f; 
+
 	float currentDistance_ = 0.0f;
 
 	// 舌先球の半径
 	float hitRadius_ = 0.3f;
 
 	float currentAlpha_ = 1.0f;
+
+	// スイープ状態の管理
+	bool sweeping_ = false;
+	float sweepHalfAngleRad_ = 0.0f;
+	float sweepDuration_ = 0.0f;
+	float sweepTimer_ = 0.0f;
+	Vector3 baseDirection_ = {0.0f, 0.0f, 1.0f};
+    // スイープ開始時の発射方向（fanの左端）
+	Vector3 sweepLaunchDirection_ = {0.0f, 0.0f, 1.0f};
+    // スイープ中、舌先が当たり判定から少し先まで伸びるようにする追加距離（これにより、スイープの見た目と当たり判定のズレを減らす）
+	float extraExtendDistance_ = 4.0f;
 };

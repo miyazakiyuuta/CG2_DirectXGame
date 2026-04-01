@@ -3,6 +3,7 @@
 #include "BaseEnemy.h"
 #include "ChasingEnemy.h"
 #include "ShootingEnemy.h"
+#include <functional>
 
 EnemyManager::EnemyManager() = default;
 EnemyManager::~EnemyManager() = default;
@@ -43,3 +44,11 @@ void EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos) {
 }
 
 void EnemyManager::Clear() { enemies_.clear(); }
+
+void EnemyManager::ForEachEnemy(const std::function<void(BaseEnemy*)>& cb) {
+	for (auto& e : enemies_) {
+		if (e && !e->IsDead()) {
+			cb(e.get());
+		}
+	}
+}

@@ -8,6 +8,8 @@
 #include <cmath>
 #include "utility/Logger.h"
 #include <string>
+#include "EnemyManager.h"
+#include "BaseEnemy.h"
 
 Player::~Player() = default;
 
@@ -27,6 +29,76 @@ namespace{
 		}
 		return { v.x / len, v.y / len, v.z / len };
 	}
+
+	static Vector3 RotateY(const Vector3& v, float angleRad){
+		float s = std::sin(angleRad);
+		float c = std::cos(angleRad);
+		return { v.x * c - v.z * s, v.y, v.x * s + v.z * c };
+	}
+
+	static float PointToSegmentDistSq(const Vector3& p, const Vector3& a, const Vector3& b){
+		Vector3 ab = b - a;
+		Vector3 ap = p - a;
+		float abLen2 = ab.x*ab.x + ab.y*ab.y + ab.z*ab.z;
+		if(abLen2 <= 1e-6f){
+			Vector3 d = p - a;
+			return d.x*d.x + d.y*d.y + d.z*d.z;
+		}
+		float t = (ap.x*ab.x + ap.y*ab.y + ap.z*ab.z) / abLen2;
+		t = std::max(0.0f, std::min(1.0f, t));
+		Vector3 proj = { a.x + ab.x * t, a.y + ab.y * t, a.z + ab.z * t };
+		Vector3 d = p - proj;
+		return d.x*d.x + d.y*d.y + d.z*d.z;
+	}
+}
+
+bool Player::TryUseBeam(const Vector3& direction){
+	if(beamTimer_ > 0.0f) return false;
+	if(!enemyManager_) return false;
+	if(!ConsumeWater(beamWaterCost_)) return false;
+
+	// Trigger cooldown
+	beamTimer_ = beamCooldown_;
+
+	// Prepare sweep
+	Vector3 origin = GetPosition();
+	// Slight upward offset so capsule is not ground clipping
+	origin.y += 0.5f;
+
+	float halfAngleRad = beamHalfAngleDeg_ * (3.14159265f / 180.0f);
+	int samples = std::max(1, beamSamples_);
+
+	std::vector<BaseEnemy*> hitList;
+
+	for(int i = 0; i < samples; ++i){
+		float t = (samples == 1) ? 0.0f : (static_cast<float>(i) / static_cast<float>(samples - 1));
+		float angle = -halfAngleRad + t * (2.0f * halfAngleRad);
+		Vector3 dir = Normalize3(direction);
+		Vector3 sweepDir = RotateY(dir, angle);
+		Vector3 segEnd = origin + sweepDir * beamRange_;
+
+		// Check against enemies
+		enemyManager_->ForEachEnemy([&](BaseEnemy* e){
+			if(!e) return;
+			// avoid double-hitting
+			for(auto h : hitList) if(h == e) return;
+
+			Vector3 ep = e->GetPosition();
+			float distSq = PointToSegmentDistSq(ep, origin, segEnd);
+			const float enemyRadius = 0.7f; // approximate
+			float hitRadius = beamCapsuleRadius_ + enemyRadius;
+			if(distSq <= hitRadius * hitRadius){
+				hitList.push_back(e);
+			}
+		});
+	}
+
+	// Apply effect: kill hit enemies (minimal implementation)
+	for(auto e : hitList){
+		if(e) e->Kill();
+	}
+
+	return true;
 }
 
 float Dot3(const Vector3& a, const Vector3& b){
@@ -377,21 +449,31 @@ void Player::Update(){
 		cameraForward = cameraController_->GetForwardDirection();
 	}
 
-	// If an external system requested a teleport, apply it here at the
-	// start of the update so player internal logic (collisions, gravity,
-	// etc.) won't overwrite the requested position.
 	if(pendingTeleport_){
 		object_->SetTranslate(pendingTeleportPosition_);
 		velocity_ = { 0.0f, 0.0f, 0.0f };
-		// reset movement state to jumping so physics will be applied
-		// consistently from the new position.
 		TransitionTo(MovementState::Jumping);
 		pendingTeleport_ = false;
 	}
 
-    // Note: ridingPlatformDelta_ will be applied after physics so it is not
-	// overwritten by collision resolution. GamePlayScene sets this value each frame
-	// when the player is detected to be standing on a moving platform.
+	if(ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f){
+		Vector3 pos = object_->GetTranslate();
+		pos.x += ridingPlatformDelta_.x;
+		pos.y += ridingPlatformDelta_.y;
+		pos.z += ridingPlatformDelta_.z;
+		object_->SetTranslate(pos);
+
+		const float kInvDt = 60.0f;
+		velocity_.x += ridingPlatformDelta_.x * kInvDt;
+		velocity_.z += ridingPlatformDelta_.z * kInvDt;
+		if(std::fabs(ridingPlatformDelta_.y) > 1e-6f) velocity_.y = 0.0f;
+
+		Logger::Log(std::string("Player applied riding delta early posAfter:") +
+					std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) +
+					" delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
+
+		ridingPlatformDelta_ = {0.0f,0.0f,0.0f};
+	}
 
 	switch(moveState_){
 		case MovementState::Root:
@@ -424,43 +506,42 @@ void Player::Update(){
 			break;
 	}
 
-    // Apply riding platform delta after physics and collision resolution so it is
-	// not overwritten by movement/collision corrections.
-	if(ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f){
-		Vector3 pos = object_->GetTranslate();
-		pos.x += ridingPlatformDelta_.x;
-		pos.y += ridingPlatformDelta_.y;
-		pos.z += ridingPlatformDelta_.z;
-		object_->SetTranslate(pos);
 
-		// Convert per-frame displacement to approximate velocity contribution.
-		const float kInvDt = 60.0f;
-		velocity_.x += ridingPlatformDelta_.x * kInvDt;
-		velocity_.z += ridingPlatformDelta_.z * kInvDt;
-		if(std::fabs(ridingPlatformDelta_.y) > 1e-6f) velocity_.y = 0.0f;
-
-		Logger::Log(std::string("Player applied riding delta posAfter:") +
-					std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) +
-					" delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
-
-		// Clear after applying; GamePlayScene will set it again next frame if still riding.
-		ridingPlatformDelta_ = {0.0f,0.0f,0.0f};
-	}
-
-	
 	// エイム中はプレイヤーの正面をカメラへ合わせる
 	if(isAimMode){
 		SetYawFromCamera(cameraYaw);
 	}
 
+  // Left mouse: normal tongue shot
 	if(input_->IsTriggerMouse(0)){
 		TryShotTongue(cameraForward);
+	}
+
+	// B key: perform tongue-beam sweep (扇状薙ぎ)
+    if(input_->IsTriggerKey(DIK_B)){
+		// Use player's facing direction (yaw) for the sweep so arc is relative to player forward
+		float yawForward = GetYaw();
+		Vector3 beamDir = { std::sin(yawForward), 0.0f, std::cos(yawForward) };
+		// TryUseBeam handles cooldown and water cost
+		if(TryUseBeam(beamDir)){
+			// Visual: fire tongue in central direction if available
+            if(tongue_){
+				// If tongue is idle, animate it sweeping for visual feedback
+             if(!tongue_->IsBusy()){
+					// Use beamHalfAngle_ from Player and a slightly longer duration for a slower sweep
+					tongue_->ShotSweep(beamDir, beamHalfAngleDeg_, 0.6f);
+				}
+			}
+		}
 	}
 
 	if(tongue_){
 		tongue_->Update(1.0f / 60.0f);
 		CheckTongueBlockHook();
 	}
+
+	// Update ability timers (frame-based)
+	if(beamTimer_ > 0.0f) beamTimer_ = std::max(0.0f, beamTimer_ - 1.0f);
 }
 
 void Player::Draw(){
