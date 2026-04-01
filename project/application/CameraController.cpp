@@ -177,8 +177,8 @@ void CameraController::Update(const Vector3& target){
 			Vector3 up = NormalizeVecSafe(CrossVec(dir, right));
 
 			// 上下方向を少し強めに見る
-			const float horizontalProbe = 0.12f;
-			const float verticalProbe = 0.66f;
+			const float horizontalProbe = 0.01f;
+			const float verticalProbe = 0.01f;
 
 			Vector3 rayOrigins[] = {
 				focus,
@@ -211,6 +211,18 @@ void CameraController::Update(const Vector3& target){
 					if(hit.t < nearestT){
 						nearestT = hit.t;
 						hitSomething = true;
+					}
+				}
+
+				if(obstacleCylinder_){
+					CollisionUtility::RayHitResult hit =
+						CollisionUtility::RayIntersectCylinder_Detailed(ray, *obstacleCylinder_);
+
+					if(hit.hit && hit.t >= 0.0f && hit.t <= desiredLength){
+						if(hit.t < nearestT){
+							nearestT = hit.t;
+							hitSomething = true;
+						}
 					}
 				}
 			}
@@ -271,6 +283,13 @@ void CameraController::Update(const Vector3& target){
 				break;
 			}
 		}
+	}
+
+	if(keepInsideCylinder_){
+		finalCameraPos = CollisionUtility::ClosestPointInsideCylinder(
+			finalCameraPos,
+			*keepInsideCylinder_
+		);
 	}
 
 	currentForward_ = {

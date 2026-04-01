@@ -30,6 +30,7 @@
 #include "EnemyManager.h"
 #include "debug/DebugGrid.h"
 #include "effect/ParticleEmitter.h"
+#include "debug/DebugRenderer.h"
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -95,6 +96,14 @@ void GamePlayScene::Initialize(){
             wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
             wellObject_->SetScale({ 60.0f, 60.0f, 60.0f });
             wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+            if(wellObject_){
+                Vector3 wellPos = wellObject_->GetTranslate();
+                Vector3 wellScale = wellObject_->GetScale();
+
+                wellCylinder_.center = wellPos;
+                wellCylinder_.radius = 58.5f;
+                wellCylinder_.halfHeight = 1000.0f;
+            }
         } else{
             // Model not found; skip creating wellObject_
             wellObject_.reset();
@@ -137,8 +146,11 @@ void GamePlayScene::Initialize(){
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
+    cameraController_->SetObstacleCylinder(&wellCylinder_);
+    cameraController_->SetKeepInsideCylinder(&wellCylinder_);
 
     player_->SetCameraController(cameraController_.get());
+    player_->SetMovementLimitCylinder(&wellCylinder_);
 
     // StageEditor は Stage を受け取って編集するだけ
     stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
@@ -179,6 +191,8 @@ void GamePlayScene::Initialize(){
 
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());
+
+	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 }
 
 void GamePlayScene::Finalize(){
@@ -446,6 +460,9 @@ void GamePlayScene::Update(){
     if(wellObject_){
         wellObject_->Update();
     }
+	//DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,1.5f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
+
 }
 
 void GamePlayScene::Draw(){
@@ -479,9 +496,12 @@ void GamePlayScene::Draw(){
 
     debugGrid_->Draw(*camera_);
 
+    DebugRenderer::GetInstance()->RenderAll(*camera_);
+
 #ifdef USE_IMGUI
     imGuiManager_->Draw();
 #endif
+
 }
 
 GamePlayScene::GamePlayScene() = default;
