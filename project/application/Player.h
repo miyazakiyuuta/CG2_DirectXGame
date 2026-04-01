@@ -14,6 +14,7 @@
 class Camera;
 class Object3dCommon;
 class CameraController;
+class EnemyManager;
 
 class Player{
 
@@ -94,7 +95,9 @@ public:
 	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
 
 	bool TryShotTongue(const Vector3& direction);
+    bool TryUseBeam(const Vector3& direction);
 	void SetYawFromCamera(float cameraYaw);
+	void SetEnemyManager(EnemyManager* mgr){ enemyManager_ = mgr; }
 
 	void SetAimTargetPoint(const Vector3& point){
 		aimTargetPoint_ = point;
@@ -226,6 +229,16 @@ private:
 	float wallKeepDistance_ = 0.03f;
 
 	bool useTonguePull_ = true;
+
+	// Beam attack (扇状薙ぎ払い) parameters
+	EnemyManager* enemyManager_ = nullptr;
+	float beamCooldown_ = 60.0f; // frames
+	float beamTimer_ = 0.0f;
+	float beamRange_ = 8.0f;
+	float beamHalfAngleDeg_ = 30.0f; // 扇の半角度
+	float beamCapsuleRadius_ = 0.8f; // 判定用カプセル半径
+	int beamSamples_ = 5; // 扇を分割して複数のカプセルで判定
+	float beamWaterCost_ = 10.0f;
 
 	// Per-frame delta applied when standing on a moving platform
 	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};

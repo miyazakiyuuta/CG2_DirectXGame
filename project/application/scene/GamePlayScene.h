@@ -3,7 +3,7 @@
 #include "scene/BaseScene.h"
 #include "utility/CollisionUtility.h"
 
-#include "Bug.h"
+#include "Enemy/Bug/Bug.h"
 #include "Slug.h" // ���ꂪ�G���[�Ȃ��ǂݍ��߂�K�v������܂�
 #include "Reticle.h"
 

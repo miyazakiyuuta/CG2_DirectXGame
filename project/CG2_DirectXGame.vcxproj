@@ -162,17 +162,17 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\StageEditor.cpp" />
     <ClCompile Include="application\StageLoader.cpp" />
     <ClCompile Include="application\StageSerializer.cpp" />
-    <ClCompile Include="application\BaseEnemy.cpp" />
-    <ClCompile Include="application\ChasingEnemy.cpp" />
-    <ClCompile Include="application\EnemyBullet.cpp" />
-    <ClCompile Include="application\EnemyManager.cpp" />
+    <ClCompile Include="application\Enemy\Core\BaseEnemy.cpp" />
+    <ClCompile Include="application\Enemy\Types\ChasingEnemy.cpp" />
+    <ClCompile Include="application\Enemy\Projectiles\EnemyBullet.cpp" />
+    <ClCompile Include="application\Enemy\Manager\EnemyManager.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
     <ClCompile Include="engine\3d\Skeleton.cpp" />
     <ClCompile Include="engine\debug\debugSphere.cpp" />
-    <ClCompile Include="application\Bug.cpp" />
-    <ClCompile Include="application\BugBehavior.cpp" />
+    <ClCompile Include="application\Enemy\Bug\Bug.cpp" />
+    <ClCompile Include="application\Enemy\Bug\BugBehavior.cpp" />
     <ClCompile Include="application\CameraController.cpp" />
     <ClCompile Include="engine\effect\CylinderManager.cpp" />
     <ClCompile Include="engine\scene\BaseScene.cpp" />
@@ -218,7 +218,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\3d\Skybox.cpp" />
     <ClCompile Include="application\Slug.cpp" />
     <ClCompile Include="application\Stage.cpp" />
-    <ClCompile Include="application\ShootingEnemy.cpp" />
+    <ClCompile Include="application\Enemy\Types\ShootingEnemy.cpp" />
+    <ClCompile Include="application\Enemy\Types\SentinelEnemy.cpp" />
     <ClCompile Include="application\Reticle.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -246,18 +247,18 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\StageLoader.h" />
     <ClInclude Include="application\StageSerializer.h" />
     <ClInclude Include="application\StageTypes.h" />
-    <ClInclude Include="application\BaseEnemy.h" />
-    <ClInclude Include="application\ChasingEnemy.h" />
-    <ClInclude Include="application\EnemyBullet.h" />
-    <ClInclude Include="application\EnemyManager.h" />
+    <ClInclude Include="application\Enemy\Core\BaseEnemy.h" />
+    <ClInclude Include="application\Enemy\Types\ChasingEnemy.h" />
+    <ClInclude Include="application\Enemy\Projectiles\EnemyBullet.h" />
+    <ClInclude Include="application\Enemy\Manager\EnemyManager.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
     <ClInclude Include="engine\3d\Animation.h" />
     <ClInclude Include="engine\3d\Skeleton.h" />
     <ClInclude Include="engine\debug\debugSphere.h" />
-    <ClInclude Include="application\Bug.h" />
-    <ClInclude Include="application\BugBehavior.h" />
+    <ClInclude Include="application\Enemy\Bug\Bug.h" />
+    <ClInclude Include="application\Enemy\Bug\BugBehavior.h" />
     <ClInclude Include="application\CameraController.h" />
     <ClInclude Include="application\StageEditor.h" />
     <ClInclude Include="engine\effect\CylinderManager.h" />
@@ -310,8 +311,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\3d\Skybox.h" />
     <ClInclude Include="application\Slug.h" />
     <ClInclude Include="application\Stage.h" />
-    <ClInclude Include="application\ShootingEnemy.h" />
     <ClInclude Include="application\Reticle.h" />
+    <ClInclude Include="application\Enemy\Types\ShootingEnemy.h" />
+    <ClInclude Include="application\Enemy\Types\SentinelEnemy.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
