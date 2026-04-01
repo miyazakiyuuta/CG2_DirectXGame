@@ -95,6 +95,14 @@ void GamePlayScene::Initialize(){
             wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
             wellObject_->SetScale({ 60.0f, 60.0f, 60.0f });
             wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+            if(wellObject_){
+                Vector3 wellPos = wellObject_->GetTranslate();
+                Vector3 wellScale = wellObject_->GetScale();
+
+                wellCylinder_.center = wellPos;
+                wellCylinder_.radius = 58.5f;
+                wellCylinder_.halfHeight = 1000.0f;
+            }
         } else{
             // Model not found; skip creating wellObject_
             wellObject_.reset();
@@ -137,8 +145,11 @@ void GamePlayScene::Initialize(){
     cameraController_->SetYawSpeed(0.03f);
     cameraController_->SetPitchSpeed(0.02f);
     cameraController_->SetObstacleColliders(&stageBlockColliders_);
+    cameraController_->SetObstacleCylinder(&wellCylinder_);
+    cameraController_->SetKeepInsideCylinder(&wellCylinder_);
 
     player_->SetCameraController(cameraController_.get());
+    player_->SetMovementLimitCylinder(&wellCylinder_);
 
     // StageEditor は Stage を受け取って編集するだけ
     stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());

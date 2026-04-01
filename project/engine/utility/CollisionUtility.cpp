@@ -295,6 +295,37 @@ bool IntersectSphere_OBB(const Sphere& s, const OBB& obb)
     return LengthSq(diff) <= s.radius * s.radius;
 }
 
+bool IntersectSphere_Cylinder(const Sphere& s, const Cylinder& c){
+    // Y方向をクランプ
+    float closestY = std::max(c.center.y - c.halfHeight,
+                              std::min(s.center.y, c.center.y + c.halfHeight));
+
+    // XZ平面で円へ最近接
+    float dx = s.center.x - c.center.x;
+    float dz = s.center.z - c.center.z;
+    float distXZSq = dx * dx + dz * dz;
+
+    float closestX = s.center.x;
+    float closestZ = s.center.z;
+
+    if(distXZSq > 1e-8f){
+        float distXZ = std::sqrt(distXZSq);
+        float scale = std::min(c.radius / distXZ, 1.0f);
+        closestX = c.center.x + dx * scale;
+        closestZ = c.center.z + dz * scale;
+    } else{
+        // 円の真上にいる場合
+        closestX = c.center.x;
+        closestZ = c.center.z;
+    }
+
+    Vector3 closest = { closestX, closestY, closestZ };
+    Vector3 diff = { s.center.x - closest.x, s.center.y - closest.y, s.center.z - closest.z };
+
+    float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    return distSq <= s.radius * s.radius;
+}
+
 /// <summary>
 /// レイと AABB の交差判定（スラブ法）
 /// </summary>
@@ -1015,6 +1046,37 @@ ContactManifold CreateManifoldOBB_OBB(const OBB& A, const OBB& B)
     return m;
 }
 
+Vector3 ClosestPointInsideCylinder(const Vector3& point, const Cylinder& c){
+    Vector3 result = point;
+
+    result.y = std::max(c.center.y - c.halfHeight,
+                        std::min(result.y, c.center.y + c.halfHeight));
+
+    float dx = result.x - c.center.x;
+    float dz = result.z - c.center.z;
+    float distXZSq = dx * dx + dz * dz;
+
+    if(distXZSq > c.radius * c.radius){
+        float distXZ = std::sqrt(std::max(distXZSq, 0.000001f));
+        float scale = c.radius / distXZ;
+        result.x = c.center.x + dx * scale;
+        result.z = c.center.z + dz * scale;
+    }
+
+    return result;
+}
+
+bool IsPointInsideCylinder(const Vector3& point, const Cylinder& c){
+    float dy = point.y - c.center.y;
+    if(dy < -c.halfHeight || dy > c.halfHeight){
+        return false;
+    }
+
+    float dx = point.x - c.center.x;
+    float dz = point.z - c.center.z;
+    return (dx * dx + dz * dz) <= (c.radius * c.radius);
+}
+
 } // namespace CollisionUtility
 
 // 詳細な当たり判定の実装
@@ -1420,6 +1482,55 @@ CollisionResult IntersectOBB_OBB_Detailed(const OBB& A, const OBB& B)
     return result;
 }
 
+CollisionResult IntersectSphere_Cylinder_Detailed(const Sphere& s, const Cylinder& c){
+    CollisionResult res{};
+
+    float closestY = std::max(c.center.y - c.halfHeight,
+                              std::min(s.center.y, c.center.y + c.halfHeight));
+
+    float dx = s.center.x - c.center.x;
+    float dz = s.center.z - c.center.z;
+    float distXZSq = dx * dx + dz * dz;
+
+    float closestX = s.center.x;
+    float closestZ = s.center.z;
+
+    if(distXZSq > 1e-8f){
+        float distXZ = std::sqrt(distXZSq);
+        float scale = std::min(c.radius / distXZ, 1.0f);
+        closestX = c.center.x + dx * scale;
+        closestZ = c.center.z + dz * scale;
+    } else{
+        closestX = c.center.x;
+        closestZ = c.center.z;
+    }
+
+    Vector3 closest = { closestX, closestY, closestZ };
+    Vector3 diff = { s.center.x - closest.x, s.center.y - closest.y, s.center.z - closest.z };
+
+    float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    float radiusSq = s.radius * s.radius;
+
+    if(distSq > radiusSq){
+        return res;
+    }
+
+    res.hit = true;
+    res.point = closest;
+
+    float dist = std::sqrt(std::max(distSq, 0.000001f));
+    if(dist > 0.0001f){
+        res.normal = { diff.x / dist, diff.y / dist, diff.z / dist };
+        res.penetration = s.radius - dist;
+    } else{
+        // 完全一致時はとりあえず上方向
+        res.normal = { 0.0f, 1.0f, 0.0f };
+        res.penetration = s.radius;
+    }
+
+    return res;
+}
+
 /// <summary>
 /// レイ - AABB の詳細な当たり判定を行い、接触点、法線、貫入深度を返す関数
 /// </summary>
@@ -1587,12 +1698,131 @@ RayHitResult RayIntersectSphere_Detailed(const Ray& ray, const Sphere& s)
     return res;
 }
 
+RayHitResult RayIntersectCylinder_Detailed(const Ray& ray, const Cylinder& c){
+    RayHitResult res{};
+    float t = 0.0f;
+    if(!RayIntersectCylinder(ray, c, &t)){
+        return res;
+    }
+
+    Vector3 ndir = NormalizeVec(ray.dir);
+    res.hit = true;
+    res.t = t;
+    res.point = Add(ray.origin, Mul(ndir, t));
+
+    const float minY = c.center.y - c.halfHeight;
+    const float maxY = c.center.y + c.halfHeight;
+    const float eps = 0.001f;
+
+    if(std::fabs(res.point.y - maxY) <= eps){
+        res.normal = { 0.0f, 1.0f, 0.0f };
+    } else if(std::fabs(res.point.y - minY) <= eps){
+        res.normal = { 0.0f, -1.0f, 0.0f };
+    } else{
+        Vector3 lateral = {
+            res.point.x - c.center.x,
+            0.0f,
+            res.point.z - c.center.z
+        };
+
+        float len2 = lateral.x * lateral.x + lateral.z * lateral.z;
+        if(len2 > 1e-8f){
+            float invLen = 1.0f / std::sqrt(len2);
+            res.normal = { lateral.x * invLen, 0.0f, lateral.z * invLen };
+        } else{
+            res.normal = { 1.0f, 0.0f, 0.0f };
+        }
+    }
+
+    return res;
+}
+
 } // namespace CollisionUtility
 
 /// <summary>
 /// Transform から OBB を作成する関数
 /// </summary>
 namespace CollisionUtility{
+    bool RayIntersectCylinder(const Ray& ray, const Cylinder& c, float* outT){
+        Vector3 ndir = NormalizeVec(ray.dir);
+
+        const float minY = c.center.y - c.halfHeight;
+        const float maxY = c.center.y + c.halfHeight;
+
+        const float ox = ray.origin.x - c.center.x;
+        const float oz = ray.origin.z - c.center.z;
+        const float dx = ndir.x;
+        const float dz = ndir.z;
+
+        const float a = dx * dx + dz * dz;
+        const float b = 2.0f * (ox * dx + oz * dz);
+        const float cc = ox * ox + oz * oz - c.radius * c.radius;
+
+        float nearestT = std::numeric_limits<float>::infinity();
+        bool hit = false;
+
+        // 側面判定
+        if(a > 1e-8f){
+            float disc = b * b - 4.0f * a * cc;
+            if(disc >= 0.0f){
+                float sqrtDisc = std::sqrt(disc);
+                float inv2A = 1.0f / (2.0f * a);
+
+                float t0 = (-b - sqrtDisc) * inv2A;
+                float t1 = (-b + sqrtDisc) * inv2A;
+                if(t0 > t1){
+                    std::swap(t0, t1);
+                }
+
+                if(t0 >= 0.0f){
+                    float y = ray.origin.y + ndir.y * t0;
+                    if(y >= minY && y <= maxY){
+                        nearestT = t0;
+                        hit = true;
+                    }
+                }
+
+                if(!hit && t1 >= 0.0f){
+                    float y = ray.origin.y + ndir.y * t1;
+                    if(y >= minY && y <= maxY){
+                        nearestT = t1;
+                        hit = true;
+                    }
+                }
+            }
+        }
+
+        // 上下面キャップ判定
+        if(std::fabs(ndir.y) > 1e-8f){
+            auto testCap = [&](float capY){
+                float t = (capY - ray.origin.y) / ndir.y;
+                if(t < 0.0f){
+                    return;
+                }
+
+                float x = ray.origin.x + ndir.x * t - c.center.x;
+                float z = ray.origin.z + ndir.z * t - c.center.z;
+                if(x * x + z * z <= c.radius * c.radius){
+                    if(t < nearestT){
+                        nearestT = t;
+                        hit = true;
+                    }
+                }
+                };
+
+            testCap(minY);
+            testCap(maxY);
+        }
+
+        if(!hit){
+            return false;
+        }
+
+        if(outT){
+            *outT = nearestT;
+        }
+        return true;
+    }
     OBB MakeOBBFromTransform(const Transform& t, const Vector3& halfLengths){
         OBB obb{};
 

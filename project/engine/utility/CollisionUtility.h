@@ -32,6 +32,13 @@ struct Sphere {
     float radius = 0.0f; // 球の半径
 };
 
+//円柱
+struct Cylinder{
+    Vector3 center{};      // 円柱の中心
+    float radius = 0.0f;    // XZ平面での半径
+    float halfHeight = 0.0f; // Y方向の半高さ
+};
+
 // レイ
 struct Ray {
     Vector3 origin {}; // レイの開始点
@@ -77,6 +84,11 @@ bool IntersectOBB_OBB(const OBB& A, const OBB& B);
 /// </summary>
 bool IntersectSphere_OBB(const Sphere& s, const OBB& obb);
 
+/// <summary>
+/// Sphere と Cylinder の交差判定
+/// </summary>
+bool IntersectSphere_Cylinder(const Sphere& s, const Cylinder& c);
+
 // ----------------------
 // レイと衝突判定関数
 // ----------------------
@@ -95,6 +107,12 @@ bool RayIntersectOBB(const Ray& ray, const OBB& obb, float* outT = nullptr);
 /// レイと球の交差判定
 /// </summary>
 bool RayIntersectSphere(const Ray& ray, const Sphere& s, float* outT = nullptr);
+
+/// <summary>
+/// レイと円柱の交差判定
+/// 円柱は Y 軸固定、center を中心、radius を XZ 半径、halfHeight を Y 半高さとする
+/// </summary>
+bool RayIntersectCylinder(const Ray& ray, const Cylinder& c, float* outT = nullptr);
 
 // Transform から OBB を作成するヘルパー
 // 引数 halfLengths はローカル空間における各軸の半長さ
@@ -149,6 +167,11 @@ CollisionResult IntersectSphere_OBB_Detailed(const Sphere& s, const OBB& obb);
 /// </summary>
 CollisionResult IntersectOBB_OBB_Detailed(const OBB& A, const OBB& B);
 
+/// <summary>
+/// 球 と 円柱 の交差判定（詳細版）
+/// </summary>
+CollisionResult IntersectSphere_Cylinder_Detailed(const Sphere& s, const Cylinder& c);
+
 //----------------------
 // レイと衝突判定の詳細版 - 衝突の有無だけでなく、ヒット位置・法線・レイ長さも返す
 //----------------------
@@ -167,6 +190,11 @@ RayHitResult RayIntersectOBB_Detailed(const Ray& ray, const OBB& obb);
 /// レイと球の交差判定（詳細版）
 /// </summary>
 RayHitResult RayIntersectSphere_Detailed(const Ray& ray, const Sphere& s);
+
+/// <summary>
+/// レイと円柱の交差判定（詳細版）
+/// </summary>
+RayHitResult RayIntersectCylinder_Detailed(const Ray& ray, const Cylinder& c);
 
 //----------------------
 // 三角形とメッシュに対するレイキャスト関数
@@ -212,6 +240,7 @@ enum class ColliderType {
     AABB,
     OBB,
     Sphere,
+	Cylinder,
     Mesh
 };
 
@@ -293,5 +322,8 @@ ContactManifold CreateManifoldSphere_OBB(const Sphere& s, const OBB& obb);
 /// AABB と球の交差判定（マニフォールド版）
 /// </summary>
 ContactManifold CreateManifoldOBB_OBB(const OBB& A, const OBB& B);
+
+Vector3 ClosestPointInsideCylinder(const Vector3& point, const Cylinder& c);
+bool IsPointInsideCylinder(const Vector3& point, const Cylinder& c);
 
 } // namespace CollisionUtility
