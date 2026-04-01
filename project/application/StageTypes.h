@@ -14,6 +14,7 @@ enum class BlockID {
     Breakable = 4, // 破壊可能ブロック
     Warp = 5,      // ワープブロック
     MovingPlatform = 6, // 動く床ブロック
+    EnemySpawn = 7,
 };
 
 /// <summary>
@@ -61,6 +62,9 @@ struct StageObject {
     float moveRange = 0.0f;
     // 初期位相（0.0 - 1.0）: サイン波の初期位相を正規化して指定
     float movePhase = 0.0f;
+
+    // 敵スポーン用
+    int enemyType = 0; // EnemyType::Chasing 相当をデフォルト
 };
 
 /// <summary>
@@ -73,4 +77,9 @@ struct StageData {
 
     // ステージ内の全オブジェクト
     std::vector<StageObject> objects;
+};
+
+struct EnemySpawnPoint{
+    Vector3 position{};
+    int enemyType = 0;
 };

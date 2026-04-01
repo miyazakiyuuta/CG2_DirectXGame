@@ -620,6 +620,7 @@ void StageEditor::DrawImGui(){
                     editMoveDirection_ = o.moveDirection;
                     editMoveSpeed_ = o.moveSpeed;
                     editMoveRange_ = o.moveRange;
+                    editEnemyType_ = o.enemyType;
                     strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
 
                     stage_->SetInstanceColorById(o.id, { o.color.x, o.color.y, o.color.z, selectionBlinkAlpha_ });
@@ -651,7 +652,22 @@ void StageEditor::DrawImGui(){
 
     ImGui::Separator();
 
-    const char* blockTypes[] = { "Normal", "Water", "BugSpawn", "PlayerSpawn", "Breakable", "Warp", "MovingPlatform" };
+    const char* blockTypes[] = {
+        "Normal",
+        "Water",
+        "BugSpawn",
+        "PlayerSpawn",
+        "Breakable",
+        "Warp",
+        "MovingPlatform",
+        "EnemySpawn"
+    };
+
+    const char* enemyTypes[] = {
+        "Chasing",
+        "Shooting",
+        "Sentinel"
+    };
 
     if(currentMode != EditorUIMode::SelectedEdit){
         ImGui::Text("Create Origin");
@@ -718,6 +734,10 @@ void StageEditor::DrawImGui(){
             ImGui::InputFloat("Move Phase (0..1)", &placingMovePhase_);
         }
 
+        if(placingBlockId_ == BlockID::EnemySpawn){
+            ImGui::Combo("Enemy Type", &placingEnemyType_, enemyTypes, IM_ARRAYSIZE(enemyTypes));
+        }
+
         ImGui::Separator();
     }
 
@@ -745,6 +765,9 @@ void StageEditor::DrawImGui(){
                     o.moveSpeed = placingMoveSpeed_;
                     o.moveRange = placingMoveRange_;
                     o.movePhase = placingMovePhase_;
+                }
+                if(o.blockId == BlockID::EnemySpawn){
+                    o.enemyType = placingEnemyType_;
                 }
 
                 data.objects.push_back(o);
@@ -1045,6 +1068,19 @@ void StageEditor::DrawImGui(){
                         if(editMovePhase_ < 0.0f) editMovePhase_ = 0.0f;
                         if(editMovePhase_ > 1.0f) editMovePhase_ = 1.0f;
                         if(liveEdit_){ for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.movePhase = editMovePhase_; break; } } }
+                    }
+                }
+
+                if(editBlockId_ == BlockID::EnemySpawn){
+                    if(ImGui::Combo("Enemy Type", &editEnemyType_, enemyTypes, IM_ARRAYSIZE(enemyTypes))){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){
+                                if(obj.id == selectedObjectId_){
+                                    obj.enemyType = editEnemyType_;
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
 

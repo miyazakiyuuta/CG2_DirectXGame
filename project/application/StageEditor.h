@@ -251,4 +251,7 @@ private:
     int duplicateCount_ = 1;
     Vector3 duplicateOffset_ = { 2.0f, 0.0f, 0.0f };
     bool useHalfSizeOffset_ = true;
+
+    int placingEnemyType_ = 0;
+    int editEnemyType_ = 0;
 };

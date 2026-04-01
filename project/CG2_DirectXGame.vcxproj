@@ -251,6 +251,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Enemy\Types\ChasingEnemy.h" />
     <ClInclude Include="application\Enemy\Projectiles\EnemyBullet.h" />
     <ClInclude Include="application\Enemy\Manager\EnemyManager.h" />
+    <ClInclude Include="application\Easing.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
