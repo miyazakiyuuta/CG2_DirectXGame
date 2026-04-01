@@ -62,4 +62,6 @@ private:
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;
+
+	CollisionUtility::Cylinder wellCylinder_ = {};
 };

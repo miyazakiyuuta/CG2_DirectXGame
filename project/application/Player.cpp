@@ -90,6 +90,41 @@ void Player::Initialize(
 	prevAimMode_ = false;
 }
 
+void Player::ResolveMovementLimitCylinder(){
+	if(!object_ || !movementLimitCylinder_){
+		return;
+	}
+
+	Vector3 position = object_->GetTranslate();
+
+	if(CollisionUtility::IsPointInsideCylinder(position, *movementLimitCylinder_)){
+		return;
+	}
+
+	position = CollisionUtility::ClosestPointInsideCylinder(position, *movementLimitCylinder_);
+
+	// 念のため少しだけ内側へ寄せる
+	Vector3 toCenter = {
+		movementLimitCylinder_->center.x - position.x,
+		0.0f,
+		movementLimitCylinder_->center.z - position.z
+	};
+
+	float lenSq = toCenter.x * toCenter.x + toCenter.z * toCenter.z;
+	if(lenSq > 1e-8f){
+		float invLen = 1.0f / std::sqrt(lenSq);
+		const float kInsideBias = 0.01f;
+		position.x += toCenter.x * invLen * kInsideBias;
+		position.z += toCenter.z * invLen * kInsideBias;
+	}
+
+	object_->SetTranslate(position);
+
+	// 外へ押し続ける水平速度があると壁際で暴れやすいので少し落とす
+	velocity_.x = 0.0f;
+	velocity_.z = 0.0f;
+}
+
 void Player::SetCamera(Camera* camera){
 	camera_ = camera;
 	if(object_){
@@ -400,12 +435,14 @@ void Player::Update(){
 
 			MoveHorizontal(cameraYaw);
 			ResolveHorizontalCollisions(previousPosition);
+			ResolveMovementLimitCylinder();
 
 			UpdateJumpCharge();
 
 			Vector3 beforeVertical = object_->GetTranslate();
 			ApplyGravity();
 			ResolveVerticalCollisions(beforeVertical);
+			ResolveMovementLimitCylinder();
 
 			if(isOnGround_){
 				TransitionTo(MovementState::Root);
@@ -432,6 +469,7 @@ void Player::Update(){
 		pos.y += ridingPlatformDelta_.y;
 		pos.z += ridingPlatformDelta_.z;
 		object_->SetTranslate(pos);
+		ResolveMovementLimitCylinder();
 
 		// Convert per-frame displacement to approximate velocity contribution.
 		const float kInvDt = 60.0f;

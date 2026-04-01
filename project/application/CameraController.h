@@ -70,6 +70,14 @@ public:
 
 	void DrawImGui();
 
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){
+		keepInsideCylinder_ = cylinder;
+	}
+
+	void SetObstacleCylinder(const CollisionUtility::Cylinder* cylinder){
+		obstacleCylinder_ = cylinder;
+	}
+
 private:
 	Camera* camera_ = nullptr;
 	Input* input_ = nullptr;
@@ -117,7 +125,10 @@ private:
 
 	Vector3 currentForward_ = { 0.0f, 0.0f, 1.0f };
 
-	float cameraBodyRadius_ = 0.28f;
+	float cameraBodyRadius_ = 0.05f;
 
 	float cameraCollisionMinDistance_ = 0.15f;
+
+	const CollisionUtility::Cylinder* obstacleCylinder_ = nullptr;
+	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
 };

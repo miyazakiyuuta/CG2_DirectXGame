@@ -63,6 +63,10 @@ public:
 		blockColliders_ = blockColliders;
 	}
 
+	void SetMovementLimitCylinder(const CollisionUtility::Cylinder* cylinder){
+		movementLimitCylinder_ = cylinder;
+	}
+
 	CollisionUtility::OBB GetPlayerOBB(const Vector3& position) const;
 
 	// 水分ゲージ
@@ -119,6 +123,8 @@ private:
 
 	void ResolveWallClingBlockCollisions(Vector3& position) const;
 
+	void ResolveMovementLimitCylinder();
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -167,6 +173,7 @@ private:
 	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
 	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
 
