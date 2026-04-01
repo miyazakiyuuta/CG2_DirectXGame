@@ -1,5 +1,5 @@
 #pragma once
-#include "Enemy/BaseEnemy.h"
+#include "Enemy/Core/BaseEnemy.h"
 
 class ChasingEnemy : public BaseEnemy {
 public:

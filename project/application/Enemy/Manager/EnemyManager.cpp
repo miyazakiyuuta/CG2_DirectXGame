@@ -1,9 +1,9 @@
 #include "EnemyManager.h"
 #include "3d/Object3d.h"
-#include "BaseEnemy.h"
-#include "ChasingEnemy.h"
-#include "ShootingEnemy.h"
-#include "SentinelEnemy.h"
+#include "../Core/BaseEnemy.h"
+#include "../Types/ChasingEnemy.h"
+#include "../Types/ShootingEnemy.h"
+#include "../Types/SentinelEnemy.h"
 
 EnemyManager::EnemyManager() = default;
 EnemyManager::~EnemyManager() = default;
