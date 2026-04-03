@@ -193,6 +193,11 @@ private:
 		const Vector3& rawNormal,
 		const Vector3& usedNormal);
 
+	void RefreshClingAnchorFromCurrentSurface();
+	void RefreshMovingClingSurfaceFromStage();
+	void UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint);
+	void ClearClingStageObjectTracking();
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -345,4 +350,7 @@ private:
 
 	const char* debugTongueRawFaceName_ = "None";
 	const char* debugTongueUsedFaceName_ = "None";
+
+	int clingStageObjectId_ = -1;
+	bool clingStageObjectIsMovingPlatform_ = false;
 };
