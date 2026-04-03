@@ -543,16 +543,27 @@ void Player::SetYawFromCamera(float cameraYaw)
     object_->SetRotate({ 0.0f, cameraYaw + modelYawOffset_, 0.0f });
 }
 
-void Player::ResolveHorizontalCollisions(const Vector3& previousPosition)
-{
-    if (!object_ || !blockColliders_) {
+void Player::ResolveHorizontalCollisions(const Vector3& previousPosition){
+    if(!object_ || !blockColliders_){
         return;
     }
 
     Vector3 position = object_->GetTranslate();
     const float kGroundEpsilon = 0.05f;
 
-    if (position.x != previousPosition.x) {
+    auto isWalkableFromHit = [&](const CollisionUtility::OBB& playerObb, const CollisionUtility::OBB& block) -> bool{
+        auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+        if(!hit.hit || hit.penetration <= 0.0f){
+            return false;
+        }
+
+        // hit.normal は「プレイヤー -> ブロック」向きなので反転して、
+        // プレイヤーを外へ出す向きで地面判定する
+        Vector3 pushNormal = hit.normal * -1.0f;
+        return IsGroundSurface(pushNormal);
+        };
+
+    if(position.x != previousPosition.x){
         Vector3 testPos = {
             position.x,
             previousPosition.y + kGroundEpsilon,
@@ -561,15 +572,25 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition)
 
         CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
-        for (const auto& block : *blockColliders_) {
-            if (CollisionUtility::IntersectOBB_OBB(playerObb, block)) {
-                position.x = previousPosition.x;
-                break;
+        for(const auto& block : *blockColliders_){
+            auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+            if(!hit.hit || hit.penetration <= 0.0f){
+                continue;
             }
+
+            Vector3 pushNormal = hit.normal * -1.0f;
+
+            // 坂や床は X を戻さず、後段の縦解決に任せる
+            if(IsGroundSurface(pushNormal)){
+                continue;
+            }
+
+            position.x = previousPosition.x;
+            break;
         }
     }
 
-    if (position.z != previousPosition.z) {
+    if(position.z != previousPosition.z){
         Vector3 testPos = {
             position.x,
             previousPosition.y + kGroundEpsilon,
@@ -578,51 +599,78 @@ void Player::ResolveHorizontalCollisions(const Vector3& previousPosition)
 
         CollisionUtility::OBB playerObb = GetPlayerOBB(testPos);
 
-        for (const auto& block : *blockColliders_) {
-            if (CollisionUtility::IntersectOBB_OBB(playerObb, block)) {
-                position.z = previousPosition.z;
-                break;
+        for(const auto& block : *blockColliders_){
+            auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
+            if(!hit.hit || hit.penetration <= 0.0f){
+                continue;
             }
+
+            Vector3 pushNormal = hit.normal * -1.0f;
+
+            // 坂や床は Z を戻さず、後段の縦解決に任せる
+            if(IsGroundSurface(pushNormal)){
+                continue;
+            }
+
+            position.z = previousPosition.z;
+            break;
         }
     }
 
     object_->SetTranslate(position);
 }
 
-void Player::ResolveVerticalCollisions(const Vector3& previousPosition)
-{
+void Player::ResolveVerticalCollisions(const Vector3& previousPosition){
     (void)previousPosition;
 
-    if (!object_) {
+    if(!object_){
         return;
     }
 
     Vector3 position = object_->GetTranslate();
     isOnGround_ = false;
 
-    if (!blockColliders_) {
+    if(!blockColliders_){
         object_->SetTranslate(position);
         return;
     }
 
-    for (const auto& block : *blockColliders_) {
+    for(const auto& block : *blockColliders_){
         CollisionUtility::OBB playerObb = GetPlayerOBB(position);
         auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(playerObb, block);
 
-        if (!hit.hit) {
+        if(!hit.hit || hit.penetration <= 0.0f){
             continue;
         }
 
         const float kSkinWidth = 0.001f;
-        position -= hit.normal * (hit.penetration + kSkinWidth);
 
-        if (hit.normal.y < -0.5f) {
-            velocity_.y = 0.0f;
+        // プレイヤーを外へ出す向き
+        Vector3 pushNormal = hit.normal * -1.0f;
+
+        if(IsGroundSurface(pushNormal)){
+            // 坂・床は横へ押さず、上方向だけ持ち上げる
+            position.y += hit.penetration + kSkinWidth;
+
+            if(velocity_.y < 0.0f){
+                velocity_.y = 0.0f;
+            }
             isOnGround_ = true;
+            continue;
         }
-        if (hit.normal.y > 0.5f && velocity_.y > 0.0f) {
-            velocity_.y = 0.0f;
+
+        if(IsCeilingSurface(pushNormal)){
+            // 天井は下方向だけ補正
+            position.y -= hit.penetration + kSkinWidth;
+
+            if(velocity_.y > 0.0f){
+                velocity_.y = 0.0f;
+            }
+            continue;
         }
+
+        // 壁は従来どおり法線方向で押し戻す
+        position += pushNormal * (hit.penetration + kSkinWidth);
     }
 
     object_->SetTranslate(position);
