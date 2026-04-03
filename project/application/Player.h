@@ -186,6 +186,11 @@ private:
 		const Vector3& rawNormal,
 		const Vector3& usedNormal);
 
+	void RefreshClingAnchorFromCurrentSurface();
+	void RefreshMovingClingSurfaceFromStage();
+	void UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint);
+	void ClearClingStageObjectTracking();
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -341,4 +346,7 @@ private:
 
 	// 移動速度倍率（1.0が通常）
 	float speedMultiplier_ = 1.0f;
+
+	int clingStageObjectId_ = -1;
+	bool clingStageObjectIsMovingPlatform_ = false;
 };

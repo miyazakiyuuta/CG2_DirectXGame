@@ -741,6 +741,7 @@ void Player::CheckTongueBlockHook(){
             }
 
             SetupClingSurfaceFromHit(block, hit.point, usedHitNormal);
+            UpdateClingStageObjectFromHitPoint(hit.point);
 
             Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
             tongue_->SetHooked(hookPos);
@@ -881,6 +882,12 @@ void Player::Update()
         Logger::Log(std::string("Player applied riding delta early posAfter:") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + " delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
 
         ridingPlatformDelta_ = { 0.0f, 0.0f, 0.0f };
+    }
+
+    if(moveState_ == MovementState::WallClinging ||
+       moveState_ == MovementState::CeilingCrawling ||
+       moveState_ == MovementState::TonguePulling){
+        RefreshMovingClingSurfaceFromStage();
     }
 
     switch (moveState_) {
@@ -1262,10 +1269,12 @@ void Player::TransitionTo(MovementState nextState)
     case MovementState::Root:
         velocity_.y = 0.0f;
         isOnGround_ = true;
+        ClearClingStageObjectTracking();
         break;
 
     case MovementState::Jumping:
         isOnGround_ = false;
+        ClearClingStageObjectTracking();
         break;
 
     case MovementState::WallClinging: {
@@ -2087,4 +2096,113 @@ void Player::RecordTongueHitDebug(
     debugTongueUsedNormal_ = Normalize3(usedNormal);
     debugTongueRawFaceName_ = DebugFaceNameFromNormal(block, debugTongueRawNormal_);
     debugTongueUsedFaceName_ = DebugFaceNameFromNormal(block, debugTongueUsedNormal_);
+}
+
+void Player::RefreshClingAnchorFromCurrentSurface(){
+    if(!hasClingSurface_ || !tongue_){
+        return;
+    }
+
+    Vector3 clingAnchorPoint =
+        clingSurfaceCenter_
+        + clingSurfaceRight_ * clingHitRightOffset_
+        + clingSurfaceUp_ * clingHitUpOffset_;
+
+    Vector3 hookPos = clingAnchorPoint + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
+    tongue_->SetHooked(hookPos);
+
+    CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
+    const float kPullSkin = 0.03f;
+    float playerRadiusAlongNormal =
+        ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
+
+    tonguePullTarget_ =
+        clingAnchorPoint
+        + clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
+}
+
+void Player::ClearClingStageObjectTracking(){
+    clingStageObjectId_ = -1;
+    clingStageObjectIsMovingPlatform_ = false;
+}
+
+void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint){
+    ClearClingStageObjectTracking();
+
+    if(!stage_){
+        return;
+    }
+
+    CollisionUtility::Sphere probe;
+    probe.center = hitPoint;
+    probe.radius = 0.08f;
+
+    for(const auto& o : stage_->GetStageData().objects){
+        if(o.blockId != BlockID::MovingPlatform){
+            continue;
+        }
+
+        Transform t;
+        t.translate = o.position;
+        t.rotate = o.rotation;
+        t.scale = o.scale;
+
+        CollisionUtility::OBB obb =
+            CollisionUtility::MakeOBBFromTransform(t, { 1.0f, 1.0f, 1.0f });
+
+        auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(probe, obb);
+        if(!hit.hit){
+            continue;
+        }
+
+        clingStageObjectId_ = o.id;
+        clingStageObjectIsMovingPlatform_ = true;
+        return;
+    }
+}
+
+void Player::RefreshMovingClingSurfaceFromStage(){
+    if(!hasClingSurface_ || !clingStageObjectIsMovingPlatform_ || clingStageObjectId_ < 0 || !stage_){
+        return;
+    }
+
+    for(const auto& o : stage_->GetStageData().objects){
+        if(o.id != clingStageObjectId_){
+            continue;
+        }
+
+        if(o.blockId != BlockID::MovingPlatform){
+            ClearClingStageObjectTracking();
+            return;
+        }
+
+        Transform t;
+        t.translate = o.position;
+        t.rotate = o.rotation;
+        t.scale = o.scale;
+
+        CollisionUtility::OBB newObb =
+            CollisionUtility::MakeOBBFromTransform(t, { 1.0f, 1.0f, 1.0f });
+
+        Vector3 delta = newObb.center - clingBlockObb_.center;
+
+        clingBlockObb_ = newObb;
+        clingSurfaceCenter_ += delta;
+
+        // すでに張り付いている最中はプレイヤー本体も一緒に運ぶ
+        if(object_ &&
+           (moveState_ == MovementState::WallClinging ||
+           moveState_ == MovementState::CeilingCrawling)){
+            Vector3 pos = object_->GetTranslate();
+            pos += delta;
+            object_->SetTranslate(pos);
+        }
+
+        // 引っ張り中は目標点だけでも更新しておく
+        RefreshClingAnchorFromCurrentSurface();
+        return;
+    }
+
+    // 対象が消えていたら追跡解除
+    ClearClingStageObjectTracking();
 }
