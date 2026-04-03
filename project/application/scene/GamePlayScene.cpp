@@ -138,6 +138,8 @@ void GamePlayScene::Initialize(){
 
     player_ = std::make_unique<Player>();
     player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
+    // give player a reference to the stage for abilities (camouflage lookup / sonar)
+    player_->SetStage(stage_.get());
 
     cameraController_ = std::make_unique<CameraController>();
     cameraController_->Initialize(camera_.get());

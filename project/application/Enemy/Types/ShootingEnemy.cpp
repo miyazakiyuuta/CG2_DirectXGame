@@ -14,8 +14,8 @@ void ShootingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
 	position_ = pos;
 
 	float scaleY = 1.2f; // 少し背を高く
-	object_->SetScale({0.8f, scaleY, 0.8f});
-	object_->SetColor({0.3f, 0.3f, 1.0f, 1.0f}); // 青
+    object_->SetScale({0.8f, scaleY, 0.8f});
+	SetColor({0.3f, 0.3f, 1.0f, 1.0f}); // 青
 
 	// 【ここでいじる】埋まり防止の接地高さ
 	groundY_ = scaleY;

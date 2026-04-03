@@ -14,8 +14,8 @@ void ChasingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vect
 	position_ = pos;
 
 	float scale = 1.0f;
-	object_->SetScale({scale, scale, scale});
-	object_->SetColor({1.0f, 0.3f, 0.3f, 1.0f}); // 赤
+    object_->SetScale({scale, scale, scale});
+	SetColor({1.0f, 0.3f, 0.3f, 1.0f}); // 赤
 
 	groundY_ = scale;
 }

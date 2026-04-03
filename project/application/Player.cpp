@@ -3,6 +3,8 @@
 #include "3d/Camera.h"
 #include "3d/Object3dCommon.h"
 #include "Enemy/Core/BaseEnemy.h"
+#include "Stage.h"
+#include "math/Vector4.h"
 #include "CameraController.h"
 #include "Enemy/Manager/EnemyManager.h"
 #include "utility/Logger.h"
@@ -158,6 +160,11 @@ void Player::Initialize(
     object_->SetCamera(camera_);
     object_->SetTranslate(startPosition);
     object_->SetRotate({ 0.0f, 0.0f, 0.0f });
+
+    // store original visual info for mimic restore
+    originalModelName_ = modelName;
+    originalScale_ = object_->GetScale();
+    originalColor_ = {1.0f,1.0f,1.0f,1.0f};
 
     tongue_ = std::make_unique<Tongue>();
     tongue_->Initialize(object3dCommon, camera_, this, "Cube.obj");
@@ -455,6 +462,44 @@ void Player::CheckTongueBlockHook()
             Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
             tongue_->SetHooked(hookPos);
 
+            // If Camouflage ability is active, attempt to read the hit block and mimic it
+            if(abilityActive_ && currentAbility_ == Ability::Camouflage && stage_){
+                // small sphere around hit point to match Stage objects
+                CollisionUtility::Sphere testSphere;
+                testSphere.center = hit.point;
+                testSphere.radius = 0.05f;
+
+                for(const auto& o : stage_->GetStageData().objects){
+                    // Only consider solid blocks (modelName present)
+                    if(o.modelName.empty()) continue;
+
+                    Transform t;
+                    t.translate = o.position;
+                    t.rotate = o.rotation;
+                    t.scale = o.scale;
+                    CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, {1.0f,1.0f,1.0f});
+                    auto hitObj = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, obb);
+                    if(hitObj.hit){
+                        // Mimic: record mimic info and apply
+                        mimicModelName_ = o.modelName;
+                        mimicColor_ = o.color;
+                        mimicColor_.w = 1.0f;
+                        mimicScale_ = {1.0f,1.0f,1.0f};
+                        if(object_){
+                            object_->SetModel(mimicModelName_);
+                            object_->SetScale(mimicScale_);
+                            // color will be applied in Draw with currentAlpha
+                            Vector4 c = mimicColor_;
+                            c.w = mimicColor_.w * currentAlpha_;
+                            object_->SetColor(c);
+                        }
+                        isMimicking_ = true;
+                        abilityActive_ = false;
+                        break;
+                    }
+                }
+            }
+
             CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
             const float kPullSkin = 0.03f;
             float playerRadiusAlongNormal = ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
@@ -641,6 +686,61 @@ void Player::Update()
         CheckTongueBlockHook();
     }
 
+    // Q key: cycle selected ability
+    // E key: activate camouflage (next tongue hit will mimic)
+    if (input_->IsTriggerKey(DIK_E)) {
+        if(isMimicking_){
+            EndMimic();
+        } else {
+            abilityActive_ = true;
+        }
+    }
+
+    // F key: activate sonar immediately
+    if (input_->IsTriggerKey(DIK_F)) {
+        sonarTimer_ = sonarDuration_ * 60.0f;
+    }
+
+    // Sonar active: reveal nearby stage objects and enemies by adjusting alpha
+    if (sonarTimer_ > 0.0f) {
+        if (stage_) {
+            for (const auto& o : stage_->GetStageData().objects) {
+                float dx = o.position.x - GetPosition().x;
+                float dy = o.position.y - GetPosition().y;
+                float dz = o.position.z - GetPosition().z;
+                float dist2 = dx * dx + dy * dy + dz * dz;
+                if (dist2 <= sonarRange_ * sonarRange_) {
+                    Vector4 c = o.color;
+                    c.w = sonarAlpha_;
+                    stage_->SetInstanceColorById(o.id, c);
+                } else {
+                    stage_->SetInstanceColorById(o.id, o.color);
+                }
+            }
+        }
+
+        if (enemyManager_) {
+            enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
+                if (!e) return;
+                e->SetAlpha(sonarAlpha_);
+            });
+        }
+
+        sonarTimer_ -= 1.0f; // frame decrement
+        if (sonarTimer_ <= 0.0f) {
+            // restore enemies alpha to their originally assigned value
+            if (enemyManager_) {
+                enemyManager_->ForEachEnemy([&](BaseEnemy* e) { if (e) e->SetAlpha(e->GetOriginalAlpha()); });
+            }
+            // restore stage object colors
+            if (stage_) {
+                for (const auto& o : stage_->GetStageData().objects) {
+                    stage_->SetInstanceColorById(o.id, o.color);
+                }
+            }
+        }
+    }
+
     // Update ability timers (frame-based)
     if (beamTimer_ > 0.0f)
         beamTimer_ = std::max(0.0f, beamTimer_ - 1.0f);
@@ -653,7 +753,16 @@ void Player::Draw()
     }
     if (object_) {
         object_->Update();
-        object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
+        // Apply mimic or normal color while respecting currentAlpha_
+        Vector4 dispColor;
+        if(isMimicking_){
+            dispColor = mimicColor_;
+            dispColor.w *= currentAlpha_;
+        } else {
+            dispColor = originalColor_;
+            dispColor.w = currentAlpha_;
+        }
+        object_->SetColor(dispColor);
         object_->Draw();
     }
 }

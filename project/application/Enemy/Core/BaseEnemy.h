@@ -1,5 +1,6 @@
 #pragma once
 #include "math/Vector3.h"
+#include "math/Vector4.h"
 #include <memory>
 #include <vector>
 
@@ -23,12 +24,19 @@ public:
 	bool IsDead() const { return isDead_; }
 	void Kill() { isDead_ = true; }
 
+    // Color helpers: derived classes should call SetColor during Initialize
+	void SetColor(const Vector4& color);
+	void SetAlpha(float a);
+	// Return the originally assigned alpha (stored when SetColor was called)
+	float GetOriginalAlpha() const;
+
 protected:
 	// 重力計算：接地高さ(groundY_)で止まるように調整
 	void ApplyGravity(float deltaTime);
 
 protected:
 	std::unique_ptr<Object3d> object_ = nullptr;
+    Vector4 originalColor_ = {1.0f,1.0f,1.0f,1.0f};
 	Vector3 position_ = {0.0f, 0.0f, 0.0f};
 	Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
 	bool isDead_ = false;
