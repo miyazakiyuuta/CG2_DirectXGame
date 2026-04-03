@@ -6,9 +6,9 @@
 #include <vector>
 
 #include "3d/Object3d.h"
+#include "Tongue.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
-#include "Tongue.h"
 #include "utility/CollisionUtility.h"
 
 class Camera;
@@ -16,7 +16,7 @@ class Object3dCommon;
 class CameraController;
 class EnemyManager;
 
-class Player{
+class Player {
 
 	enum class MovementState{
 		Root,
@@ -30,21 +30,19 @@ public:
 	Player() = default;
 	~Player();
 
-	void Initialize(
-		Object3dCommon* object3dCommon,
-		Camera* camera,
-		const std::string& modelName,
-		const Vector3& startPosition = { 0.0f, 0.0f, 0.0f }
-	);
+	void Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition = {0.0f, 0.0f, 0.0f});
 
 	void Update();
 	void Draw();
 	void DrawImGui();
 
 	void SetCamera(Camera* camera);
-	void SetCameraController(CameraController* cameraController){ cameraController_ = cameraController; }
+	void SetCameraController(CameraController* cameraController) { cameraController_ = cameraController; }
 
 	void SetPosition(const Vector3& position);
+
+	// 速度低下デバフを外部からセットする
+	void SetSpeedMultiplier(float mul) { speedMultiplier_ = mul; }
 
 	// Request a teleport to be applied on the next Player::Update call.
 	// Using this avoids other systems overwriting the teleport by
@@ -59,29 +57,25 @@ public:
 	void SetRidingPlatformDelta(const Vector3& delta);
 	void ClearRidingPlatformDelta();
 
-	void SetGroundHeight(float groundHeight){ groundHeight_ = groundHeight; }
-	bool IsOnGround() const{ return isOnGround_; }
+	void SetGroundHeight(float groundHeight) { groundHeight_ = groundHeight; }
+	bool IsOnGround() const { return isOnGround_; }
 
-	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders){
-		blockColliders_ = blockColliders;
-	}
+	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders) { blockColliders_ = blockColliders; }
 
-	void SetMovementLimitCylinder(const CollisionUtility::Cylinder* cylinder){
-		movementLimitCylinder_ = cylinder;
-	}
+	void SetMovementLimitCylinder(const CollisionUtility::Cylinder* cylinder) { movementLimitCylinder_ = cylinder; }
 
 	CollisionUtility::OBB GetPlayerOBB(const Vector3& position) const;
 
 	// 水分ゲージ
-	float GetWaterGauge() const{ return waterGauge_; }
-	float GetMaxWaterGauge() const{ return maxWaterGauge_; }
+	float GetWaterGauge() const { return waterGauge_; }
+	float GetMaxWaterGauge() const { return maxWaterGauge_; }
 	void AddWater(float amount);
 	bool ConsumeWater(float amount);
 
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
 	int GetCurrentVisibleChargeLevel() const;
-	int GetChargeStock() const{ return chargeStock_; }
+	int GetChargeStock() const { return chargeStock_; }
 	void AddChargeStock(int amount);
 	void SetChargeStock(int stock);
 	int GetCurrentChargePhase() const;
@@ -89,20 +83,21 @@ public:
 	bool IsChargeAtMaxPhase() const;
 
 	float GetYaw() const;
-	Tongue* GetTongue() const{ return tongue_.get(); }
+	Tongue* GetTongue() const { return tongue_.get(); }
 
 	// Abilities
-	enum class Ability{
+	enum class Ability {
 		Camouflage,
 		Sonar,
 	};
 
-    Ability GetCurrentAbility() const { return currentAbility_; }
+	Ability GetCurrentAbility() const { return currentAbility_; }
 	void SetStage(class Stage* stage) { stage_ = stage; }
 
-    // Mimic control
-	void EndMimic(){
-		if(!object_) return;
+	// Mimic control
+	void EndMimic() {
+		if (!object_)
+			return;
 		// restore original visual
 		object_->SetModel(originalModelName_);
 		object_->SetScale(originalScale_);
@@ -113,23 +108,21 @@ public:
 	}
 
 	void UpdateTransparencyByCamera(const Vector3& cameraPosition);
-	float GetCurrentAlpha() const{ return currentAlpha_; }
+	float GetCurrentAlpha() const { return currentAlpha_; }
 
-	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
+	void SetAlpha(float alpha) { currentAlpha_ = alpha; }
 
 	bool TryShotTongue(const Vector3& direction);
-    bool TryUseBeam(const Vector3& direction);
+	bool TryUseBeam(const Vector3& direction);
 	void SetYawFromCamera(float cameraYaw);
-	void SetEnemyManager(EnemyManager* mgr){ enemyManager_ = mgr; }
+	void SetEnemyManager(EnemyManager* mgr) { enemyManager_ = mgr; }
 
-	void SetAimTargetPoint(const Vector3& point){
+	void SetAimTargetPoint(const Vector3& point) {
 		aimTargetPoint_ = point;
 		hasAimTargetPoint_ = true;
 	}
 
-	void ClearAimTargetPoint(){
-		hasAimTargetPoint_ = false;
-	}
+	void ClearAimTargetPoint() { hasAimTargetPoint_ = false; }
 
 private:
 	void MoveHorizontal(float cameraYaw);
@@ -199,8 +192,8 @@ private:
 	CameraController* cameraController_ = nullptr;
 	Input* input_ = nullptr;
 
-	Vector3 velocity_ = { 0.0f, 0.0f, 0.0f };
-	Vector3 lastMove_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
+	Vector3 lastMove_ = {0.0f, 0.0f, 0.0f};
 
 	float moveSpeed_ = 20.0f / 60.0f;
 	float gravity_ = -0.02f;
@@ -217,8 +210,8 @@ private:
 	float tongueWaterCost_ = 0.0f;
 
 	// チャージジャンプ
-	float jumpPowers_[4] = { 0.55f, 0.80f, 1.05f, 1.30f };
-	float chargeThresholds_[3] = { 40.0f, 80.0f, 120.0f };
+	float jumpPowers_[4] = {0.55f, 0.80f, 1.05f, 1.30f};
+	float chargeThresholds_[3] = {40.0f, 80.0f, 120.0f};
 	float chargeCancelHoldLimit_ = 240.0f;
 
 	bool isChargingJump_ = false;
@@ -239,19 +232,19 @@ private:
 	float wallMoveSpeed_ = 0.05f;
 	float ceilingCrawlSpeed_ = 0.35f;
 
-	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
+	Vector3 wallRightVec_ = {1.0f, 0.0f, 0.0f};
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
-	Vector3 colliderHalfSize_ = { 1.0f,1.0f,1.0f };
+	Vector3 colliderHalfSize_ = {1.0f, 1.0f, 1.0f};
 
 	// Pending teleport requested by external systems (applied inside Update)
 	bool pendingTeleport_ = false;
-	Vector3 pendingTeleportPosition_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 pendingTeleportPosition_ = {0.0f, 0.0f, 0.0f};
 
 	// 舌で引っ張られる処理
-	Vector3 tonguePullTarget_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 tonguePullTarget_ = {0.0f, 0.0f, 0.0f};
 	float tonguePullSpeed_ = 18.0f / 60.0f;
 	float tonguePullEndDistance_ = 0.35f;
 	float tongueHookSurfaceOffset_ = 0.05f;
@@ -267,14 +260,14 @@ private:
 
 	bool prevAimMode_ = false;
 
-	Vector3 tongueHookNormal_ = { 0.0f, 0.0f, -1.0f };
+	Vector3 tongueHookNormal_ = {0.0f, 0.0f, -1.0f};
 
 	bool hasClingSurface_ = false;
 	CollisionUtility::OBB clingBlockObb_ = {};
-	Vector3 clingSurfaceNormal_ = { 0.0f, 0.0f, -1.0f };
-	Vector3 clingSurfaceRight_ = { 1.0f, 0.0f, 0.0f };
-	Vector3 clingSurfaceUp_ = { 0.0f, 1.0f, 0.0f };
-	Vector3 clingSurfaceCenter_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 clingSurfaceNormal_ = {0.0f, 0.0f, -1.0f};
+	Vector3 clingSurfaceRight_ = {1.0f, 0.0f, 0.0f};
+	Vector3 clingSurfaceUp_ = {0.0f, 1.0f, 0.0f};
+	Vector3 clingSurfaceCenter_ = {0.0f, 0.0f, 0.0f};
 
 	float clingSurfaceHalfWidth_ = 0.0f;
 	float clingSurfaceHalfHeight_ = 0.0f;
@@ -298,7 +291,7 @@ private:
 	float beamRange_ = 8.0f;
 	float beamHalfAngleDeg_ = 30.0f; // 扇の半角度
 	float beamCapsuleRadius_ = 0.8f; // 判定用カプセル半径
-	int beamSamples_ = 5; // 扇を分割して複数のカプセルで判定
+	int beamSamples_ = 5;            // 扇を分割して複数のカプセルで判定
 	float beamWaterCost_ = 10.0f;
 
 	// Per-frame delta applied when standing on a moving platform
@@ -320,14 +313,14 @@ private:
 	// Mimic state
 	bool isMimicking_ = false;
 	std::string originalModelName_;
-	Vector4 originalColor_ = {1.0f,1.0f,1.0f,1.0f};
-	Vector3 originalScale_ = {1.0f,1.0f,1.0f};
+	Vector4 originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	Vector3 originalScale_ = {1.0f, 1.0f, 1.0f};
 
 	std::string mimicModelName_;
-	Vector4 mimicColor_ = {1.0f,1.0f,1.0f,1.0f};
-	Vector3 mimicScale_ = {1.0f,1.0f,1.0f};
+	Vector4 mimicColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	Vector3 mimicScale_ = {1.0f, 1.0f, 1.0f};
 
-	Vector3 aimTargetPoint_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 aimTargetPoint_ = {0.0f, 0.0f, 0.0f};
 	bool hasAimTargetPoint_ = false;
 
 	bool suppressTongueShotThisFrame_ = false;
@@ -345,4 +338,7 @@ private:
 
 	const char* debugTongueRawFaceName_ = "None";
 	const char* debugTongueUsedFaceName_ = "None";
+
+	// 移動速度倍率（1.0が通常）
+	float speedMultiplier_ = 1.0f;
 };
