@@ -68,6 +68,8 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
         jo["moveDirection"] = o.moveDirection;
         jo["moveSpeed"] = o.moveSpeed;
         jo["moveRange"] = o.moveRange;
+        jo["movePhase"] = o.movePhase;
+        jo["enemyType"] = o.enemyType;
 
         // オブジェクトをオブジェクト配列に追加
         j["objects"].push_back(jo);
@@ -189,6 +191,12 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                 }
                 if (jo.contains("moveRange")) {
                     o.moveRange = jo["moveRange"].get<float>();
+                }
+                if(jo.contains("movePhase")){
+                    o.movePhase = jo["movePhase"].get<float>();
+                }
+                if(jo.contains("enemyType")){
+                    o.enemyType = jo["enemyType"].get<int>();
                 }
 
                 // 読み込んだオブジェクトを StageData に追加

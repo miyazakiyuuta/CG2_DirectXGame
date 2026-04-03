@@ -193,9 +193,12 @@ void GamePlayScene::Initialize(){
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
 
 	// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
-	enemyManager_->CreateEnemy(EnemyType::Chasing, {10.0f, 5.0f, 10.0f});   // 赤
-	enemyManager_->CreateEnemy(EnemyType::Shooting, {-10.0f, 5.0f, 15.0f}); // 青
-	enemyManager_->CreateEnemy(EnemyType::Sentinel, {0.0f, 5.0f, 0.0f});
+    for(const auto& spawn : stage_->GetEnemySpawnPoints()){
+        enemyManager_->CreateEnemy(
+            static_cast<EnemyType>(spawn.enemyType),
+            spawn.position
+        );
+    }
 
     // プレイヤーにエネミーマネージャーを渡して、プレイヤーからエネミーを参照できるようにする
     if(player_){

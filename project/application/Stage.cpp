@@ -244,6 +244,24 @@ std::optional<Vector3> Stage::GetPlayerSpawnPosition() const{
     return std::nullopt;
 }
 
+std::vector<EnemySpawnPoint> Stage::GetEnemySpawnPoints() const{
+    std::vector<EnemySpawnPoint> result;
+    result.reserve(data_.objects.size());
+
+    for(const auto& o : data_.objects){
+        if(o.blockId != BlockID::EnemySpawn){
+            continue;
+        }
+
+        EnemySpawnPoint spawn;
+        spawn.position = o.position;
+        spawn.enemyType = o.enemyType;
+        result.push_back(spawn);
+    }
+
+    return result;
+}
+
 std::vector<CollisionUtility::OBB> Stage::GetBlockOBBs() const{
     std::vector<CollisionUtility::OBB> result;
     result.reserve(data_.objects.size());
