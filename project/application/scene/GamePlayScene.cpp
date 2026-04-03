@@ -352,15 +352,20 @@ void GamePlayScene::Update() {
     }
 
     if (!stageEditor_->IsEditMode()) {
-        cameraController_->Update(player_->GetPosition());
-        player_->Update();
+		cameraController_->Update(player_->GetPosition());
 
-        if (enemyManager_) {
-            enemyManager_->Update(1.0f / 60.0f, player_->GetPosition());
-        }
-    } else {
-        cameraController_->Update(player_->GetPosition());
-    }
+		// 【追加】ここ！ プレイヤーを Update する直前に減速倍率をセットする
+		if (enemyManager_ && player_) {
+			float totalSlowdown = enemyManager_->GetTotalPlayerSpeedMultiplier();
+			player_->SetSpeedMultiplier(totalSlowdown);
+		}
+
+		player_->Update();
+
+		if (enemyManager_) {
+			enemyManager_->Update(1.0f / 60.0f, player_->GetPosition());
+		}
+	}
 
 	// Warp detection: run before player update so teleport is immediate in gameplay mode
 	if (player_) {

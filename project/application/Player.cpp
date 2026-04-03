@@ -744,6 +744,8 @@ void Player::Update()
     // Update ability timers (frame-based)
     if (beamTimer_ > 0.0f)
         beamTimer_ = std::max(0.0f, beamTimer_ - 1.0f);
+
+    speedMultiplier_ = 1.0f;
 }
 
 void Player::Draw()
@@ -810,8 +812,9 @@ void Player::MoveHorizontal(float cameraYaw)
         lastMove_.x /= length;
         lastMove_.z /= length;
 
-        position.x += lastMove_.x * moveSpeed_;
-        position.z += lastMove_.z * moveSpeed_;
+        float actualSpeed = moveSpeed_ * speedMultiplier_;
+		position.x += lastMove_.x * actualSpeed;
+		position.z += lastMove_.z * actualSpeed;
 
         float yaw = std::atan2(lastMove_.x, lastMove_.z) + modelYawOffset_;
         object_->SetRotate({ 0.0f, yaw, 0.0f });

@@ -44,8 +44,8 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 	const float kVisualRadius = 0.2f;
 
 	// 【追加】減速計算用の定数
-	const float kSlowDetectionRadius = 2.5f;  // プレイヤーにまとわりついていると判定する距離
-	const float kSlowEffectPerMember = 0.05f; // 1匹につき5%減速
+	const float kSlowDetectionRadius = 5.0f;  // プレイヤーにまとわりついていると判定する距離
+	const float kSlowEffectPerMember = 0.1f; // 1匹につき5%減速
 	int surroundCount = 0;
 
 	for (size_t i = 0; i < members_.size(); ++i) {
@@ -107,7 +107,7 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 		m.object->Update();
 	}
 
-	// 【追加】累積減速倍率を基底クラスの変数にセット（下限は0.2倍速）
+	// 【重要】累積減速倍率を計算（15体なら 1.0 - 0.75 = 0.25倍速 になる）
 	playerSpeedMultiplier_ = (std::clamp)(1.0f - (surroundCount * kSlowEffectPerMember), 0.2f, 1.0f);
 
 	if (object_ && !members_.empty()) {
