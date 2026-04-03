@@ -222,6 +222,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\Enemy\Types\ShootingEnemy.cpp" />
     <ClCompile Include="application\Enemy\Types\SentinelEnemy.cpp" />
     <ClCompile Include="application\Reticle.cpp" />
+    <ClCompile Include="engine\base\RenderTarget.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -317,6 +318,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Reticle.h" />
     <ClInclude Include="application\Enemy\Types\ShootingEnemy.h" />
     <ClInclude Include="application\Enemy\Types\SentinelEnemy.h" />
+    <ClInclude Include="engine\base\RenderTarget.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

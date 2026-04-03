@@ -69,7 +69,8 @@ void DirectXCommon::PreDraw() {
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, &dsvHandle);
 
 	// 指定した色で画面全体をクリアする
-	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f }; // 青っぽい色。RGBAの順
+	//float clearColor[] = { 0.1f,0.25f,0.5f,1.0f }; // 青っぽい色。RGBAの順
+	float clearColor[] = { 0.06f, 0.06f, 0.06f, 1.0f };
 	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], clearColor, 0, nullptr);
 
 	// 指定した深度で画面全体をクリアする
@@ -120,6 +121,40 @@ void DirectXCommon::PostDraw() {
 	assert(SUCCEEDED(hr));
 	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
 	assert(SUCCEEDED(hr));
+}
+
+void DirectXCommon::ResizeSwapChain(int width, int height) {
+	fenceValue_++;
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	for (auto& res : swapChainResources_) {
+		res.Reset();
+	}
+
+	HRESULT hr = swapChain_->ResizeBuffers(
+		kBackBufferCount, width, height,
+		DXGI_FORMAT_R8G8B8A8_UNORM, 0);
+	assert(SUCCEEDED(hr));
+
+	D3D12_CPU_DESCRIPTOR_HANDLE handle =
+		rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+	for (uint32_t i = 0; i < kBackBufferCount; i++) {
+		hr = swapChain_->GetBuffer(i, IID_PPV_ARGS(&swapChainResources_[i]));
+		assert(SUCCEEDED(hr));
+		device_->CreateRenderTargetView(
+			swapChainResources_[i].Get(), &rtvDesc_, handle);
+		rtvHandles_[i] = handle;
+		handle.ptr += descriptorSizeRTV_;
+	}
+
+	viewport_.Width = static_cast<float>(width);
+	viewport_.Height = static_cast<float>(height);
+	scissorRect_.right = width;
+	scissorRect_.bottom = height;
 }
 
 IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
@@ -304,6 +339,14 @@ void DirectXCommon::ExecuteCommandListAndWait() {
 	commandList_->Reset(commandAllocator_.Get(), nullptr);
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE DirectXCommon::GetRTVCPUDescriptorHandle(uint32_t index) {
+	return GetCPUDescriptorHandle(rtvDescriptorHeap_, descriptorSizeRTV_, index);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE DirectXCommon::GetDSVCPUDescriptorHandle(uint32_t index) {
+	return GetCPUDescriptorHandle(dsvDescriptorHeap_, descriptorSizeDSV_, index);
+}
+
 void DirectXCommon::InitializeDevice() {
 	/* デバッグレイヤーをオンに */
 #ifdef _DEBUG
@@ -429,7 +472,8 @@ void DirectXCommon::CreateSwapChain() {
 void DirectXCommon::CreateDepthBuffer() {
 	// DepthStencilTextureをウィンドウのサイズで作成
 	depthStencilResource_ = CreateDepthStencilTextureResource();
-	//ResourceObject* depthStencilResource = CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
+	//
+	// * depthStencilResource = CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
 	
 	
 }
@@ -440,7 +484,7 @@ void DirectXCommon::CreateDescriptorHeaps() {
 	descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 	// デスクリプタヒープ作成
 	// RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので、ShaderVisibleはfalse
-	rtvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
+	rtvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 3, false);
 	// DSV用のヒープでディスクリプタの数は1。DSVはShader内で触るものではないので、ShaderVisibleはfalse
 	dsvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 }
@@ -453,7 +497,7 @@ void DirectXCommon::InitializeRenderTargetView() {
 	}
 
 	// RTVの設定
-	rtvDesc_.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // 出力結果をSRGBに変換して書き込む
+	rtvDesc_.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // 出力結果をSRGBに変換して書き込む×
 	rtvDesc_.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D; // 2dテクスチャとして書き込む
 
 	// ディスクリプタの先頭を取得する

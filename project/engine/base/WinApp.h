@@ -19,13 +19,27 @@ public: // メンバ関数
 	HWND GetHwnd() { return hwnd_; }
 	HINSTANCE GetHInstance() const { return wc_.hInstance; }
 
+	static bool IsResized() { return isResized_; }
+	static void ClearResizedFlag() { isResized_ = false; }
+	static int GetNewWidth() { return newWidth_; }
+	static int GetNewHeight() { return newHeight_; }
+
+
 public: // メンバ変数
 	// クライアント領域のサイズ
+#ifdef USE_IMGUI
+	static const std::int32_t kClientWidth = 1920;
+	static const std::int32_t kClientHeight = 1080;
+#else
 	static const std::int32_t kClientWidth = 1280;
 	static const std::int32_t kClientHeight = 720;
+#endif
 
 private:
 	static WinApp* instance;
+	static bool isResized_;
+	static int newWidth_;
+	static int newHeight_;
 
 	// ウィンドウハンドル
 	HWND hwnd_ = nullptr;

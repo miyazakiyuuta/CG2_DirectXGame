@@ -1,5 +1,8 @@
 #include "scene/GamePlayScene.h"
 
+#include "base/ImGuiManager.h"
+#include "io/Input.h"
+#include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
 #include "2d/TextureManager.h"
 #include "3d/DebugCamera.h"
@@ -34,18 +37,15 @@
 #include <numbers>
 #ifdef USE_IMGUI
 #include <imgui.h>
-#endif
 #include "utility/Logger.h"
 #include <sstream>
+#include <numbers>
 
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
 	camera_->SetRotate({std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f});
 	camera_->SetTranslate({0.0f, 7.5f, -20.0f});
-
-	imGuiManager_ = std::make_unique<ImGuiManager>();
-	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
@@ -209,7 +209,6 @@ void GamePlayScene::Finalize() {
 	// 終了処理の実体を追加
 }
 
-void GamePlayScene::Update() {
 #ifdef USE_IMGUI
 	imGuiManager_->Begin();
 	/*ImGui::ShowDemoWindow();*/
@@ -270,7 +269,7 @@ void GamePlayScene::Update() {
 	ImGui::Text("LastWarpId: %d", lastWarpId_);
 	ImGui::Text("WarpCooldown: %d", warpCooldownCounter_);
 	ImGui::End();
-
+	ImGui::End();
 	imGuiManager_->End();
 #endif
 
@@ -468,6 +467,7 @@ void GamePlayScene::Update() {
 
 	// (Warp detection handled earlier before player update.)
 
+
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -485,12 +485,12 @@ void GamePlayScene::Update() {
 	}
 
 	object3d_->Update();
-
 	if (wellObject_) {
 		wellObject_->Update();
 	}
 	// DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
 	DebugRenderer::GetInstance()->AddBox3DSolid({0.0f, 1.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 1.0f});
+
 }
 
 void GamePlayScene::Draw() {
@@ -501,7 +501,6 @@ void GamePlayScene::Draw() {
 	}
 
 	object3d_->Draw();
-
 	// --- 不透明オブジェクトの描画 ---
 	stage_->Draw();
 	stageEditor_->Draw();
@@ -526,15 +525,26 @@ void GamePlayScene::Draw() {
 
 	debugGrid_->Draw(*camera_);
 
-	DebugRenderer::GetInstance()->RenderAll(*camera_);
 
+	DebugRenderer::GetInstance()->RenderAll(*camera_);
+}
     SpriteCommon::GetInstance()->CommonDrawSetting();
     if(reticle_){
         reticle_->Draw();
     }
 
+
 #ifdef USE_IMGUI
-	imGuiManager_->Draw();
+
+	Vector3 object3dPos = object3d_->GetTranslate();
+
+	ImGui::Begin("GamePlayScene_Object");
+	camera_->DrawImGui();
+	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
+		object3d_->SetTranslate(object3dPos);
+	}
+	ImGui::End();
+
 #endif
 }
 

@@ -13,7 +13,6 @@
 #include <vector>
 
 class Camera;
-class ImGuiManager;
 class DebugCamera;
 class Object3d;
 class Player;
@@ -31,12 +30,13 @@ public:
 	void Update() override;
 	void Draw() override;
 
+	void DrawImGui() override;
+
 	GamePlayScene();
 	~GamePlayScene() override;
 
 private:
 	std::unique_ptr<Camera> camera_ = nullptr;
-	std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
 
     std::unique_ptr<Object3d> object3d_;

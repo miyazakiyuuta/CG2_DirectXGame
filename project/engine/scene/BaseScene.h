@@ -12,6 +12,8 @@ public: // メンバ関数
 
 	virtual void Draw();
 
+	virtual void DrawImGui() {};
+
 	virtual ~BaseScene();
 };
 

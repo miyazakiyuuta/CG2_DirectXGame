@@ -12,6 +12,8 @@ public:
 
 	void Draw();
 
+	void DrawImGui();
+
 	~SceneManager();
 
 	void ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition = nullptr);

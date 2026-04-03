@@ -48,6 +48,12 @@ void SceneManager::Draw() {
 	}
 }
 
+void SceneManager::DrawImGui() {
+	if (scene_) {
+		scene_->DrawImGui();
+	}
+}
+
 SceneManager::~SceneManager() {
 	// 最期のシーンの終了と解放
 	scene_->Finalize();

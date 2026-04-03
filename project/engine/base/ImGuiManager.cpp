@@ -14,6 +14,10 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 
 	// ImGuiのコンテキストを設定
 	ImGui::CreateContext();
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // Docking機能を有効にする
+
 	// ImGuiのスタイルを設定
 	ImGui::StyleColorsDark();
 
@@ -23,7 +27,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 	ImGui_ImplDX12_Init(
 		dxCommon_->GetDevice(),
 		static_cast<int>(dxCommon_->GetSwapChainResourceNum()),
-		DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+		DXGI_FORMAT_R8G8B8A8_UNORM,
 		srvManager_->GetDescriptorHeap(),
 		srvManager_->GetCPUDescriptorHandle(srvIndex),
 		srvManager_->GetGPUDescriptorHandle(srvIndex)

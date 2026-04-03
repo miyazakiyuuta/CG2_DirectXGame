@@ -24,6 +24,8 @@ public:
 	// 描画後処理
 	void PostDraw();
 
+	void ResizeSwapChain(int width, int height);
+
 	// シェーダーのコンパイル
 	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
 
@@ -55,6 +57,8 @@ public:
 	static const uint32_t kMaxSRVCount;
 
 	/* getter */
+	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVCPUDescriptorHandle(uint32_t index);
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVCPUDescriptorHandle(uint32_t index);
 	ID3D12Device* GetDevice() { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
 	ID3D12Device* GetDevice() const { return device_.Get(); }
