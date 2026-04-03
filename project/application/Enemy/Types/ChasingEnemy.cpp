@@ -1,5 +1,5 @@
 #include "ChasingEnemy.h"
-#include "3d/Object3d.h"
+#include "../../../engine/3d/Object3d.h"
 #include <algorithm>
 #include <cmath>
 
@@ -14,43 +14,52 @@ void ChasingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vect
 	position_ = pos;
 
 	float scale = 1.0f;
-	object_->SetScale({scale, scale, scale});
-	object_->SetColor({1.0f, 0.3f, 0.3f, 1.0f}); // 赤
+    object_->SetScale({scale, scale, scale});
+	SetColor({1.0f, 0.3f, 0.3f, 1.0f}); // 赤
 
-	groundY_ = scale;
+	// 最低地面の基準を 0.0f に設定。
+	groundY_ = 0.0f;
+	gravity_ = -0.025f;
+
+	// 出現時に即座に埋まらないよう、高めに配置。
+	position_.y = (std::max)(position_.y, 2.5f);
 }
 
 void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	if (!object_)
 		return;
 
+	Vector3 prevPos = position_;
 	Vector3 toPlayer = playerPos - position_;
-	float distXZ = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z);
 	toPlayer.y = 0;
+	float distXZ = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z);
 
-	// 追尾移動
+	// 水平移動速度を 60FPS 基準に補正。
+	float actualSpeed = (speed_ > 1.0f) ? (speed_ / 60.0f) : speed_;
+
 	if (distXZ > 1.0f) {
 		Vector3 moveDir = Vector3::Normalized(toPlayer);
-		position_.x += moveDir.x * (5.0f / 60.0f); // Player の moveSpeed_ に合わせる
-		position_.z += moveDir.z * (5.0f / 60.0f);
+		position_.x += moveDir.x * actualSpeed;
+		position_.z += moveDir.z * actualSpeed;
 	}
 
-	// --- プレイヤーの高さに合わせたジャンプAI ---
-	if (distXZ < jumpRange_ && playerPos.y > position_.y + 0.5f && position_.y <= groundY_ + 0.01f && velocity_.y <= 0.0f) {
+	// 1. 水平衝突解決 (BaseEnemy.cpp の 1.0f 半径を使用)
+	ResolveHorizontalCollisions(prevPos);
+
+	// 2. ジャンプAI
+	if (distXZ < jumpRange_ && playerPos.y > position_.y + 0.5f && isOnGround_) {
 		float heightDiff = playerPos.y - position_.y;
-		const float maxJumpHeight = 15.0f;
-		float targetH = (std::min)(heightDiff, maxJumpHeight);
-
-		// 重力が弱くなったので、計算式を調整 (v = sqrt(2gh))
-		// 1.4f は「確実に飛び乗る」ための係数
-		float gravityPerFrame = std::abs(gravity_ * deltaTime);
-		float requiredV = std::sqrt(2.0f * gravityPerFrame * targetH * 1.4f);
-
-		// ジャンプ力を制限 (Player の jumpPowers 0.55f ~ 1.30f 相当)
-		velocity_.y = std::clamp(requiredV, 0.55f, 1.4f);
+		float requiredV = std::sqrt(2.0f * std::abs(gravity_) * heightDiff * 1.4f);
+		velocity_.y = (std::clamp)(requiredV, 0.6f, 1.4f);
+		isOnGround_ = false;
 	}
 
-	ApplyGravity(deltaTime);
+	// 3. 垂直移動
+	velocity_.y += gravity_;
+	position_.y += velocity_.y;
+
+	// 4. 垂直衝突解決 (これでブロックの上に乗れるようになります)
+	ResolveVerticalCollisions();
 
 	object_->SetTranslate(position_);
 	object_->Update();

@@ -91,6 +91,27 @@ public:
 	float GetYaw() const;
 	Tongue* GetTongue() const{ return tongue_.get(); }
 
+	// Abilities
+	enum class Ability{
+		Camouflage,
+		Sonar,
+	};
+
+    Ability GetCurrentAbility() const { return currentAbility_; }
+	void SetStage(class Stage* stage) { stage_ = stage; }
+
+    // Mimic control
+	void EndMimic(){
+		if(!object_) return;
+		// restore original visual
+		object_->SetModel(originalModelName_);
+		object_->SetScale(originalScale_);
+		Vector4 c = originalColor_;
+		c.w = currentAlpha_;
+		object_->SetColor(c);
+		isMimicking_ = false;
+	}
+
 	void UpdateTransparencyByCamera(const Vector3& cameraPosition);
 	float GetCurrentAlpha() const{ return currentAlpha_; }
 
@@ -282,6 +303,29 @@ private:
 
 	// Per-frame delta applied when standing on a moving platform
 	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};
+
+	// Abilities
+	Ability currentAbility_ = Ability::Camouflage;
+	bool abilityActive_ = false; // for Camouflage: next tongue hit will attempt mimic
+
+	// Sonar parameters
+	float sonarRange_ = 10.0f;
+	float sonarDuration_ = 3.0f; // seconds (Update uses frames, so will convert)
+	float sonarTimer_ = 0.0f;
+	float sonarAlpha_ = 0.3f; // alpha applied to revealed objects/enemies
+
+	// Stage reference (for querying objects)
+	Stage* stage_ = nullptr;
+
+	// Mimic state
+	bool isMimicking_ = false;
+	std::string originalModelName_;
+	Vector4 originalColor_ = {1.0f,1.0f,1.0f,1.0f};
+	Vector3 originalScale_ = {1.0f,1.0f,1.0f};
+
+	std::string mimicModelName_;
+	Vector4 mimicColor_ = {1.0f,1.0f,1.0f,1.0f};
+	Vector3 mimicScale_ = {1.0f,1.0f,1.0f};
 
 	Vector3 aimTargetPoint_ = { 0.0f, 0.0f, 0.0f };
 	bool hasAimTargetPoint_ = false;

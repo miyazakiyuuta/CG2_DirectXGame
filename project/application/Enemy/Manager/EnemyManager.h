@@ -1,19 +1,15 @@
 #pragma once
 #include "utility/CollisionUtility.h"
+#include <functional>
 #include <list>
 #include <memory>
 #include <vector>
-#include <functional>
 
 class BaseEnemy;
 class Object3dCommon;
 class Camera;
 struct Vector3;
-enum class EnemyType { 
-	Chasing,
-	Shooting, 
-	Sentinel
-};
+enum class EnemyType { Chasing, Shooting, Sentinel, ClusterSlime };
 
 class EnemyManager {
 public:
@@ -28,6 +24,9 @@ public:
 	void ForEachEnemy(const std::function<void(class BaseEnemy*)>& cb);
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
+
+	// 【追加】
+	float GetTotalPlayerSpeedMultiplier() const;
 
 private:
 	Object3dCommon* common_ = nullptr;
