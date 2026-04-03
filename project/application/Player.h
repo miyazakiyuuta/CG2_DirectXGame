@@ -22,7 +22,8 @@ class Player{
 		Root,
 		Jumping,
 		WallClinging,
-		TonguePulling
+		TonguePulling,
+		CeilingCrawling
 	};
 
 public:
@@ -51,6 +52,7 @@ public:
 	void SetPendingTeleport(const Vector3& position);
 
 	Vector3 GetPosition() const;
+	Vector3 GetRotate() const;
 	Vector3 GetVelocity() const{ return velocity_; }
 	void SetVelocity(const Vector3& v){ velocity_ = v; }
 	// Moving platform support: set per-frame platform delta applied to player
@@ -119,6 +121,7 @@ private:
 	void CancelJumpCharge();
 
 	void UpdateWallClinging(float cameraYaw);
+	void UpdateCeilingCrawling();
 	void UpdateTonguePulling();
 	void CheckTongueBlockHook();
 
@@ -135,9 +138,39 @@ private:
 
 	void ResolveWallClingBlockCollisions(Vector3& position) const;
 
+	bool TryReattachToAdjacentSurface(const Vector3& fromPosition, const Vector3& moveDir, Vector3& outPosition);
+
 	void ResolveMovementLimitCylinder();
 
 	bool CanStartTongueShot() const;
+
+	bool IsGroundSurface(const Vector3& normal) const;
+	bool IsCeilingSurface(const Vector3& normal) const;
+	bool IsWallSurface(const Vector3& normal) const;
+
+	Vector3 ResolveHookSurfaceNormal(
+		const CollisionUtility::OBB& block,
+		const Vector3& hitPoint,
+		const Vector3& tongueDelta,
+		const Vector3& playerPos) const;
+
+	Vector3 ResolveHookSurfaceNormalFromPlayerCapsule(
+		const CollisionUtility::OBB& block,
+		const Vector3& playerPos,
+		const Vector3& hitPoint,
+		const Vector3& tongueDelta) const;
+
+	const char* DebugFaceNameFromNormal(
+		const CollisionUtility::OBB& block,
+		const Vector3& normal) const;
+
+	void ResetTongueHitDebug();
+	void RecordTongueHitDebug(
+		int step,
+		const CollisionUtility::OBB& block,
+		const Vector3& hitPoint,
+		const Vector3& rawNormal,
+		const Vector3& usedNormal);
 
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
@@ -183,6 +216,7 @@ private:
 	float maxWallClingGauge_ = 100.0f;
 	float wallClingConsumption_ = 0.5f;
 	float wallMoveSpeed_ = 0.05f;
+	float ceilingCrawlSpeed_ = 0.35f;
 
 	Vector3 wallRightVec_ = { 1.0f, 0.0f, 0.0f };
 
@@ -229,8 +263,12 @@ private:
 
 	float wallDetachMargin_ = 0.05f;
 	float wallKeepDistance_ = 0.03f;
+	float clingReattachSearchDistance_ = 1.2f;
 
 	bool useTonguePull_ = true;
+
+	float clingGroundNormalThreshold_ = 0.6f;
+	float clingCeilingNormalThreshold_ = 0.6f;
 
 	// Beam attack (扇状薙ぎ払い) parameters
 	EnemyManager* enemyManager_ = nullptr;
@@ -247,4 +285,20 @@ private:
 
 	Vector3 aimTargetPoint_ = { 0.0f, 0.0f, 0.0f };
 	bool hasAimTargetPoint_ = false;
+
+	bool suppressTongueShotThisFrame_ = false;
+
+	bool debugShowRawTongueHit_ = true;
+	bool debugIgnoreHookSurfaceCorrection_ = true;
+	bool debugIgnoreGroundRejectOnRawHit_ = true;
+
+	bool hasTongueHitDebug_ = false;
+	int debugTongueHitStep_ = -1;
+
+	Vector3 debugTongueHitPoint_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 debugTongueRawNormal_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 debugTongueUsedNormal_ = { 0.0f, 0.0f, 0.0f };
+
+	const char* debugTongueRawFaceName_ = "None";
+	const char* debugTongueUsedFaceName_ = "None";
 };

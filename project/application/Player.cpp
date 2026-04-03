@@ -227,9 +227,212 @@ bool Player::CanStartTongueShot() const{
 
 
     // 舌で引っ張られている間や壁張り付き中も止めたいならここで追加できる
-     if(moveState_ == MovementState::TonguePulling || moveState_ == MovementState::WallClinging){ return false; }
+     if(moveState_ == MovementState::TonguePulling || moveState_ == MovementState::WallClinging ||
+        moveState_ == MovementState::CeilingCrawling){ return false; }
 
     return true;
+}
+
+bool Player::IsGroundSurface(const Vector3& normal) const{
+    return normal.y >= clingGroundNormalThreshold_;
+}
+
+bool Player::IsCeilingSurface(const Vector3& normal) const{
+    return normal.y <= -clingCeilingNormalThreshold_;
+}
+
+bool Player::IsWallSurface(const Vector3& normal) const{
+    return !IsGroundSurface(normal) && !IsCeilingSurface(normal);
+}
+
+Vector3 Player::ResolveHookSurfaceNormal(
+    const CollisionUtility::OBB& block,
+    const Vector3& hitPoint,
+    const Vector3& tongueDelta,
+    const Vector3& playerPos) const{
+    Vector3 axis[3] = {
+        Normalize3(block.axis[0]),
+        Normalize3(block.axis[1]),
+        Normalize3(block.axis[2]),
+    };
+
+    Vector3 localVec = hitPoint - block.center;
+    float local[3] = {
+        Dot3(localVec, axis[0]),
+        Dot3(localVec, axis[1]),
+        Dot3(localVec, axis[2]),
+    };
+
+    struct Candidate{
+        Vector3 normal;
+        float distance;
+    };
+
+    Candidate c[6] = {
+        { axis[0],      std::abs(block.halfLength[0] - local[0]) },
+        { axis[0] * -1, std::abs(-block.halfLength[0] - local[0]) },
+        { axis[1],      std::abs(block.halfLength[1] - local[1]) },
+        { axis[1] * -1, std::abs(-block.halfLength[1] - local[1]) },
+        { axis[2],      std::abs(block.halfLength[2] - local[2]) },
+        { axis[2] * -1, std::abs(-block.halfLength[2] - local[2]) },
+    };
+
+    int nearest = 0;
+    int second = 1;
+    if(c[second].distance < c[nearest].distance){
+        std::swap(nearest, second);
+    }
+
+    for(int i = 2; i < 6; ++i){
+        if(c[i].distance < c[nearest].distance){
+            second = nearest;
+            nearest = i;
+        } else if(c[i].distance < c[second].distance){
+            second = i;
+        }
+    }
+
+    Vector3 positionBasedNormal = c[nearest].normal;
+    float ambiguousMargin = c[second].distance - c[nearest].distance;
+
+    Vector3 travelDir = Normalize3(tongueDelta);
+    Vector3 directionBasedNormal = positionBasedNormal;
+    {
+        float bestScore = -1.0e9f;
+        for(int i = 0; i < 3; ++i){
+            Vector3 a = axis[i];
+            Vector3 b = axis[i] * -1.0f;
+
+            float scoreA = Dot3(a, travelDir * -1.0f);
+            if(scoreA > bestScore){
+                bestScore = scoreA;
+                directionBasedNormal = a;
+            }
+
+            float scoreB = Dot3(b, travelDir * -1.0f);
+            if(scoreB > bestScore){
+                bestScore = scoreB;
+                directionBasedNormal = b;
+            }
+        }
+    }
+
+    Vector3 toPlayer = Normalize3(playerPos - hitPoint);
+    Vector3 playerBasedNormal = positionBasedNormal;
+    {
+        float bestScore = -1.0e9f;
+        for(int i = 0; i < 3; ++i){
+            Vector3 a = axis[i];
+            Vector3 b = axis[i] * -1.0f;
+
+            float scoreA = Dot3(a, toPlayer);
+            if(scoreA > bestScore){
+                bestScore = scoreA;
+                playerBasedNormal = a;
+            }
+
+            float scoreB = Dot3(b, toPlayer);
+            if(scoreB > bestScore){
+                bestScore = scoreB;
+                playerBasedNormal = b;
+            }
+        }
+    }
+
+    Vector3 resolved = positionBasedNormal;
+
+    const float kAmbiguousThreshold = 0.05f;
+    if(ambiguousMargin < kAmbiguousThreshold){
+        resolved = directionBasedNormal;
+    }
+
+    if(IsWallSurface(positionBasedNormal) && IsGroundSurface(directionBasedNormal)){
+        resolved = directionBasedNormal;
+    }
+
+    if(Dot3(resolved, directionBasedNormal) < 0.5f &&
+       Dot3(playerBasedNormal, directionBasedNormal) > 0.5f){
+        resolved = directionBasedNormal;
+    }
+
+    return Normalize3(resolved);
+}
+
+Vector3 Player::ResolveHookSurfaceNormalFromPlayerCapsule(
+    const CollisionUtility::OBB& block,
+    const Vector3& playerPos,
+    const Vector3& hitPoint,
+    const Vector3& tongueDelta) const{
+    Vector3 axis[3] = {
+        Normalize3(block.axis[0]),
+        Normalize3(block.axis[1]),
+        Normalize3(block.axis[2]),
+    };
+
+    Vector3 segmentDir = Normalize3(hitPoint - playerPos);
+    Vector3 travelDir = Normalize3(tongueDelta);
+
+    Vector3 bestNormal = { 0.0f, 1.0f, 0.0f };
+    float bestScore = -1.0e9f;
+
+    // 線分の中点も使って、どの面側に近いかを見る
+    Vector3 midPoint = {
+        (playerPos.x + hitPoint.x) * 0.5f,
+        (playerPos.y + hitPoint.y) * 0.5f,
+        (playerPos.z + hitPoint.z) * 0.5f
+    };
+
+    Vector3 localMidVec = midPoint - block.center;
+    float localMid[3] = {
+        Dot3(localMidVec, axis[0]),
+        Dot3(localMidVec, axis[1]),
+        Dot3(localMidVec, axis[2]),
+    };
+
+    for(int i = 0; i < 3; ++i){
+        Vector3 candidates[2] = {
+            axis[i],
+            axis[i] * -1.0f
+        };
+
+        for(int j = 0; j < 2; ++j){
+            Vector3 n = candidates[j];
+
+            // プレイヤー→hitPoint の進行に対して入口面らしいか
+            float frontScore = Dot3(n, segmentDir * -1.0f);
+
+            // 舌の進行方向ともある程度整合しているか
+            float tongueScore = Dot3(n, travelDir * -1.0f);
+
+            // 線分中点がその面寄りにあるか
+            float sideScore = 0.0f;
+            if(i == 0){
+                sideScore = (j == 0) ? localMid[0] : -localMid[0];
+            } else if(i == 1){
+                sideScore = (j == 0) ? localMid[1] : -localMid[1];
+            } else{
+                sideScore = (j == 0) ? localMid[2] : -localMid[2];
+            }
+
+            // 合成スコア
+            float score =
+                frontScore * 0.60f +
+                tongueScore * 0.25f +
+                sideScore * 0.15f;
+
+            // 下方向ショットで壁面を選びにくくする
+            if(segmentDir.y < -0.4f && IsWallSurface(n)){
+                score -= 0.5f;
+            }
+
+            if(score > bestScore){
+                bestScore = score;
+                bestNormal = n;
+            }
+        }
+    }
+
+    return Normalize3(bestNormal);
 }
 
 void Player::SetCamera(Camera* camera)
@@ -270,6 +473,13 @@ Vector3 Player::GetPosition() const
     }
     return object_->GetTranslate();
 }
+
+Vector3 Player::GetRotate() const
+{ 
+    if(!object_) {
+        return { 0.0f, 0.0f, 0.0f };
+	}
+    return object_->GetRotate(); };
 
 CollisionUtility::OBB Player::GetPlayerOBB(const Vector3& position) const
 {
@@ -411,15 +621,16 @@ void Player::ResolveVerticalCollisions(const Vector3& previousPosition)
     object_->SetTranslate(position);
 }
 
-void Player::CheckTongueBlockHook()
-{
-    if (!tongue_ || !blockColliders_) {
+void Player::CheckTongueBlockHook(){
+    if(!tongue_ || !blockColliders_){
         return;
     }
 
-    if (tongue_->GetState() != Tongue::State::Extending) {
+    if(tongue_->GetState() != Tongue::State::Extending){
         return;
     }
+
+    ResetTongueHitDebug();
 
     Vector3 start = tongue_->GetPrevPosition();
     Vector3 end = tongue_->GetPosition();
@@ -431,26 +642,50 @@ void Player::CheckTongueBlockHook()
     // 半径より大きく飛ぶなら分割数を増やす
     int steps = std::max(1, static_cast<int>(std::ceil(moveLen / std::max(0.05f, baseSphere.radius * 0.5f))));
 
-    for (int s = 1; s <= steps; ++s) {
+    for(int s = 1; s <= steps; ++s){
         float t = static_cast<float>(s) / static_cast<float>(steps);
 
         CollisionUtility::Sphere testSphere = baseSphere;
         testSphere.center = start + delta * t;
 
-        for (const auto& block : *blockColliders_) {
+        for(const auto& block : *blockColliders_){
             auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, block);
-            if (!hit.hit) {
+            if(!hit.hit){
                 continue;
             }
 
-            Vector3 hitNormal = hit.normal;
+            Vector3 rawHitNormal = Normalize3(hit.normal);
 
-            Vector3 toPlayer = Normalize3(GetPosition() - hit.point);
-            if (Dot3(hitNormal, toPlayer) < 0.0f) {
-                hitNormal = hitNormal * -1.0f;
+            Vector3 correctedHitNormal = ResolveHookSurfaceNormalFromPlayerCapsule(
+                block,
+                GetPosition(),
+                hit.point,
+                delta);
+
+            Vector3 usedHitNormal = debugIgnoreHookSurfaceCorrection_
+                ? rawHitNormal
+                : correctedHitNormal;
+
+            RecordTongueHitDebug(
+                s,
+                block,
+                hit.point,
+                rawHitNormal,
+                usedHitNormal);
+
+            if(std::strcmp(debugTongueUsedFaceName_, "+Axis1") == 0){
+                tongue_->StartReturn();
+                return;
             }
 
-            SetupClingSurfaceFromHit(block, hit.point, hitNormal);
+            // raw確認中は地面除外も無視できるようにする
+            if(!debugIgnoreGroundRejectOnRawHit_){
+                if(IsGroundSurface(usedHitNormal)){
+                    continue;
+                }
+            }
+
+            SetupClingSurfaceFromHit(block, hit.point, usedHitNormal);
 
             Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
             tongue_->SetHooked(hookPos);
@@ -459,15 +694,19 @@ void Player::CheckTongueBlockHook()
             const float kPullSkin = 0.03f;
             float playerRadiusAlongNormal = ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
 
-            Vector3 clingAnchorPoint = clingSurfaceCenter_ + clingSurfaceRight_ * clingHitRightOffset_ + clingSurfaceUp_ * clingHitUpOffset_;
+            Vector3 clingAnchorPoint =
+                clingSurfaceCenter_
+                + clingSurfaceRight_ * clingHitRightOffset_
+                + clingSurfaceUp_ * clingHitUpOffset_;
 
             tonguePullTarget_ = clingAnchorPoint + clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
 
             velocity_ = { 0.0f, 0.0f, 0.0f };
             CancelJumpCharge();
-            if (useTonguePull_) {
+
+            if(useTonguePull_){
                 TransitionTo(MovementState::TonguePulling);
-            } else {
+            } else{
                 tongue_->StartReturn();
             }
             return;
@@ -513,6 +752,8 @@ void Player::Update()
     if (!object_) {
         return;
     }
+
+    suppressTongueShotThisFrame_ = false;
 
     float cameraYaw = 0.0f;
     bool isAimMode = false;
@@ -577,6 +818,10 @@ void Player::Update()
         UpdateWallClinging(cameraYaw);
         break;
 
+    case MovementState::CeilingCrawling:
+        UpdateCeilingCrawling();
+        break;
+
     case MovementState::TonguePulling:
         UpdateTonguePulling();
         break;
@@ -597,7 +842,7 @@ void Player::Update()
         SetYawFromCamera(cameraYaw);
     }
 
-	if(input_->IsTriggerMouse(0)){
+	if(moveState_ != MovementState::CeilingCrawling &&moveState_ != MovementState::WallClinging && input_->IsTriggerMouse(0)){
 		Vector3 shotDirection = cameraForward;
 
 		if(hasAimTargetPoint_ && tongue_){
@@ -835,6 +1080,8 @@ const char* Player::GetMovementStateName() const
         return "WallClinging";
     case MovementState::TonguePulling:
         return "TonguePulling";
+    case MovementState::CeilingCrawling:
+        return "CeilingCrawling";
     }
     return "Unknown";
 }
@@ -879,21 +1126,31 @@ void Player::TransitionTo(MovementState nextState)
         velocity_ = { 0.0f, 0.0f, 0.0f };
         isOnGround_ = false;
         break;
+    case MovementState::CeilingCrawling:
+        velocity_ = { 0.0f, 0.0f, 0.0f };
+        isOnGround_ = false;
+        break;
     }
+
 }
 
-void Player::DrawImGui()
-{
+void Player::DrawImGui(){
 #ifdef USE_IMGUI
-    if (ImGui::TreeNode("Player")) {
+    if(ImGui::TreeNode("Player")){
         Vector3 position = GetPosition();
+        Vector3 rotate = GetRotate();
 
-        if (ImGui::TreeNode("Position / Velocity")) {
+        if(ImGui::TreeNode("Position / Velocity")){
             ImGui::Text("World Position");
             ImGui::Separator();
             ImGui::Text("X : %.3f", position.x);
             ImGui::Text("Y : %.3f", position.y);
             ImGui::Text("Z : %.3f", position.z);
+
+            ImGui::Separator();
+            ImGui::Text("X : %.3f", rotate.x);
+            ImGui::Text("Y : %.3f", rotate.y);
+            ImGui::Text("Z : %.3f", rotate.z);
 
             ImGui::Separator();
             ImGui::Text("Velocity");
@@ -908,7 +1165,7 @@ void Player::DrawImGui()
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Water")) {
+        if(ImGui::TreeNode("Water")){
             ImGui::Text("Water Gauge : %.1f / %.1f", waterGauge_, maxWaterGauge_);
             ImGui::ProgressBar(
                 maxWaterGauge_ > 0.0f ? (waterGauge_ / maxWaterGauge_) : 0.0f,
@@ -917,23 +1174,23 @@ void Player::DrawImGui()
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("State")) {
+        if(ImGui::TreeNode("State")){
             ImGui::Text("Current State : %s", GetMovementStateName());
             ImGui::Separator();
 
-            if (ImGui::Button("To Root")) {
+            if(ImGui::Button("To Root")){
                 TransitionTo(MovementState::Root);
             }
             ImGui::SameLine();
-            if (ImGui::Button("To Jumping")) {
+            if(ImGui::Button("To Jumping")){
                 TransitionTo(MovementState::Jumping);
             }
             ImGui::SameLine();
-            if (ImGui::Button("To WallClinging")) {
+            if(ImGui::Button("To WallClinging")){
                 TransitionTo(MovementState::WallClinging);
             }
             ImGui::SameLine();
-            if (ImGui::Button("To TonguePulling")) {
+            if(ImGui::Button("To TonguePulling")){
                 TransitionTo(MovementState::TonguePulling);
             }
 
@@ -946,7 +1203,7 @@ void Player::DrawImGui()
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Jump")) {
+        if(ImGui::TreeNode("Jump")){
             ImGui::Text("Space : Hold to Charge Jump");
             ImGui::Separator();
 
@@ -959,31 +1216,31 @@ void Player::DrawImGui()
             ImGui::Text("Current Level : %d", visibleLevel);
 
             int editableStock = stock;
-            if (ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)) {
+            if(ImGui::SliderInt("Edit Charge Stock", &editableStock, 0, kMaxChargeLevel_)){
                 SetChargeStock(editableStock);
                 stock = editableStock;
             }
 
-            if (ImGui::Button("+1 Stock")) {
+            if(ImGui::Button("+1 Stock")){
                 AddChargeStock(1);
             }
             ImGui::SameLine();
-            if (ImGui::Button("-1 Stock")) {
+            if(ImGui::Button("-1 Stock")){
                 AddChargeStock(-1);
             }
             ImGui::SameLine();
-            if (ImGui::Button("Max Stock")) {
+            if(ImGui::Button("Max Stock")){
                 SetChargeStock(kMaxChargeLevel_);
             }
 
             ImGui::Separator();
 
-            if (stock <= 0) {
+            if(stock <= 0){
                 ImGui::Text("Phase : Normal Jump Only");
-            } else {
-                if (IsChargeAtMaxPhase()) {
+            } else{
+                if(IsChargeAtMaxPhase()){
                     ImGui::Text("Phase : MAX (%d / %d)", visibleLevel, stock);
-                } else {
+                } else{
                     ImGui::Text("Phase : %d / %d", phase + 1, stock);
                 }
             }
@@ -991,54 +1248,87 @@ void Player::DrawImGui()
             ImGui::ProgressBar(phaseRate, ImVec2(240.0f, 22.0f));
             ImGui::Text("Phase Charge : %d%%", static_cast<int>(phaseRate * 100.0f));
 
-            if (IsChargeAtMaxPhase()) {
+            if(IsChargeAtMaxPhase()){
                 ImGui::Text("Holding too long will cancel jump");
             }
 
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Tongue")) {
-            if (tongue_) {
+        if(ImGui::TreeNode("Tongue")){
+            if(tongue_){
                 Vector3 tonguePos = tongue_->GetPosition();
                 ImGui::Text("Position : %.3f %.3f %.3f", tonguePos.x, tonguePos.y, tonguePos.z);
 
                 const char* stateName = "Idle";
-                switch (tongue_->GetState()) {
-                case Tongue::State::Idle:
-                    stateName = "Idle";
-                    break;
-                case Tongue::State::Extending:
-                    stateName = "Extending";
-                    break;
-                case Tongue::State::Hooked:
-                    stateName = "Hooked";
-                    break;
-                case Tongue::State::Returning:
-                    stateName = "Returning";
-                    break;
+                switch(tongue_->GetState()){
+                    case Tongue::State::Idle:
+                        stateName = "Idle";
+                        break;
+                    case Tongue::State::Extending:
+                        stateName = "Extending";
+                        break;
+                    case Tongue::State::Hooked:
+                        stateName = "Hooked";
+                        break;
+                    case Tongue::State::Returning:
+                        stateName = "Returning";
+                        break;
                 }
 
                 ImGui::Text("State : %s", stateName);
                 ImGui::Text("Shot : Right Click Release");
                 ImGui::Text("Pull Target : %.3f %.3f %.3f", tonguePullTarget_.x, tonguePullTarget_.y, tonguePullTarget_.z);
 
-                if (ImGui::Button("Shot Tongue")) {
+                if(ImGui::Button("Shot Tongue")){
                     Vector3 debugDirection = { 0.0f, 0.0f, 1.0f };
-                    if (cameraController_) {
+                    if(cameraController_){
                         debugDirection = cameraController_->GetForwardDirection();
                     }
 
                     TryShotTongue(debugDirection);
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Reset Tongue")) {
+                if(ImGui::Button("Reset Tongue")){
                     tongue_->Reset();
-                    if (moveState_ == MovementState::TonguePulling) {
+                    if(moveState_ == MovementState::TonguePulling){
                         TransitionTo(MovementState::Jumping);
                     }
                 }
                 ImGui::Checkbox("Use Tongue Pull", &useTonguePull_);
+
+                ImGui::Separator();
+                ImGui::Text("Tongue Hit Debug");
+                ImGui::Checkbox("Show Raw Hit Debug", &debugShowRawTongueHit_);
+                ImGui::Checkbox("Ignore Surface Correction", &debugIgnoreHookSurfaceCorrection_);
+                ImGui::Checkbox("Ignore Ground Reject", &debugIgnoreGroundRejectOnRawHit_);
+
+                if(ImGui::Button("Clear Hit Debug")){
+                    ResetTongueHitDebug();
+                }
+
+                if(debugShowRawTongueHit_){
+                    ImGui::Separator();
+                    ImGui::Text("Has Hit Debug : %s", hasTongueHitDebug_ ? "true" : "false");
+                    ImGui::Text("Hit Step : %d", debugTongueHitStep_);
+
+                    ImGui::Text("Hit Point : %.3f %.3f %.3f",
+                                debugTongueHitPoint_.x,
+                                debugTongueHitPoint_.y,
+                                debugTongueHitPoint_.z);
+
+                    ImGui::Text("Raw Normal : %.3f %.3f %.3f",
+                                debugTongueRawNormal_.x,
+                                debugTongueRawNormal_.y,
+                                debugTongueRawNormal_.z);
+                    ImGui::Text("Raw Face : %s", debugTongueRawFaceName_);
+
+                    ImGui::Text("Used Normal : %.3f %.3f %.3f",
+                                debugTongueUsedNormal_.x,
+                                debugTongueUsedNormal_.y,
+                                debugTongueUsedNormal_.z);
+                    ImGui::Text("Used Face : %s", debugTongueUsedFaceName_);
+                }
             }
             ImGui::TreePop();
         }
@@ -1047,7 +1337,6 @@ void Player::DrawImGui()
     }
 #endif
 }
-
 float Player::GetJumpChargeRate() const
 {
     int allowedLevel = GetAllowedChargeLevel();
@@ -1202,16 +1491,128 @@ void Player::UpdateWallClinging(float cameraYaw)
         return;
     }
 
-    if (input_->IsTriggerKey(DIK_SPACE)) {
+    if(input_->IsTriggerKey(DIK_SPACE)){
+        object_->SetTranslate(position);
+
+        // 天井に張り付いているときだけ高速移動モードへ移行
+        if(IsCeilingSurface(clingSurfaceNormal_)){
+            TransitionTo(MovementState::CeilingCrawling);
+            return;
+        }
+
+        // 壁のときは従来どおり離脱ジャンプ
         velocity_ = clingSurfaceNormal_ * 0.25f;
         velocity_.y = jumpPowers_[0];
         hasClingSurface_ = false;
-        object_->SetTranslate(position);
         TransitionTo(MovementState::Jumping);
         return;
     }
 
     object_->SetTranslate(position);
+}
+
+void Player::UpdateCeilingCrawling(){
+    if(!object_ || !hasClingSurface_){
+        TransitionTo(MovementState::Jumping);
+        return;
+    }
+
+    Vector3 position = object_->GetTranslate();
+
+    // カメラ前方を現在の張り付き面へ射影して進行方向を作る
+    Vector3 moveDir = clingSurfaceUp_;
+    if(cameraController_){
+        Vector3 cameraForward = cameraController_->GetForwardDirection();
+        float dot = Dot3(cameraForward, clingSurfaceNormal_);
+        moveDir = cameraForward - clingSurfaceNormal_ * dot;
+    }
+
+    float len = std::sqrt(
+        moveDir.x * moveDir.x +
+        moveDir.y * moveDir.y +
+        moveDir.z * moveDir.z
+    );
+
+    if(len > 0.0001f){
+        moveDir = moveDir * (1.0f / len);
+    }
+
+    Vector3 nextPosition = position + moveDir * ceilingCrawlSpeed_;
+
+    // 端に出たかどうかは clamp 前の位置で判定する
+    if(!IsInsideCurrentClingSurface(nextPosition)){
+        Vector3 toNext = nextPosition - clingSurfaceCenter_;
+        float rightDist = Dot3(toNext, clingSurfaceRight_);
+        float upDist = Dot3(toNext, clingSurfaceUp_);
+
+        Vector3 nextNormal = clingSurfaceNormal_;
+        bool canTransition = false;
+
+        // 天井面から同じブロックの側面へ移る
+        if(IsCeilingSurface(clingSurfaceNormal_)){
+            if(rightDist > clingSurfaceHalfWidth_){
+                nextNormal = clingSurfaceRight_;
+                canTransition = true;
+            } else if(rightDist < -clingSurfaceHalfWidth_){
+                nextNormal = clingSurfaceRight_ * -1.0f;
+                canTransition = true;
+            } else if(upDist > clingSurfaceHalfHeight_){
+                nextNormal = clingSurfaceUp_;
+                canTransition = true;
+            } else if(upDist < -clingSurfaceHalfHeight_){
+                nextNormal = clingSurfaceUp_ * -1.0f;
+                canTransition = true;
+            }
+        }
+
+        if(canTransition){
+            SetupClingSurfaceFromHit(clingBlockObb_, nextPosition, nextNormal);
+
+            Vector3 reattachPos = ClampPositionToCurrentClingSurface(nextPosition);
+            ResolveCurrentClingPenetration(reattachPos);
+            ResolveWallClingBlockCollisions(reattachPos);
+            reattachPos = ClampPositionToCurrentClingSurface(reattachPos);
+
+            object_->SetTranslate(reattachPos);
+
+            float yaw = std::atan2(-clingSurfaceNormal_.x, -clingSurfaceNormal_.z) + modelYawOffset_;
+            object_->SetRotate({ 0.0f, yaw, 0.0f });
+
+            TransitionTo(MovementState::WallClinging);
+            return;
+        }
+
+        hasClingSurface_ = false;
+        object_->SetTranslate(nextPosition);
+        TransitionTo(MovementState::Jumping);
+        return;
+    }
+
+    // 面内なら通常の天井移動
+    position = ClampPositionToCurrentClingSurface(nextPosition);
+    ResolveCurrentClingPenetration(position);
+    ResolveWallClingBlockCollisions(position);
+    position = ClampPositionToCurrentClingSurface(position);
+
+    object_->SetTranslate(position);
+
+    float yaw = std::atan2(moveDir.x, moveDir.z) + modelYawOffset_;
+    object_->SetRotate({ 0.0f, yaw, 0.0f });
+
+    // 左クリックで手を離す
+    if(input_->IsTriggerMouse(0)){
+        hasClingSurface_ = false;
+        velocity_ = { 0.0f, 0.0f, 0.0f };
+        suppressTongueShotThisFrame_ = true;
+        TransitionTo(MovementState::Jumping);
+        return;
+    }
+
+    // もう一度 Space を押したら通常の張り付き状態へ戻す
+    if(input_->IsTriggerKey(DIK_SPACE)){
+        TransitionTo(MovementState::WallClinging);
+        return;
+    }
 }
 
 void Player::UpdateTransparencyByCamera(const Vector3& cameraPosition)
@@ -1411,4 +1812,119 @@ void Player::ResolveWallClingBlockCollisions(Vector3& position) const
             break;
         }
     }
+}
+
+bool Player::TryReattachToAdjacentSurface(const Vector3& fromPosition, const Vector3& moveDir, Vector3& outPosition){
+    if(!blockColliders_){
+        return false;
+    }
+
+    // 進行方向へ少し先の位置を基準に、近い面を探す
+    Vector3 probePos = fromPosition + moveDir * clingReattachSearchDistance_;
+
+    float bestScore = -1.0e9f;
+    bool found = false;
+    CollisionUtility::OBB bestBlock = {};
+    Vector3 bestNormal = { 0.0f, 0.0f, 0.0f };
+
+    for(const auto& block : *blockColliders_){
+        CollisionUtility::OBB probeObb = GetPlayerOBB(probePos);
+        auto hit = CollisionUtility::IntersectOBB_OBB_Detailed(probeObb, block);
+        if(!hit.hit){
+            continue;
+        }
+
+        Vector3 hitNormal = hit.normal * -1.0f;
+
+        // 地面は除外
+        if(IsGroundSurface(hitNormal)){
+            continue;
+        }
+
+        // 今いる面とほぼ同じ面も除外
+        if(Dot3(hitNormal, clingSurfaceNormal_) > 0.95f){
+            continue;
+        }
+
+        // 進行方向に対して自然につながる面を優先
+        float score = Dot3(hitNormal, clingSurfaceNormal_ * -1.0f);
+
+        if(score > bestScore){
+            bestScore = score;
+            bestBlock = block;
+            bestNormal = hitNormal;
+            found = true;
+        }
+    }
+
+    if(!found){
+        return false;
+    }
+
+    SetupClingSurfaceFromHit(bestBlock, probePos, bestNormal);
+
+    outPosition = ClampPositionToCurrentClingSurface(probePos);
+    ResolveCurrentClingPenetration(outPosition);
+    ResolveWallClingBlockCollisions(outPosition);
+    outPosition = ClampPositionToCurrentClingSurface(outPosition);
+
+    return true;
+}
+
+const char* Player::DebugFaceNameFromNormal(
+    const CollisionUtility::OBB& block,
+    const Vector3& normal) const{
+    Vector3 n = Normalize3(normal);
+
+    struct FaceInfo{
+        Vector3 normal;
+        const char* name;
+    };
+
+    FaceInfo faces[6] = {
+        { Normalize3(block.axis[0]),      "+Axis0" },
+        { Normalize3(block.axis[0]) * -1, "-Axis0" },
+        { Normalize3(block.axis[1]),      "+Axis1" },
+        { Normalize3(block.axis[1]) * -1, "-Axis1" },
+        { Normalize3(block.axis[2]),      "+Axis2" },
+        { Normalize3(block.axis[2]) * -1, "-Axis2" },
+    };
+
+    float bestDot = -1.0f;
+    const char* bestName = "Unknown";
+
+    for(const auto& face : faces){
+        float d = Dot3(n, face.normal);
+        if(d > bestDot){
+            bestDot = d;
+            bestName = face.name;
+        }
+    }
+
+    return bestName;
+}
+
+void Player::ResetTongueHitDebug(){
+    hasTongueHitDebug_ = false;
+    debugTongueHitStep_ = -1;
+    debugTongueHitPoint_ = { 0.0f, 0.0f, 0.0f };
+    debugTongueRawNormal_ = { 0.0f, 0.0f, 0.0f };
+    debugTongueUsedNormal_ = { 0.0f, 0.0f, 0.0f };
+    debugTongueRawFaceName_ = "None";
+    debugTongueUsedFaceName_ = "None";
+}
+
+void Player::RecordTongueHitDebug(
+    int step,
+    const CollisionUtility::OBB& block,
+    const Vector3& hitPoint,
+    const Vector3& rawNormal,
+    const Vector3& usedNormal){
+    hasTongueHitDebug_ = true;
+    debugTongueHitStep_ = step;
+    debugTongueHitPoint_ = hitPoint;
+    debugTongueRawNormal_ = Normalize3(rawNormal);
+    debugTongueUsedNormal_ = Normalize3(usedNormal);
+    debugTongueRawFaceName_ = DebugFaceNameFromNormal(block, debugTongueRawNormal_);
+    debugTongueUsedFaceName_ = DebugFaceNameFromNormal(block, debugTongueUsedNormal_);
 }
