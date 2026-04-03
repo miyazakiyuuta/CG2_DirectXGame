@@ -290,7 +290,7 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 
 	// 書き込むRTVの情報
 	pipelineStateDesc.NumRenderTargets = 1;
-	pipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	pipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	// 利用するトロポジ(形状)のタイプ。三角形
 	pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	// どのように画面に色を打ち込むかの設定(気にしなくて良い)
@@ -385,7 +385,7 @@ void Object3dCommon::CreateSkinningGraphicsPipelineState() {
 
 	// 書き込むRTVの情報
 	pipelineStateDesc.NumRenderTargets = 1;
-	pipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	pipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	// 利用するトロポジ(形状)のタイプ。三角形
 	pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	// どのように画面に色を打ち込むかの設定(気にしなくて良い)

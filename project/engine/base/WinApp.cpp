@@ -9,6 +9,10 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg
 
 WinApp* WinApp::instance = nullptr;
 
+bool WinApp::isResized_ = false;
+int WinApp::newWidth_ = 0;
+int WinApp::newHeight_ = 0;
+
 WinApp* WinApp::GetInstance() {
 	if (!instance)instance = new WinApp();
 	return instance;
@@ -26,6 +30,15 @@ LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	case WM_DESTROY:
 		// OSに対して、アプリの終了を伝える
 		PostQuitMessage(0);
+		return 0;
+	case WM_SIZE:
+		if (wparam != SIZE_MINIMIZED) {
+			newWidth_ = LOWORD(lparam);
+			newHeight_ = HIWORD(lparam);
+			if (newWidth_ > 0 && newHeight_ > 0) {
+				isResized_ = true;
+			}
+		}
 		return 0;
 	}
 

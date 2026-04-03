@@ -19,6 +19,8 @@ public:
 	void CreateSRVForTexture(uint32_t srvIndex, ID3D12Resource* pResource, const DirectX::TexMetadata& metadata);
 	// SRV作成(Structured Buffer用)
 	void CreateSRVForStructuredBuffer(uint32_t srvIndex, ID3D12Resource* pResource, UINT numElements, UINT structureByteStride);
+	// SRV作成(レンダーテクスチャ用)
+	void CreateRenderTextureSrv(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format);
 
 	void PreDraw();
 

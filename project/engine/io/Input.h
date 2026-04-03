@@ -5,6 +5,10 @@
 #include <dinput.h>
 #include "base/WinApp.h"
 
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
+
 class Input {
 public:
 	// namespace省略
@@ -79,5 +83,21 @@ private:
 
 	// WindowsAPI
 	WinApp* winApp_ = nullptr;
+
+#ifdef USE_IMGUI
+	
+	ImVec2 sceneImagePos_ = { 0, 0 };
+	ImVec2 sceneImageSize_ = { 0, 0 };
+	bool sceneViewHovered_ = false;
+
+public:
+	void SetSceneViewInfo(const ImVec2& imagePos, const ImVec2& imageSize, bool isHovered);
+	/// マウス座標をゲーム解像度(0〜1280, 0〜720)に変換
+	/// 戻り値: Sceneビュー内ならtrue、外ならfalse
+	bool GetSceneMousePos(float& outX, float& outY) const;
+
+	/// マウスがSceneビュー上にあるか
+	bool IsSceneViewHovered() const { return sceneViewHovered_; }
+#endif
 };
 

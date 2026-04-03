@@ -16,5 +16,9 @@ public: // メンバ関数
 	// 描画
 	void Draw() override;
 
+	void DrawUI() override;
+
+	~Game() override;
+
 };
 

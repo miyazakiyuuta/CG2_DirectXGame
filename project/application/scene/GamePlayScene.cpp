@@ -1,6 +1,5 @@
 #include "scene/GamePlayScene.h"
 
-#include "base/ImGuiManager.h"
 #include "io/Input.h"
 #include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
@@ -19,19 +18,16 @@
 #include "debug/DebugGrid.h"
 #include "debug/DebugRenderer.h"
 
+#include <numbers>
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-#include <numbers>
 
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
 	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
 	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
-
-	imGuiManager_ = std::make_unique<ImGuiManager>();
-	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
@@ -84,29 +80,6 @@ void GamePlayScene::Finalize() {
 }
 
 void GamePlayScene::Update() {
-#ifdef USE_IMGUI
-
-	imGuiManager_->Begin();
-
-	// デモウィンドウ(使い方紹介)
-	ImGui::ShowDemoWindow();
-
-	Vector3 rotate = object3d_->GetRotate();
-
-	ImGui::Begin("Window");
-
-	camera_->DrawImGui();
-	if (ImGui::TreeNode("object3d")) {
-		ImGui::DragFloat3("rotate", &rotate.x, 0.01f);
-		ImGui::TreePop();
-	}
-
-	ImGui::End();
-
-	imGuiManager_->End();
-
-	object3d_->SetRotate(rotate);
-#endif
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -125,7 +98,7 @@ void GamePlayScene::Update() {
 
 	object3d_->Update();
 
-	//DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
 	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,0.0f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
 
 }
@@ -135,12 +108,21 @@ void GamePlayScene::Draw() {
 
 	object3d_->Draw();
 
-	//debugGrid_->Draw(*camera_);
-
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
+}
 
+void GamePlayScene::DrawImGui() {
 #ifdef USE_IMGUI
-	imGuiManager_->Draw();
+
+	Vector3 object3dPos = object3d_->GetTranslate();
+
+	ImGui::Begin("GamePlayScene_Object");
+	camera_->DrawImGui();
+	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
+		object3d_->SetTranslate(object3dPos);
+	}
+	ImGui::End();
+
 #endif
 }
 

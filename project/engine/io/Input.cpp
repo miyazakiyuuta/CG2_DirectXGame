@@ -118,3 +118,30 @@ Input::MouseMove Input::GetMouseMove() {
 long Input::GetMouseWheel() {
 	return mouseState_.lZ;
 }
+
+#ifdef USE_IMGUI
+void Input::SetSceneViewInfo(const ImVec2& imagePos, const ImVec2& imageSize, bool isHovered) {
+	sceneImagePos_ = imagePos;
+	sceneImageSize_ = imageSize;
+	sceneViewHovered_ = isHovered;
+}
+
+bool Input::GetSceneMousePos(float& outX, float& outY) const {
+	if (!sceneViewHovered_) return false;
+
+	ImVec2 mousePos = ImGui::GetMousePos();
+
+	float localX = mousePos.x - sceneImagePos_.x;
+	float localY = mousePos.y - sceneImagePos_.y;
+
+	if (localX < 0 || localY < 0 ||
+		localX > sceneImageSize_.x ||
+		localY > sceneImageSize_.y) {
+		return false;
+	}
+
+	outX = (localX / sceneImageSize_.x) * 1280.0f;
+	outY = (localY / sceneImageSize_.y) * 720.0f;
+	return true;
+}
+#endif
