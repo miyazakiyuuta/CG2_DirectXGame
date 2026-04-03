@@ -166,6 +166,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\Enemy\Types\ChasingEnemy.cpp" />
     <ClCompile Include="application\Enemy\Projectiles\EnemyBullet.cpp" />
     <ClCompile Include="application\Enemy\Manager\EnemyManager.cpp" />
+    <ClCompile Include="application\Enemy\Types\ClusterSlime.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
@@ -252,6 +253,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Enemy\Projectiles\EnemyBullet.h" />
     <ClInclude Include="application\Enemy\Manager\EnemyManager.h" />
     <ClInclude Include="application\Easing.h" />
+    <ClInclude Include="application\Enemy\Types\ClusterSlime.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />

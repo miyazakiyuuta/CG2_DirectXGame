@@ -1,5 +1,6 @@
 #pragma once
-#include "math/Vector3.h"
+#include "../../../engine/math/Vector3.h"
+#include "../../../engine/utility/CollisionUtility.h"
 #include "math/Vector4.h"
 #include <memory>
 #include <vector>
@@ -8,9 +9,6 @@ class Object3d;
 class Object3dCommon;
 class Camera;
 
-/// <summary>
-/// 敵の基底クラス。Player.h の重力設定に合わせて調整。
-/// </summary>
 class BaseEnemy {
 public:
 	BaseEnemy();
@@ -19,6 +17,8 @@ public:
 	virtual void Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) = 0;
 	virtual void Update(float deltaTime, const Vector3& playerPos) = 0;
 	virtual void Draw() = 0;
+
+	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
 
 	const Vector3& GetPosition() const { return position_; }
 	bool IsDead() const { return isDead_; }
@@ -30,9 +30,17 @@ public:
 	// Return the originally assigned alpha (stored when SetColor was called)
 	float GetOriginalAlpha() const;
 
+	// プレイヤーへの速度補正値を取得
+	float GetPlayerSpeedMultiplier() const { return playerSpeedMultiplier_; }
+
 protected:
-	// 重力計算：接地高さ(groundY_)で止まるように調整
-	void ApplyGravity(float deltaTime);
+	void ResolveHorizontalCollisions(const Vector3& previousPosition);
+	void ResolveVerticalCollisions();
+
+	void ResolveHorizontalCollisionsForPos(Vector3& pos, const Vector3& prevPos, float radius) const;
+	void ResolveVerticalCollisionsForPos(Vector3& pos, Vector3& vel, float collisionRadius, float visualRadius, bool& outOnGround) const;
+
+	virtual CollisionUtility::OBB GetOBB(const Vector3& pos, float radius) const;
 
 protected:
 	std::unique_ptr<Object3d> object_ = nullptr;
@@ -40,10 +48,13 @@ protected:
 	Vector3 position_ = {0.0f, 0.0f, 0.0f};
 	Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
 	bool isDead_ = false;
+	bool isOnGround_ = false;
 
-	// --- 物理パラメータ ---
-	// 修正：Player.h の -0.02f/frame に合わせるため、秒間重力を -1.2f に設定
-	// (-1.2f * 1/60 = -0.02f)
-	float gravity_ = -1.2f;
+	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+
+	float gravity_ = -0.04f;
 	float groundY_ = 0.0f;
+
+	// プレイヤーの移動速度倍率（1.0が通常）
+	float playerSpeedMultiplier_ = 1.0f;
 };
