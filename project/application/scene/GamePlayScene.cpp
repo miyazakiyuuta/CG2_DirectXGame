@@ -406,20 +406,6 @@ void GamePlayScene::Update() {
 			lastWarpId_ = -1;
 	}
 
-	if (!stageEditor_->IsEditMode()) {
-		// 先にカメラを更新して、そのフレームの aim 状態と forward を Player が読めるようにする
-		cameraController_->Update(player_->GetPosition());
-		player_->Update();
-
-		// 【追加】エネミーの更新
-		if (enemyManager_) {
-			enemyManager_->Update(1.0f / 60.0f, player_->GetPosition());
-		}
-	} else {
-		// StageEditor中はプレイヤー更新を止める
-		cameraController_->Update(player_->GetPosition());
-	}
-
 	if (slug_) {
 		slug_->Update(1.0f / 60.0f);
 	}
