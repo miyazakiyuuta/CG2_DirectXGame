@@ -208,58 +208,7 @@ void GamePlayScene::Finalize() {
 	// 終了処理の実体を追加
 }
 
-void GamePlayScene::Update() {
-
-#ifdef USE_IMGUI
-	ImGui::Begin("a");
-	// Well object debug / info
-	if (wellObject_) {
-		ImGui::Separator();
-		ImGui::Text("Well Object");
-
-		Vector3 wpos = wellObject_->GetTranslate();
-		if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
-			wellObject_->SetTranslate(wpos);
-		}
-
-		Vector3 wscale = wellObject_->GetScale();
-		if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
-			wellObject_->SetScale(wscale);
-		}
-
-		Vector3 wrot = wellObject_->GetRotate();
-		ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
-
-		if (ImGui::Button("Reset Well")) {
-			wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
-			wellObject_->SetScale({ 1.0f, 1.0f, 1.0f });
-		}
-
-	} else {
-		ImGui::Separator();
-		ImGui::Text("Well: not created");
-	}
-
-	player_->DrawImGui();
-
-	ImGui::End();
-
-#endif
-	stageEditor_->Update();
-
-	// Debug overlay to help diagnose warp issues (rendered inside ImGui frame)
-#ifdef USE_IMGUI
-	ImGui::Begin("Warp Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-	ImGui::Text("EditMode: %s", stageEditor_ && stageEditor_->IsEditMode() ? "ON" : "OFF");
-	int warpCount = 0;
-	for (const auto& o : stage_->GetStageData().objects)
-		if (o.blockId == BlockID::Warp)
-			++warpCount;
-	ImGui::Text("Warp objects: %d", warpCount);
-	ImGui::Text("LastWarpId: %d", lastWarpId_);
-	ImGui::Text("WarpCooldown: %d", warpCooldownCounter_);
-	ImGui::End();
-#endif
+void GamePlayScene::Update() {	
 
 	// Advance stage runtime (moving platforms, etc.) with fixed timestep
 	if (stage_) {
@@ -534,6 +483,33 @@ if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
 	object3d_->SetTranslate(object3dPos);
 }
 ImGui::End();
+
+ImGui::Begin("a");
+// Well object debug / info
+if (wellObject_) {
+    ImGui::Separator();
+    ImGui::Text("Well Object");
+
+    Vector3 wpos = wellObject_->GetTranslate();
+    if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
+        wellObject_->SetTranslate(wpos);
+    }
+
+    Vector3 wscale = wellObject_->GetScale();
+    if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
+        wellObject_->SetScale(wscale);
+    }
+
+    Vector3 wrot = wellObject_->GetRotate();
+    ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
+
+}
+
+player_->DrawImGui();
+
+ImGui::End();
+
+stageEditor_->Update();
 
 #endif
 }
