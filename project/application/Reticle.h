@@ -7,6 +7,7 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "utility/CollisionUtility.h"
+#include "base/WinApp.h"
 
 class Sprite;
 class SpriteCommon;
@@ -64,7 +65,7 @@ private:
 	std::unique_ptr<Sprite> barLeft_ = nullptr;
 	std::unique_ptr<Sprite> barRight_ = nullptr;
 
-	Vector2 center_ = { 640.0f, 360.0f };
+	Vector2 center_ = { static_cast<float>(WinApp::kClientWidth) / 2.0f, static_cast<float>(WinApp::kClientHeight) / 2.0f};
 	Vector4 color_ = { 1.0f, 1.0f, 1.0f, 0.9f };
 
 	bool isVisible_ = true;

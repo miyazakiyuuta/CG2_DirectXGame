@@ -215,7 +215,7 @@ private:
 	float tongueWaterCost_ = 0.0f;
 
 	// チャージジャンプ
-	float jumpPowers_[4] = {0.55f, 0.80f, 1.05f, 1.30f};
+	float jumpPowers_[4] = {0.55f, 0.70f, 0.80f, 1.10f};
 	float chargeThresholds_[3] = {40.0f, 80.0f, 120.0f};
 	float chargeCancelHoldLimit_ = 240.0f;
 
