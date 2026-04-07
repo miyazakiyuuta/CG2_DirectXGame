@@ -37,37 +37,69 @@ void ClusterSlime::Initialize(Object3dCommon* common, Camera* camera, const Vect
 	}
 
 	groundY_ = 0.0f;
+	gravity_ = -0.025f; // 重力設定
 }
 
 void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 	const float kCollisionRadius = 0.35f;
 	const float kVisualRadius = 0.2f;
 
-	// 【追加】減速計算用の定数
-	const float kSlowDetectionRadius = 5.0f;  // プレイヤーにまとわりついていると判定する距離
-	const float kSlowEffectPerMember = 0.1f; // 1匹につき5%減速
+	const float kSlowDetectionRadiusXZ = 2.5f; // 水平の判定距離
+	const float kSlowDetectionRadiusY = 3.0f;  // 垂直（高さ）の判定距離。
+	const float kSlowEffectPerMember = 0.05f;
 	int surroundCount = 0;
 
 	for (size_t i = 0; i < members_.size(); ++i) {
 		auto& m = members_[i];
 		Vector3 previousPos = m.position;
 
-		Vector3 accel = {0, 0, 0};
 		Vector3 toPlayer = playerPos - m.position;
-		toPlayer.y = 0;
-		float distToPlayer = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z);
+		float distToPlayerXZ = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z);
+		float heightDiff = std::abs(playerPos.y - m.position.y);
 
-		// 【追加】個体ごとにプレイヤーとの距離をチェック
-		if (distToPlayer < kSlowDetectionRadius) {
+		// --- 1. デバフ判定 ---
+		if (distToPlayerXZ < kSlowDetectionRadiusXZ && heightDiff < kSlowDetectionRadiusY) {
 			surroundCount++;
 		}
 
-		if (distToPlayer < detectRadius_) {
-			Vector3 dir = Vector3::Normalized(toPlayer);
-			accel.x += dir.x * 0.015f;
-			accel.z += dir.z * 0.015f;
+		// --- 2. ジャンプAI（浮遊足場対応版） ---
+		if (m.onGround) {
+			float jumpHeightDiff = playerPos.y - m.position.y;
+			// プレイヤーが自分より高い位置（0.3m以上）にいて、届く範囲（6.0m以内）ならジャンプを検討
+			// 水平距離も考慮し、少し離れていても飛びつくようにする
+			if (jumpHeightDiff > 0.3f && jumpHeightDiff < 6.0f && distToPlayerXZ < 5.0f) {
+				// 垂直速度の計算: v = sqrt(2gh) に少し余裕を持たせる
+				float requiredV = std::sqrt(2.0f * std::abs(gravity_) * jumpHeightDiff * 1.6f);
+				m.velocity.y = (std::clamp)(requiredV, 0.3f, 0.75f);
+
+				// 【改善】ジャンプした瞬間にプレイヤーの方向へ水平初速を与える（飛び出し）
+				if (distToPlayerXZ > 0.1f) {
+					float leapForce = 0.15f; // 飛び出しの強さ
+					m.velocity.x += (toPlayer.x / distToPlayerXZ) * leapForce;
+					m.velocity.z += (toPlayer.z / distToPlayerXZ) * leapForce;
+				}
+
+				m.onGround = false;
+			}
 		}
 
+		// --- 3. 移動計算 ---
+		Vector3 accel = {0, 0, 0};
+		if (distToPlayerXZ < detectRadius_) {
+			Vector3 dir = {toPlayer.x, 0.0f, toPlayer.z};
+			float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+			if (len > 0.001f) {
+				dir.x /= len;
+				dir.z /= len;
+
+				// 地面にいる時と空中での加速を変える
+				float accelStr = m.onGround ? 0.015f : 0.008f; // 空中でも少しだけ誘導をかける
+				accel.x += dir.x * accelStr;
+				accel.z += dir.z * accelStr;
+			}
+		}
+
+		// 群れの分離（はびこる挙動）
 		for (size_t j = 0; j < members_.size(); ++j) {
 			if (i == j)
 				continue;
@@ -83,31 +115,33 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
 		m.velocity.x += accel.x;
 		m.velocity.z += accel.z;
-		m.velocity.x *= 0.85f;
-		m.velocity.z *= 0.85f;
+
+		// 摩擦（接地時と空中で分ける）
+		float friction = m.onGround ? 0.85f : 0.95f; // 空中では慣性を残す
+		m.velocity.x *= friction;
+		m.velocity.z *= friction;
 
 		m.position.x += m.velocity.x;
 		m.position.z += m.velocity.z;
 
+		// 衝突解決（水平）
 		ResolveHorizontalCollisionsForPos(m.position, previousPos, kCollisionRadius);
+
+		// 垂直移動
 		m.velocity.y += gravity_;
 		m.position.y += m.velocity.y;
+
+		// 衝突解決（垂直：これでブロックの上に乗る）
 		ResolveVerticalCollisionsForPos(m.position, m.velocity, kCollisionRadius, kVisualRadius, m.onGround);
 
+		// アニメーション
 		m.timer += deltaTime * 8.0f;
-		float jumpOffset = 0.0f;
-		if (m.onGround) {
-			jumpOffset = std::abs(std::sin(m.timer * 4.0f)) * 0.3f;
-		}
-
-		Vector3 renderPos = m.position;
-		renderPos.y += jumpOffset;
-
-		m.object->SetTranslate(renderPos);
+		float jumpOffset = m.onGround ? std::abs(std::sin(m.timer * 4.0f)) * 0.3f : 0.0f;
+		m.object->SetTranslate({m.position.x, m.position.y + jumpOffset, m.position.z});
 		m.object->Update();
 	}
 
-	// 【重要】累積減速倍率を計算（15体なら 1.0 - 0.75 = 0.25倍速 になる）
+	// 4. 累積減速倍率を計算
 	playerSpeedMultiplier_ = (std::clamp)(1.0f - (surroundCount * kSlowEffectPerMember), 0.2f, 1.0f);
 
 	if (object_ && !members_.empty()) {
