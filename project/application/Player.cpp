@@ -958,6 +958,13 @@ void Player::Draw() {
 		Vector4 dispColor;
 		if (isMimicking_) {
 			dispColor = mimicColor_;
+			// 【修正】擬態中に自分がわかるように、少し青白く明滅（パルス）させる
+			static float pulseTimer = 0.0f;
+			pulseTimer += 1.0f / 60.0f;
+			float pulse = (std::sin(pulseTimer * 10.0f) * 0.5f + 0.5f) * 0.3f;
+			dispColor.x += pulse * 0.5f;
+			dispColor.y += pulse;
+			dispColor.z += pulse;
 			dispColor.w *= currentAlpha_;
 		} else {
 			dispColor = originalColor_;

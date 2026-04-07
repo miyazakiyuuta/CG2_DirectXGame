@@ -192,6 +192,7 @@ void GamePlayScene::Initialize() {
 	enemyManager_->CreateEnemy(EnemyType::Shooting, { -10.0f, 5.0f, 15.0f });   // 射撃（青）
 	enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 0.0f });      // 逃走（オレンジ）
 	enemyManager_->CreateEnemy(EnemyType::ClusterSlime, { 5.0f, 8.0f, -5.0f }); // 群れ（紫）
+	enemyManager_->CreateEnemy(EnemyType::ProminenceSensor, {15.0f, 1.0f, 20.0f}); // センサー（固定砲台）
 
 	// プレイヤーにエネミーマネージャーを渡して、プレイヤーからエネミーを参照できるようにする
 	if (player_) {
@@ -299,7 +300,7 @@ void GamePlayScene::Update() {
 		player_->Update();
 
 		if (enemyManager_) {
-			enemyManager_->Update(1.0f / 60.0f, player_->GetPosition());
+			enemyManager_->Update(1.0f / 60.0f, player_.get()); 
 		}
 	}
 

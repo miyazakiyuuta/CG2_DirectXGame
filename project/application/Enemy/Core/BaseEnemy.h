@@ -8,6 +8,7 @@
 class Object3d;
 class Object3dCommon;
 class Camera;
+class Player;
 
 class BaseEnemy {
 public:
@@ -33,6 +34,9 @@ public:
 	// プレイヤーへの速度補正値を取得
 	float GetPlayerSpeedMultiplier() const { return playerSpeedMultiplier_; }
 
+	// 4. マネージャーからプレイヤー情報を受け取るための追加
+	void SetPlayer(class Player* p) { player_ = p; }
+
 protected:
 	void ResolveHorizontalCollisions(const Vector3& previousPosition);
 	void ResolveVerticalCollisions();
@@ -42,6 +46,7 @@ protected:
 
 	virtual CollisionUtility::OBB GetOBB(const Vector3& pos, float radius) const;
 
+	
 protected:
 	std::unique_ptr<Object3d> object_ = nullptr;
     Vector4 originalColor_ = {1.0f,1.0f,1.0f,1.0f};
@@ -57,4 +62,7 @@ protected:
 
 	// プレイヤーの移動速度倍率（1.0が通常）
 	float playerSpeedMultiplier_ = 1.0f;
+
+	class Player* player_ = nullptr;
+
 };

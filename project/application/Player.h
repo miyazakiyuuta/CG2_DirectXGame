@@ -18,13 +18,7 @@ class EnemyManager;
 
 class Player {
 
-	enum class MovementState{
-		Root,
-		Jumping,
-		WallClinging,
-		TonguePulling,
-		CeilingCrawling
-	};
+	enum class MovementState { Root, Jumping, WallClinging, TonguePulling, CeilingCrawling };
 
 public:
 	Player() = default;
@@ -51,8 +45,8 @@ public:
 
 	Vector3 GetPosition() const;
 	Vector3 GetRotate() const;
-	Vector3 GetVelocity() const{ return velocity_; }
-	void SetVelocity(const Vector3& v){ velocity_ = v; }
+	Vector3 GetVelocity() const { return velocity_; }
+	void SetVelocity(const Vector3& v) { velocity_ = v; }
 	// Moving platform support: set per-frame platform delta applied to player
 	void SetRidingPlatformDelta(const Vector3& delta);
 	void ClearRidingPlatformDelta();
@@ -124,6 +118,8 @@ public:
 
 	void ClearAimTargetPoint() { hasAimTargetPoint_ = false; }
 
+	bool IsMimicking() const { return isMimicking_; }
+
 private:
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
@@ -162,29 +158,14 @@ private:
 	bool IsCeilingSurface(const Vector3& normal) const;
 	bool IsWallSurface(const Vector3& normal) const;
 
-	Vector3 ResolveHookSurfaceNormal(
-		const CollisionUtility::OBB& block,
-		const Vector3& hitPoint,
-		const Vector3& tongueDelta,
-		const Vector3& playerPos) const;
+	Vector3 ResolveHookSurfaceNormal(const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& tongueDelta, const Vector3& playerPos) const;
 
-	Vector3 ResolveHookSurfaceNormalFromPlayerCapsule(
-		const CollisionUtility::OBB& block,
-		const Vector3& playerPos,
-		const Vector3& hitPoint,
-		const Vector3& tongueDelta) const;
+	Vector3 ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility::OBB& block, const Vector3& playerPos, const Vector3& hitPoint, const Vector3& tongueDelta) const;
 
-	const char* DebugFaceNameFromNormal(
-		const CollisionUtility::OBB& block,
-		const Vector3& normal) const;
+	const char* DebugFaceNameFromNormal(const CollisionUtility::OBB& block, const Vector3& normal) const;
 
 	void ResetTongueHitDebug();
-	void RecordTongueHitDebug(
-		int step,
-		const CollisionUtility::OBB& block,
-		const Vector3& hitPoint,
-		const Vector3& rawNormal,
-		const Vector3& usedNormal);
+	void RecordTongueHitDebug(int step, const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& rawNormal, const Vector3& usedNormal);
 
 	void RefreshClingAnchorFromCurrentSurface();
 	void RefreshMovingClingSurfaceFromStage();
@@ -337,9 +318,9 @@ private:
 	bool hasTongueHitDebug_ = false;
 	int debugTongueHitStep_ = -1;
 
-	Vector3 debugTongueHitPoint_ = { 0.0f, 0.0f, 0.0f };
-	Vector3 debugTongueRawNormal_ = { 0.0f, 0.0f, 0.0f };
-	Vector3 debugTongueUsedNormal_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 debugTongueHitPoint_ = {0.0f, 0.0f, 0.0f};
+	Vector3 debugTongueRawNormal_ = {0.0f, 0.0f, 0.0f};
+	Vector3 debugTongueUsedNormal_ = {0.0f, 0.0f, 0.0f};
 
 	const char* debugTongueRawFaceName_ = "None";
 	const char* debugTongueUsedFaceName_ = "None";

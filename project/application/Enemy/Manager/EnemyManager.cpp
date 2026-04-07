@@ -2,6 +2,10 @@
 #include "../Core/BaseEnemy.h"
 #include "../Types/ChasingEnemy.h"
 #include "../Types/ClusterSlime.h"
+#include "../Types/ProminenceSensor.h"
+#include "../Types/ShootingEnemy.h"   
+#include "../Types/SentinelEnemy.h"   
+#include "../../Player.h"
 #include "3d/Object3d.h"
 #include <algorithm>
 
@@ -14,10 +18,15 @@ void EnemyManager::Initialize(Object3dCommon* common, Camera* camera) {
 	enemies_.clear();
 }
 
-void EnemyManager::Update(float deltaTime, const Vector3& playerPos) {
+void EnemyManager::Update(float deltaTime, Player* player) {
+	if (!player)
+		return;
+	Vector3 playerPos = player->GetPosition();
+
 	for (auto& enemy : enemies_) {
 		if (enemy) {
 			enemy->SetBlockColliders(blockColliders_);
+			enemy->SetPlayer(player); // 【追加】情報を渡す
 			enemy->Update(deltaTime, playerPos);
 		}
 	}
@@ -34,16 +43,26 @@ void EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos) {
 	if (!common_)
 		return;
 	std::unique_ptr<BaseEnemy> e;
+
+	// 【修正】すべての EnemyType を生成できるように switch 文を完成させる
 	switch (type) {
 	case EnemyType::Chasing:
 		e = std::make_unique<ChasingEnemy>();
 		break;
+	case EnemyType::Shooting:
+		e = std::make_unique<ShootingEnemy>();
+		break;
+	case EnemyType::Sentinel:
+		e = std::make_unique<SentinelEnemy>();
+		break;
 	case EnemyType::ClusterSlime:
 		e = std::make_unique<ClusterSlime>();
 		break;
-	default:
+	case EnemyType::ProminenceSensor:
+		e = std::make_unique<ProminenceSensor>();
 		break;
 	}
+
 	if (e) {
 		e->Initialize(common_, camera_, pos);
 		e->SetBlockColliders(blockColliders_);
