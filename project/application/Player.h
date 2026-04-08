@@ -15,6 +15,7 @@ class Camera;
 class Object3dCommon;
 class CameraController;
 class EnemyManager;
+class BaseEnemy; // 【追加】前方宣言
 
 class Player {
 
@@ -119,6 +120,16 @@ public:
 	void ClearAimTargetPoint() { hasAimTargetPoint_ = false; }
 
 	bool IsMimicking() const { return isMimicking_; }
+
+	// 敵が死んだことを外部（EnemyManager）から通知して、ポインタを安全にクリアする
+	void NotifyEnemyDead(BaseEnemy* deadEnemy) {
+		if (lastHitEnemy_ == deadEnemy) {
+			lastHitEnemy_ = nullptr;
+		}
+	}
+
+	// 現在保持している敵のポインタを返す（マネージャーでの照合用）
+	BaseEnemy* GetLastHitEnemy() const { return lastHitEnemy_; }
 
 private:
 	void MoveHorizontal(float cameraYaw);
@@ -330,4 +341,7 @@ private:
 
 	int clingStageObjectId_ = -1;
 	bool clingStageObjectIsMovingPlatform_ = false;
+
+	// 最後に舌がヒットしたエネミーを保持
+	BaseEnemy* lastHitEnemy_ = nullptr;
 };

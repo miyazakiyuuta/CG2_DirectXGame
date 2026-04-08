@@ -615,41 +615,35 @@ void Player::CheckTongueBlockHook() {
 		CollisionUtility::Sphere testSphere = baseSphere;
 		testSphere.center = start + delta * t;
 
-		// --- 1. エネミーへの当たり判定を優先的にチェック ---
+		// 【重要】壁判定の前に、エネミー判定を行う
 		if (enemyManager_) {
 			BaseEnemy* hitEnemy = nullptr;
 			enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
 				if (hitEnemy || !e)
 					return;
-
-				// 実体化していない、あるいは掴めないエネミーは無視
+				// フック可能な敵（センチネル・フック等）かチェック
 				if (!e->IsGrappable())
 					return;
 
-				// エネミーのOBBを取得（標準的な 1.0f サイズで判定）
 				CollisionUtility::OBB enemyObb = e->GetOBB(e->GetPosition(), 0.8f);
 				auto hitE = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, enemyObb);
-				if (hitE.hit) {
+				if (hitE.hit)
 					hitEnemy = e;
-				}
 			});
 
 			if (hitEnemy) {
-				// フック成功！
+				// 敵に「刺さった方向」を伝える（これで敵が逃げ出す）
+				Vector3 shotDir = Normalize3(delta);
+				hitEnemy->OnTongueHit(shotDir);
+
+				lastHitEnemy_ = hitEnemy; // スリングショット用にこの敵を記憶
 				Vector3 hookPos = hitEnemy->GetPosition();
 				tongue_->SetHooked(hookPos);
-
-				// そのエネミーの場所を「引っ張りの目標地点」にする
-				tonguePullTarget_ = hookPos;
+				tonguePullTarget_ = hookPos; // 敵の位置を目標にセット
 
 				velocity_ = {0.0f, 0.0f, 0.0f};
 				CancelJumpCharge();
-
-				if (useTonguePull_) {
-					TransitionTo(MovementState::TonguePulling);
-				} else {
-					tongue_->StartReturn();
-				}
+				TransitionTo(MovementState::TonguePulling); // 引っ張り状態へ
 				return;
 			}
 		}
@@ -736,7 +730,22 @@ void Player::UpdateTonguePulling() {
 	Vector3 toTarget = tonguePullTarget_ - position;
 	float distance = Length3(toTarget);
 
+	// 目標（敵）にたどり着いた瞬間の処理
 	if (distance <= tonguePullEndDistance_) {
+
+		// もし対象が敵だったら
+		if (lastHitEnemy_) {
+			// 【自動射出】たどり着いた瞬間に、敵の慣性を利用して自分を弾き飛ばす！
+			velocity_ = lastHitEnemy_->GetVelocity();
+			velocity_.y += jumpPowers_[0]; // 少し上に跳ね上げる
+
+			// 重要なのは「遷移する前に情報をクリアする」こと
+			lastHitEnemy_ = nullptr;
+			tongue_->StartReturn();
+			TransitionTo(MovementState::Jumping); // そのまま空中へ
+			return;
+		}
+
 		Vector3 snapped = tonguePullTarget_;
 		if (hasClingSurface_) {
 			snapped = ClampPositionToCurrentClingSurface(snapped);
@@ -803,8 +812,29 @@ void Player::Update() {
 		ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};
 	}
 
-	if (moveState_ == MovementState::WallClinging || moveState_ == MovementState::CeilingCrawling || moveState_ == MovementState::TonguePulling) {
-		RefreshMovingClingSurfaceFromStage();
+	// --- センチネル追従ロジック ---
+	if (moveState_ == MovementState::TonguePulling) {
+		// 【安全性強化】lastHitEnemy_ が有効な間だけ処理する
+		if (lastHitEnemy_) {
+			// 敵が逃げているので、毎フレーム最新の位置にフックを吸着させる
+			tonguePullTarget_ = lastHitEnemy_->GetPosition();
+			if (tongue_) {
+				tongue_->SetHooked(tonguePullTarget_);
+			}
+		}
+
+		// 【任意リリース】Spaceキーで加速を受け継いでジャンプ
+		if (input_->IsTriggerKey(DIK_SPACE)) {
+			if (lastHitEnemy_) {
+				// 敵の逃走速度を自分の速度として奪う（スリングショット）
+				velocity_ = lastHitEnemy_->GetVelocity();
+				velocity_.y += jumpPowers_[0]; // 少し上に跳ねる
+				lastHitEnemy_ = nullptr;
+			}
+			if (tongue_)
+				tongue_->StartReturn();
+			TransitionTo(MovementState::Jumping);
+		}
 	}
 
 	switch (moveState_) {

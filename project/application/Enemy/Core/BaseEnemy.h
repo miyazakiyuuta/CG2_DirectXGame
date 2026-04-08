@@ -47,13 +47,20 @@ public:
 	// 【修正】当たり判定用のOBB取得を public に移動し、Playerから参照可能にする
 	virtual CollisionUtility::OBB GetOBB(const Vector3& pos, float radius) const;
 
+	// 舌が当たった時の通知（当たった方向を受け取る）
+	virtual void OnTongueHit(const Vector3& direction) { (void)direction; }
+
+	// 慣性ジャンプ用に現在の移動速度を取得する
+	virtual Vector3 GetVelocity() const { return velocity_; }
+
+
+
 protected:
 	void ResolveHorizontalCollisions(const Vector3& previousPosition);
 	void ResolveVerticalCollisions();
 
 	void ResolveHorizontalCollisionsForPos(Vector3& pos, const Vector3& prevPos, float radius) const;
 	void ResolveVerticalCollisionsForPos(Vector3& pos, Vector3& vel, float collisionRadius, float visualRadius, bool& outOnGround) const;
-
 
 protected:
 	std::unique_ptr<Object3d> object_ = nullptr;

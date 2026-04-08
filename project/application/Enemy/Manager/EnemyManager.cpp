@@ -31,7 +31,15 @@ void EnemyManager::Update(float deltaTime, Player* player) {
 			enemy->Update(deltaTime, playerPos);
 		}
 	}
-	enemies_.remove_if([](const std::unique_ptr<BaseEnemy>& e) { return !e || e->IsDead(); });
+	// 【修正点】敵が削除される前に、プレイヤーの参照を安全に外す
+	enemies_.remove_if([&](const std::unique_ptr<BaseEnemy>& e) {
+		if (e && e->IsDead()) {
+			// もしプレイヤーがこの敵をフックしていたら、参照を消させる（クラッシュ防止）
+			player->NotifyEnemyDead(e.get());
+			return true; // 削除
+		}
+		return false;
+	});
 }
 
 void EnemyManager::Draw() {

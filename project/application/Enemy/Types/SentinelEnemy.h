@@ -1,11 +1,10 @@
 #pragma once
 #include "../Core/BaseEnemy.h"
 
-/// <summary>
-/// センチネル・エネミー：プレイヤーが近づくと素早く逃げ、見失うと元の場所に戻る
-/// </summary>
 class SentinelEnemy : public BaseEnemy {
 public:
+	enum class State { Idle, Fleeing, Returning, Panicking };
+
 	SentinelEnemy();
 	~SentinelEnemy() override;
 
@@ -13,20 +12,24 @@ public:
 	void Update(float deltaTime, const Vector3& playerPos) override;
 	void Draw() override;
 
+	// --- 【重要】スリングショット移動のために必要なオーバーライド ---
+
+	// 舌が刺さるように true を返す
+	bool IsGrappable() const override { return true; }
+
+	// 舌が当たった瞬間に呼ばれる（飛んできた方向を受け取る）
+	void OnTongueHit(const Vector3& direction) override;
+
 private:
-	enum class State {
-		Idle,     // 待機中
-		Fleeing,  // 逃走中
-		Returning // 帰還中
-	};
-
 	State state_ = State::Idle;
-	Vector3 homePosition_; // 初期位置
+	Vector3 homePosition_;
+	Vector3 panicDir_; // 逃げる方向（舌が飛んできた方向の延長線）
+	float floatTimer_ = 0.0f;
+	float panicTimer_ = 0.0f;
 
-	// 調整パラメータ
-	float normalSpeed_ = 3.0f;  // 帰還時の速度
-	float fleeSpeed_ = 12.0f;   // 逃走時の速度（速めにする）
-	float detectRange_ = 20.0f; // 反応する距離（広めにする）
-	float loseRange_ = 35.0f;   // 諦めて戻り始める距離
-	float floatTimer_ = 0.0f;   // ふわふわ用
+	float normalSpeed_ = 3.0f;
+	float fleeSpeed_ = 12.0f;
+	float panicSpeed_ = 45.0f; // パニック時の猛烈な加速（プレイヤーのブースターになる）
+	float detectRange_ = 20.0f;
+	float loseRange_ = 40.0f;
 };
