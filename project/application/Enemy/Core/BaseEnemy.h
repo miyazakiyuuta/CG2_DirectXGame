@@ -25,7 +25,7 @@ public:
 	bool IsDead() const { return isDead_; }
 	void Kill() { isDead_ = true; }
 
-    // Color helpers: derived classes should call SetColor during Initialize
+	// Color helpers: derived classes should call SetColor during Initialize
 	void SetColor(const Vector4& color);
 	void SetAlpha(float a);
 	// Return the originally assigned alpha (stored when SetColor was called)
@@ -37,6 +37,16 @@ public:
 	// 4. マネージャーからプレイヤー情報を受け取るための追加
 	void SetPlayer(class Player* p) { player_ = p; }
 
+	// ソナー（エコー）が当たった時に呼ばれる
+	virtual void OnSonarHit() {}
+
+	// 舌で掴める（フックできる）対象かどうかを返す。デフォルトは false。
+	// フェイズゴーストなどの特殊な敵だけ、状態に合わせて true を返すようにオーバーライドする。
+	virtual bool IsGrappable() const { return false; }
+
+	// 【修正】当たり判定用のOBB取得を public に移動し、Playerから参照可能にする
+	virtual CollisionUtility::OBB GetOBB(const Vector3& pos, float radius) const;
+
 protected:
 	void ResolveHorizontalCollisions(const Vector3& previousPosition);
 	void ResolveVerticalCollisions();
@@ -44,12 +54,10 @@ protected:
 	void ResolveHorizontalCollisionsForPos(Vector3& pos, const Vector3& prevPos, float radius) const;
 	void ResolveVerticalCollisionsForPos(Vector3& pos, Vector3& vel, float collisionRadius, float visualRadius, bool& outOnGround) const;
 
-	virtual CollisionUtility::OBB GetOBB(const Vector3& pos, float radius) const;
 
-	
 protected:
 	std::unique_ptr<Object3d> object_ = nullptr;
-    Vector4 originalColor_ = {1.0f,1.0f,1.0f,1.0f};
+	Vector4 originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
 	Vector3 position_ = {0.0f, 0.0f, 0.0f};
 	Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
 	bool isDead_ = false;
@@ -64,5 +72,4 @@ protected:
 	float playerSpeedMultiplier_ = 1.0f;
 
 	class Player* player_ = nullptr;
-
 };

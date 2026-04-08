@@ -5,6 +5,7 @@
 #include "../Types/ProminenceSensor.h"
 #include "../Types/ShootingEnemy.h"   
 #include "../Types/SentinelEnemy.h"   
+#include "../Types/PhaseGhost.h"
 #include "../../Player.h"
 #include "3d/Object3d.h"
 #include <algorithm>
@@ -60,6 +61,9 @@ void EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos) {
 		break;
 	case EnemyType::ProminenceSensor:
 		e = std::make_unique<ProminenceSensor>();
+		break;
+	case EnemyType::PhaseGhost: // 【追加】
+		e = std::make_unique<PhaseGhost>();
 		break;
 	}
 

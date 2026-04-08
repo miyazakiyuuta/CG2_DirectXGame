@@ -14,7 +14,8 @@ enum class EnemyType {
 	Shooting,
 	Sentinel,
 	ClusterSlime, 
-	ProminenceSensor
+	ProminenceSensor, 
+	PhaseGhost 
 };
 
 class EnemyManager {

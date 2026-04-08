@@ -608,16 +608,53 @@ void Player::CheckTongueBlockHook() {
 	float moveLen = Length3(delta);
 
 	CollisionUtility::Sphere baseSphere = tongue_->GetHitSphere();
-
-	// 半径より大きく飛ぶなら分割数を増やす
 	int steps = std::max(1, static_cast<int>(std::ceil(moveLen / std::max(0.05f, baseSphere.radius * 0.5f))));
 
 	for (int s = 1; s <= steps; ++s) {
 		float t = static_cast<float>(s) / static_cast<float>(steps);
-
 		CollisionUtility::Sphere testSphere = baseSphere;
 		testSphere.center = start + delta * t;
 
+		// --- 1. エネミーへの当たり判定を優先的にチェック ---
+		if (enemyManager_) {
+			BaseEnemy* hitEnemy = nullptr;
+			enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
+				if (hitEnemy || !e)
+					return;
+
+				// 実体化していない、あるいは掴めないエネミーは無視
+				if (!e->IsGrappable())
+					return;
+
+				// エネミーのOBBを取得（標準的な 1.0f サイズで判定）
+				CollisionUtility::OBB enemyObb = e->GetOBB(e->GetPosition(), 0.8f);
+				auto hitE = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, enemyObb);
+				if (hitE.hit) {
+					hitEnemy = e;
+				}
+			});
+
+			if (hitEnemy) {
+				// フック成功！
+				Vector3 hookPos = hitEnemy->GetPosition();
+				tongue_->SetHooked(hookPos);
+
+				// そのエネミーの場所を「引っ張りの目標地点」にする
+				tonguePullTarget_ = hookPos;
+
+				velocity_ = {0.0f, 0.0f, 0.0f};
+				CancelJumpCharge();
+
+				if (useTonguePull_) {
+					TransitionTo(MovementState::TonguePulling);
+				} else {
+					tongue_->StartReturn();
+				}
+				return;
+			}
+		}
+
+		// --- 2. 既存のブロック判定（継続） ---
 		for (const auto& block : *blockColliders_) {
 			auto hit = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, block);
 			if (!hit.hit) {
@@ -625,19 +662,9 @@ void Player::CheckTongueBlockHook() {
 			}
 
 			Vector3 rawHitNormal = Normalize3(hit.normal);
-
 			Vector3 correctedHitNormal = ResolveHookSurfaceNormalFromPlayerCapsule(block, GetPosition(), hit.point, delta);
-
 			Vector3 usedHitNormal = debugIgnoreHookSurfaceCorrection_ ? rawHitNormal : correctedHitNormal;
 
-			RecordTongueHitDebug(s, block, hit.point, rawHitNormal, usedHitNormal);
-
-			if (std::strcmp(debugTongueUsedFaceName_, "+Axis1") == 0) {
-				tongue_->StartReturn();
-				return;
-			}
-
-			// raw確認中は地面除外も無視できるようにする
 			if (!debugIgnoreGroundRejectOnRawHit_) {
 				if (IsGroundSurface(usedHitNormal)) {
 					continue;
@@ -650,26 +677,22 @@ void Player::CheckTongueBlockHook() {
 			Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
 			tongue_->SetHooked(hookPos);
 
-			// If Camouflage ability is active, attempt to read the hit block and mimic it
+			// 擬態処理 (Camouflage)
 			if (abilityActive_ && currentAbility_ == Ability::Camouflage && stage_) {
-				// small sphere around hit point to match Stage objects
-				CollisionUtility::Sphere testSphere;
-				testSphere.center = hit.point;
-				testSphere.radius = 0.05f;
+				CollisionUtility::Sphere stageProbe;
+				stageProbe.center = hit.point;
+				stageProbe.radius = 0.05f;
 
 				for (const auto& o : stage_->GetStageData().objects) {
-					// Only consider solid blocks (modelName present)
 					if (o.modelName.empty())
 						continue;
-
-					Transform t;
-					t.translate = o.position;
-					t.rotate = o.rotation;
-					t.scale = o.scale;
-					CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, {1.0f, 1.0f, 1.0f});
-					auto hitObj = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, obb);
+					Transform t_obj;
+					t_obj.translate = o.position;
+					t_obj.rotate = o.rotation;
+					t_obj.scale = o.scale;
+					CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t_obj, {1.0f, 1.0f, 1.0f});
+					auto hitObj = CollisionUtility::IntersectSphere_OBB_Detailed(stageProbe, obb);
 					if (hitObj.hit) {
-						// Mimic: record mimic info and apply
 						mimicModelName_ = o.modelName;
 						mimicColor_ = o.color;
 						mimicColor_.w = 1.0f;
@@ -677,10 +700,6 @@ void Player::CheckTongueBlockHook() {
 						if (object_) {
 							object_->SetModel(mimicModelName_);
 							object_->SetScale(mimicScale_);
-							// color will be applied in Draw with currentAlpha
-							Vector4 c = mimicColor_;
-							c.w = mimicColor_.w * currentAlpha_;
-							object_->SetColor(c);
 						}
 						isMimicking_ = true;
 						abilityActive_ = false;
@@ -692,9 +711,7 @@ void Player::CheckTongueBlockHook() {
 			CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
 			const float kPullSkin = 0.03f;
 			float playerRadiusAlongNormal = ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
-
 			Vector3 clingAnchorPoint = clingSurfaceCenter_ + clingSurfaceRight_ * clingHitRightOffset_ + clingSurfaceUp_ * clingHitUpOffset_;
-
 			tonguePullTarget_ = clingAnchorPoint + clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
 
 			velocity_ = {0.0f, 0.0f, 0.0f};
@@ -915,11 +932,26 @@ void Player::Update() {
 			}
 		}
 
+		// 【追加・改造】エネミーへの通知とハイライト
 		if (enemyManager_) {
 			enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
 				if (!e)
-					return;
-				e->SetAlpha(sonarAlpha_);
+					return; // 安全チェック（元のスタイルを維持）
+
+				// 1. プレイヤーとエネミーの距離（XZ平面だけでなく3D距離）を測る
+				Vector3 diff = e->GetPosition() - GetPosition();
+				float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+
+				// 2. ソナーの射程内（sonarRange_ = 10m）にいる場合
+				if (distSq <= sonarRange_ * sonarRange_) {
+					// フェイズ・ゴーストなどに「エコーが当たった！」と通知する
+					e->OnSonarHit();
+					// 姿を見えるようにハイライト（アルファ値を設定）
+					e->SetAlpha(sonarAlpha_);
+				} else {
+					// 射程外に出たエネミーは即座に元の不透明度に戻す
+					e->SetAlpha(e->GetOriginalAlpha());
+				}
 			});
 		}
 
