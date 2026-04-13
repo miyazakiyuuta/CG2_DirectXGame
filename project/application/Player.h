@@ -183,6 +183,9 @@ private:
 	void UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint);
 	void ClearClingStageObjectTracking();
 
+	bool IsPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
+	Vector3 ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
+
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;

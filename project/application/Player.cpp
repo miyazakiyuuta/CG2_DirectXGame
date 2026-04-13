@@ -707,6 +707,13 @@ void Player::CheckTongueBlockHook() {
 			Vector3 clingAnchorPoint = clingSurfaceCenter_ + clingSurfaceRight_ * clingHitRightOffset_ + clingSurfaceUp_ * clingHitUpOffset_;
 			tonguePullTarget_ = clingAnchorPoint + clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
 
+			if(!IsPlayerPositionInsideMovementCylinder(tonguePullTarget_, -1.00f)){
+				tongue_->StartReturn();
+				hasClingSurface_ = false;
+				ClearClingStageObjectTracking();
+				return;
+			}
+
 			velocity_ = {0.0f, 0.0f, 0.0f};
 			CancelJumpCharge();
 
@@ -1620,6 +1627,9 @@ void Player::UpdateWallClinging(float cameraYaw) {
 		return;
 	}
 
+	// 円柱外に出ないように補正
+	position = ClampPlayerPositionInsideMovementCylinder(position, -1.00f);
+
 	object_->SetTranslate(position);
 }
 
@@ -1688,6 +1698,7 @@ void Player::UpdateCeilingCrawling() {
 			ResolveCurrentClingPenetration(reattachPos);
 			ResolveWallClingBlockCollisions(reattachPos);
 			reattachPos = ClampPositionToCurrentClingSurface(reattachPos);
+			reattachPos = ClampPlayerPositionInsideMovementCylinder(reattachPos, -1.00f);
 
 			object_->SetTranslate(reattachPos);
 
@@ -1712,6 +1723,8 @@ void Player::UpdateCeilingCrawling() {
 	ResolveCurrentClingPenetration(position);
 	ResolveWallClingBlockCollisions(position);
 	position = ClampPositionToCurrentClingSurface(position);
+
+	position = ClampPlayerPositionInsideMovementCylinder(position, -0.40f);
 
 	object_->SetTranslate(position);
 
@@ -2056,6 +2069,66 @@ void Player::RefreshClingAnchorFromCurrentSurface(){
 void Player::ClearClingStageObjectTracking() {
 	clingStageObjectId_ = -1;
 	clingStageObjectIsMovingPlatform_ = false;
+}
+
+bool Player::IsPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin) const{
+	if(!movementLimitCylinder_){
+		return true;
+	}
+
+	// プレイヤーのXZ半径を保守的に見積もる
+	float playerRadiusXZ = std::max(colliderHalfSize_.x, colliderHalfSize_.z) + extraMargin;
+	float usableRadius = movementLimitCylinder_->radius - playerRadiusXZ;
+
+	if(usableRadius <= 0.0f){
+		return false;
+	}
+
+	float dx = position.x - movementLimitCylinder_->center.x;
+	float dz = position.z - movementLimitCylinder_->center.z;
+	float distSq = dx * dx + dz * dz;
+
+	if(distSq > usableRadius * usableRadius){
+		return false;
+	}
+
+	float minY = movementLimitCylinder_->center.y - movementLimitCylinder_->halfHeight + colliderHalfSize_.y;
+	float maxY = movementLimitCylinder_->center.y + movementLimitCylinder_->halfHeight - colliderHalfSize_.y;
+
+	return position.y >= minY && position.y <= maxY;
+}
+
+Vector3 Player::ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin) const{
+	if(!movementLimitCylinder_){
+		return position;
+	}
+
+	Vector3 clamped = position;
+
+	float playerRadiusXZ = std::max(colliderHalfSize_.x, colliderHalfSize_.z) + extraMargin;
+	float usableRadius = movementLimitCylinder_->radius - playerRadiusXZ;
+
+	if(usableRadius > 0.0f){
+		float dx = clamped.x - movementLimitCylinder_->center.x;
+		float dz = clamped.z - movementLimitCylinder_->center.z;
+		float lenSq = dx * dx + dz * dz;
+
+		if(lenSq > usableRadius * usableRadius && lenSq > 1e-8f){
+			float len = std::sqrt(lenSq);
+			float scale = usableRadius / len;
+			clamped.x = movementLimitCylinder_->center.x + dx * scale;
+			clamped.z = movementLimitCylinder_->center.z + dz * scale;
+		}
+	} else{
+		clamped.x = movementLimitCylinder_->center.x;
+		clamped.z = movementLimitCylinder_->center.z;
+	}
+
+	float minY = movementLimitCylinder_->center.y - movementLimitCylinder_->halfHeight + colliderHalfSize_.y;
+	float maxY = movementLimitCylinder_->center.y + movementLimitCylinder_->halfHeight - colliderHalfSize_.y;
+	clamped.y = ClampFloat(clamped.y, minY, maxY);
+
+	return clamped;
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint) {
