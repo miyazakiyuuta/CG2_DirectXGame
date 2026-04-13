@@ -1048,6 +1048,7 @@ void Player::Draw() {
 			dispColor.w = currentAlpha_;
 		}
 		object_->SetColor(dispColor);
+		object_->SetDissolve(1.0f - currentAlpha_);
 		object_->Draw();
 	}
 }

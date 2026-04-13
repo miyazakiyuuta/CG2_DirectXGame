@@ -75,6 +75,7 @@ void Tongue::Draw(){
 	if(object_){
 		object_->Update();
 		object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
+		object_->SetDissolve(1.0f - currentAlpha_);
 		object_->Draw();
 	}
 }
