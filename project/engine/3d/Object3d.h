@@ -43,6 +43,7 @@ public: // セッター&ゲッター
 	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
 	void SetEnableLighting(bool enable) { materialData_->enableLighting = enable; }
 	void SetUseEnvironmentMap(bool use) { materialData_->useEnvironmentMap = use; }
+	void SetDissolve(float dissolve) { materialData_->dissolve = dissolve; }
 
 	// getter
 	const Vector3& GetScale() const { return transform_.scale; }
@@ -66,7 +67,8 @@ private: // メンバ構造体
 		Vector4 color;
 		int32_t enableLighting;
 		int32_t useEnvironmentMap;
-		float padding[2];
+		float dissolve;
+		float padding[1];
 		Matrix4x4 uvTransform;
 		float shininess;
 		float padding1[3];
