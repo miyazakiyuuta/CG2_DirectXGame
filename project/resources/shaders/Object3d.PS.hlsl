@@ -3,11 +3,12 @@ struct Material {
     float4 color;
     int enableLighting;
     int useEnvironmentMap;
+    float dissolve;
     float4x4 uvTransform;
     float shininess;
 };
 ConstantBuffer<Material> gMaterial : register(b0);
-struct PixelShaderOutput{
+struct PixelShaderOutput {
     float4 color : SV_TARGET0;
 };
 Texture2D<float4> gTexture : register(t0);
@@ -26,6 +27,24 @@ ConstantBuffer<PointLight> gPointLight : register(b3);
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
 
 PixelShaderOutput main(VertexShaderOutput input) {
+    
+    // 4x4 Bayerマトリクス（市松模様の細かいバージョン）
+    static const float bayer[4][4] = {
+        { 0.0 / 16.0, 8.0 / 16.0, 2.0 / 16.0, 10.0 / 16.0 },
+        { 12.0 / 16.0, 4.0 / 16.0, 14.0 / 16.0, 6.0 / 16.0 },
+        { 3.0 / 16.0, 11.0 / 16.0, 1.0 / 16.0, 9.0 / 16.0 },
+        { 15.0 / 16.0, 7.0 / 16.0, 13.0 / 16.0, 5.0 / 16.0 }
+    };
+
+    // 画面座標からどのマス目にいるか計算
+    uint px = (uint) input.position.x % 4;
+    uint py = (uint) input.position.y % 4;
+
+    // dissolveがマス目の閾値より大きければそのピクセルを消す
+    if (gMaterial.dissolve > bayer[py][px]) {
+        discard;
+    }
+    
     PixelShaderOutput output;
     
     float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
