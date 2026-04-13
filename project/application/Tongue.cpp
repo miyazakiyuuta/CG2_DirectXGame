@@ -188,6 +188,20 @@ void Tongue::Reset(){
 	}
 }
 
+void Tongue::SetHookPositionPreserveState(const Vector3& worldPos){
+	hookPosition_ = worldPos;
+
+	// Hooked 中だけは見た目の位置も追従させる
+	if(state_ == State::Hooked){
+		prevWorldPosition_ = worldPosition_;
+		worldPosition_ = worldPos;
+
+		if(object_){
+			object_->SetTranslate(worldPosition_);
+		}
+	}
+}
+
 void Tongue::UpdateIdle(){
 	prevWorldPosition_ = worldPosition_;
 	worldPosition_ = GetMouthWorldPosition();

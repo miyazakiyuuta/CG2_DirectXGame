@@ -659,10 +659,9 @@ void Player::CheckTongueBlockHook() {
 			Vector3 correctedHitNormal = ResolveHookSurfaceNormalFromPlayerCapsule(block, GetPosition(), hit.point, delta);
 			Vector3 usedHitNormal = debugIgnoreHookSurfaceCorrection_ ? rawHitNormal : correctedHitNormal;
 
-			if (!debugIgnoreGroundRejectOnRawHit_) {
-				if (IsGroundSurface(usedHitNormal)) {
-					continue;
-				}
+			if(IsGroundSurface(usedHitNormal)){
+				tongue_->StartReturn();
+				return;
 			}
 
 			SetupClingSurfaceFromHit(block, hit.point, usedHitNormal);
@@ -837,6 +836,12 @@ void Player::Update() {
 		}
 	}
 
+	if(moveState_ == MovementState::WallClinging ||
+	   moveState_ == MovementState::CeilingCrawling ||
+	   moveState_ == MovementState::TonguePulling){
+		RefreshMovingClingSurfaceFromStage();
+	}
+
 	switch (moveState_) {
 	case MovementState::Root:
 	case MovementState::Jumping: {
@@ -889,7 +894,10 @@ void Player::Update() {
 		SetYawFromCamera(cameraYaw);
 	}
 
-	if (moveState_ != MovementState::CeilingCrawling && moveState_ != MovementState::WallClinging && input_->IsTriggerMouse(0)) {
+	if(!suppressTongueShotThisFrame_ &&
+	   moveState_ != MovementState::CeilingCrawling &&
+	   moveState_ != MovementState::WallClinging &&
+	   input_->IsTriggerMouse(0)){
 		Vector3 shotDirection = cameraForward;
 
 		if (hasAimTargetPoint_ && tongue_) {
@@ -1216,11 +1224,13 @@ const char* Player::GetMovementStateName() const {
 }
 
 void Player::TransitionTo(MovementState nextState) {
-	if (moveState_ == nextState) {
+	if(moveState_ == nextState){
 		return;
 	}
 
-	if (moveState_ == MovementState::Root && nextState != MovementState::Root) {
+	MovementState prevState = moveState_;
+
+	if(moveState_ == MovementState::Root && nextState != MovementState::Root){
 		CancelJumpCharge();
 	}
 
@@ -1239,13 +1249,16 @@ void Player::TransitionTo(MovementState nextState) {
 		break;
 
 	case MovementState::WallClinging: {
-		velocity_ = {0.0f, 0.0f, 0.0f};
-		wallClingGauge_ = maxWallClingGauge_;
+		velocity_ = { 0.0f, 0.0f, 0.0f };
 
-		if (hasClingSurface_) {
+		if(prevState != MovementState::CeilingCrawling){
+			wallClingGauge_ = maxWallClingGauge_;
+		}
+
+		if(hasClingSurface_){
 			wallRightVec_ = clingSurfaceRight_;
-		} else {
-			wallRightVec_ = {1.0f, 0.0f, 0.0f};
+		} else{
+			wallRightVec_ = { 1.0f, 0.0f, 0.0f };
 		}
 
 		isOnGround_ = false;
@@ -1616,6 +1629,14 @@ void Player::UpdateCeilingCrawling() {
 		return;
 	}
 
+	wallClingGauge_ -= wallClingConsumption_;
+	if(wallClingGauge_ <= 0.0f){
+		wallClingGauge_ = 0.0f;
+		hasClingSurface_ = false;
+		TransitionTo(MovementState::Jumping);
+		return;
+	}
+
 	Vector3 position = object_->GetTranslate();
 
 	// カメラ前方を現在の張り付き面へ射影して進行方向を作る
@@ -1660,7 +1681,7 @@ void Player::UpdateCeilingCrawling() {
 			}
 		}
 
-		if (canTransition) {
+		if(canTransition){
 			SetupClingSurfaceFromHit(clingBlockObb_, nextPosition, nextNormal);
 
 			Vector3 reattachPos = ClampPositionToCurrentClingSurface(nextPosition);
@@ -1671,7 +1692,10 @@ void Player::UpdateCeilingCrawling() {
 			object_->SetTranslate(reattachPos);
 
 			float yaw = std::atan2(-clingSurfaceNormal_.x, -clingSurfaceNormal_.z) + modelYawOffset_;
-			object_->SetRotate({0.0f, yaw, 0.0f});
+			object_->SetRotate({ 0.0f, yaw, 0.0f });
+
+			// 面遷移後の新しい張り付き面から、舌のフック位置を更新
+			RefreshClingAnchorFromCurrentSurface();
 
 			TransitionTo(MovementState::WallClinging);
 			return;
@@ -2004,21 +2028,29 @@ void Player::RecordTongueHitDebug(int step, const CollisionUtility::OBB& block, 
 	debugTongueUsedFaceName_ = DebugFaceNameFromNormal(block, debugTongueUsedNormal_);
 }
 
-void Player::RefreshClingAnchorFromCurrentSurface() {
-	if (!hasClingSurface_ || !tongue_) {
+void Player::RefreshClingAnchorFromCurrentSurface(){
+	if(!hasClingSurface_ || !tongue_){
 		return;
 	}
 
-	Vector3 clingAnchorPoint = clingSurfaceCenter_ + clingSurfaceRight_ * clingHitRightOffset_ + clingSurfaceUp_ * clingHitUpOffset_;
+	Vector3 clingAnchorPoint =
+		clingSurfaceCenter_
+		+ clingSurfaceRight_ * clingHitRightOffset_
+		+ clingSurfaceUp_ * clingHitUpOffset_;
 
 	Vector3 hookPos = clingAnchorPoint + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
-	tongue_->SetHooked(hookPos);
+
+	// 状態を Hooked に巻き戻さない
+	tongue_->SetHookPositionPreserveState(hookPos);
 
 	CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
 	const float kPullSkin = 0.03f;
-	float playerRadiusAlongNormal = ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
+	float playerRadiusAlongNormal =
+		ComputeOBBSupportRadiusAlongNormal(playerObb, clingSurfaceNormal_);
 
-	tonguePullTarget_ = clingAnchorPoint + clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
+	tonguePullTarget_ =
+		clingAnchorPoint
+		+ clingSurfaceNormal_ * (playerRadiusAlongNormal + kPullSkin);
 }
 
 void Player::ClearClingStageObjectTracking() {

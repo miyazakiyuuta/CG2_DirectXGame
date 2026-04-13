@@ -54,6 +54,8 @@ public:
 
 	Vector3 GetMouthWorldPositionPublic() const{ return GetMouthWorldPosition(); }
 
+	void SetHookPositionPreserveState(const Vector3& worldPos);
+
 private:
 	void UpdateIdle();
 	void UpdateExtending(float deltaTime);
