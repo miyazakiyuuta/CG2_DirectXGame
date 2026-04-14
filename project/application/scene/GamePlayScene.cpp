@@ -204,6 +204,15 @@ void GamePlayScene::Initialize() {
 	debugGrid_->Initialize(DirectXCommon::GetInstance());
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
+
+	Object3dCommon::GetInstance()->SetPointLight(
+		{
+			{ 1.0f, 1.0f, 1.0f, 1.0f }, // color
+			{ 0.0f, -0.1f, 0.0f },      // position
+			1.0f,                       // intensity
+			20000.0f,                      // radius
+			0.0f                        // decay
+		});
 }
 
 void GamePlayScene::Finalize() {

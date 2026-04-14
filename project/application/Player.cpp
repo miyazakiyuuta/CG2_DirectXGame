@@ -12,6 +12,7 @@
 #include <cmath>
 #include <imgui.h>
 #include <string>
+#include "2d/SpriteCommon.h"
 
 Player::~Player() = default;
 
@@ -48,6 +49,31 @@ static float PointToSegmentDistSq(const Vector3& p, const Vector3& a, const Vect
 	Vector3 d = p - proj;
 	return d.x * d.x + d.y * d.y + d.z * d.z;
 }
+
+bool WorldToScreenSimple(
+	const Vector3& worldPos,
+	const Matrix4x4& viewProjection,
+	float screenW,
+	float screenH,
+	Vector2& outScreen){
+	Vector4 clip{};
+	clip.x = worldPos.x * viewProjection.m[0][0] + worldPos.y * viewProjection.m[1][0] + worldPos.z * viewProjection.m[2][0] + 1.0f * viewProjection.m[3][0];
+	clip.y = worldPos.x * viewProjection.m[0][1] + worldPos.y * viewProjection.m[1][1] + worldPos.z * viewProjection.m[2][1] + 1.0f * viewProjection.m[3][1];
+	clip.z = worldPos.x * viewProjection.m[0][2] + worldPos.y * viewProjection.m[1][2] + worldPos.z * viewProjection.m[2][2] + 1.0f * viewProjection.m[3][2];
+	clip.w = worldPos.x * viewProjection.m[0][3] + worldPos.y * viewProjection.m[1][3] + worldPos.z * viewProjection.m[2][3] + 1.0f * viewProjection.m[3][3];
+
+	if(clip.w <= 0.0001f){
+		return false;
+	}
+
+	float ndcX = clip.x / clip.w;
+	float ndcY = clip.y / clip.w;
+
+	outScreen.x = (ndcX * 0.5f + 0.5f) * screenW;
+	outScreen.y = (-ndcY * 0.5f + 0.5f) * screenH;
+	return true;
+}
+
 } // namespace
 
 bool Player::TryUseBeam(const Vector3& direction) {
@@ -150,6 +176,26 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
 	moveState_ = MovementState::Root;
 	wallClingGauge_ = maxWallClingGauge_;
 	prevAimMode_ = false;
+	InitializeUI(SpriteCommon::GetInstance(), "white.png");
+
+}
+
+void Player::InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTextureFilePath){
+	if(!spriteCommon){
+		return;
+	}
+
+	jumpGaugeBackSprite_ = std::make_unique<Sprite>();
+	jumpGaugeBackSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+	jumpGaugeBackSprite_->SetSize(jumpGaugeSize_);
+	jumpGaugeBackSprite_->SetColor({ 0.08f, 0.08f, 0.08f, 0.65f });
+
+	jumpGaugeFillSprite_ = std::make_unique<Sprite>();
+	jumpGaugeFillSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+	jumpGaugeFillSprite_->SetSize({ 0.0f, jumpGaugeSize_.y });
+	jumpGaugeFillSprite_->SetColor({ 0.3f, 1.0f, 0.2f, 0.9f });
+
+	showJumpGauge_ = false;
 }
 
 void Player::ResolveMovementLimitCylinder() {
@@ -1022,6 +1068,8 @@ void Player::Update() {
 	if (beamTimer_ > 0.0f)
 		beamTimer_ = std::max(0.0f, beamTimer_ - 1.0f);
 
+	UpdateJumpGaugeSprite();
+
 	speedMultiplier_ = 1.0f;
 }
 
@@ -1051,6 +1099,9 @@ void Player::Draw() {
 		object_->SetDissolve(1.0f - currentAlpha_);
 		object_->Draw();
 	}
+
+	DrawUI();
+
 }
 
 void Player::MoveHorizontal(float cameraYaw) {
@@ -2130,6 +2181,86 @@ Vector3 Player::ClampPlayerPositionInsideMovementCylinder(const Vector3& positio
 	clamped.y = ClampFloat(clamped.y, minY, maxY);
 
 	return clamped;
+}
+
+void Player::UpdateJumpGaugeSprite(){
+	if(!camera_ || !jumpGaugeBackSprite_ || !jumpGaugeFillSprite_){
+		return;
+	}
+
+	showJumpGauge_ = isChargingJump_;
+	if(!showJumpGauge_){
+		return;
+	}
+
+	Vector3 worldPos = GetPosition();
+	worldPos.y += 2.0f;
+
+	Vector2 screenPos{};
+	if(!WorldToScreenSimple(
+		worldPos,
+		camera_->GetViewProjectionMatrix(),
+		static_cast<float>(WinApp::kClientWidth),
+		static_cast<float>(WinApp::kClientHeight),
+		screenPos)){
+		showJumpGauge_ = false;
+		return;
+	}
+
+	Vector2 gaugePos = {
+		screenPos.x + jumpGaugeOffset_.x,
+		screenPos.y + jumpGaugeOffset_.y
+	};
+
+	gaugePos.x = ClampFloat(
+		gaugePos.x,
+		0.0f,
+		static_cast<float>(WinApp::kClientWidth) - jumpGaugeSize_.x);
+
+	gaugePos.y = ClampFloat(
+		gaugePos.y,
+		0.0f,
+		static_cast<float>(WinApp::kClientHeight) - jumpGaugeSize_.y);
+
+	jumpGaugeBackSprite_->SetPos(gaugePos);
+	jumpGaugeBackSprite_->SetSize(jumpGaugeSize_);
+	jumpGaugeBackSprite_->Update();
+
+	int allowedLevel = std::max(1, GetAllowedChargeLevel());
+	int visibleLevel = GetCurrentVisibleChargeLevel();
+	float phaseRate = ClampFloat(GetCurrentChargePhaseRate(), 0.0f, 1.0f);
+
+	// 現在の段階色
+	Vector4 segmentColors[4] = {
+		{ 0.25f, 1.0f, 0.2f, 0.9f }, // 1段目
+		{ 0.95f, 0.95f, 0.2f, 0.9f }, // 2段目
+		{ 1.0f, 0.6f, 0.2f, 0.9f },   // 3段目
+		{ 1.0f, 0.2f, 0.2f, 0.9f }    // 保険
+	};
+
+	int currentSegment = std::min(visibleLevel, allowedLevel - 1);
+
+	jumpGaugeFillSprite_->SetPos(gaugePos);
+	jumpGaugeFillSprite_->SetSize({
+		jumpGaugeSize_.x * phaseRate,
+		jumpGaugeSize_.y
+								  });
+	jumpGaugeFillSprite_->SetColor(segmentColors[std::min(currentSegment, 3)]);
+	jumpGaugeFillSprite_->Update();
+}
+
+void Player::DrawUI(){
+	if(!showJumpGauge_){
+		return;
+	}
+
+	if(jumpGaugeBackSprite_){
+		jumpGaugeBackSprite_->Draw();
+	}
+
+	if(jumpGaugeFillSprite_){
+		jumpGaugeFillSprite_->Draw();
+	}
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint) {

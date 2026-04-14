@@ -10,6 +10,8 @@
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include "utility/CollisionUtility.h"
+#include "2d/Sprite.h"
+#include "math/Vector2.h"
 
 class Camera;
 class Object3dCommon;
@@ -26,6 +28,8 @@ public:
 	~Player();
 
 	void Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition = {0.0f, 0.0f, 0.0f});
+
+	void InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTextureFilePath = "white.png");
 
 	void Update();
 	void Draw();
@@ -185,6 +189,9 @@ private:
 
 	bool IsPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
 	Vector3 ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
+
+	void UpdateJumpGaugeSprite();
+	void DrawUI();
 
 private:
 	std::unique_ptr<Object3d> object_ = nullptr;
@@ -347,4 +354,14 @@ private:
 
 	// 最後に舌がヒットしたエネミーを保持
 	BaseEnemy* lastHitEnemy_ = nullptr;
+
+
+	std::unique_ptr<Sprite> jumpGaugeBackSprite_ = nullptr;
+	std::unique_ptr<Sprite> jumpGaugeFillSprite_ = nullptr;
+
+	Vector2 jumpGaugeOffset_ = { 70.0f, -20.0f };
+	Vector2 jumpGaugeSize_ = { 150.0f, 18.0f };
+
+	bool showJumpGauge_ = false;
+
 };
