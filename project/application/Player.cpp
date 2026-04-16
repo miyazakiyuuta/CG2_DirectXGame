@@ -326,7 +326,7 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
 	moveState_ = MovementState::Root;
 	wallClingGauge_ = maxWallClingGauge_;
 	prevAimMode_ = false;
-	InitializeUI(SpriteCommon::GetInstance(), "white.png");
+	InitializeUI(SpriteCommon::GetInstance(), "white");
 
 }
 
