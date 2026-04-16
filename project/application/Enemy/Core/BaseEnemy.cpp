@@ -1,6 +1,10 @@
 #include "BaseEnemy.h"
 #include "../../../engine/3d/Object3d.h"
+#include "../../../application/Player.h"
 #include <algorithm>
+#include <fstream>
+#include <../externals/nlohmann/json.hpp>
+#include <random>
 
 BaseEnemy::BaseEnemy() = default;
 BaseEnemy::~BaseEnemy() = default;
@@ -109,4 +113,44 @@ CollisionUtility::OBB BaseEnemy::GetOBB(const Vector3& pos, float radius) const
     // const関数内なので object_ の非constメソッド呼び出しに注意（適宜修正してください）
     t.rotate = object_ ? object_->GetRotate() : Vector3 { 0, 0, 0 };
     return CollisionUtility::MakeOBBFromTransform(t, { radius, radius, radius });
+}
+
+// ドロップ配布の実装
+void BaseEnemy::DistributeDrops() {
+    if (dropTable_.empty() || !player_)
+        return;
+
+    std::vector<float> weights;
+    std::vector<const DropEntry*> entries;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    for (const auto& d : dropTable_) {
+        std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
+        if (d.chance >= 1.0f || chanceDist(gen) <= d.chance) {
+            float w = d.weight > 0.0f ? d.weight : 0.0f;
+            weights.push_back(w);
+            entries.push_back(&d);
+        }
+    }
+
+    if (entries.empty())
+        return;
+
+    std::discrete_distribution<size_t> dist(weights.begin(), weights.end());
+    size_t idx = dist(gen);
+    const DropEntry* chosen = entries[idx];
+    if (!chosen)
+        return;
+
+    int amount = chosen->minAmount;
+    if (chosen->maxAmount > chosen->minAmount) {
+        std::uniform_int_distribution<int> amtDist(chosen->minAmount, chosen->maxAmount);
+        amount = amtDist(gen);
+    }
+
+    // プレイヤーに能力XPを付与
+    if (player_) {
+        player_->EnqueueAbilityXP(chosen->ability, static_cast<float>(amount));
+    }
 }

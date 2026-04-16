@@ -86,6 +86,16 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
     ofs << std::setw(2) << j << std::endl;
 
     // 正常に保存できた場合は true を返す
+    try {
+        std::string enemyPath = path + ".enemies.json";
+        nlohmann::json je = nlohmann::json::array();
+        std::ofstream eofs(enemyPath);
+        if (eofs.is_open()) {
+            eofs << std::setw(2) << je << std::endl;
+        }
+    } catch (...) {
+    }
+
     return true;
 }
 

@@ -247,6 +247,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="application\Ability.h" />
     <ClInclude Include="application\EditorController.h" />
     <ClInclude Include="application\StageLoader.h" />
     <ClInclude Include="application\StageSerializer.h" />
@@ -330,6 +331,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="resources\ability_config.json" />
+    <None Include="resources\enemy_drops.json" />
     <None Include="resources\shaders\Cylinder.hlsli" />
     <None Include="resources\shaders\Debug.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>

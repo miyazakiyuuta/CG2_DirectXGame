@@ -12,6 +12,10 @@
 #include <cmath>
 #include <imgui.h>
 #include <string>
+#include <unordered_map>
+#include <filesystem>
+#include <fstream>
+#include <../externals/nlohmann/json.hpp>
 #include "2d/SpriteCommon.h"
 
 Player::~Player() = default;
@@ -75,6 +79,152 @@ bool WorldToScreenSimple(
 }
 
 } // namespace
+
+// 次のレベルまでの必要経験値を計算する関数。レベルが上がるごとに必要経験値が増えるように、二次関数的な成長をさせています。
+float Player::XPToNextLevel(int level) const {
+	const float base = 50.0f;
+	return base * static_cast<float>(level) * static_cast<float>(level);
+}
+
+// 指定した能力に経験値を追加し、必要に応じてレベルアップを処理する関数
+void Player::AddAbilityXP(AbilityId ability, float amount) {
+	if (amount <= 0.0f)
+		return;
+
+	auto& s = abilityStates_[ability];
+        // maxLevel が 0 以下の場合はデフォルトの最大レベルを設定する（安全策）
+	if (s.maxLevel <= 0)
+		s.maxLevel = 10;
+	if (s.level >= s.maxLevel) {
+		s.xp = 0.0f;
+		return;
+	}
+
+	s.xp += amount;
+
+	int oldLevel = s.level;
+
+	// レベルアップ処理: 現在のXPが次のレベルに必要なXPを超えている限り、レベルを上げてXPを減らす
+	while (s.level < s.maxLevel) {
+		float need = XPToNextLevel(s.level);
+		if (s.xp >= need) {
+			s.xp -= need;
+			s.level += 1;
+		} else {
+			break;
+		}
+	}
+
+	// レベルが上がりすぎないように、maxLevel を超えたらレベルを maxLevel に固定してXPをリセットする
+	if (s.level >= s.maxLevel) {
+		s.level = s.maxLevel;
+		s.xp = 0.0f;
+	}
+
+	// 現在のレベルが追加前より上がっていたら、pendingLevelUps_ に追加して、後でまとめて反映する
+    if (s.level > oldLevel) {
+        // 追加前のレベルと追加後のレベルを両方記録しておく（反映時に両方使う可能性があるため）
+		pendingLevelUps_.push_back({ability, s.level});
+	}
+}
+
+void Player::EnqueueAbilityXP(AbilityId ability, float amount) {
+	if (amount <= 0.0f)
+		return;
+	pendingAbilityXP_.push_back({ability, amount});
+}
+
+void Player::ApplyPendingAbilityXP() {
+	if (pendingAbilityXP_.empty())
+		return;
+
+	for (auto &p : pendingAbilityXP_) {
+		AddAbilityXP(p.first, p.second);
+	}
+	pendingAbilityXP_.clear();
+}
+
+void Player::ApplyPendingLevelUps() {
+	if (pendingLevelUps_.empty())
+		return;
+
+	for (auto &lv : pendingLevelUps_) {
+        AbilityId ability = lv.first;
+		int newLevel = lv.second;
+
+		// レベルアップに伴う能力の強化を反映する
+        if (ability == AbilityId::JumpPower) {
+			jumpPowerMultiplier_ = 1.0f + jumpPowerPerLevel_ * static_cast<float>(newLevel - 1);
+		} else if (ability == AbilityId::TongueRange) {
+			tongueRangeMultiplier_ = 1.0f + tongueRangePerLevel_ * static_cast<float>(newLevel - 1);
+			if (tongue_) {
+				float newMax = baseTongueMaxDistance_ * tongueRangeMultiplier_;
+				tongue_->SetMaxDistance(newMax);
+			}
+        } else if (ability == AbilityId::SonarDuration) {
+			sonarDurationMultiplier_ = 1.0f + sonarDurationPerLevel_ * static_cast<float>(newLevel - 1);
+			sonarDuration_ = baseSonarDuration_ * sonarDurationMultiplier_;
+		} else if (ability == AbilityId::WallClingDuration) {
+			wallClingDurationMultiplier_ = 1.0f + wallClingPerLevel_ * static_cast<float>(newLevel - 1);
+			maxWallClingGauge_ = baseWallClingGauge_ * wallClingDurationMultiplier_;
+			if (wallClingGauge_ > maxWallClingGauge_)
+				wallClingGauge_ = maxWallClingGauge_;
+		} else if (ability == AbilityId::CamouflageDuration) {
+			camouflageDurationMultiplier_ = 1.0f + camouflagePerLevel_ * static_cast<float>(newLevel - 1);
+		} else {
+           // 不明な能力のレベルアップは無視する（安全策）
+		}
+	}
+
+	pendingLevelUps_.clear();
+}
+
+void Player::LoadAbilityConfig() {
+	if (abilityConfigLoaded_)
+		return;
+
+	try {
+		const std::string path = "resources/ability_config.json";
+		if (std::filesystem::exists(path)) {
+			std::ifstream ifs(path);
+			if (ifs.is_open()) {
+				nlohmann::json j;
+				ifs >> j;
+				if (j.contains("JumpPower")) {
+					auto &o = j["JumpPower"];
+					if (o.contains("perLevel")) jumpPowerPerLevel_ = o["perLevel"].get<float>();
+				}
+				if (j.contains("TongueRange")) {
+					auto &o = j["TongueRange"];
+					if (o.contains("base")) baseTongueMaxDistance_ = o["base"].get<float>();
+					if (o.contains("perLevel")) tongueRangePerLevel_ = o["perLevel"].get<float>();
+				}
+				if (j.contains("SonarDuration")) {
+					auto &o = j["SonarDuration"];
+					if (o.contains("base")) baseSonarDuration_ = o["base"].get<float>();
+					if (o.contains("perLevel")) sonarDurationPerLevel_ = o["perLevel"].get<float>();
+				}
+				if (j.contains("WallClingDuration")) {
+					auto &o = j["WallClingDuration"];
+					if (o.contains("base")) baseWallClingGauge_ = o["base"].get<float>();
+					if (o.contains("perLevel")) wallClingPerLevel_ = o["perLevel"].get<float>();
+				}
+				if (j.contains("CamouflageDuration")) {
+					auto &o = j["CamouflageDuration"];
+					if (o.contains("base")) baseCamouflageDuration_ = o["base"].get<float>();
+					if (o.contains("perLevel")) camouflagePerLevel_ = o["perLevel"].get<float>();
+				}
+			}
+		}
+	} catch (...) {
+            // 例外が発生した場合は、デフォルト値のままにしておく
+	}
+
+	// 範囲外のレベルに対しても正しく動作するように、初期化時点で倍率を計算しておく
+	sonarDuration_ = baseSonarDuration_ * sonarDurationMultiplier_;
+	maxWallClingGauge_ = baseWallClingGauge_ * wallClingDurationMultiplier_;
+	abilityConfigLoaded_ = true;
+}
 
 bool Player::TryUseBeam(const Vector3& direction) {
 	if (beamTimer_ > 0.0f)
@@ -740,7 +890,9 @@ void Player::CheckTongueBlockHook() {
 							object_->SetModel(mimicModelName_);
 							object_->SetScale(mimicScale_);
 						}
-						isMimicking_ = true;
+                    isMimicking_ = true;
+					// start mimic timer (frames)
+					mimicTimer_ = baseCamouflageDuration_ * camouflageDurationMultiplier_;
 						abilityActive_ = false;
 						break;
 					}
@@ -788,8 +940,8 @@ void Player::UpdateTonguePulling() {
 		// もし対象が敵だったら
 		if (lastHitEnemy_) {
 			// 【自動射出】たどり着いた瞬間に、敵の慣性を利用して自分を弾き飛ばす！
-			velocity_ = lastHitEnemy_->GetVelocity();
-			velocity_.y += jumpPowers_[0]; // 少し上に跳ね上げる
+           velocity_ = lastHitEnemy_->GetVelocity();
+            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_; // 少し上に跳ね上げる (upgrade applied)
 
 			// 重要なのは「遷移する前に情報をクリアする」こと
 			lastHitEnemy_ = nullptr;
@@ -827,6 +979,14 @@ void Player::Update() {
 
 	suppressTongueShotThisFrame_ = false;
 
+	if (!abilityConfigLoaded_) {
+		LoadAbilityConfig();
+	}
+
+	// 経験値とレベルアップの適用
+	ApplyPendingAbilityXP();
+	ApplyPendingLevelUps();
+
 	float cameraYaw = 0.0f;
 	bool isAimMode = false;
 	Vector3 cameraForward = {0.0f, 0.0f, 1.0f};
@@ -842,6 +1002,13 @@ void Player::Update() {
 		velocity_ = {0.0f, 0.0f, 0.0f};
 		TransitionTo(MovementState::Jumping);
 		pendingTeleport_ = false;
+	}
+
+	if (isMimicking_ && mimicTimer_ > 0.0f) {
+		mimicTimer_ -= 1.0f; // Update is per-frame
+		if (mimicTimer_ <= 0.0f) {
+			EndMimic();
+		}
 	}
 
 	if (ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f) {
@@ -880,7 +1047,7 @@ void Player::Update() {
 			if (lastHitEnemy_) {
 				// 敵の逃走速度を自分の速度として奪う（スリングショット）
 				velocity_ = lastHitEnemy_->GetVelocity();
-				velocity_.y += jumpPowers_[0]; // 少し上に跳ねる
+                velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_; // 少し上に跳ねる
 				lastHitEnemy_ = nullptr;
 			}
 			if (tongue_)
@@ -1228,7 +1395,9 @@ void Player::ExecuteChargedJump(int chargeLevel) {
 	// 例：水平が 0.2 (激重) のとき、垂直は 0.3 (少し跳べる) になる
 	float verticalMultiplier = std::min(1.0f, speedMultiplier_ * 1.5f);
 
-	velocity_.y = jumpPowers_[chargeLevel];
+    // use configured base jump powers scaled by upgrade multiplier and any slowdown multiplier
+    float baseJump = (chargeLevel >= 0 && chargeLevel < 4) ? baseJumpPowers_[chargeLevel] : baseJumpPowers_[std::clamp(chargeLevel, 0, 3)];
+	velocity_.y = baseJump * jumpPowerMultiplier_ * verticalMultiplier;
 	isOnGround_ = false;
 
 	if (chargeLevel > 0) {
@@ -1363,6 +1532,171 @@ void Player::DrawImGui() {
 			ImGui::Text("OnGround : %s", isOnGround_ ? "true" : "false");
 			ImGui::Text("Collider Half : %.2f %.2f %.2f", colliderHalfSize_.x, colliderHalfSize_.y, colliderHalfSize_.z);
 			ImGui::Text("BlockCollider Count : %d", blockColliders_ ? static_cast<int>(blockColliders_->size()) : 0);
+			ImGui::TreePop();
+
+     // 能力表示用の UI
+		if (ImGui::TreeNode("Abilities")) {
+			if (abilityStates_.empty()) {
+				ImGui::Text("No abilities yet.");
+			} else {
+				for (const auto &kv : abilityStates_) {
+					AbilityId id = kv.first;
+					const AbilityState &s = kv.second;
+
+					float need = XPToNextLevel(s.level);
+					float progress = (need > 0.0f) ? (s.xp / need) : 0.0f;
+					if (progress < 0.0f) progress = 0.0f;
+					if (progress > 1.0f) progress = 1.0f;
+
+					char buf[128];
+					snprintf(buf, sizeof(buf), "%s - L%d", AbilityIdToString(id), s.level);
+					ImGui::Text("%s", buf);
+					ImGui::SameLine();
+					char pct[64];
+					snprintf(pct, sizeof(pct), "%.0f/%.0f", s.xp, need);
+					ImGui::ProgressBar(progress, ImVec2(-1.0f, 0.0f), pct);
+				}
+			}
+
+			ImGui::Separator();
+			ImGui::Text("Pending XP:");
+			if (pendingAbilityXP_.empty()) {
+				ImGui::Text("(none)");
+			} else {
+				for (const auto &p : pendingAbilityXP_) {
+					ImGui::Text("%s : %.1f", AbilityIdToString(p.first), p.second);
+				}
+			}
+
+			ImGui::Separator();
+			ImGui::Text("Pending LevelUps:");
+			if (pendingLevelUps_.empty()) {
+				ImGui::Text("(none)");
+			} else {
+				for (const auto &lv : pendingLevelUps_) {
+					ImGui::Text("%s -> L%d", AbilityIdToString(lv.first), lv.second);
+				}
+			}
+
+      // 手動XP付与（デバッグ）
+			ImGui::Separator();
+			ImGui::Text("Manual XP Giver (debug)");
+			static int selIdx = 0;
+			static const char* abilityNames[] = { "JumpPower", "TongueRange", "SonarDuration", "WallClingDuration", "CamouflageDuration" };
+			if (ImGui::Combo("Ability", &selIdx, abilityNames, IM_ARRAYSIZE(abilityNames))) {
+				// selection changed
+			}
+			static float giveXPAmount = 10.0f;
+			ImGui::InputFloat("XP Amount", &giveXPAmount, 1.0f, 10.0f, "%.1f");
+			ImGui::SameLine();
+			if (ImGui::Button("Enqueue XP")) {
+				AbilityId id = static_cast<AbilityId>(selIdx + 1); // enum starts at 1 (Unknown=0)
+				EnqueueAbilityXP(id, giveXPAmount);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Give Now")) {
+				AbilityId id = static_cast<AbilityId>(selIdx + 1);
+                // 即時適用：enqueueしてから保留リストを処理する
+				EnqueueAbilityXP(id, giveXPAmount);
+				ApplyPendingAbilityXP();
+				ApplyPendingLevelUps();
+			}
+
+			ImGui::TreePop();
+		}
+	}
+
+    // 能力設定エディタ（ランタイムで調整可能、永続化しない）
+		if (ImGui::TreeNode("Ability Config Editor")) {
+			bool anyChanged = false;
+            // 既知の能力一覧
+			static const AbilityId allAbilities[] = { AbilityId::JumpPower, AbilityId::TongueRange, AbilityId::SonarDuration, AbilityId::WallClingDuration, AbilityId::CamouflageDuration };
+			for (AbilityId id : allAbilities) {
+				char label[64];
+				snprintf(label, sizeof(label), "%s_enabled", AbilityIdToString(id));
+				bool enabled = abilityStates_.find(id) != abilityStates_.end();
+				if (ImGui::Checkbox(label, &enabled)) {
+					anyChanged = true;
+					if (enabled) {
+						abilityStates_[id] = AbilityState();
+					} else {
+						abilityStates_.erase(id);
+					}
+				}
+				ImGui::SameLine();
+				ImGui::Text("%s", AbilityIdToString(id));
+
+                // 各能力の設定項目を表示
+				if (id == AbilityId::JumpPower) {
+					// base jump powers
+					for (int i = 0; i < 4; ++i) {
+						char buf[64];
+						snprintf(buf, sizeof(buf), "Jump Base[%d]", i);
+						if (ImGui::InputFloat(buf, &baseJumpPowers_[i], 0.0f, 0.0f, "%.3f")) anyChanged = true;
+					}
+					if (ImGui::InputFloat("Jump perLevel", &jumpPowerPerLevel_, 0.0f, 0.0f, "%.3f")) anyChanged = true;
+				} else if (id == AbilityId::TongueRange) {
+					if (ImGui::InputFloat("Tongue Base Distance", &baseTongueMaxDistance_, 0.0f, 0.0f, "%.2f")) anyChanged = true;
+					if (ImGui::InputFloat("Tongue perLevel", &tongueRangePerLevel_, 0.0f, 0.0f, "%.3f")) anyChanged = true;
+				} else if (id == AbilityId::SonarDuration) {
+					if (ImGui::InputFloat("Sonar Base (s)", &baseSonarDuration_, 0.0f, 0.0f, "%.2f")) anyChanged = true;
+					if (ImGui::InputFloat("Sonar perLevel", &sonarDurationPerLevel_, 0.0f, 0.0f, "%.3f")) anyChanged = true;
+				} else if (id == AbilityId::WallClingDuration) {
+					if (ImGui::InputFloat("WallCling Base", &baseWallClingGauge_, 0.0f, 0.0f, "%.1f")) anyChanged = true;
+					if (ImGui::InputFloat("WallCling perLevel", &wallClingPerLevel_, 0.0f, 0.0f, "%.3f")) anyChanged = true;
+				} else if (id == AbilityId::CamouflageDuration) {
+					if (ImGui::InputFloat("Camouflage Base (frames)", &baseCamouflageDuration_, 0.0f, 0.0f, "%.0f")) anyChanged = true;
+					if (ImGui::InputFloat("Camouflage perLevel", &camouflagePerLevel_, 0.0f, 0.0f, "%.3f")) anyChanged = true;
+				}
+				ImGui::Separator();
+			}
+
+            // 常に Apply Config を表示し、デザイナーがいつでも編集を反映できるようにする
+			if (ImGui::Button("Apply Config")) {
+				// apply config to runtime values based on current levels
+				for (const auto &kv : abilityStates_) {
+					AbilityId id = kv.first;
+					int level = kv.second.level;
+					float mult = 1.0f + ((id == AbilityId::JumpPower) ? jumpPowerPerLevel_ : (id == AbilityId::TongueRange) ? tongueRangePerLevel_ : (id == AbilityId::SonarDuration) ? sonarDurationPerLevel_ : (id == AbilityId::WallClingDuration) ? wallClingPerLevel_ : camouflagePerLevel_) * static_cast<float>(level - 1);
+					switch (id) {
+					case AbilityId::JumpPower: jumpPowerMultiplier_ = mult; break;
+					case AbilityId::TongueRange: tongueRangeMultiplier_ = mult; if (tongue_) tongue_->SetMaxDistance(baseTongueMaxDistance_ * tongueRangeMultiplier_); break;
+					case AbilityId::SonarDuration: sonarDurationMultiplier_ = mult; sonarDuration_ = baseSonarDuration_ * sonarDurationMultiplier_; break;
+					case AbilityId::WallClingDuration: wallClingDurationMultiplier_ = mult; maxWallClingGauge_ = baseWallClingGauge_ * wallClingDurationMultiplier_; if (wallClingGauge_ > maxWallClingGauge_) wallClingGauge_ = maxWallClingGauge_; break;
+					case AbilityId::CamouflageDuration: camouflageDurationMultiplier_ = mult; break;
+					default: break;
+					}
+				}
+			}
+			ImGui::TreePop();
+		}
+
+        // 実効（強化後）の値（参照専用）
+		if (ImGui::TreeNode("Ability Effective Values")) {
+			// Jump power (show base per-charge * multiplier)
+			ImGui::Text("Jump Power (per charge):");
+			for (int i = 0; i < 4; ++i) {
+				float base = baseJumpPowers_[i];
+				float effective = base * jumpPowerMultiplier_;
+				ImGui::Text("  Charge %d: base %.3f -> effective %.3f", i, base, effective);
+			}
+			// Tongue range
+			float tongueEffective = baseTongueMaxDistance_ * tongueRangeMultiplier_;
+			if (tongue_) tongueEffective = tongue_->GetMaxDistance();
+			ImGui::Text("Tongue Range: base %.2f -> effective %.2f", baseTongueMaxDistance_, tongueEffective);
+
+			// Sonar duration
+			float sonarEffective = baseSonarDuration_ * sonarDurationMultiplier_;
+			ImGui::Text("Sonar Duration: base %.2f s -> effective %.2f s", baseSonarDuration_, sonarEffective);
+
+			// Wall cling gauge / duration
+			float wallEffective = baseWallClingGauge_ * wallClingDurationMultiplier_;
+			ImGui::Text("Wall Cling Gauge: base %.1f -> effective %.1f", baseWallClingGauge_, wallEffective);
+
+			// Camouflage duration
+			float camoEffective = baseCamouflageDuration_ * camouflageDurationMultiplier_;
+			ImGui::Text("Camouflage Duration: base %.0f frames -> effective %.0f frames", baseCamouflageDuration_, camoEffective);
+
 			ImGui::TreePop();
 		}
 
@@ -1673,7 +2007,7 @@ void Player::UpdateWallClinging(float cameraYaw) {
 
 		// 壁のときは従来どおり離脱ジャンプ
 		velocity_ = clingSurfaceNormal_ * 0.25f;
-		velocity_.y = jumpPowers_[0];
+        velocity_.y = baseJumpPowers_[0] * jumpPowerMultiplier_;
 		hasClingSurface_ = false;
 		TransitionTo(MovementState::Jumping);
 		return;

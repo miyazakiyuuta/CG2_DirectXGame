@@ -517,6 +517,9 @@ if (wellObject_) {
 }
 
 player_->DrawImGui();
+	if (enemyManager_) {
+		enemyManager_->DrawImGui();
+	}
 
 ImGui::End();
 
