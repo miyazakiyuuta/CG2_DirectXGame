@@ -1,0 +1,7 @@
+{
+  "JumpPower": { "perLevel": 0.10 },
+  "TongueRange": { "base": 30.0, "perLevel": 0.08 },
+  "SonarDuration": { "base": 3.0, "perLevel": 0.10 },
+  "WallClingDuration": { "base": 100.0, "perLevel": 0.10 },
+  "CamouflageDuration": { "base": 180.0, "perLevel": 0.10 }
+}
