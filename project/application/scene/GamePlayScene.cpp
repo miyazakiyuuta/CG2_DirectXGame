@@ -517,6 +517,8 @@ if (wellObject_) {
 }
 
 player_->DrawImGui();
+
+cameraController_->DrawImGui();
 	if (enemyManager_) {
 		enemyManager_->DrawImGui();
 	}
