@@ -35,6 +35,8 @@ public:
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
 
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){ keepInsideCylinder_ = cylinder; }
+
 	// 【追加】
 	float GetTotalPlayerSpeedMultiplier() const;
 
@@ -46,4 +48,6 @@ private:
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
     // 敵ごとのドロップテーブルを保持するマップ
 	std::unordered_map<int, std::vector<BaseEnemy::DropEntry>> dropTables_;
+
+	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
 };

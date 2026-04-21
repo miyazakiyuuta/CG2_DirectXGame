@@ -71,6 +71,7 @@ void EnemyManager::Update(float deltaTime, Player* player) {
     for (auto& enemy : enemies_) {
 		if (enemy) {
 			enemy->SetBlockColliders(blockColliders_);
+			enemy->SetKeepInsideCylinder(keepInsideCylinder_);
 			enemy->SetPlayer(player); // 【追加】情報を渡す
 			enemy->Update(deltaTime, playerPos);
 		}
@@ -134,6 +135,7 @@ void EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos) {
 	if (e) {
 		e->Initialize(common_, camera_, pos);
 		e->SetBlockColliders(blockColliders_);
+		e->SetKeepInsideCylinder(keepInsideCylinder_);
         // 該当タイプのドロップテーブルがあれば注入する
 		int typeInt = static_cast<int>(type);
 		auto it = dropTables_.find(typeInt);

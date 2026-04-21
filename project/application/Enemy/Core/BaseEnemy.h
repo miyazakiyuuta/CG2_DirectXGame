@@ -25,6 +25,8 @@ public:
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
 
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){ keepInsideCylinder_ = cylinder; }
+
 	const Vector3& GetPosition() const { return position_; }
 	bool IsDead() const { return isDead_; }
 	void Kill() { isDead_ = true; }
@@ -89,6 +91,8 @@ protected:
 	bool isOnGround_ = false;
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+
+	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
 
 	float gravity_ = -0.04f;
 	float groundY_ = 0.0f;
