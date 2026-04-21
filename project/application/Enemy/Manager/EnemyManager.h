@@ -1,5 +1,6 @@
 #pragma once
 #include "utility/CollisionUtility.h"
+#include "../Core/BaseEnemy.h"
 #include <functional>
 #include <list>
 #include <memory>
@@ -30,7 +31,11 @@ public:
 	void Clear();
 	void ForEachEnemy(const std::function<void(class BaseEnemy*)>& cb);
 
+	void DrawImGui();
+
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
+
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){ keepInsideCylinder_ = cylinder; }
 
 	// 【追加】
 	float GetTotalPlayerSpeedMultiplier() const;
@@ -41,4 +46,8 @@ private:
 	std::list<std::unique_ptr<BaseEnemy>> enemies_;
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+    // 敵ごとのドロップテーブルを保持するマップ
+	std::unordered_map<int, std::vector<BaseEnemy::DropEntry>> dropTables_;
+
+	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
 };

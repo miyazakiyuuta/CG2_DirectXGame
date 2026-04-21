@@ -4,12 +4,16 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "3d/Object3d.h"
 #include "Tongue.h"
+#include "Ability.h"
 #include "io/Input.h"
 #include "math/Vector3.h"
 #include "utility/CollisionUtility.h"
+#include "2d/Sprite.h"
+#include "math/Vector2.h"
 
 class Camera;
 class Object3dCommon;
@@ -26,6 +30,8 @@ public:
 	~Player();
 
 	void Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition = {0.0f, 0.0f, 0.0f});
+
+	void InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTextureFilePath = "white.png");
 
 	void Update();
 	void Draw();
@@ -132,6 +138,22 @@ public:
 	BaseEnemy* GetLastHitEnemy() const { return lastHitEnemy_; }
 
 private:
+    // 能力の状態を管理する構造体
+	struct AbilityState {
+		int level = 1;
+		float xp = 0.0f;
+		int maxLevel = 10;
+	};
+
+    // 現在の能力レベルとXPを管理するマップ
+	std::unordered_map<AbilityId, AbilityState> abilityStates_;
+
+	// 現在の能力選択
+	float XPToNextLevel(int level) const;
+
+public:
+    // 外部から能力XPをキューイングするための関数（敵のドロップなどから呼ばれる）
+	void EnqueueAbilityXP(AbilityId ability, float amount);
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
 	void ApplyGravity();
@@ -169,7 +191,7 @@ private:
 	bool IsCeilingSurface(const Vector3& normal) const;
 	bool IsWallSurface(const Vector3& normal) const;
 
-	Vector3 ResolveHookSurfaceNormal(const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& tongueDelta, const Vector3& playerPos) const;
+    Vector3 ResolveHookSurfaceNormal(const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& tongueDelta, const Vector3& playerPos) const;
 
 	Vector3 ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility::OBB& block, const Vector3& playerPos, const Vector3& hitPoint, const Vector3& tongueDelta) const;
 
@@ -186,7 +208,22 @@ private:
 	bool IsPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
 	Vector3 ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
 
+	void UpdateJumpGaugeSprite();
+	void DrawUI();
+
 private:
+        // 経験値とレベルアップの保留キュー
+	std::vector<std::pair<AbilityId, float>> pendingAbilityXP_;
+	std::vector<std::pair<AbilityId, int>> pendingLevelUps_;
+
+	// ApplyPendingAbilityXP を呼ぶ前に、pendingLevelUps_ にレベルアップ分の処理を追加する
+	void ApplyPendingAbilityXP();
+    // ApplyPendingAbilityXP 内でレベルアップが発生した場合の処理（レベルアップの反映と、レベルアップに伴うXPの減算）
+	void ApplyPendingLevelUps();
+
+public:
+    // 外部から直接能力XPを加算するための関数（テスト用など。通常は EnqueueAbilityXP を使うべき）
+	void AddAbilityXP(AbilityId ability, float amount);
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
 	CameraController* cameraController_ = nullptr;
@@ -209,8 +246,7 @@ private:
 	float maxWaterGauge_ = 100.0f;
 	float tongueWaterCost_ = 0.0f;
 
-	// チャージジャンプ
-	float jumpPowers_[4] = {0.55f, 0.70f, 0.80f, 1.10f};
+    // チャージジャンプ (old jumpPowers_ removed; use baseJumpPowers_)
 	float chargeThresholds_[3] = {40.0f, 80.0f, 120.0f};
 	float chargeCancelHoldLimit_ = 240.0f;
 
@@ -231,6 +267,35 @@ private:
 	float wallClingConsumption_ = 0.5f;
 	float wallMoveSpeed_ = 0.05f;
 	float ceilingCrawlSpeed_ = 0.35f;
+
+	// 能力強化の倍率（1.0が通常）
+	float jumpPowerMultiplier_ = 1.0f;
+	float baseJumpPowers_[4] = {0.55f, 0.70f, 0.80f, 1.10f};
+
+	float tongueRangeMultiplier_ = 1.0f;
+	float baseTongueMaxDistance_ = 30.0f; // will be synced to Tongue
+
+	float sonarDurationMultiplier_ = 1.0f;
+	float baseSonarDuration_ = 3.0f;
+
+	float wallClingDurationMultiplier_ = 1.0f;
+	float baseWallClingGauge_ = 100.0f;
+
+	float camouflageDurationMultiplier_ = 1.0f;
+	float baseCamouflageDuration_ = 180.0f; // frames
+	float mimicTimer_ = 0.0f; // frames remaining for mimic
+
+	// 能力強化の設定がロードされたか
+	bool abilityConfigLoaded_ = false;
+
+	// レベルアップごとの倍率増加量
+	float jumpPowerPerLevel_ = 0.10f; // default +10% per level
+	float tongueRangePerLevel_ = 0.08f; // default +8% per level
+	float sonarDurationPerLevel_ = 0.10f;
+	float wallClingPerLevel_ = 0.10f;
+	float camouflagePerLevel_ = 0.10f;
+
+	void LoadAbilityConfig();
 
 	Vector3 wallRightVec_ = {1.0f, 0.0f, 0.0f};
 
@@ -347,4 +412,14 @@ private:
 
 	// 最後に舌がヒットしたエネミーを保持
 	BaseEnemy* lastHitEnemy_ = nullptr;
+
+
+	std::unique_ptr<Sprite> jumpGaugeBackSprite_ = nullptr;
+	std::unique_ptr<Sprite> jumpGaugeFillSprite_ = nullptr;
+
+	Vector2 jumpGaugeOffset_ = { 70.0f, -20.0f };
+	Vector2 jumpGaugeSize_ = { 150.0f, 18.0f };
+
+	bool showJumpGauge_ = false;
+
 };

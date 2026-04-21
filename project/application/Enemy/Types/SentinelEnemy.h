@@ -21,6 +21,12 @@ public:
 	void OnTongueHit(const Vector3& direction) override;
 
 private:
+	void ResolveBlockCollisions3D(const Vector3& previousPosition);
+	void ResolveCylinderCollision();
+
+	static constexpr float kCollisionRadius_ = 0.7f;
+
+private:
 	State state_ = State::Idle;
 	Vector3 homePosition_;
 	Vector3 panicDir_; // 逃げる方向（舌が飛んできた方向の延長線）

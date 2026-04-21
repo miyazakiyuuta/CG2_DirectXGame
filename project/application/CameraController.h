@@ -57,6 +57,27 @@ public:
 	// ヒット位置の手前にどれだけ余白を残すか
 	void SetCameraCollisionMargin(float margin){ cameraCollisionMargin_ = margin; }
 
+	// 上方視点時の遮蔽緩和設定
+	void SetEnableTopViewOcclusionRelax(bool enable){ enableTopViewOcclusionRelax_ = enable; }
+
+	// 0° = 真上, 90° = 水平
+	void SetTopViewRelaxAngleRange(float minAngleDeg, float maxAngleDeg){
+		topViewRelaxMinAngleDeg_ = std::clamp(minAngleDeg, 0.0f, 180.0f);
+		topViewRelaxMaxAngleDeg_ = std::clamp(maxAngleDeg, 0.0f, 180.0f);
+		if(topViewRelaxMinAngleDeg_ > topViewRelaxMaxAngleDeg_){
+			std::swap(topViewRelaxMinAngleDeg_, topViewRelaxMaxAngleDeg_);
+		}
+	}
+
+	// true なら角度範囲内で前寄せを完全に行わない
+	// false なら margin を縮めて「緩和だけ」する
+	void SetTopViewDisablePullIn(bool disable){ topViewDisablePullIn_ = disable; }
+
+	// 緩和時に cameraCollisionMargin_ を何倍まで縮めるか
+	void SetTopViewOcclusionMarginScale(float scale){
+		topViewOcclusionMarginScale_ = std::clamp(scale, 0.0f, 1.0f);
+	}
+
 	float GetYaw() const{ return yaw_; }
 	float GetPitch() const{ return pitch_; }
 	float GetDistance() const{ return distance_; }
@@ -121,6 +142,26 @@ private:
 	const std::vector<CollisionUtility::OBB>* obstacleColliders_ = nullptr;
 	float cameraCollisionMargin_ = 0.50f;
 
+	// 0° = 真上, 90° = 水平
+	float topViewRelaxMinAngleDeg_ = 0.0f;
+	float topViewRelaxMaxAngleDeg_ = 90.0f;
+
+	// true: 範囲内なら前寄せしない
+	// false: 範囲内なら前寄せを緩和する
+	bool topViewDisablePullIn_ = true;
+
+	// 上方視点時だけ、遮蔽による前寄せ量を弱める
+	bool enableTopViewOcclusionRelax_ = true;
+
+	// toCamera と worldUp の内積。
+	// 0.70f 付近から緩和を開始し、0.85f で最大まで効かせる想定。
+	float topViewRelaxStartDot_ = 0.70f;
+	float topViewRelaxEndDot_ = 0.85f;
+
+	// 上方視点時に cameraCollisionMargin_ を何倍まで縮めるか。
+	// 1.0f なら緩和なし、0.35f なら 35% まで縮小。
+	float topViewOcclusionMarginScale_ = 0.35f;
+
 	bool isUse_ = true;
 
 	Vector3 currentForward_ = { 0.0f, 0.0f, 1.0f };
@@ -131,4 +172,19 @@ private:
 
 	const CollisionUtility::Cylinder* obstacleCylinder_ = nullptr;
 	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
+
+	// ---- Debug: Top-view occlusion relax ----
+	float debugTopAngleDeg_ = 0.0f;
+	bool debugIsInsideTopRelaxAngle_ = false;
+	bool debugHitSomething_ = false;
+	bool debugShouldRelax_ = false;
+	bool debugActuallyRelaxed_ = false;
+	bool debugActuallySkippedPullIn_ = false;
+
+	float debugNearestT_ = -1.0f;
+	float debugEffectiveMargin_ = 0.0f;
+	float debugSafeT_ = -1.0f;
+
+	bool debugHasObstacleColliders_ = false;
+	bool debugIsAimMode_ = false;
 };

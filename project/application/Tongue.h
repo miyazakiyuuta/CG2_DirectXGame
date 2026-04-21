@@ -56,6 +56,9 @@ public:
 
 	void SetHookPositionPreserveState(const Vector3& worldPos);
 
+	void SetMaxDistance(float d) { maxDistance_ = d; }
+	float GetMaxDistance() const { return maxDistance_; }
+
 private:
 	void UpdateIdle();
 	void UpdateExtending(float deltaTime);
@@ -79,7 +82,7 @@ private:
 	Vector3 shotStartPosition_ = {};
 
 	
-	float maxDistance_ = 30.0f;
+    float maxDistance_ = 30.0f;
 
 	// 通常ショット用
 	float normalExtendSpeed_ = 120.0f;

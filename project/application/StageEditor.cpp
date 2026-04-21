@@ -666,7 +666,10 @@ void StageEditor::DrawImGui(){
     const char* enemyTypes[] = {
         "Chasing",
         "Shooting",
-        "Sentinel"
+        "Sentinel",
+        "ClusterSlime",
+        "ProminenceSensor",
+        "PhaseGhost"
     };
 
     if(currentMode != EditorUIMode::SelectedEdit){

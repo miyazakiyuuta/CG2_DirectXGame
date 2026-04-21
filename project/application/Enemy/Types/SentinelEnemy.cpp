@@ -30,7 +30,11 @@ void SentinelEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
 void SentinelEnemy::OnTongueHit(const Vector3& direction) {
 	if (state_ != State::Panicking) {
 		state_ = State::Panicking;
-		panicDir_ = direction; // 舌の射出方向を逃走ベクトルとしてコピー
+		if(direction.Length() > 0.0001f){
+			panicDir_ = Vector3::Normalized(direction); //舌の射出方向を逃走ベクトルとしてコピー
+		} else{
+			panicDir_ = { 0.0f, 0.0f, 1.0f };
+		}
 		panicTimer_ = 0.0f;
 
 		// パニック演出：発光させる
@@ -105,15 +109,25 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 		break;
 	}
 
-	position_ += velocity_;
-	ResolveHorizontalCollisions(previousPosition);
+	Vector3 totalMove = velocity_;
 
-	// パニック中、常に移動方向を向く（プレイヤーが飛ばされる方向のガイドになる）
-	if (state_ == State::Panicking || state_ == State::Fleeing) {
-		if (velocity_.Length() > 0.01f) {
-			float yaw = std::atan2(velocity_.x, velocity_.z);
-			object_->SetRotate({0.0f, yaw, 0.0f});
-		}
+	// 1ステップの最大移動量
+	const float kMaxStep = 0.25f;
+
+	float maxAbs =
+		(std::max)(
+			std::fabs(totalMove.x),
+			(std::max)(std::fabs(totalMove.y), std::fabs(totalMove.z)));
+
+	int stepCount = (std::max)(1, static_cast<int>(std::ceil(maxAbs / kMaxStep)));
+	Vector3 stepMove = totalMove / static_cast<float>(stepCount);
+
+	for(int i = 0; i < stepCount; ++i){
+		Vector3 previousPosition = position_;
+		position_ += stepMove;
+
+		ResolveBlockCollisions3D(previousPosition);
+		ResolveCylinderCollision();
 	}
 
 	object_->SetTranslate(position_);
@@ -123,4 +137,102 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 void SentinelEnemy::Draw() {
 	if (object_)
 		object_->Draw();
+}
+
+// SentinelEnemy.cpp
+
+void SentinelEnemy::ResolveBlockCollisions3D(const Vector3& previousPosition){
+	if(!blockColliders_){
+		return;
+	}
+
+	auto intersectsAnyBlock = [&](const Vector3& testPos) -> bool{
+		const CollisionUtility::OBB testObb = GetOBB(testPos, kCollisionRadius_);
+		for(const auto& block : *blockColliders_){
+			if(CollisionUtility::IntersectOBB_OBB(testObb, block)){
+				return true;
+			}
+		}
+		return false;
+		};
+
+	Vector3 resolved = previousPosition;
+
+	// X 軸
+	resolved.x = position_.x;
+	if(intersectsAnyBlock(resolved)){
+		resolved.x = previousPosition.x;
+		velocity_.x = 0.0f;
+	}
+
+	// Y 軸
+	resolved.y = position_.y;
+	if(intersectsAnyBlock(resolved)){
+		resolved.y = previousPosition.y;
+		velocity_.y = 0.0f;
+	}
+
+	// Z 軸
+	resolved.z = position_.z;
+	if(intersectsAnyBlock(resolved)){
+		resolved.z = previousPosition.z;
+		velocity_.z = 0.0f;
+	}
+
+	position_ = resolved;
+}
+
+void SentinelEnemy::ResolveCylinderCollision(){
+	if(!keepInsideCylinder_){
+		return;
+	}
+
+	const CollisionUtility::Cylinder& cylinder = *keepInsideCylinder_;
+	const float kEpsilon = 0.0001f;
+
+	// Y 方向も汎用的に閉じ込める
+	const float minY = cylinder.center.y - cylinder.halfHeight + kCollisionRadius_;
+	const float maxY = cylinder.center.y + cylinder.halfHeight - kCollisionRadius_;
+
+	if(position_.y < minY){
+		position_.y = minY;
+		if(velocity_.y < 0.0f){
+			velocity_.y = 0.0f;
+		}
+	} else if(position_.y > maxY){
+		position_.y = maxY;
+		if(velocity_.y > 0.0f){
+			velocity_.y = 0.0f;
+		}
+	}
+
+	// XZ 平面で円柱の内側へ押し戻す
+	const float dx = position_.x - cylinder.center.x;
+	const float dz = position_.z - cylinder.center.z;
+	const float distSq = dx * dx + dz * dz;
+
+	const float limitRadius = (std::max)(0.0f, cylinder.radius - kCollisionRadius_);
+	const float limitRadiusSq = limitRadius * limitRadius;
+
+	if(distSq > limitRadiusSq){
+		const float oldX = position_.x;
+		const float oldZ = position_.z;
+
+		const float dist = std::sqrt(distSq);
+		if(dist > kEpsilon){
+			const float invDist = 1.0f / dist;
+			position_.x = cylinder.center.x + dx * invDist * limitRadius;
+			position_.z = cylinder.center.z + dz * invDist * limitRadius;
+		} else{
+			position_.x = cylinder.center.x + limitRadius;
+			position_.z = cylinder.center.z;
+		}
+
+		if(std::fabs(position_.x - oldX) > kEpsilon){
+			velocity_.x = 0.0f;
+		}
+		if(std::fabs(position_.z - oldZ) > kEpsilon){
+			velocity_.z = 0.0f;
+		}
+	}
 }

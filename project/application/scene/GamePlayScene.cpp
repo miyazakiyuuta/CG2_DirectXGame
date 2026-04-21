@@ -187,13 +187,29 @@ void GamePlayScene::Initialize() {
 	enemyManager_ = std::make_unique<EnemyManager>();
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
 
-	// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
-	enemyManager_->CreateEnemy(EnemyType::Chasing, { 10.0f, 5.0f, 10.0f });        // 追尾（赤）
-	enemyManager_->CreateEnemy(EnemyType::Shooting, { -10.0f, 5.0f, 15.0f });	   // 射撃（青）
-	enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 0.0f });         // 逃走（オレンジ）
-	enemyManager_->CreateEnemy(EnemyType::ClusterSlime, { 5.0f, 8.0f, -5.0f });    // 群れ（紫）
-	enemyManager_->CreateEnemy(EnemyType::ProminenceSensor, {15.0f, 1.0f, 20.0f}); // センサー（固定砲台）
-	enemyManager_->CreateEnemy(EnemyType::PhaseGhost, {-15.0f, 8.0f, 0.0f});       // フェイズ・ゴースト（鳴き声で暴く敵）を生成
+	// Stage から敵スポーン情報を取得して生成
+	for(const auto& spawn : stage_->GetEnemySpawnPoints()){
+		const int typeValue = spawn.enemyType;
+
+		// EnemyType と Stage 側の int の整合を軽くガード
+		if(typeValue < static_cast<int>(EnemyType::Chasing) ||
+		   typeValue > static_cast<int>(EnemyType::PhaseGhost)){
+			continue;
+		}
+
+		enemyManager_->CreateEnemy(
+			static_cast<EnemyType>(typeValue),
+			spawn.position
+		);
+	}
+
+	//// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
+	//enemyManager_->CreateEnemy(EnemyType::Chasing, { 10.0f, 5.0f, 10.0f });        // 追尾（赤）
+	//enemyManager_->CreateEnemy(EnemyType::Shooting, { -10.0f, 5.0f, 15.0f });	   // 射撃（青）
+	//enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 0.0f });         // 逃走（オレンジ）
+	//enemyManager_->CreateEnemy(EnemyType::ClusterSlime, { 5.0f, 8.0f, -5.0f });    // 群れ（紫）
+	//enemyManager_->CreateEnemy(EnemyType::ProminenceSensor, {15.0f, 1.0f, 20.0f}); // センサー（固定砲台）
+	//enemyManager_->CreateEnemy(EnemyType::PhaseGhost, {-15.0f, 8.0f, 0.0f});       // フェイズ・ゴースト（鳴き声で暴く敵）を生成
 
 	// プレイヤーにエネミーマネージャーを渡して、プレイヤーからエネミーを参照できるようにする
 	if (player_) {
@@ -204,6 +220,15 @@ void GamePlayScene::Initialize() {
 	debugGrid_->Initialize(DirectXCommon::GetInstance());
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
+
+	Object3dCommon::GetInstance()->SetPointLight(
+		{
+			{ 1.0f, 1.0f, 1.0f, 1.0f }, // color
+			{ 0.0f, -0.1f, 0.0f },      // position
+			1.0f,                       // intensity
+			20000.0f,                      // radius
+			0.0f                        // decay
+		});
 }
 
 void GamePlayScene::Finalize() {
@@ -287,6 +312,7 @@ void GamePlayScene::Update() {
 	// 【修正：追加】エネミーマネージャーに当たり判定データを渡す
 	if (enemyManager_) {
 		enemyManager_->SetBlockColliders(&stageBlockColliders_);
+		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
 	}
 
 	if (!stageEditor_->IsEditMode()) {
@@ -508,6 +534,11 @@ if (wellObject_) {
 }
 
 player_->DrawImGui();
+
+cameraController_->DrawImGui();
+	if (enemyManager_) {
+		enemyManager_->DrawImGui();
+	}
 
 ImGui::End();
 

@@ -4,6 +4,10 @@
 #include "math/Vector4.h"
 #include <memory>
 #include <vector>
+#include <string>
+#include "../../Ability.h"
+#include <random>
+#include <unordered_map>
 
 class Object3d;
 class Object3dCommon;
@@ -21,14 +25,16 @@ public:
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) { blockColliders_ = colliders; }
 
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){ keepInsideCylinder_ = cylinder; }
+
 	const Vector3& GetPosition() const { return position_; }
 	bool IsDead() const { return isDead_; }
 	void Kill() { isDead_ = true; }
 
-	// Color helpers: derived classes should call SetColor during Initialize
+    // 色設定ヘルパー：派生クラスは Initialize 内で SetColor を呼ぶこと
 	void SetColor(const Vector4& color);
 	void SetAlpha(float a);
-	// Return the originally assigned alpha (stored when SetColor was called)
+   // 元のアルファ値を返す（SetColor 呼び出し時に保存される）
 	float GetOriginalAlpha() const;
 
 	// プレイヤーへの速度補正値を取得
@@ -36,6 +42,20 @@ public:
 
 	// 4. マネージャーからプレイヤー情報を受け取るための追加
 	void SetPlayer(class Player* p) { player_ = p; }
+
+   // 能力 XP のドロップ定義
+  struct DropEntry {
+		AbilityId ability = AbilityId::Unknown;
+		float weight = 1.0f; // sampling weight
+		int minAmount = 1;
+		int maxAmount = 1;
+		float chance = 1.0f; // per-entry chance (0..1)
+	};
+
+   // この敵インスタンス用のドロップテーブルを設定
+	void SetDropTable(const std::vector<DropEntry>& table) { dropTable_ = table; }
+    // 添付されたプレイヤーへドロップ配布（死亡時に呼ばれる）
+	void DistributeDrops();
 
 	// ソナー（エコー）が当たった時に呼ばれる
 	virtual void OnSonarHit() {}
@@ -72,6 +92,8 @@ protected:
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 
+	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
+
 	float gravity_ = -0.04f;
 	float groundY_ = 0.0f;
 
@@ -79,4 +101,5 @@ protected:
 	float playerSpeedMultiplier_ = 1.0f;
 
 	class Player* player_ = nullptr;
+    std::vector<DropEntry> dropTable_;
 };

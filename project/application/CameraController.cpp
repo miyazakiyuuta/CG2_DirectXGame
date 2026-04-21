@@ -44,6 +44,60 @@ namespace{
 
 		return result;
 	}
+
+	float LengthSqVec(const Vector3& v){
+		return v.x * v.x + v.y * v.y + v.z * v.z;
+	}
+
+	bool IsInsideCylinderByClosestPoint(
+		const Vector3& point,
+		const CollisionUtility::Cylinder& cylinder,
+		float epsilon = 0.0001f
+	){
+		Vector3 closest = CollisionUtility::ClosestPointInsideCylinder(point, cylinder);
+		Vector3 diff = point - closest;
+		return LengthSqVec(diff) <= (epsilon * epsilon);
+	}
+
+	Vector3 ClampPointInsideCylinderAlongRay(
+		const Vector3& rayOrigin,
+		const Vector3& desiredPoint,
+		const CollisionUtility::Cylinder& cylinder
+	){
+		// すでに円柱内ならそのまま
+		if(IsInsideCylinderByClosestPoint(desiredPoint, cylinder)){
+			return desiredPoint;
+		}
+
+		// rayOrigin が円柱内にいない場合は、
+		// 線分上の二分探索前提が崩れるので既存挙動へフォールバック
+		if(!IsInsideCylinderByClosestPoint(rayOrigin, cylinder)){
+			return CollisionUtility::ClosestPointInsideCylinder(desiredPoint, cylinder);
+		}
+
+		Vector3 segment = desiredPoint - rayOrigin;
+		if(LengthSqVec(segment) <= 0.000001f){
+			return rayOrigin;
+		}
+
+		float low = 0.0f;
+		float high = 1.0f;
+
+		// rayOrigin は内側、desiredPoint は外側、という前提で
+		// 線分上の「内側でいられる最大位置」を探す
+		for(int i = 0; i < 24; ++i){
+			float mid = (low + high) * 0.5f;
+			Vector3 testPoint = rayOrigin + segment * mid;
+
+			if(IsInsideCylinderByClosestPoint(testPoint, cylinder)){
+				low = mid;
+			} else{
+				high = mid;
+			}
+		}
+
+		return rayOrigin + segment * low;
+	}
 }
 
 void CameraController::Initialize(Camera* camera){
@@ -80,6 +134,18 @@ void CameraController::Update(const Vector3& target){
 
 	// 右クリック中は一人称寄りのエイム視点
 	isAimMode_ = input_->IsPressMouse(1);
+
+	debugTopAngleDeg_ = 0.0f;
+	debugIsInsideTopRelaxAngle_ = false;
+	debugHitSomething_ = false;
+	debugShouldRelax_ = false;
+	debugActuallyRelaxed_ = false;
+	debugActuallySkippedPullIn_ = false;
+	debugNearestT_ = -1.0f;
+	debugEffectiveMargin_ = cameraCollisionMargin_;
+	debugSafeT_ = -1.0f;
+	debugHasObstacleColliders_ = (obstacleColliders_ != nullptr);
+	debugIsAimMode_ = isAimMode_;
 
 	// キーボード操作
 	if(input_->IsPushKey(DIK_LEFT)){
@@ -158,6 +224,47 @@ void CameraController::Update(const Vector3& target){
 		focus.z + offset.z
 	};
 
+	// 上方視点の角度判定
+	const Vector3 worldUpForAngle = { 0.0f, 1.0f, 0.0f };
+	const Vector3 toCameraForAngle = NormalizeVecSafe(desiredCameraPos - focus);
+
+	const float topDotForAngle =
+		std::clamp(DotVec(toCameraForAngle, worldUpForAngle), -1.0f, 1.0f);
+
+	const float topAngleDeg =
+		std::acos(topDotForAngle) * (180.0f / 3.14159265358979323846f);
+
+	bool isInsideTopRelaxAngle = false;
+	if(enableTopViewOcclusionRelax_ && !isAimMode_){
+		isInsideTopRelaxAngle =
+			(topAngleDeg >= topViewRelaxMinAngleDeg_) &&
+			(topAngleDeg <= topViewRelaxMaxAngleDeg_);
+	}
+
+	debugTopAngleDeg_ = topAngleDeg;
+	debugIsInsideTopRelaxAngle_ = isInsideTopRelaxAngle;
+
+	float pullInBlendT = 1.0f;
+	if(enableTopViewOcclusionRelax_ && !isAimMode_){
+		const float angleRange =
+			std::max(0.0001f, topViewRelaxMaxAngleDeg_ - topViewRelaxMinAngleDeg_);
+
+		if(topAngleDeg >= topViewRelaxMinAngleDeg_ &&
+		   topAngleDeg <= topViewRelaxMaxAngleDeg_){
+			// MinAngle で 1.0f  -> 通常の前寄せ
+			// MaxAngle で 0.0f  -> 完全無視側
+			pullInBlendT =
+				(topViewRelaxMaxAngleDeg_ - topAngleDeg) / angleRange;
+			pullInBlendT = std::clamp(pullInBlendT, 0.0f, 1.0f);
+
+			// 任意: 滑らかに
+			pullInBlendT = pullInBlendT * pullInBlendT * (3.0f - 2.0f * pullInBlendT);
+		} else{
+			// 範囲外は通常の前寄せ
+			pullInBlendT = 1.0f;
+		}
+	}
+
 	// 遮蔽物があるなら、手前までカメラを寄せる
 	Vector3 finalCameraPos = desiredCameraPos;
 
@@ -228,15 +335,32 @@ void CameraController::Update(const Vector3& target){
 			}
 
 			if(hitSomething){
+				debugHitSomething_ = true;
+				debugNearestT_ = nearestT;
+
 				float minAllowed = isAimMode_ ? -0.50f : cameraCollisionMinDistance_;
+				debugShouldRelax_ = (pullInBlendT < 1.0f);
 
 				const float extraPushBack = 0.08f;
-				float safeT = std::max(minAllowed, nearestT - cameraCollisionMargin_ - extraPushBack);
+				float safeTNormal = std::max(
+					minAllowed,
+					nearestT - cameraCollisionMargin_ - extraPushBack
+				);
+
+				// pullInBlendT = 1.0f なら通常前寄せ
+				// pullInBlendT = 0.0f なら完全無視側
+				float safeTBlended =
+					desiredLength + (safeTNormal - desiredLength) * pullInBlendT;
+
+				debugEffectiveMargin_ = cameraCollisionMargin_;
+				debugSafeT_ = safeTBlended;
+				debugActuallyRelaxed_ = (pullInBlendT < 1.0f);
+				debugActuallySkippedPullIn_ = (pullInBlendT <= 0.0001f);
 
 				finalCameraPos = {
-					focus.x + dir.x * safeT,
-					focus.y + dir.y * safeT,
-					focus.z + dir.z * safeT
+					focus.x + dir.x * safeTBlended,
+					focus.y + dir.y * safeTBlended,
+					focus.z + dir.z * safeTBlended
 				};
 			}
 		}
@@ -286,7 +410,8 @@ void CameraController::Update(const Vector3& target){
 	}
 
 	if(keepInsideCylinder_){
-		finalCameraPos = CollisionUtility::ClosestPointInsideCylinder(
+		finalCameraPos = ClampPointInsideCylinderAlongRay(
+			focus,
 			finalCameraPos,
 			*keepInsideCylinder_
 		);
@@ -320,6 +445,35 @@ void CameraController::DrawImGui(){
 
 		ImGui::Separator();
 		ImGui::SliderFloat("Camera Collision Margin", &cameraCollisionMargin_, 0.01f, 1.0f, "%.2f");
+
+		ImGui::Checkbox("Enable Top View Occlusion Relax", &enableTopViewOcclusionRelax_);
+		ImGui::SliderFloat("Top Relax Min Angle", &topViewRelaxMinAngleDeg_, 0.0f, 180.0f, "%.1f deg");
+		ImGui::SliderFloat("Top Relax Max Angle", &topViewRelaxMaxAngleDeg_, 0.0f, 180.0f, "%.1f deg");
+		ImGui::Checkbox("Top View Disable Pull In", &topViewDisablePullIn_);
+		ImGui::SliderFloat("Top Relax Margin Scale", &topViewOcclusionMarginScale_, 0.0f, 1.0f, "%.2f");
+
+		if(topViewRelaxMaxAngleDeg_ < topViewRelaxMinAngleDeg_){
+			std::swap(topViewRelaxMinAngleDeg_, topViewRelaxMaxAngleDeg_);
+		}
+
+		ImGui::Separator();
+		ImGui::Text("Top View Relax Debug");
+		ImGui::Text("AimMode: %s", debugIsAimMode_ ? "true" : "false");
+		ImGui::Text("HasObstacleColliders: %s", debugHasObstacleColliders_ ? "true" : "false");
+
+		ImGui::Text("TopAngleDeg: %.2f", debugTopAngleDeg_);
+		ImGui::Text("AngleRange: %.2f - %.2f", topViewRelaxMinAngleDeg_, topViewRelaxMaxAngleDeg_);
+		ImGui::Text("InsideTopRelaxAngle: %s", debugIsInsideTopRelaxAngle_ ? "true" : "false");
+
+		ImGui::Text("HitSomething: %s", debugHitSomething_ ? "true" : "false");
+		ImGui::Text("ShouldRelax: %s", debugShouldRelax_ ? "true" : "false");
+		ImGui::Text("ActuallyRelaxed: %s", debugActuallyRelaxed_ ? "true" : "false");
+		ImGui::Text("ActuallySkippedPullIn: %s", debugActuallySkippedPullIn_ ? "true" : "false");
+
+		ImGui::Text("NearestT: %.3f", debugNearestT_);
+		ImGui::Text("BaseMargin: %.3f", cameraCollisionMargin_);
+		ImGui::Text("EffectiveMargin: %.3f", debugEffectiveMargin_);
+		ImGui::Text("SafeT: %.3f", debugSafeT_);
 
 		ImGui::Separator();
 		ImGui::Text("Aim Camera");
