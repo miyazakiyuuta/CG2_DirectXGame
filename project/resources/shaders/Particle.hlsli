@@ -23,3 +23,17 @@ struct ParticleForGPU {
     float4x4 World;
     float4 color;
 };
+
+struct Particle {
+    float3 translate;
+    float3 scale;
+    float lifeTime;
+    float3 velocity;
+    float currentTime;
+    float4 color;
+};
+
+struct PerView {
+    float4x4 viewProjection;
+    float4x4 billboardMatrix;
+};

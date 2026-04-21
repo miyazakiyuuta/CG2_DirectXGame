@@ -11,6 +11,7 @@ class DebugCamera;
 class Object3d;
 class Skybox;
 class DebugGrid;
+class GPUParticleEmitter;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -38,5 +39,7 @@ private:
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;
+
+	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 };
 

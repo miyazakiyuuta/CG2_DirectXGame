@@ -9,6 +9,7 @@
 #include "effect/ParticleManager.h"
 #include "effect/RingManager.h"
 #include "effect/CylinderManager.h"
+#include "effect/GPUParticleEmitter.h"
 #include "audio/SoundManager.h"
 
 #include "2d/Sprite.h"
@@ -74,6 +75,11 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
+	gpuParticleEmitter_ = std::make_unique<GPUParticleEmitter>();
+	gpuParticleEmitter_->Initialize();
+	uint32_t texIndex = TextureManager::GetInstance()->GetSrvIndex("resources/monsterBall.png");
+	gpuParticleEmitter_->SetTexture(texIndex);
+
 }
 
 void GamePlayScene::Finalize() {
@@ -99,7 +105,7 @@ void GamePlayScene::Update() {
 	object3d_->Update();
 
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
-	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,0.0f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
+	//DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f,0.0f,0.0f }, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f,1.0f });
 
 }
 
@@ -109,6 +115,8 @@ void GamePlayScene::Draw() {
 	object3d_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
+
+	gpuParticleEmitter_->Draw(camera_.get());
 }
 
 void GamePlayScene::DrawImGui() {
