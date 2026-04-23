@@ -56,6 +56,13 @@ void Object3d::Draw() {
 
 	if (model_) {
 		if (!model_->GetSkinCluster().inverseBindPoseMatrices.empty()) {
+			Object3dCommon::GetInstance()->ComputeDispatchSetting();
+			commandList->SetComputeRootConstantBufferView(0, model_->GetSkinCluster().skinningInformationResource->GetGPUVirtualAddress());
+			commandList->SetComputeRootDescriptorTable(1, model_->GetSkinCluster().paletteSrvHandle.second);
+			commandList->SetComputeRootDescriptorTable(2, model_->GetSkinCluster().inputVertexSrvHandle.second);
+			commandList->SetComputeRootDescriptorTable(3, model_->GetSkinCluster().influenceSrvHandle.second);
+			commandList->SetComputeRootDescriptorTable(4, model_->GetSkinCluster().uavHandle.second);
+			commandList->Dispatch(UINT(model_->GetModelData().vertices.size() + 1023) / 1024, 1, 1);
 			Object3dCommon::GetInstance()->SkinningDrawSetting();
 		} else {
 			Object3dCommon::GetInstance()->CommonDrawSetting();

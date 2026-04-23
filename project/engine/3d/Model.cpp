@@ -53,11 +53,11 @@ void Model::Draw() {
 
 	bool isSkinned = !skinCluster_.inverseBindPoseMatrices.empty();
 	if (isSkinned) {
-		D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {
-			vertexBufferView_, // VertexDataのVBV
-			skinCluster_.influenceBufferView // InfluenceのVBV
-		};
-		commandList->IASetVertexBuffers(0, 2, vbvs);
+		D3D12_VERTEX_BUFFER_VIEW skinnedVBV{};
+		skinnedVBV.BufferLocation = skinCluster_.skinnedVertexResource->GetGPUVirtualAddress();
+		skinnedVBV.SizeInBytes = static_cast<UINT>(sizeof(VertexData) * modelData_.vertices.size());
+		skinnedVBV.StrideInBytes = sizeof(VertexData);
+		commandList->IASetVertexBuffers(0, 1, &skinnedVBV);
 	} else {
 		commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	}
@@ -153,6 +153,28 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 	skinCluster_.influenceBufferView.BufferLocation = skinCluster_.influenceResource->GetGPUVirtualAddress();
 	skinCluster_.influenceBufferView.SizeInBytes = static_cast<UINT>(sizeof(VertexInfluence) * modelData_.vertices.size());
 	skinCluster_.influenceBufferView.StrideInBytes = sizeof(VertexInfluence);
+	// influence用SRVの作成
+	skinCluster_.influenceSrvIndex = srvManager->Allocate();
+	skinCluster_.influenceSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.influenceSrvIndex);
+	skinCluster_.influenceSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.influenceSrvIndex);
+	srvManager->CreateSRVForStructuredBuffer(
+		skinCluster_.influenceSrvIndex,
+		skinCluster_.influenceResource.Get(),
+		static_cast<UINT>(modelData_.vertices.size()),
+		sizeof(VertexInfluence)
+	);
+
+	// inputVertex用SRVの作成
+	skinCluster_.inputVertexSrvIndex = srvManager->Allocate();
+	skinCluster_.inputVertexSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.inputVertexSrvIndex);
+	skinCluster_.inputVertexSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.inputVertexSrvIndex);
+	srvManager->CreateSRVForStructuredBuffer(
+		skinCluster_.inputVertexSrvIndex,
+		vertexResource_.Get(),
+		static_cast<UINT>(modelData_.vertices.size()),
+		sizeof(VertexData)
+	);
+
 	// InverseBindPoseMatrixを格納する場所を作成して、単位行列で埋める
 	skinCluster_.inverseBindPoseMatrices.resize(skeleton.joints.size());
 	for (auto& matrix : skinCluster_.inverseBindPoseMatrices) {
@@ -177,6 +199,51 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 			}
 		}
 	}
+	
+	/*skinCluster_.skinnedVertexResource = dxCommon_->CreateBufferResource(
+		sizeof(VertexData) * modelData_.vertices.size());*/
+
+	D3D12_HEAP_PROPERTIES heapProps{};
+	heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	resourceDesc.Width = sizeof(VertexData) * modelData_.vertices.size();
+	resourceDesc.Height = 1;
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.MipLevels = 1;
+	resourceDesc.SampleDesc.Count = 1;
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // ← これが重要
+
+	HRESULT hr = dxCommon_->GetDevice()->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATE_COMMON,
+		nullptr,
+		IID_PPV_ARGS(&skinCluster_.skinnedVertexResource));
+	assert(SUCCEEDED(hr));
+
+	skinCluster_.skinningInformationResource = dxCommon_->CreateBufferResource(sizeof(SkinningInformation));
+	SkinningInformation* skinningInfo = nullptr;
+	skinCluster_.skinningInformationResource->Map(0, nullptr, reinterpret_cast<void**>(&skinningInfo));
+	skinningInfo->numVertices = static_cast<uint32_t>(modelData_.vertices.size());
+
+	skinCluster_.uavIndex = srvManager->Allocate();
+	skinCluster_.uavHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.uavIndex);
+	skinCluster_.uavHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.uavIndex);
+
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.NumElements = static_cast<UINT>(modelData_.vertices.size());
+	uavDesc.Buffer.CounterOffsetInBytes = 0;
+	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+	uavDesc.Buffer.StructureByteStride = sizeof(VertexData);
+
+	device->CreateUnorderedAccessView(skinCluster_.skinnedVertexResource.Get(), nullptr, &uavDesc, skinCluster_.uavHandle.first);
 }
 
 Model::MaterialData Model::LoadMaterialTemplateFile(const std::string& directoryPath, const std::string& filename) {
