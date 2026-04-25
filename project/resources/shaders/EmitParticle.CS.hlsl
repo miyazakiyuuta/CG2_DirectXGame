@@ -23,6 +23,9 @@ void main(uint3 DTid : SV_DispatchThreadID) {
                 gParticles[particleIndex].translate = generator.Generate3d();
                 gParticles[particleIndex].color.rgb = generator.Generate3d();
                 gParticles[particleIndex].color.a = 1.0f;
+                gParticles[particleIndex].velocity = generator.Generate3d() * 0.01f;
+                gParticles[particleIndex].lifeTime = 3.0f;
+                gParticles[particleIndex].currentTime = 0.0f;
             }
 
         }

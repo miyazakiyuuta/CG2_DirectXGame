@@ -363,5 +363,6 @@
     <FxCompile Include="resources\shaders\EmitParticle.CS.hlsl" />
     <FxCompile Include="resources\shaders\Random.hlsl" />
     <FxCompile Include="resources\shaders\RandomGenerator.hlsl" />
+    <FxCompile Include="resources\shaders\UpdateParticle.CS.hlsl" />
   </ItemGroup>
 </Project>
