@@ -360,5 +360,8 @@
     <FxCompile Include="resources\shaders\Skinning.CS.hlsl" />
     <FxCompile Include="resources\shaders\InitializeParticle.CS.hlsl" />
     <FxCompile Include="resources\shaders\GPUParticle.VS.hlsl" />
+    <FxCompile Include="resources\shaders\EmitParticle.CS.hlsl" />
+    <FxCompile Include="resources\shaders\Random.hlsl" />
+    <FxCompile Include="resources\shaders\RandomGenerator.hlsl" />
   </ItemGroup>
 </Project>
