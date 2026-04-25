@@ -159,6 +159,9 @@
     <ClCompile Include="engine\base\RenderTarget.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\GPUParticleEmitter.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engine\math\Vector3.h">
@@ -314,6 +317,12 @@
     <ClInclude Include="engine\base\RenderTarget.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="engine\effect\Particle.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\GPUParticleEmitter.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -349,5 +358,10 @@
     <FxCompile Include="resources\shaders\Debug.VS.hlsl" />
     <FxCompile Include="resources\shaders\Debug.PS.hlsl" />
     <FxCompile Include="resources\shaders\Skinning.CS.hlsl" />
+    <FxCompile Include="resources\shaders\InitializeParticle.CS.hlsl" />
+    <FxCompile Include="resources\shaders\GPUParticle.VS.hlsl" />
+    <FxCompile Include="resources\shaders\EmitParticle.CS.hlsl" />
+    <FxCompile Include="resources\shaders\Random.hlsl" />
+    <FxCompile Include="resources\shaders\RandomGenerator.hlsl" />
   </ItemGroup>
 </Project>

@@ -28,6 +28,7 @@ public:
 	const Matrix4x4& GetViewMatrix() const { return viewMatrix_; }
 	const Matrix4x4& GetProjectionMatrix() const { return projectionMatrix_; }
 	const Matrix4x4& GetViewProjectionMatrix() const { return viewProjectionMatrix_; }
+	const Matrix4x4& GetBillboardMatrix() const { return billboardMatrix_; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
@@ -47,6 +48,8 @@ private:
 	float nearClip_;
 	float farClip_;
 	Matrix4x4 viewProjectionMatrix_;
+
+	Matrix4x4 billboardMatrix_;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> cameraResource_;
 	CameraForGPU* mappedCameraData_ = nullptr;

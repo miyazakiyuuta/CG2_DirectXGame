@@ -16,7 +16,8 @@ Camera::Camera()
 	, worldMatrix_(Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate))
 	, viewMatrix_(worldMatrix_.Inverse())
 	, projectionMatrix_(Matrix4x4::PerspectiveFov(fovY_, aspectRatio_, nearClip_, farClip_))
-	, viewProjectionMatrix_(viewMatrix_ * projectionMatrix_) {
+	, viewProjectionMatrix_(viewMatrix_ * projectionMatrix_)
+    , billboardMatrix_(Matrix4x4::Identity()) {
 }
 
 void Camera::DrawImGui() {
@@ -73,6 +74,11 @@ void Camera::Update() {
 	projectionMatrix_ = Matrix4x4::PerspectiveFov(fovY_, aspectRatio_, nearClip_, farClip_);
 	// ビュー行列とプロジェクション行列の積を計算
 	viewProjectionMatrix_ = viewMatrix_ * projectionMatrix_;
+
+	billboardMatrix_ = worldMatrix_;
+	billboardMatrix_.m[3][0] = 0.0f;
+	billboardMatrix_.m[3][1] = 0.0f;
+	billboardMatrix_.m[3][2] = 0.0f;
 }
 
 void Camera::TransferToGPU() {

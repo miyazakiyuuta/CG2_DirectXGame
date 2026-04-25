@@ -23,3 +23,33 @@ struct ParticleForGPU {
     float4x4 World;
     float4 color;
 };
+
+struct Particle {
+    float3 translate;
+    float3 scale;
+    float lifeTime;
+    float3 velocity;
+    float currentTime;
+    float4 color;
+};
+
+struct PerView {
+    float4x4 viewProjection;
+    float4x4 billboardMatrix;
+};
+
+struct EmitterSphere
+{
+    float3 translate;
+    float radius;
+    uint count;
+    float frequency;
+    float frequencyTime;
+    uint emit;
+};
+
+struct PerFrame
+{
+    float time;
+    float deltaTime;
+};
