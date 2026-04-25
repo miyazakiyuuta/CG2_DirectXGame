@@ -31,5 +31,5 @@ struct EmitterSphere {
 struct PerFrame {
     float time;
 	float deltaTime;
-	float padding[2]; // 16バイトアライメントのためのパディング
+	float padding[2];
 };

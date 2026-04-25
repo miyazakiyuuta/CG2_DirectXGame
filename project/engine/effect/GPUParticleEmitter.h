@@ -27,6 +27,7 @@ private:
     void CreateResource();
     void CreateCSPipelineState();
     void CreateEmitCSPipelineState();
+	void CreateUpdateCSPipelineState();
     void CreateDrawPipelineState();
     void CreatePerViewBuffer();
     void CreateMaterialBuffer();
@@ -34,6 +35,7 @@ private:
 	void CreatePerFrameBuffer();
     void InitializeParticles(); // CSで初期化
 	void EmitParticles(); // CSで射出
+	void UpdateParticles(); // CSで更新
 
     Microsoft::WRL::ComPtr<ID3D12Resource> particleResource_;
 
@@ -50,6 +52,8 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateDraw_;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureEmitCS_;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateEmitCS_;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureUpdateCS_;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateUpdateCS_;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_;
     PerView* perViewData_ = nullptr;

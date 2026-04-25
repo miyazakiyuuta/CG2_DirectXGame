@@ -4,6 +4,7 @@ void GPUParticleEmitter::Initialize() {
 	CreateResource();
 	CreateCSPipelineState();
 	CreateEmitCSPipelineState();
+	CreateUpdateCSPipelineState();
 	CreateDrawPipelineState();
 	CreatePerViewBuffer();
 	CreateMaterialBuffer();
@@ -14,6 +15,7 @@ void GPUParticleEmitter::Initialize() {
 
 void GPUParticleEmitter::Update(float deltaTime) {
 	perFrameData_->time += deltaTime;
+	perFrameData_->deltaTime = deltaTime;
 	emitterSphere_->frequencyTime += deltaTime;
 	//射出間隔を上回ったら射出許可を出して時間を調整
 	if (emitterSphere_->frequency <= emitterSphere_->frequencyTime) {
@@ -28,6 +30,7 @@ void GPUParticleEmitter::Draw(Camera* camera) {
 	auto commandList = DirectXCommon::GetInstance()->GetCommandList();
 
 	EmitParticles();
+	UpdateParticles();
 
 	// PerViewを更新
 	perViewData_->viewProjection = camera->GetViewProjectionMatrix();
@@ -211,6 +214,61 @@ void GPUParticleEmitter::CreateEmitCSPipelineState() {
 	assert(SUCCEEDED(hr));
 }
 
+void GPUParticleEmitter::CreateUpdateCSPipelineState() {
+	auto device = DirectXCommon::GetInstance()->GetDevice();
+
+	// [0] u0,u1: UAV DescriptorTable（gParticles + freeCounter）
+	D3D12_DESCRIPTOR_RANGE uavRange{};
+	uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	uavRange.NumDescriptors = 1;
+	uavRange.BaseShaderRegister = 0;     // u0 から
+	uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	D3D12_ROOT_PARAMETER rootParameters[2]{};
+
+	// [0] DescriptorTable: u0（gParticles UAV）
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParameters[0].DescriptorTable.pDescriptorRanges = &uavRange;
+	rootParameters[0].DescriptorTable.NumDescriptorRanges = 1;
+
+	// [1] CBV: b0（gPerFrame — deltaTime を含む）
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParameters[1].Descriptor.ShaderRegister = 1; // b1
+
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
+	rootSignatureDesc.pParameters = rootParameters;
+	rootSignatureDesc.NumParameters = _countof(rootParameters);
+	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+	Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob;
+	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
+	HRESULT hr = D3D12SerializeRootSignature(
+		&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+		&signatureBlob, &errorBlob);
+	assert(SUCCEEDED(hr));
+
+	hr = device->CreateRootSignature(
+		0, signatureBlob->GetBufferPointer(),
+		signatureBlob->GetBufferSize(),
+		IID_PPV_ARGS(&rootSignatureUpdateCS_));
+	assert(SUCCEEDED(hr));
+
+	// UpdateParticle.CS.hlsl をコンパイル
+	Microsoft::WRL::ComPtr<IDxcBlob> csBlob =
+		DirectXCommon::GetInstance()->CompileShader(
+			L"resources/shaders/UpdateParticle.CS.hlsl", L"cs_6_0");
+	assert(csBlob != nullptr);
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.pRootSignature = rootSignatureUpdateCS_.Get();
+	psoDesc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
+
+	hr = device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipelineStateUpdateCS_));
+	assert(SUCCEEDED(hr));
+}
+
 void GPUParticleEmitter::CreateDrawPipelineState() {
 	auto device = DirectXCommon::GetInstance()->GetDevice();
 
@@ -305,8 +363,8 @@ void GPUParticleEmitter::CreateDrawPipelineState() {
 	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
@@ -413,6 +471,30 @@ void GPUParticleEmitter::EmitParticles() {
 
 	commandList->Dispatch(1, 1, 1);
 
+	D3D12_RESOURCE_BARRIER barrier{};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	barrier.UAV.pResource = particleResource_.Get();
+	commandList->ResourceBarrier(1, &barrier);
+}
+
+void GPUParticleEmitter::UpdateParticles() {
+	auto commandList = DirectXCommon::GetInstance()->GetCommandList();
+
+	commandList->SetComputeRootSignature(rootSignatureUpdateCS_.Get());
+	commandList->SetPipelineState(pipelineStateUpdateCS_.Get());
+
+	// [0] u0: gParticles UAV
+	commandList->SetComputeRootDescriptorTable(
+		0, SrvManager::GetInstance()->GetGPUDescriptorHandle(uavIndex_));
+
+	// [1] b0: gPerFrame（deltaTime を含む CBV）
+	commandList->SetComputeRootConstantBufferView(
+		1, perFrameResource_->GetGPUVirtualAddress());
+
+	// numthreads(1024,1,1) で kMaxParticles=1024 なので Dispatch(1,1,1)
+	commandList->Dispatch(1, 1, 1);
+
+	// 次のパスとの UAV ハザードバリア
 	D3D12_RESOURCE_BARRIER barrier{};
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
 	barrier.UAV.pResource = particleResource_.Get();
