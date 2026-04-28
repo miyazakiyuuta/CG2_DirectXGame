@@ -37,6 +37,7 @@ public: // メンバ関数
 	// 共通描画設定 (PreDraw)
 	void CommonDrawSetting();
 	void SkinningDrawSetting();
+	void ComputeDispatchSetting();
 
 public:
 	// setter
@@ -56,9 +57,11 @@ private:
 	// ルートシグネチャの作成
 	void CreateRootSignature();
 	void CreateSkinningRootSignature();
+	void CreateComputeRootSignature();
 	// グラフィクスパイプラインの生成
 	void CreateGraphicsPipelineState();
 	void CreateSkinningGraphicsPipelineState();
+	void CreateComputePipelineState();
 
 	void InitializePointLight();
 
@@ -76,6 +79,9 @@ private: // メンバ変数
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> skinningRootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> skinningPipelineState_ = nullptr;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> computeRootSignature_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> computePipelineState_ = nullptr;
 
 	Camera* defaultCamera_ = nullptr;
 

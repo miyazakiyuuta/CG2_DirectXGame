@@ -494,5 +494,6 @@
     <FxCompile Include="resources\shaders\Sprite.PS.hlsl" />
     <FxCompile Include="resources\shaders\Debug.VS.hlsl" />
     <FxCompile Include="resources\shaders\Debug.PS.hlsl" />
+    <FxCompile Include="resources\shaders\Skinning.CS.hlsl" />
   </ItemGroup>
 </Project>
