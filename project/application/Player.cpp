@@ -304,11 +304,12 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
 	object_->SetCamera(camera_);
 	object_->SetTranslate(startPosition);
 	object_->SetRotate({0.0f, 0.0f, 0.0f});
+	object_->SetScale({1.5f, 1.5f, 1.5f});
 
 	// store original visual info for mimic restore
 	originalModelName_ = modelName;
 	originalScale_ = object_->GetScale();
-	originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	originalColor_ = {0.2f, 0.8f, 0.5f, 1.0f};
 
 	tongue_ = std::make_unique<Tongue>();
 	tongue_->Initialize(object3dCommon, camera_, this, "Cube.obj");
@@ -1267,7 +1268,6 @@ void Player::Draw() {
 		object_->Draw();
 	}
 
-	DrawUI();
 
 }
 
@@ -1281,18 +1281,22 @@ void Player::MoveHorizontal(float cameraYaw) {
 	if (input_->IsPushKey(DIK_W)) {
 		lastMove_.x += forward.x;
 		lastMove_.z += forward.z;
+		object_->PlayAnimation("walk",false);
 	}
 	if (input_->IsPushKey(DIK_S)) {
 		lastMove_.x -= forward.x;
 		lastMove_.z -= forward.z;
+		object_->PlayAnimation("walk", false);
 	}
 	if (input_->IsPushKey(DIK_D)) {
 		lastMove_.x += right.x;
 		lastMove_.z += right.z;
+		object_->PlayAnimation("walk", false);
 	}
 	if (input_->IsPushKey(DIK_A)) {
 		lastMove_.x -= right.x;
 		lastMove_.z -= right.z;
+		object_->PlayAnimation("walk", false);
 	}
 
 	if (input_->IsPushKey(DIK_R)) {
@@ -2548,13 +2552,13 @@ void Player::UpdateJumpGaugeSprite(){
 
 	gaugePos.x = ClampFloat(
 		gaugePos.x,
-		0.0f,
-		static_cast<float>(WinApp::kClientWidth) - jumpGaugeSize_.x);
+		static_cast<float>(WinApp::kClientWidth) * 0.4f,
+		static_cast<float>(WinApp::kClientWidth) - jumpGaugeSize_.x - static_cast<float>(WinApp::kClientWidth) * 0.4f);
 
 	gaugePos.y = ClampFloat(
 		gaugePos.y,
-		0.0f,
-		static_cast<float>(WinApp::kClientHeight) - jumpGaugeSize_.y);
+		static_cast<float>(WinApp::kClientHeight) * 0.4f,
+		static_cast<float>(WinApp::kClientHeight) - jumpGaugeSize_.y - static_cast<float>(WinApp::kClientHeight) * 0.4f);
 
 	jumpGaugeBackSprite_->SetPos(gaugePos);
 	jumpGaugeBackSprite_->SetSize(jumpGaugeSize_);

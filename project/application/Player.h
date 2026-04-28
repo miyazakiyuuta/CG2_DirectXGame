@@ -260,7 +260,7 @@ public:
 
 	std::unique_ptr<Tongue> tongue_ = nullptr;
 
-	MovementState moveState_ = MovementState::Root;
+	MovementState moveState_ = MovementState::Root; 
 
 	float wallClingGauge_ = 100.0f;
 	float maxWallClingGauge_ = 100.0f;
@@ -302,7 +302,7 @@ public:
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
-	Vector3 colliderHalfSize_ = {1.0f, 1.0f, 1.0f};
+	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.0f};
 
 	// Pending teleport requested by external systems (applied inside Update)
 	bool pendingTeleport_ = false;
@@ -378,7 +378,7 @@ public:
 	// Mimic state
 	bool isMimicking_ = false;
 	std::string originalModelName_;
-	Vector4 originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	Vector4 originalColor_ = {0.2f, 0.8f, 0.5f, 1.0f};
 	Vector3 originalScale_ = {1.0f, 1.0f, 1.0f};
 
 	std::string mimicModelName_;

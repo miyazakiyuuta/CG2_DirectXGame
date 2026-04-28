@@ -134,7 +134,7 @@ void GamePlayScene::Initialize() {
 	}
 
 	player_ = std::make_unique<Player>();
-	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Cube.obj", playerStart);
+	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Frog.gltf", playerStart);
 	// give player a reference to the stage for abilities (camouflage lookup / sonar)
 	player_->SetStage(stage_.get());
 
@@ -164,24 +164,6 @@ void GamePlayScene::Initialize() {
 	// StageEditor は Stage を受け取って編集するだけ
 	stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
 	stageEditor_->Initialize("Cube.obj");
-
-	// 虫の生成と初期化
-	bugs_.clear();
-	for (const auto& spawnPos : stage_->GetBugSpawnPositions()) {
-		auto bug = std::make_unique<Bug>();
-		bug->Initialize(camera_.get());
-		bug->SetPositionImmediate(spawnPos);
-		bugs_.push_back(std::move(bug));
-	}
-
-	// ナメクジの初期化
-	slug_ = std::make_unique<Slug>();
-	slug_->Initialize(DirectXCommon::GetInstance(), Object3dCommon::GetInstance(), camera_.get(), "sphere.obj");
-	slug_->SetPosition({ 5.0f, 0.5f, 5.0f });
-	slug_->SetPosition({ 5.0f, 1.2f, 5.0f });
-
-	slug_->SetBodyColor({ 0.8f, 0.2f, 0.2f, 1.0f });
-	slug_->SetTrailColor({ 1.0f, 0.0f, 1.0f, 1.0f });
 
 	// --- エネミーマネージャーの初期化 ---
 	enemyManager_ = std::make_unique<EnemyManager>();
@@ -375,30 +357,10 @@ void GamePlayScene::Update() {
 			lastWarpId_ = -1;
 	}
 
-	if (slug_) {
-		slug_->Update(1.0f / 60.0f);
-	}
-
 	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
-
-	// 虫の更新
-	for (auto& bug : bugs_) {
-		bug->Update();
-	}
 
 	if (player_) {
 		Tongue* tongue = player_->GetTongue();
-		if (tongue && tongue->CanHitBug()) {
-			const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-			for (auto& bug : bugs_) {
-				if (CollisionUtility::IntersectSphere_Sphere(tongueSphere, bug->GetHitSphere())) {
-					player_->AddChargeStock(1);
-					bug->OnTongueHit();
-					tongue->Reset();
-					break;
-				}
-			}
-		}
 
 		// Tongue hitting stage blocks (apply damage to breakable blocks)
 		if (tongue) {
@@ -453,8 +415,6 @@ void GamePlayScene::Update() {
 	if (wellObject_) {
 		wellObject_->Update();
 	}
-	// DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
-	DebugRenderer::GetInstance()->AddBox3DSolid({ 0.0f, 1.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f, 1.0f });
 
 }
 
@@ -470,23 +430,12 @@ void GamePlayScene::Draw() {
 	stage_->Draw();
 	stageEditor_->Draw();
 	player_->Draw();
-	for (auto& bug : bugs_) {
-		bug->Draw();
-	}
-
-	if (slug_) {
-		slug_->Draw();
-	}
 
 	// 【追加】エネミーの描画
 	if (enemyManager_) {
 		enemyManager_->Draw();
 	}
 
-	// 半透明
-	if (slug_) {
-		slug_->DrawTransparent(*camera_);
-	}
 
 	debugGrid_->Draw(*camera_);
 	
@@ -494,7 +443,7 @@ void GamePlayScene::Draw() {
 	if (reticle_) {
 		reticle_->Draw();
 	}
-
+	player_->DrawUI();
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
 
