@@ -78,6 +78,23 @@ bool WorldToScreenSimple(
 	return true;
 }
 
+static float WrapAnglePi(float angle) {
+	while (angle > 3.14159265f) {
+		angle -= 6.28318530f;
+	}
+	while (angle < -3.14159265f) {
+		angle += 6.28318530f;
+	}
+	return angle;
+}
+
+static float ApproachFloat(float current, float target, float delta) {
+	if (current < target) {
+		return std::min(current + delta, target);
+	}
+	return std::max(current - delta, target);
+}
+
 } // namespace
 
 // 次のレベルまでの必要経験値を計算する関数。レベルが上がるごとに必要経験値が増えるように、二次関数的な成長をさせています。
@@ -1064,8 +1081,7 @@ void Player::Update() {
 	}
 
 	switch (moveState_) {
-	case MovementState::Root:
-	case MovementState::Jumping: {
+	case MovementState::Root: {
 		Vector3 previousPosition = object_->GetTranslate();
 
 		MoveHorizontal(cameraYaw);
@@ -1081,7 +1097,29 @@ void Player::Update() {
 
 		if (isOnGround_) {
 			TransitionTo(MovementState::Root);
-		} else {
+		}
+		else {
+			TransitionTo(MovementState::Jumping);
+		}
+		break;
+	}
+
+	case MovementState::Jumping: {
+		Vector3 previousPosition = object_->GetTranslate();
+
+		UpdateAirborneHorizontalMove();
+		ResolveHorizontalCollisions(previousPosition);
+		ResolveMovementLimitCylinder();
+
+		Vector3 beforeVertical = object_->GetTranslate();
+		ApplyGravity();
+		ResolveVerticalCollisions(beforeVertical);
+		ResolveMovementLimitCylinder();
+
+		if (isOnGround_) {
+			TransitionTo(MovementState::Root);
+		}
+		else {
 			TransitionTo(MovementState::Jumping);
 		}
 		break;
@@ -1273,35 +1311,13 @@ void Player::Draw() {
 
 void Player::MoveHorizontal(float cameraYaw) {
 	Vector3 position = object_->GetTranslate();
-	lastMove_ = {0.0f, 0.0f, 0.0f};
-
-	Vector3 forward = {std::sin(cameraYaw), 0.0f, std::cos(cameraYaw)};
-	Vector3 right = {std::cos(cameraYaw), 0.0f, -std::sin(cameraYaw)};
-
-	if (input_->IsPushKey(DIK_W)) {
-		lastMove_.x += forward.x;
-		lastMove_.z += forward.z;
-		object_->PlayAnimation("walk",false);
-	}
-	if (input_->IsPushKey(DIK_S)) {
-		lastMove_.x -= forward.x;
-		lastMove_.z -= forward.z;
-		object_->PlayAnimation("walk", false);
-	}
-	if (input_->IsPushKey(DIK_D)) {
-		lastMove_.x += right.x;
-		lastMove_.z += right.z;
-		object_->PlayAnimation("walk", false);
-	}
-	if (input_->IsPushKey(DIK_A)) {
-		lastMove_.x -= right.x;
-		lastMove_.z -= right.z;
-		object_->PlayAnimation("walk", false);
-	}
+	lastMove_ = { 0.0f, 0.0f, 0.0f };
 
 	if (input_->IsPushKey(DIK_R)) {
-		position = {0.0f, resetHeight_, 0.0f};
-		velocity_ = {0.0f, 0.0f, 0.0f};
+		position = { 0.0f, resetHeight_, 0.0f };
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
 		CancelJumpCharge();
 		if (tongue_) {
@@ -1312,18 +1328,48 @@ void Player::MoveHorizontal(float cameraYaw) {
 		return;
 	}
 
-	float length = LengthXZ(lastMove_);
-	if (length > 0.0f) {
-		lastMove_.x /= length;
-		lastMove_.z /= length;
+	Vector3 inputDir = GetMoveInputDirection(cameraYaw);
 
-		float actualSpeed = moveSpeed_ * speedMultiplier_;
-		position.x += lastMove_.x * actualSpeed;
-		position.z += lastMove_.z * actualSpeed;
+	float currentYaw = object_->GetRotate().y - modelYawOffset_;
 
-		float yaw = std::atan2(lastMove_.x, lastMove_.z) + modelYawOffset_;
-		object_->SetRotate({0.0f, yaw, 0.0f});
+	if (LengthXZ(inputDir) > 0.0001f) {
+		float desiredYaw = std::atan2(inputDir.x, inputDir.z);
+		float yawDiff = WrapAnglePi(desiredYaw - currentYaw);
+
+		float yawStep = std::clamp(yawDiff, -turnSpeedRad_, turnSpeedRad_);
+		currentYaw += yawStep;
+
+		object_->SetRotate({ 0.0f, currentYaw + modelYawOffset_, 0.0f });
+
+		float remainYawDiff = std::abs(WrapAnglePi(desiredYaw - currentYaw));
+		float moveStartAngleThresholdRad = moveStartAngleThresholdDeg_ * (3.14159265f / 180.0f);
+
+		Vector3 targetVelocity = { 0.0f, 0.0f, 0.0f };
+		if (remainYawDiff <= moveStartAngleThresholdRad) {
+			float actualSpeed = moveSpeed_ * speedMultiplier_;
+			targetVelocity.x = inputDir.x * actualSpeed;
+			targetVelocity.z = inputDir.z * actualSpeed;
+		}
+
+		groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, targetVelocity.x, groundAcceleration_);
+		groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, targetVelocity.z, groundAcceleration_);
 	}
+	else {
+		groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, 0.0f, groundDeceleration_);
+		groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, 0.0f, groundDeceleration_);
+	}
+
+	position.x += groundMoveVelocity_.x;
+	position.z += groundMoveVelocity_.z;
+
+	float moveLen = LengthXZ(groundMoveVelocity_);
+	if (moveLen > 0.0001f) {
+		lastMove_.x = groundMoveVelocity_.x / moveLen;
+		lastMove_.z = groundMoveVelocity_.z / moveLen;
+	}
+
+	velocity_.x = groundMoveVelocity_.x;
+	velocity_.z = groundMoveVelocity_.z;
 
 	object_->SetTranslate(position);
 }
@@ -1401,6 +1447,10 @@ void Player::ExecuteChargedJump(int chargeLevel) {
 
     // use configured base jump powers scaled by upgrade multiplier and any slowdown multiplier
     float baseJump = (chargeLevel >= 0 && chargeLevel < 4) ? baseJumpPowers_[chargeLevel] : baseJumpPowers_[std::clamp(chargeLevel, 0, 3)];
+
+	lockedJumpMoveVelocity_.x = groundMoveVelocity_.x;
+	lockedJumpMoveVelocity_.z = groundMoveVelocity_.z;
+
 	velocity_.y = baseJump * jumpPowerMultiplier_ * verticalMultiplier;
 	isOnGround_ = false;
 
@@ -1439,6 +1489,54 @@ void Player::ApplyGravity() {
 	object_->SetTranslate(position);
 }
 
+Vector3 Player::GetMoveInputDirection(float cameraYaw) const {
+	Vector3 inputDir = { 0.0f, 0.0f, 0.0f };
+
+	Vector3 forward = { std::sin(cameraYaw), 0.0f, std::cos(cameraYaw) };
+	Vector3 right = { std::cos(cameraYaw), 0.0f, -std::sin(cameraYaw) };
+
+	if (input_->IsPushKey(DIK_W)) {
+		inputDir.x += forward.x;
+		inputDir.z += forward.z;
+		object_->PlayAnimation("walk", false);
+	}
+	if (input_->IsPushKey(DIK_S)) {
+		inputDir.x -= forward.x;
+		inputDir.z -= forward.z;
+		object_->PlayAnimation("walk", false);
+	}
+	if (input_->IsPushKey(DIK_D)) {
+		inputDir.x += right.x;
+		inputDir.z += right.z;
+		object_->PlayAnimation("walk", false);
+	}
+	if (input_->IsPushKey(DIK_A)) {
+		inputDir.x -= right.x;
+		inputDir.z -= right.z;
+		object_->PlayAnimation("walk", false);
+	}
+
+	float len = LengthXZ(inputDir);
+	if (len > 0.0001f) {
+		inputDir.x /= len;
+		inputDir.z /= len;
+	}
+
+	return inputDir;
+}
+
+void Player::UpdateAirborneHorizontalMove() {
+	Vector3 position = object_->GetTranslate();
+
+	position.x += lockedJumpMoveVelocity_.x;
+	position.z += lockedJumpMoveVelocity_.z;
+
+	velocity_.x = lockedJumpMoveVelocity_.x;
+	velocity_.z = lockedJumpMoveVelocity_.z;
+
+	object_->SetTranslate(position);
+}
+
 const char* Player::GetMovementStateName() const {
 	switch (moveState_) {
 	case MovementState::Root:
@@ -1472,11 +1570,16 @@ void Player::TransitionTo(MovementState nextState) {
 	case MovementState::Root:
 		velocity_.y = 0.0f;
 		isOnGround_ = true;
+		groundMoveVelocity_.x = lockedJumpMoveVelocity_.x;
+		groundMoveVelocity_.z = lockedJumpMoveVelocity_.z;
+		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
 		ClearClingStageObjectTracking();
 		break;
 
 	case MovementState::Jumping:
 		isOnGround_ = false;
+		lockedJumpMoveVelocity_.x = velocity_.x;
+		lockedJumpMoveVelocity_.z = velocity_.z;
 		ClearClingStageObjectTracking();
 		break;
 
@@ -2010,7 +2113,7 @@ void Player::UpdateWallClinging(float cameraYaw) {
 		}
 
 		// 壁のときは従来どおり離脱ジャンプ
-		velocity_ = clingSurfaceNormal_ * 0.25f;
+		velocity_ = clingSurfaceNormal_ * -0.15f;
         velocity_.y = baseJumpPowers_[0] * jumpPowerMultiplier_;
 		hasClingSurface_ = false;
 		TransitionTo(MovementState::Jumping);

@@ -158,6 +158,9 @@ public:
 	void UpdateJumpCharge();
 	void ApplyGravity();
 
+	Vector3 GetMoveInputDirection(float cameraYaw) const;
+	void UpdateAirborneHorizontalMove();
+
 	int GetCurrentChargeLevel() const;
 	int GetAllowedChargeLevel() const;
 	void ExecuteChargedJump(int chargeLevel);
@@ -409,6 +412,20 @@ public:
 
 	int clingStageObjectId_ = -1;
 	bool clingStageObjectIsMovingPlatform_ = false;
+
+	// 地上移動の慣性
+	Vector3 groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+	// ジャンプ開始時に固定する水平移動ベクトル
+	Vector3 lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+	// 徐々に向きを変えるための設定
+	float turnSpeedRad_ = 0.48f;                  // 1フレームで回る最大量
+	float moveStartAngleThresholdDeg_ = 12.0f;    // この角度以内になったら前進開始
+
+	// 今後の加速度寄り設計へ向けた設定
+	float groundAcceleration_ = 0.035f;
+	float groundDeceleration_ = 0.045f;
 
 	// 最後に舌がヒットしたエネミーを保持
 	BaseEnemy* lastHitEnemy_ = nullptr;
