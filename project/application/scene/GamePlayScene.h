@@ -48,9 +48,6 @@ private:
     std::unique_ptr<Stage> stage_;
     std::unique_ptr<StageEditor> stageEditor_;
 
-	std::vector<std::unique_ptr<Bug>> bugs_;
-	std::unique_ptr<Slug> slug_; // �i���N�W�̃|�C���^��ǉ�
-
 	// 追加：エネミーを一括管理するマネージャー
 	std::unique_ptr<EnemyManager> enemyManager_;
 

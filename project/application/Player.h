@@ -158,6 +158,9 @@ public:
 	void UpdateJumpCharge();
 	void ApplyGravity();
 
+	Vector3 GetMoveInputDirection(float cameraYaw) const;
+	void UpdateAirborneHorizontalMove();
+
 	int GetCurrentChargeLevel() const;
 	int GetAllowedChargeLevel() const;
 	void ExecuteChargedJump(int chargeLevel);
@@ -260,7 +263,7 @@ public:
 
 	std::unique_ptr<Tongue> tongue_ = nullptr;
 
-	MovementState moveState_ = MovementState::Root;
+	MovementState moveState_ = MovementState::Root; 
 
 	float wallClingGauge_ = 100.0f;
 	float maxWallClingGauge_ = 100.0f;
@@ -302,7 +305,7 @@ public:
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
-	Vector3 colliderHalfSize_ = {1.0f, 1.0f, 1.0f};
+	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.0f};
 
 	// Pending teleport requested by external systems (applied inside Update)
 	bool pendingTeleport_ = false;
@@ -378,7 +381,7 @@ public:
 	// Mimic state
 	bool isMimicking_ = false;
 	std::string originalModelName_;
-	Vector4 originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	Vector4 originalColor_ = {0.2f, 0.8f, 0.5f, 1.0f};
 	Vector3 originalScale_ = {1.0f, 1.0f, 1.0f};
 
 	std::string mimicModelName_;
@@ -409,6 +412,20 @@ public:
 
 	int clingStageObjectId_ = -1;
 	bool clingStageObjectIsMovingPlatform_ = false;
+
+	// 地上移動の慣性
+	Vector3 groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+	// ジャンプ開始時に固定する水平移動ベクトル
+	Vector3 lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+	// 徐々に向きを変えるための設定
+	float turnSpeedRad_ = 0.48f;                  // 1フレームで回る最大量
+	float moveStartAngleThresholdDeg_ = 12.0f;    // この角度以内になったら前進開始
+
+	// 今後の加速度寄り設計へ向けた設定
+	float groundAcceleration_ = 0.035f;
+	float groundDeceleration_ = 0.045f;
 
 	// 最後に舌がヒットしたエネミーを保持
 	BaseEnemy* lastHitEnemy_ = nullptr;
