@@ -23,6 +23,7 @@ struct Skeleton {
 	int32_t root; // RootJointのIndex
 	std::map<std::string, int32_t> jointMap; // Joint名とIndexとの辞書
 	std::vector<Joint> joints; // 所属しているジョイント
+	std::vector<QuaternionTransform> restPoseTransforms; // RestPoseでのJointのTransform。AnimationPlayerで使用
 };
 
 Skeleton CreateSkeleton(const Model::Node& rootNode);

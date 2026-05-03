@@ -9,6 +9,11 @@ Skeleton CreateSkeleton(const Model::Node& rootNode) {
 	for (const Joint& joint : skeleton.joints) {
 		skeleton.jointMap.emplace(joint.name, joint.index);
 	}
+
+	for (const Joint& joint : skeleton.joints) {
+		skeleton.restPoseTransforms.push_back(joint.transform);
+	}
+
 	return skeleton;
 }
 

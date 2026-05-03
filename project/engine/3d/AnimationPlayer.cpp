@@ -5,6 +5,32 @@
 #include <cassert>
 
 void AnimationPlayer::Update(float deltaTime, Skeleton& skeleton) {
+	// フェードアウト中はデフォルトポーズへ補間する
+	if (isFadingOut_) {
+		fadeOutTimer_ += deltaTime;
+		float t = std::min(fadeOutTimer_ / fadeOutDuration_, 1.0f);
+
+		for (size_t i = 0; i < skeleton.joints.size(); ++i) {
+			Joint& joint = skeleton.joints[i];
+			const QuaternionTransform& start = fadeOutStartPose_[i];
+			const QuaternionTransform& rest = skeleton.restPoseTransforms[i];
+
+			joint.transform.translate = Lerp(start.translate, rest.translate, t);
+			joint.transform.rotate = Slerp(start.rotate, rest.rotate, t);
+			joint.transform.scale = Lerp(start.scale, rest.scale, t);
+		}
+
+		if (fadeOutTimer_ >= fadeOutDuration_) {
+			isFadingOut_ = false;
+			// ★ 補足: フェードアウト完了後、restPoseTransformsをジョイントに書き戻す
+			//    これにより UpdateSkeleton→Model::Update でpalette=Identity相当になる
+			for (size_t i = 0; i < skeleton.joints.size(); ++i) {
+				skeleton.joints[i].transform = skeleton.restPoseTransforms[i];
+			}
+		}
+		return; // 通常アニメーション処理はスキップ
+	}
+
 	if (!currentAnimation_ || isPaused_)return;
 
 	currentTime_ += deltaTime;
@@ -80,6 +106,24 @@ void AnimationPlayer::Play(const Animation* animation, bool isLoop, float blendD
 	blendDuration_ = blendDuration;
 	blendTimer_ = 0.0f;
 	isBlending_ = (previousAnimation_ != nullptr && blendDuration > 0.0f);
+}
+
+void AnimationPlayer::StopWithBlend(const Skeleton& skeleton, float blendDuration) {
+	if (!currentAnimation_ && !isFadingOut_) return;
+
+	// 呼び出し時点の各ジョイントポーズをスナップショット保存
+	fadeOutStartPose_.clear();
+	for (const Joint& joint : skeleton.joints) {
+		fadeOutStartPose_.push_back(joint.transform);
+	}
+
+	currentAnimation_ = nullptr;
+	previousAnimation_ = nullptr;
+	isBlending_ = false;
+
+	isFadingOut_ = true;
+	fadeOutDuration_ = (blendDuration > 0.0f) ? blendDuration : 0.001f;
+	fadeOutTimer_ = 0.0f;
 }
 
 Vector3 AnimationPlayer::CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time) {

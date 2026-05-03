@@ -23,6 +23,8 @@ public:
 		isBlending_ = false;
 	}
 
+	void StopWithBlend(const Skeleton& skeleton, float blendDuration = 0.2f);
+
 	// 一時停止のコントロール
 	void SetPause(bool pause) { isPaused_ = pause; }
 	bool GetIsPaused() { return isPaused_; }
@@ -47,4 +49,11 @@ private:
 	bool isBlending_ = false;
 
 	bool isPaused_ = false; // 一時停止フラグ
+
+	// フェードアウト用
+	bool isFadingOut_ = false;
+	float fadeOutDuration_ = 0.0f;
+	float fadeOutTimer_ = 0.0f;
+	std::vector<QuaternionTransform> fadeOutStartPose_; // 開始時ポーズのスナップショット
+
 };

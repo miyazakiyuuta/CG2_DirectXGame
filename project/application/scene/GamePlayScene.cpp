@@ -94,7 +94,7 @@ void GamePlayScene::Update() {
 		object3d_->StopAnimation();
 	}
 	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
-		object3d_->PauseSwitchingAnimation();
+		object3d_->StopAnimation(0.5f);
 	}
 	if (Input::GetInstance()->IsPushKey(DIK_1)) {
 		object3d_->PlayAnimation("walk", false, 1.0f);
