@@ -3,6 +3,8 @@
 #include <wrl.h>
 #define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
 #include <dinput.h>
+#include <Xinput.h>
+#pragma comment(lib, "xinput.lib")
 #include "base/WinApp.h"
 
 #ifdef USE_IMGUI
@@ -60,11 +62,63 @@ public:
 	/// <summary>
 	/// ホイールの回転量を取得
 	/// </summary>
-	/// <returns>回転量(億ならプラス、手前ならマイナス)</returns>
+	/// <returns>回転量(奥ならプラス、手前ならマイナス)</returns>
 	long GetMouseWheel();
+
+public:
+	/// <summary>
+	/// コントローラーが接続されているか
+	/// </summary>
+	/// <param name="controllerIndex">コントローラー番号(0〜3)</param>
+	bool IsControllerConnected(int controllerIndex = 0) const;
+
+	/// <summary>
+	/// ボタンの押下チェック（押し続け）
+	/// </summary>
+	/// <param name="button">XINPUT_GAMEPAD_A 等</param>
+	bool IsPressPad(WORD button, int controllerIndex = 0) const;
+
+	/// <summary>
+	/// ボタンのトリガーチェック（押した瞬間）
+	/// </summary>
+	bool IsTriggerPad(WORD button, int controllerIndex = 0) const;
+
+	/// <summary>
+	/// ボタンのリリースチェック（離した瞬間）
+	/// </summary>
+	bool IsReleasePad(WORD button, int controllerIndex = 0) const;
+
+	/// <summary>
+	/// 左スティックの入力値を取得（-1.0f 〜 1.0f）
+	/// </summary>
+	float GetLeftStickX(int controllerIndex = 0) const;
+	float GetLeftStickY(int controllerIndex = 0) const;
+
+	/// <summary>
+	/// 右スティックの入力値を取得（-1.0f 〜 1.0f）
+	/// </summary>
+	float GetRightStickX(int controllerIndex = 0) const;
+	float GetRightStickY(int controllerIndex = 0) const;
+
+	/// <summary>
+	/// 左トリガーの入力値（0.0f 〜 1.0f）
+	/// </summary>
+	float GetLeftTrigger(int controllerIndex = 0) const;
+	/// <summary>
+	/// 右トリガーの入力値（0.0f 〜 1.0f）
+	/// </summary>
+	float GetRightTrigger(int controllerIndex = 0) const;
+
+	/// <summary>
+	/// 振動をセット（0.0f 〜 1.0f）
+	/// </summary>
+	void SetVibration(float leftMotor, float rightMotor, int controllerIndex = 0);
 
 private:
 	static Input* instance_;
+
+	// WindowsAPI
+	WinApp* winApp_ = nullptr;
 
 	// キーボードのデバイス
 	ComPtr<IDirectInputDevice8> keyboard_;
@@ -81,8 +135,16 @@ private:
 	// DirectInputのインスタンス
 	ComPtr<IDirectInput8> directInput_;
 
-	// WindowsAPI
-	WinApp* winApp_ = nullptr;
+	// コントローラー
+	static const int kMaxController_ = 4;
+	static const int kDeadZone_ = 8000; // スティックのデッドゾーン
+
+	XINPUT_STATE padState_[kMaxController_] = {};
+	XINPUT_STATE padStatePre_[kMaxController_] = {};
+	bool         padConnected_[kMaxController_] = {};
+
+	// スティックをデッドゾーン処理して -1.0f〜1.0f に変換
+	float NormalizeStick(SHORT value) const;
 
 #ifdef USE_IMGUI
 	
