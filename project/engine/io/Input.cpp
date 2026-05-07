@@ -69,6 +69,14 @@ void Input::Update() {
 
 	result = mouse_->GetDeviceState(sizeof(DIMOUSESTATE2), &mouseState_);
 
+	// コントローラーの更新
+	for (int i = 0; i < kMaxController_; i++) {
+		padStatePre_[i] = padState_[i];
+
+		DWORD padResult = XInputGetState(i, &padState_[i]);
+		padConnected_[i] = (padResult == ERROR_SUCCESS);
+	}
+
 }
 
 bool Input::IsPushKey(BYTE keyNumber) {
@@ -117,6 +125,74 @@ Input::MouseMove Input::GetMouseMove() {
 
 long Input::GetMouseWheel() {
 	return mouseState_.lZ;
+}
+
+bool Input::IsControllerConnected(int controllerIndex) const {
+	if (controllerIndex < 0 || controllerIndex >= kMaxController_) return false;
+	return padConnected_[controllerIndex];
+}
+
+bool Input::IsPressPad(WORD button, int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return false;
+	return (padState_[controllerIndex].Gamepad.wButtons & button) != 0;
+}
+
+bool Input::IsTriggerPad(WORD button, int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return false;
+	bool now = (padState_[controllerIndex].Gamepad.wButtons & button) != 0;
+	bool prev = (padStatePre_[controllerIndex].Gamepad.wButtons & button) != 0;
+	return now && !prev;
+}
+
+bool Input::IsReleasePad(WORD button, int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return false;
+	bool now = (padState_[controllerIndex].Gamepad.wButtons & button) != 0;
+	bool prev = (padStatePre_[controllerIndex].Gamepad.wButtons & button) != 0;
+	return !now && prev;
+}
+float Input::GetLeftStickX(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return NormalizeStick(padState_[controllerIndex].Gamepad.sThumbLX);
+}
+
+float Input::GetLeftStickY(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return NormalizeStick(padState_[controllerIndex].Gamepad.sThumbLY);
+}
+
+float Input::GetRightStickX(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return NormalizeStick(padState_[controllerIndex].Gamepad.sThumbRX);
+}
+
+float Input::GetRightStickY(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return NormalizeStick(padState_[controllerIndex].Gamepad.sThumbRY);
+}
+
+float Input::GetLeftTrigger(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return padState_[controllerIndex].Gamepad.bLeftTrigger / 255.0f;
+}
+
+float Input::GetRightTrigger(int controllerIndex) const {
+	if (!IsControllerConnected(controllerIndex)) return 0.0f;
+	return padState_[controllerIndex].Gamepad.bRightTrigger / 255.0f;
+}
+
+void Input::SetVibration(float leftMotor, float rightMotor, int controllerIndex) {
+	if (!IsControllerConnected(controllerIndex)) return;
+
+	XINPUT_VIBRATION vibration;
+	vibration.wLeftMotorSpeed = static_cast<WORD>(leftMotor * 65535.0f);
+	vibration.wRightMotorSpeed = static_cast<WORD>(rightMotor * 65535.0f);
+	XInputSetState(controllerIndex, &vibration);
+}
+
+float Input::NormalizeStick(SHORT value) const {
+	if (value > kDeadZone_)  return static_cast<float>(value - kDeadZone_) / (32767 - kDeadZone_);
+	if (value < -kDeadZone_) return static_cast<float>(value + kDeadZone_) / (32767 - kDeadZone_);
+	return 0.0f;
 }
 
 #ifdef USE_IMGUI
