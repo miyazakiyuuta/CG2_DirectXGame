@@ -105,6 +105,25 @@ void GPUParticleEmitter::CreateResource() {
 	SrvManager::GetInstance()->CreateUAVForStructuredBuffer(
 		freeCounterUavIndex_, freeCounterResource_.Get(), 1, sizeof(int32_t));
 
+	D3D12_RESOURCE_DESC freeListDesc{};
+	freeListDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	freeListDesc.Width = sizeof(uint32_t) * kMaxParticles;
+	freeListDesc.Height = 1;
+	freeListDesc.DepthOrArraySize = 1;
+	freeListDesc.MipLevels = 1;
+	freeListDesc.SampleDesc.Count = 1;
+	freeListDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	freeListDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+	device->CreateCommittedResource(
+		&heapProps, D3D12_HEAP_FLAG_NONE, &freeListDesc,
+		D3D12_RESOURCE_STATE_COMMON, nullptr,
+		IID_PPV_ARGS(&freeListResource_));
+
+	freeListUavIndex_ = SrvManager::GetInstance()->Allocate();
+	SrvManager::GetInstance()->CreateUAVForStructuredBuffer(
+		freeListUavIndex_, freeListResource_.Get(), kMaxParticles, sizeof(uint32_t));
+
 	srvIndex_ = SrvManager::GetInstance()->Allocate();
 	SrvManager::GetInstance()->CreateSRVForStructuredBuffer(srvIndex_, particleResource_.Get(), kMaxParticles, sizeof(ParticleCS));
 }
@@ -115,7 +134,7 @@ void GPUParticleEmitter::CreateCSPipelineState() {
 	// UAV用のDescriptorRange
 	D3D12_DESCRIPTOR_RANGE uavRange{};
 	uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	uavRange.NumDescriptors = 2;
+	uavRange.NumDescriptors = 3;
 	uavRange.BaseShaderRegister = 0; // u0
 	uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -159,7 +178,7 @@ void GPUParticleEmitter::CreateEmitCSPipelineState() {
 	// [0] u0: UAV（gParticles）
 	D3D12_DESCRIPTOR_RANGE uavRange{};
 	uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	uavRange.NumDescriptors = 2;
+	uavRange.NumDescriptors = 3;
 	uavRange.BaseShaderRegister = 0; // u0
 	uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -220,7 +239,7 @@ void GPUParticleEmitter::CreateUpdateCSPipelineState() {
 	// [0] u0,u1: UAV DescriptorTable（gParticles + freeCounter）
 	D3D12_DESCRIPTOR_RANGE uavRange{};
 	uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	uavRange.NumDescriptors = 1;
+	uavRange.NumDescriptors = 3;
 	uavRange.BaseShaderRegister = 0;     // u0 から
 	uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 

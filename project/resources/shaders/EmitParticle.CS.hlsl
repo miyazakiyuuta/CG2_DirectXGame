@@ -3,7 +3,8 @@
 
 static const uint kMaxParticles = 1024;
 RWStructuredBuffer<Particle> gParticles : register(u0);
-RWStructuredBuffer<int> gFreeCounter : register(u1);
+RWStructuredBuffer<int> gFreeListIndex : register(u1);
+RWStructuredBuffer<uint> gFreeList : register(u2);
 ConstantBuffer<EmitterSphere> gEmitter : register(b0);
 ConstantBuffer<PerFrame> gPerFrame : register(b1);
 
@@ -15,10 +16,11 @@ void main(uint3 DTid : SV_DispatchThreadID) {
         generator.seed = (DTid + gPerFrame.time) * gPerFrame.time;
         for (uint countIndex = 0; countIndex < gEmitter.count; ++countIndex)
         {
-            int particleIndex;
-            InterlockedAdd(gFreeCounter[0], 1, particleIndex);
-            if (particleIndex < kMaxParticles)
+            int freeListIndex;
+            InterlockedAdd(gFreeListIndex[0], -1, freeListIndex);
+            if (0 <= freeListIndex && freeListIndex < kMaxParticles)
             {
+                uint particleIndex = gFreeList[freeListIndex];
                 gParticles[particleIndex].scale = generator.Generate3d();
                 gParticles[particleIndex].translate = generator.Generate3d();
                 gParticles[particleIndex].color.rgb = generator.Generate3d();
@@ -27,7 +29,11 @@ void main(uint3 DTid : SV_DispatchThreadID) {
                 gParticles[particleIndex].lifeTime = 3.0f;
                 gParticles[particleIndex].currentTime = 0.0f;
             }
-
+            else
+            {
+                InterlockedAdd(gFreeListIndex[0], 1);
+                break;
+            }
         }
 
     }

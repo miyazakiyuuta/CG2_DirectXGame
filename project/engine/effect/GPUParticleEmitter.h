@@ -68,5 +68,8 @@ private:
     PerFrame* perFrameData_ = nullptr;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> freeCounterResource_;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> freeListResource_;
+    uint32_t freeListUavIndex_ = 0;
 };
 

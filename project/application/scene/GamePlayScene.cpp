@@ -76,11 +76,6 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	gpuParticleEmitter_ = std::make_unique<GPUParticleEmitter>();
-	gpuParticleEmitter_->Initialize();
-	uint32_t texIndex = TextureManager::GetInstance()->GetSrvIndex("resources/circle.png");
-	gpuParticleEmitter_->SetTexture(texIndex);
-
 }
 
 void GamePlayScene::Finalize() {
@@ -105,8 +100,6 @@ void GamePlayScene::Update() {
 
 	object3d_->Update();
 
-	gpuParticleEmitter_->Update(1.0f / 60.0f);
-
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
 
 }
@@ -117,8 +110,6 @@ void GamePlayScene::Draw() {
 	object3d_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
-
-	gpuParticleEmitter_->Draw(camera_.get());
 }
 
 void GamePlayScene::DrawImGui() {
