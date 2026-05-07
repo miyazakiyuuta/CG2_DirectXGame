@@ -311,6 +311,44 @@ Vector3 Cross3(const Vector3& a, const Vector3& b) { return {a.y * b.z - a.z * b
 
 float ClampFloat(float v, float minV, float maxV) { return std::max(minV, std::min(v, maxV)); }
 
+static Vector3 ExtractEulerXYZFromBasis(
+	const Vector3& right,
+	const Vector3& up,
+	const Vector3& forward
+) {
+	// Matrix4x4::Rotate() は RotateX * RotateY * RotateZ 規約
+	// row0 = right, row1 = up, row2 = forward として Euler を復元する
+	const float m00 = right.x;
+	const float m01 = right.y;
+	const float m02 = right.z;
+
+	const float m10 = up.x;
+	const float m11 = up.y;
+	const float m12 = up.z;
+
+	const float m20 = forward.x;
+	const float m21 = forward.y;
+	const float m22 = forward.z;
+
+	float rotY = std::asin(std::clamp(-m02, -1.0f, 1.0f));
+	float cosY = std::cos(rotY);
+
+	float rotX = 0.0f;
+	float rotZ = 0.0f;
+
+	if (std::abs(cosY) > 0.0001f) {
+		rotX = std::atan2(m12, m22);
+		rotZ = std::atan2(m01, m00);
+	}
+	else {
+		// gimbal lock 付近の簡易フォールバック
+		rotX = std::atan2(-m21, m11);
+		rotZ = 0.0f;
+	}
+
+	return { rotX, rotY, rotZ };
+}
+
 void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition) {
 	camera_ = camera;
 	input_ = Input::GetInstance();
@@ -1554,14 +1592,40 @@ const char* Player::GetMovementStateName() const {
 }
 
 void Player::TransitionTo(MovementState nextState) {
-	if(moveState_ == nextState){
+	if (moveState_ == nextState) {
 		return;
 	}
 
-	MovementState prevState = moveState_;
+	const bool wasClingState =
+		(moveState_ == MovementState::WallClinging ||
+			moveState_ == MovementState::CeilingCrawling);
 
-	if(moveState_ == MovementState::Root && nextState != MovementState::Root){
-		CancelJumpCharge();
+	const bool nextIsClingState =
+		(nextState == MovementState::WallClinging ||
+			nextState == MovementState::CeilingCrawling);
+
+	// 張り付き系から離れるときだけ、通常の立ち姿勢へ戻す
+	if (wasClingState && !nextIsClingState && object_) {
+		float restoreYaw = object_->GetRotate().y;
+
+		// まずは現在の水平速度の向きを優先
+		const float vxzLenSq = velocity_.x * velocity_.x + velocity_.z * velocity_.z;
+		if (vxzLenSq > 0.0001f) {
+			restoreYaw = std::atan2(velocity_.x, velocity_.z) + modelYawOffset_;
+		}
+		// 速度が無ければ直前移動方向
+		else {
+			const float lxzLenSq = lastMove_.x * lastMove_.x + lastMove_.z * lastMove_.z;
+			if (lxzLenSq > 0.0001f) {
+				restoreYaw = std::atan2(lastMove_.x, lastMove_.z) + modelYawOffset_;
+			}
+			// それも無ければカメラ正面
+			else if (cameraController_) {
+				restoreYaw = cameraController_->GetYaw() + modelYawOffset_;
+			}
+		}
+
+		object_->SetRotate({ 0.0f, restoreYaw, 0.0f });
 	}
 
 	moveState_ = nextState;
@@ -1573,6 +1637,7 @@ void Player::TransitionTo(MovementState nextState) {
 		groundMoveVelocity_.x = lockedJumpMoveVelocity_.x;
 		groundMoveVelocity_.z = lockedJumpMoveVelocity_.z;
 		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		wallClingGauge_ = maxWallClingGauge_;
 		ClearClingStageObjectTracking();
 		break;
 
@@ -1583,30 +1648,19 @@ void Player::TransitionTo(MovementState nextState) {
 		ClearClingStageObjectTracking();
 		break;
 
-	case MovementState::WallClinging: {
+	case MovementState::WallClinging:
 		velocity_ = { 0.0f, 0.0f, 0.0f };
-
-		if(prevState != MovementState::CeilingCrawling){
-			wallClingGauge_ = maxWallClingGauge_;
-		}
-
-		if(hasClingSurface_){
-			wallRightVec_ = clingSurfaceRight_;
-		} else{
-			wallRightVec_ = { 1.0f, 0.0f, 0.0f };
-		}
-
-		isOnGround_ = false;
+		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
 		break;
-	}
 
 	case MovementState::TonguePulling:
-		velocity_ = {0.0f, 0.0f, 0.0f};
-		isOnGround_ = false;
 		break;
+
 	case MovementState::CeilingCrawling:
-		velocity_ = {0.0f, 0.0f, 0.0f};
-		isOnGround_ = false;
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
 		break;
 	}
 }
@@ -2080,8 +2134,7 @@ void Player::UpdateWallClinging(float cameraYaw) {
 	}
 
 	// 先に張り付いた面へ向きをそろえる
-	float yaw = std::atan2(-clingSurfaceNormal_.x, -clingSurfaceNormal_.z) + modelYawOffset_;
-	object_->SetRotate({0.0f, yaw, 0.0f});
+	ApplyClingSurfaceRotation();
 
 	// まず張り付き面の範囲に拘束
 	position = ClampPositionToCurrentClingSurface(position);
@@ -2195,8 +2248,7 @@ void Player::UpdateCeilingCrawling() {
 
 			object_->SetTranslate(reattachPos);
 
-			float yaw = std::atan2(-clingSurfaceNormal_.x, -clingSurfaceNormal_.z) + modelYawOffset_;
-			object_->SetRotate({ 0.0f, yaw, 0.0f });
+			ApplyClingSurfaceRotation();
 
 			// 面遷移後の新しい張り付き面から、舌のフック位置を更新
 			RefreshClingAnchorFromCurrentSurface();
@@ -2221,8 +2273,14 @@ void Player::UpdateCeilingCrawling() {
 
 	object_->SetTranslate(position);
 
-	float yaw = std::atan2(moveDir.x, moveDir.z) + modelYawOffset_;
-	object_->SetRotate({0.0f, yaw, 0.0f});
+	// 高速這い中は、カメラ前方を面へ射影した向きを前にする
+	Vector3 facingDir = clingSurfaceUp_;
+	if (cameraController_) {
+		facingDir = cameraController_->GetForwardDirection();
+	}
+
+	ApplyClingSurfaceRotationFacing(facingDir);
+	object_->PlayAnimation("walk", false);
 
 	// 左クリックで手を離す
 	if (input_->IsTriggerMouse(0)) {
@@ -2702,6 +2760,84 @@ void Player::DrawUI(){
 	if(jumpGaugeFillSprite_){
 		jumpGaugeFillSprite_->Draw();
 	}
+}
+
+void Player::ApplyClingSurfaceRotation() {
+	if (!object_ || !hasClingSurface_) {
+		return;
+	}
+
+	// 壁を「地面」として扱うので、
+	// ローカルUpを面法線へ合わせる
+	Vector3 desiredUp = Normalize3(clingSurfaceNormal_);
+
+	// 面内の前方向は、既存の clingSurfaceUp_ を使う
+	// ただし desiredUp と直交するように整え直す
+	Vector3 desiredForward = clingSurfaceUp_
+		- desiredUp * Dot3(clingSurfaceUp_, desiredUp);
+
+	if (Length3(desiredForward) <= 0.0001f) {
+		desiredForward = clingSurfaceUp_;
+	}
+	desiredForward = Normalize3(desiredForward);
+
+	// 右方向を作る
+	Vector3 desiredRight = Cross3(desiredForward, desiredUp);
+	if (Length3(desiredRight) <= 0.0001f) {
+		desiredRight = clingSurfaceRight_;
+	}
+	desiredRight = Normalize3(desiredRight);
+
+	// 直交性をもう一度そろえる
+	desiredForward = Normalize3(Cross3(desiredUp, desiredRight));
+
+	desiredForward = desiredForward * 1.0f;
+	desiredUp = desiredUp * 1.0f;
+	desiredRight = desiredRight * -1.0f;
+
+	Vector3 rot = ExtractEulerXYZFromBasis(
+		desiredRight,
+		desiredUp,
+		desiredForward
+	);
+
+	object_->SetRotate(rot);
+}
+
+void Player::ApplyClingSurfaceRotationFacing(const Vector3& desiredForwardWorld) {
+	if (!object_ || !hasClingSurface_) {
+		return;
+	}
+
+	// 張り付き面を「地面」として扱う
+	Vector3 desiredUp = Normalize3(clingSurfaceNormal_);
+
+	// カメラ前方を面へ射影して、面内の前方向を作る
+	Vector3 forwardProjected =
+		desiredForwardWorld - desiredUp * Dot3(desiredForwardWorld, desiredUp);
+
+	if (Length3(forwardProjected) <= 0.0001f) {
+		forwardProjected = clingSurfaceUp_;
+	}
+	Vector3 desiredForward = Normalize3(forwardProjected);
+
+	// 右方向を作る
+	Vector3 desiredRight = Cross3(desiredForward, desiredUp);
+	if (Length3(desiredRight) <= 0.0001f) {
+		desiredRight = clingSurfaceRight_;
+	}
+	desiredRight = Normalize3(desiredRight);
+
+	// 直交性を整え直す
+	desiredForward = Normalize3(Cross3(desiredUp, desiredRight));
+
+	Vector3 rot = ExtractEulerXYZFromBasis(
+		-desiredRight,
+		desiredUp,
+		desiredForward
+	);
+
+	object_->SetRotate(rot);
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint) {

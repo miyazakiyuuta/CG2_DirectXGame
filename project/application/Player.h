@@ -214,6 +214,9 @@ public:
 	void UpdateJumpGaugeSprite();
 	void DrawUI();
 
+	void ApplyClingSurfaceRotation();
+	void ApplyClingSurfaceRotationFacing(const Vector3& desiredForward);
+
 private:
         // 経験値とレベルアップの保留キュー
 	std::vector<std::pair<AbilityId, float>> pendingAbilityXP_;
