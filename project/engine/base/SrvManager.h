@@ -22,6 +22,9 @@ public:
 	// SRV作成(レンダーテクスチャ用)
 	void CreateRenderTextureSrv(uint32_t srvIndex, ID3D12Resource* pResource, DXGI_FORMAT format);
 
+	// UAV作成(Structured Buffer用)
+	void CreateUAVForStructuredBuffer(uint32_t index, ID3D12Resource* pResource, UINT numElements, UINT structureByteStride);
+
 	void PreDraw();
 
 	void SetGraphicsRootDescriptorTable(UINT RootParameterIndex, uint32_t srvIndex);

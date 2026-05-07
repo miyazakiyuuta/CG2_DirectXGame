@@ -23,8 +23,11 @@ public: // メンバ関数
 
 public:
 	void PlayAnimation(const std::string& name, bool loop = true, float blendDuration = 0.2f);
-	void StopAnimation() {
-		if (animationPlayer_) {
+	void StopAnimation(float blendDuration = 0.0f) {
+		if (!animationPlayer_) return;
+		if (blendDuration > 0.0f) {
+			animationPlayer_->StopWithBlend(skeleton_, blendDuration);
+		} else {
 			animationPlayer_->Stop();
 		}
 	}
