@@ -56,6 +56,7 @@ void GamePlayScene::Initialize() {
 
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
+	TextureManager::GetInstance()->LoadTexture("resources/circle.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
@@ -402,7 +403,7 @@ void GamePlayScene::Update() {
 		object3d_->StopAnimation();
 	}
 	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
-		object3d_->PauseSwitchingAnimation();
+		object3d_->StopAnimation(0.5f);
 	}
 	if (Input::GetInstance()->IsPushKey(DIK_1)) {
 		object3d_->PlayAnimation("walk", false, 1.0f);
@@ -416,10 +417,12 @@ void GamePlayScene::Update() {
 		wellObject_->Update();
 	}
 
+	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+
 }
 
 void GamePlayScene::Draw() {
-	skybox_->Draw(*camera_);
+	//skybox_->Draw(*camera_);
 
 	if (wellObject_) {
 		wellObject_->Draw();
