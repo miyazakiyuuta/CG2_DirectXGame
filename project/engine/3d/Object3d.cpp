@@ -122,6 +122,29 @@ void Object3d::SetModel(const std::string& filePath) {
 	}
 }
 
+std::optional<Matrix4x4> Object3d::GetBoneWorldMatrix(const std::string& boneName) const {
+	if (!model_) return std::nullopt;
+
+	auto it = skeleton_.jointMap.find(boneName);
+	if (it == skeleton_.jointMap.end()) return std::nullopt;
+
+	const Joint& joint = skeleton_.joints[it->second];
+
+	// スケルトン空間 → ワールド空間
+	Matrix4x4 worldMatrix = Matrix4x4::Affine(
+		transform_.scale, transform_.rotate, transform_.translate);
+
+	return joint.skeletonSpaceMatrix * worldMatrix;
+}
+
+std::optional<Vector3> Object3d::GetBoneWorldPosition(const std::string& boneName) const {
+	auto mat = GetBoneWorldMatrix(boneName);
+	if (!mat) return std::nullopt;
+
+	// 行列の平行移動成分を取り出す
+	return Vector3{ mat->m[3][0], mat->m[3][1], mat->m[3][2] };
+}
+
 void Object3d::CreateMaterialData() {
 	// マテリアルリソースを作る
 	materialResource_ = dxCommon_->CreateBufferResource(sizeof(Material));
