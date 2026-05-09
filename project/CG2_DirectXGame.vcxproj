@@ -226,6 +226,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\Enemy\Types\ProminenceSensor.cpp" />
     <ClCompile Include="application\Enemy\Types\PhaseGhost.cpp" />
     <ClCompile Include="engine\effect\GPUParticleEmitter.cpp" />
+    <ClCompile Include="application\UI\PauseMenu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -327,6 +328,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Enemy\Types\ProminenceSensor.h" />
     <ClInclude Include="application\Enemy\Types\PhaseGhost.h" />
     <ClInclude Include="engine\effect\GPUParticleEmitter.h" />
+    <ClInclude Include="application\UI\PauseMenu.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

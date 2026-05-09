@@ -1,7 +1,5 @@
 #include "scene/GamePlayScene.h"
 
-#include "io/Input.h"
-#include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
 #include "2d/TextureManager.h"
 #include "3d/DebugCamera.h"
@@ -28,23 +26,23 @@
 #include "math/Transform.h"
 // エネミーのインクルードを追加
 #include "Enemy/Manager/EnemyManager.h"
+#include "UI/PauseMenu.h"
 #include "debug/DebugGrid.h"
 #include "debug/DebugRenderer.h"
 #include "effect/ParticleEmitter.h"
-
-#include <numbers>
+#include "scene/SceneManager.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
 #include "utility/Logger.h"
-#include <sstream>
 #include <numbers>
+#include <sstream>
 
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
-	camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
+	camera_->SetRotate({std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f});
+	camera_->SetTranslate({0.0f, 7.5f, -20.0f});
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
@@ -77,9 +75,9 @@ void GamePlayScene::Initialize() {
 	object3d_->SetModel("human_re.gltf");
 	// object3d_->SetModel("Frog.gltf");
 	object3d_->SetCamera(camera_.get());
-	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
-	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-	object3d_->SetColor({ 0.5f, 0.5f, 0.5f, 1.0f });
+	object3d_->SetTranslate({0.0f, 0.0f, 5.0f});
+	object3d_->SetRotate({0.0f, std::numbers::pi_v<float>, 0.0f});
+	object3d_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
 	object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
 	// Create the well object and place it at a fixed position only if model is loaded
@@ -92,9 +90,9 @@ void GamePlayScene::Initialize() {
 			wellObject_->SetCamera(camera_.get());
 			// Adjust this position as needed
 			// Move the well slightly further from the camera and make it very small
-			wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
-			wellObject_->SetScale({ 60.0f, 60.0f, 60.0f });
-			wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+			wellObject_->SetTranslate({0.0f, 0.0f, 0.0f});
+			wellObject_->SetScale({60.0f, 60.0f, 60.0f});
+			wellObject_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 			if (wellObject_) {
 				Vector3 wellPos = wellObject_->GetTranslate();
 				Vector3 wellScale = wellObject_->GetScale();
@@ -129,7 +127,7 @@ void GamePlayScene::Initialize() {
 	}
 
 	// プレイヤー開始位置を Stage から取得
-	Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
+	Vector3 playerStart = {0.0f, 3.0f, 0.0f};
 	if (auto spawn = stage_->GetPlayerSpawnPosition()) {
 		playerStart = *spawn;
 	}
@@ -141,7 +139,7 @@ void GamePlayScene::Initialize() {
 
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
-	cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
+	cameraController_->SetTargetOffset({0.0f, 1.0f, 0.0f});
 	cameraController_->SetDistance(25.0f);
 	cameraController_->SetHeight(1.5f);
 	cameraController_->SetYawSpeed(0.03f);
@@ -154,13 +152,7 @@ void GamePlayScene::Initialize() {
 	player_->SetMovementLimitCylinder(&wellCylinder_);
 
 	reticle_ = std::make_unique<Reticle>();
-	reticle_->Initialize(
-		SpriteCommon::GetInstance(),
-		camera_.get(),
-		cameraController_.get(),
-		player_.get(),
-		&stageBlockColliders_
-	);
+	reticle_->Initialize(SpriteCommon::GetInstance(), camera_.get(), cameraController_.get(), player_.get(), &stageBlockColliders_);
 
 	// StageEditor は Stage を受け取って編集するだけ
 	stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
@@ -171,28 +163,24 @@ void GamePlayScene::Initialize() {
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
 
 	// Stage から敵スポーン情報を取得して生成
-	for(const auto& spawn : stage_->GetEnemySpawnPoints()){
+	for (const auto& spawn : stage_->GetEnemySpawnPoints()) {
 		const int typeValue = spawn.enemyType;
 
 		// EnemyType と Stage 側の int の整合を軽くガード
-		if(typeValue < static_cast<int>(EnemyType::Chasing) ||
-		   typeValue > static_cast<int>(EnemyType::PhaseGhost)){
+		if (typeValue < static_cast<int>(EnemyType::Chasing) || typeValue > static_cast<int>(EnemyType::PhaseGhost)) {
 			continue;
 		}
 
-		enemyManager_->CreateEnemy(
-			static_cast<EnemyType>(typeValue),
-			spawn.position
-		);
+		enemyManager_->CreateEnemy(static_cast<EnemyType>(typeValue), spawn.position);
 	}
 
 	//// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
-	//enemyManager_->CreateEnemy(EnemyType::Chasing, { 10.0f, 5.0f, 10.0f });        // 追尾（赤）
-	//enemyManager_->CreateEnemy(EnemyType::Shooting, { -10.0f, 5.0f, 15.0f });	   // 射撃（青）
-	//enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 0.0f });         // 逃走（オレンジ）
-	//enemyManager_->CreateEnemy(EnemyType::ClusterSlime, { 5.0f, 8.0f, -5.0f });    // 群れ（紫）
-	//enemyManager_->CreateEnemy(EnemyType::ProminenceSensor, {15.0f, 1.0f, 20.0f}); // センサー（固定砲台）
-	//enemyManager_->CreateEnemy(EnemyType::PhaseGhost, {-15.0f, 8.0f, 0.0f});       // フェイズ・ゴースト（鳴き声で暴く敵）を生成
+	// enemyManager_->CreateEnemy(EnemyType::Chasing, { 10.0f, 5.0f, 10.0f });        // 追尾（赤）
+	// enemyManager_->CreateEnemy(EnemyType::Shooting, { -10.0f, 5.0f, 15.0f });	   // 射撃（青）
+	// enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 0.0f });         // 逃走（オレンジ）
+	// enemyManager_->CreateEnemy(EnemyType::ClusterSlime, { 5.0f, 8.0f, -5.0f });    // 群れ（紫）
+	// enemyManager_->CreateEnemy(EnemyType::ProminenceSensor, {15.0f, 1.0f, 20.0f}); // センサー（固定砲台）
+	// enemyManager_->CreateEnemy(EnemyType::PhaseGhost, {-15.0f, 8.0f, 0.0f});       // フェイズ・ゴースト（鳴き声で暴く敵）を生成
 
 	// プレイヤーにエネミーマネージャーを渡して、プレイヤーからエネミーを参照できるようにする
 	if (player_) {
@@ -204,21 +192,25 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	Object3dCommon::GetInstance()->SetPointLight(
-		{
-			{ 1.0f, 1.0f, 1.0f, 1.0f }, // color
-			{ 0.0f, -0.1f, 0.0f },      // position
-			1.0f,                       // intensity
-			20000.0f,                      // radius
-			0.0f                        // decay
-		});
+	Object3dCommon::GetInstance()->SetPointLight({
+	    {1.0f, 1.0f, 1.0f, 1.0f}, // color
+	    {0.0f, -0.1f, 0.0f}, // position
+	    1.0f, // intensity
+	    20000.0f, // radius
+	    0.0f  // decay
+	});
+
+	// ポーズメニューの初期化
+	pauseMenu_ = std::make_unique<PauseMenu>();
+	// スプライト版の Initialize は SpriteCommon と CameraController を受け取る
+	pauseMenu_->Initialize(SpriteCommon::GetInstance(), cameraController_.get());
 }
 
 void GamePlayScene::Finalize() {
 	// 終了処理の実体を追加
 }
 
-void GamePlayScene::Update() {	
+void GamePlayScene::Update() {
 
 	// Advance stage runtime (moving platforms, etc.) with fixed timestep
 	if (stage_) {
@@ -250,7 +242,7 @@ void GamePlayScene::Update() {
 
 				if (std::fabs(playerBottom - topY) <= kVertEps && std::fabs(ppos.x - o.position.x) <= halfX + 0.5f && std::fabs(ppos.z - o.position.z) <= halfZ + 0.5f) {
 					// Apply full delta (or only horizontal components depending on direction)
-					Vector3 applyDelta = { 0.0f, 0.0f, 0.0f };
+					Vector3 applyDelta = {0.0f, 0.0f, 0.0f};
 					if (o.moveDirection == 3 || o.moveDirection == 4) {
 						applyDelta.x = delta.x;
 						applyDelta.z = delta.z;
@@ -261,9 +253,9 @@ void GamePlayScene::Update() {
 					}
 					player_->SetRidingPlatformDelta(applyDelta);
 					Logger::Log(
-						std::string("Platform carry apply id:") + std::to_string(o.id) + " delta:" + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z) +
-						" apply:" + std::to_string(applyDelta.x) + "," + std::to_string(applyDelta.y) + "," + std::to_string(applyDelta.z) + " playerPos:" + std::to_string(ppos.x) + "," +
-						std::to_string(ppos.y) + "," + std::to_string(ppos.z) + "\n");
+					    std::string("Platform carry apply id:") + std::to_string(o.id) + " delta:" + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z) +
+					    " apply:" + std::to_string(applyDelta.x) + "," + std::to_string(applyDelta.y) + "," + std::to_string(applyDelta.z) + " playerPos:" + std::to_string(ppos.x) + "," +
+					    std::to_string(ppos.y) + "," + std::to_string(ppos.z) + "\n");
 					applied = true;
 					break;
 				}
@@ -290,9 +282,7 @@ void GamePlayScene::Update() {
 		}
 	}
 
-
-
-	// 【修正：追加】エネミーマネージャーに当たり判定データを渡す
+	// エネミーマネージャーに当たり判定データを渡す
 	if (enemyManager_) {
 		enemyManager_->SetBlockColliders(&stageBlockColliders_);
 		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
@@ -301,7 +291,7 @@ void GamePlayScene::Update() {
 	if (!stageEditor_->IsEditMode()) {
 		cameraController_->Update(player_->GetPosition());
 
-		// 【追加】ここ！ プレイヤーを Update する直前に減速倍率をセットする
+		// プレイヤーを Update する直前に減速倍率をセットする
 		if (enemyManager_ && player_) {
 			float totalSlowdown = enemyManager_->GetTotalPlayerSpeedMultiplier();
 			player_->SetSpeedMultiplier(totalSlowdown);
@@ -310,91 +300,119 @@ void GamePlayScene::Update() {
 		player_->Update();
 
 		if (enemyManager_) {
-			enemyManager_->Update(1.0f / 60.0f, player_.get()); 
+			enemyManager_->Update(1.0f / 60.0f, player_.get());
 		}
 	}
 
-	// Warp detection: run before player update so teleport is immediate in gameplay mode
-	if (player_) {
-		const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
-		for (const auto& o : stage_->GetStageData().objects) {
-			if (o.blockId != BlockID::Warp)
-				continue;
+	// 1. ポーズメニュー自体の更新（ESCキー判定など）
+	pauseMenu_->Update();
 
-			Transform t;
-			t.translate = o.position;
-			t.rotate = o.rotation;
-			t.scale = o.scale;
+	// 2. ポーズメニューからの要求（リスタート・終了）を処理
+	if (pauseMenu_->IsRestartRequested()) {
+		this->Initialize(); // シーン再初期化
+		pauseMenu_->ClearRequests();
+		pauseMenu_->SetPaused(false);
+		return;
+	}
+	if (pauseMenu_->IsTitleRequested()) {
+		SceneManager::GetInstance()->ChangeScene("TITLE");
+		return;
+	}
 
-			// Inflate warp OBB a bit to make triggering more forgiving
-			const float warpInflation = 1.5f;
-			CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, { 1.0f * o.scale.x * warpInflation, 1.0f * o.scale.y * warpInflation, 1.0f * o.scale.z * warpInflation });
-			std::string msg = "Checking warp id:" + std::to_string(o.id) + " pos:" + std::to_string(o.position.x) + "," + std::to_string(o.position.y) + "," + std::to_string(o.position.z) + "\n";
-			Logger::Log(msg);
+	// 3. 【核心】ポーズ中でない場合のみゲームの時間を動かす
+	if (!pauseMenu_->IsPaused()) {
+		if (stage_)
+			stage_->Update(1.0f / 60.0f);
 
-			if (CollisionUtility::IntersectOBB_OBB(playerObb, obb)) {
-				std::string hitmsg = "Player intersects warp id:" + std::to_string(o.id) + "\n";
-				Logger::Log(hitmsg);
-
-				if (warpCooldownCounter_ == 0 || lastWarpId_ != o.id) {
-					// Request teleport to be applied inside the player's
-					// own Update to avoid being overwritten by other systems.
-					player_->SetPendingTeleport(o.warpTargetPosition);
-					lastWarpId_ = o.id;
-					// set a cooldown to avoid immediate re-trigger loops
-					warpCooldownCounter_ = 90; // frames (~1.5 seconds at 60fps)
-					Logger::Log(
-						std::string("Warped to ") + std::to_string(o.warpTargetPosition.x) + "," + std::to_string(o.warpTargetPosition.y) + "," + std::to_string(o.warpTargetPosition.z) + "\n");
-				} else {
-					Logger::Log(std::string("Warp ignored due to cooldown. id:") + std::to_string(o.id) + " counter:" + std::to_string(warpCooldownCounter_) + "\n");
-				}
-				break;
+		// エディタモード中でなければ移動や衝突を更新
+		if (!stageEditor_->IsEditMode()) {
+			cameraController_->Update(player_->GetPosition());
+			player_->Update();
+			if (enemyManager_) {
+				enemyManager_->Update(1.0f / 60.0f, player_.get());
 			}
 		}
 
-		if (warpCooldownCounter_ > 0)
-			--warpCooldownCounter_;
-		else
-			lastWarpId_ = -1;
-	}
+		// Warp detection: run before player update so teleport is immediate in gameplay mode
+		if (player_) {
+			const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+			for (const auto& o : stage_->GetStageData().objects) {
+				if (o.blockId != BlockID::Warp)
+					continue;
 
-	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+				Transform t;
+				t.translate = o.position;
+				t.rotate = o.rotation;
+				t.scale = o.scale;
 
-	if (player_) {
-		Tongue* tongue = player_->GetTongue();
+				// Inflate warp OBB a bit to make triggering more forgiving
+				const float warpInflation = 1.5f;
+				CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, {1.0f * o.scale.x * warpInflation, 1.0f * o.scale.y * warpInflation, 1.0f * o.scale.z * warpInflation});
+				std::string msg = "Checking warp id:" + std::to_string(o.id) + " pos:" + std::to_string(o.position.x) + "," + std::to_string(o.position.y) + "," + std::to_string(o.position.z) + "\n";
+				Logger::Log(msg);
 
-		// Tongue hitting stage blocks (apply damage to breakable blocks)
-		if (tongue) {
-			const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-			for (const auto& obb : stageBlockColliders_) {
-				if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
-					// apply damage (1) at tongue sphere
-					stage_->ApplyDamageAtSphere(tongueSphere, 1);
-					tongue->Reset();
+				if (CollisionUtility::IntersectOBB_OBB(playerObb, obb)) {
+					std::string hitmsg = "Player intersects warp id:" + std::to_string(o.id) + "\n";
+					Logger::Log(hitmsg);
+
+					if (warpCooldownCounter_ == 0 || lastWarpId_ != o.id) {
+						// Request teleport to be applied inside the player's
+						// own Update to avoid being overwritten by other systems.
+						player_->SetPendingTeleport(o.warpTargetPosition);
+						lastWarpId_ = o.id;
+						// set a cooldown to avoid immediate re-trigger loops
+						warpCooldownCounter_ = 90; // frames (~1.5 seconds at 60fps)
+						Logger::Log(
+						    std::string("Warped to ") + std::to_string(o.warpTargetPosition.x) + "," + std::to_string(o.warpTargetPosition.y) + "," + std::to_string(o.warpTargetPosition.z) + "\n");
+					} else {
+						Logger::Log(std::string("Warp ignored due to cooldown. id:") + std::to_string(o.id) + " counter:" + std::to_string(warpCooldownCounter_) + "\n");
+					}
+					break;
+				}
+			}
+
+			if (warpCooldownCounter_ > 0)
+				--warpCooldownCounter_;
+			else
+				lastWarpId_ = -1;
+		}
+
+		player_->UpdateTransparencyByCamera(camera_->GetTranslate());
+
+		if (player_) {
+			Tongue* tongue = player_->GetTongue();
+
+			// Tongue hitting stage blocks (apply damage to breakable blocks)
+			if (tongue) {
+				const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
+				for (const auto& obb : stageBlockColliders_) {
+					if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
+						// apply damage (1) at tongue sphere
+						stage_->ApplyDamageAtSphere(tongueSphere, 1);
+						tongue->Reset();
+						break;
+					}
+				}
+			}
+		}
+
+		// 水ブロックに触れている間は徐々に回復
+		bool isTouchingWater = false;
+		if (player_) {
+			const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+			for (const auto& waterBox : waterBlockColliders_) {
+				if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
+					isTouchingWater = true;
 					break;
 				}
 			}
 		}
-	}
 
-	// 水ブロックに触れている間は徐々に回復
-	bool isTouchingWater = false;
-	if (player_) {
-		const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
-		for (const auto& waterBox : waterBlockColliders_) {
-			if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
-				isTouchingWater = true;
-				break;
-			}
+		if (isTouchingWater) {
+			player_->AddWater(15.0f / 60.0f);
 		}
 	}
-
-	if (isTouchingWater) {
-		player_->AddWater(15.0f / 60.0f);
-	}
-
 	// (Warp detection handled earlier before player update.)
-
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -417,12 +435,11 @@ void GamePlayScene::Update() {
 		wellObject_->Update();
 	}
 
-	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
-
+	DebugRenderer::GetInstance()->AddGrid({0.0f, 0.0f, 0.0f}, 5.0f, 10, {0.0f, 0.0f, 0.0f, 1.0f});
 }
 
 void GamePlayScene::Draw() {
-	//skybox_->Draw(*camera_);
+	// skybox_->Draw(*camera_);
 
 	if (wellObject_) {
 		wellObject_->Draw();
@@ -439,62 +456,60 @@ void GamePlayScene::Draw() {
 		enemyManager_->Draw();
 	}
 
-
 	debugGrid_->Draw(*camera_);
-	
+
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 	if (reticle_) {
 		reticle_->Draw();
 	}
 	player_->DrawUI();
+	// 3. 【重要】ポーズUIを最後に重ねる（一番手前に表示）
+	pauseMenu_->Draw();
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
-
-
 
 void GamePlayScene::DrawImGui() {
 #ifdef USE_IMGUI
 
-Vector3 object3dPos = object3d_->GetTranslate();
+	Vector3 object3dPos = object3d_->GetTranslate();
 
-ImGui::Begin("GamePlayScene_Object");
-camera_->DrawImGui();
-if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
-	object3d_->SetTranslate(object3dPos);
-}
-ImGui::End();
+	ImGui::Begin("GamePlayScene_Object");
+	camera_->DrawImGui();
+	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
+		object3d_->SetTranslate(object3dPos);
+	}
+	ImGui::End();
 
-ImGui::Begin("a");
-// Well object debug / info
-if (wellObject_) {
-    ImGui::Separator();
-    ImGui::Text("Well Object");
+	ImGui::Begin("a");
+	// Well object debug / info
+	if (wellObject_) {
+		ImGui::Separator();
+		ImGui::Text("Well Object");
 
-    Vector3 wpos = wellObject_->GetTranslate();
-    if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
-        wellObject_->SetTranslate(wpos);
-    }
+		Vector3 wpos = wellObject_->GetTranslate();
+		if (ImGui::DragFloat3("Well Position", &wpos.x, 0.1f)) {
+			wellObject_->SetTranslate(wpos);
+		}
 
-    Vector3 wscale = wellObject_->GetScale();
-    if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
-        wellObject_->SetScale(wscale);
-    }
+		Vector3 wscale = wellObject_->GetScale();
+		if (ImGui::DragFloat3("Well Scale", &wscale.x, 0.001f, 0.0001f, 100.0f)) {
+			wellObject_->SetScale(wscale);
+		}
 
-    Vector3 wrot = wellObject_->GetRotate();
-    ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
+		Vector3 wrot = wellObject_->GetRotate();
+		ImGui::Text("Rotation: %.3f, %.3f, %.3f", wrot.x, wrot.y, wrot.z);
+	}
 
-}
+	player_->DrawImGui();
 
-player_->DrawImGui();
-
-cameraController_->DrawImGui();
+	cameraController_->DrawImGui();
 	if (enemyManager_) {
 		enemyManager_->DrawImGui();
 	}
 
-ImGui::End();
+	ImGui::End();
 
-stageEditor_->Update();
+	stageEditor_->Update();
 
 #endif
 }
