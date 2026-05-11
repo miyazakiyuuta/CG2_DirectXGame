@@ -35,4 +35,3 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
 };
-

@@ -2,7 +2,6 @@
 #include "base/DirectXCommon.h"
 #include "math/Matrix4x4.h"
 #include "math/Vector2.h"
-#include "math/Vector3.h"
 #include "math/Vector4.h"
 #include <string>
 
@@ -29,17 +28,18 @@ public:
 	void SetRotation(float rotation) { rotation_ = rotation; }
 	void SetColor(const Vector4& color) { materialData_->color = color; }
 	void SetSize(const Vector2& size) { size_ = size; }
-	void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; }
-	void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; }
-	void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }
-	void SetTextureLeftTop(const Vector2& leftTop) { textureLeftTop_ = leftTop; }
-	void SetTextureSize(const Vector2& size) { textureSize_ = size; }
+	void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; } // (0,0)から(1,1)の範囲で指定。例えば(0.5,0.5)なら中心、(0,0)なら左上、(1,1)なら右下
+	void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; }                             // 左右フリップ
+	void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }                             // 上下フリップ
+	void SetTextureLeftTop(const Vector2& leftTop) { textureLeftTop_ = leftTop; }   // テクスチャの切り出し左上座標
+	void SetTextureSize(const Vector2& size) { textureSize_ = size; }               // テクスチャの切り出しサイズ
 
 private:
 	void CreateVertexData();
 	void CreateIndexData();
 	void CreateMaterialData();
 	void CreateTransformationMatrixData();
+	// テクスチャサイズをイメージに合わせる
 	void AdjustTextureSize();
 
 private:
@@ -47,48 +47,49 @@ private:
 	struct VertexData {
 		Vector4 position;
 		Vector2 texcoord;
-		Vector3 normal;
 	};
 
-	// マテリアルデータ：シェーダー(Sprite.PS.hlsl)の定義と完全に一致させる
-	// 順番が異なるとUV計算が壊れます
+	// マテリアルデータ
 	struct Material {
-		Vector4 color;         // 16バイト
-		Matrix4x4 uvTransform; // 64バイト
-		// ※ enableLightingなどはシェーダー側で定義されていないため削除
+		Vector4 color;
+		Matrix4x4 uvTransform;
 	};
 
 	// 座標変換行列データ
 	struct TransformationMatrix {
 		Matrix4x4 WVP;
-		Matrix4x4 World;
 	};
 
 	SpriteCommon* spriteCommon_ = nullptr;
 	DirectXCommon* dxCommon_ = nullptr;
 
+	// バッファリソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_;
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
-
+	// バッファリソース内のデータを指すポインタ
 	VertexData* vertexData_ = nullptr;
-	uint32_t* indexData_ = nullptr;
 	Material* materialData_ = nullptr;
 	TransformationMatrix* transformationMatrixData_ = nullptr;
-
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-	D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
+	// バッファリソースの使い道を捕捉するバッファビュー
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_;
+	D3D12_INDEX_BUFFER_VIEW indexBufferView_;
 
 	Vector2 pos_ = {0.0f, 0.0f};
 	float rotation_ = 0.0f;
 	Vector2 size_ = {1.0f, 1.0f};
+
 	Vector2 anchorPoint_ = {0.0f, 0.0f};
 
+	// 左右フリップ
 	bool isFlipX_ = false;
+	// 上下フリップ
 	bool isFlipY_ = false;
 
+	// テクスチャ左上座標
 	Vector2 textureLeftTop_ = {0.0f, 0.0f};
+	// テクスチャ切り出しサイズ
 	Vector2 textureSize_ = {100.0f, 100.0f};
 
 	std::string filePath_;
