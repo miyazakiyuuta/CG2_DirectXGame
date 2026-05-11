@@ -1099,7 +1099,8 @@ void Player::Update() {
 		}
 
 		// 【任意リリース】Spaceキーで加速を受け継いでジャンプ
-		if (input_->IsTriggerKey(DIK_SPACE)) {
+		if (input_->IsTriggerKey(DIK_SPACE) ||
+			input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 			if (lastHitEnemy_) {
 				// 敵の逃走速度を自分の速度として奪う（スリングショット）
 				velocity_ = lastHitEnemy_->GetVelocity();
@@ -1194,7 +1195,7 @@ void Player::Update() {
 	if(!suppressTongueShotThisFrame_ &&
 	   moveState_ != MovementState::CeilingCrawling &&
 	   moveState_ != MovementState::WallClinging &&
-	   input_->IsTriggerMouse(0)){
+	   (input_->IsTriggerMouse(0) || input_->GetRightTrigger() >= 0.5f)) {
 		Vector3 shotDirection = cameraForward;
 
 		if (hasAimTargetPoint_ && tongue_) {
@@ -1212,7 +1213,7 @@ void Player::Update() {
 	}
 
 	// B key: perform tongue-beam sweep (扇状薙ぎ)
-	if (input_->IsTriggerKey(DIK_B)) {
+	if (input_->IsTriggerKey(DIK_E) || input_->IsPressPad(XINPUT_GAMEPAD_B)) {
 		// Use player's facing direction (yaw) for the sweep so arc is relative to player forward
 		float yawForward = GetYaw();
 		Vector3 beamDir = {std::sin(yawForward), 0.0f, std::cos(yawForward)};
@@ -1236,7 +1237,7 @@ void Player::Update() {
 
 	// Q key: cycle selected ability
 	// E key: activate camouflage (next tongue hit will mimic)
-	if (input_->IsTriggerKey(DIK_E)) {
+	if (input_->IsTriggerKey(DIK_Q) || input_->IsPressPad(XINPUT_GAMEPAD_X)) {
 		if (isMimicking_) {
 			EndMimic();
 		} else {
@@ -1245,7 +1246,7 @@ void Player::Update() {
 	}
 
 	// F key: activate sonar immediately
-	if (input_->IsTriggerKey(DIK_F)) {
+	if (input_->IsTriggerKey(DIK_F) || input_->IsPressPad(XINPUT_GAMEPAD_Y)) {
 		sonarTimer_ = sonarDuration_ * 60.0f;
 	}
 
@@ -1410,9 +1411,24 @@ void Player::MoveHorizontal(float cameraYaw) {
 	velocity_.z = groundMoveVelocity_.z;
 
 	object_->SetTranslate(position);
+
+	if (LengthXZ(groundMoveVelocity_) > 0.0001f) {
+		object_->PlayAnimation("walk", false);
+	}
+	else {
+		object_->StopAnimation(0.1f);
+	}
 }
 
 void Player::UpdateJumpCharge() {
+	const bool jumpTrigger =
+		input_->IsTriggerKey(DIK_SPACE) ||
+		input_->IsTriggerPad(XINPUT_GAMEPAD_A);
+
+	const bool jumpPress =
+		input_->IsPushKey(DIK_SPACE) ||
+		input_->IsPressPad(XINPUT_GAMEPAD_A);
+
 	if (!IsOnGround()) {
 		isChargingJump_ = false;
 		chargeTimer_ = 0.0f;
@@ -1421,7 +1437,7 @@ void Player::UpdateJumpCharge() {
 		return;
 	}
 
-	if (input_->IsTriggerKey(DIK_SPACE)) {
+	if (jumpTrigger) {
 		isChargingJump_ = true;
 		isJumpChargeCanceled_ = false;
 		chargeTimer_ = 0.0f;
@@ -1432,7 +1448,7 @@ void Player::UpdateJumpCharge() {
 		return;
 	}
 
-	if (input_->IsPushKey(DIK_SPACE)) {
+	if (jumpPress) {
 		chargeTimer_ += 1.0f;
 
 		int currentLevel = GetCurrentChargeLevel();
@@ -1444,12 +1460,13 @@ void Player::UpdateJumpCharge() {
 				CancelJumpCharge();
 				return;
 			}
-		} else {
+		}
+		else {
 			chargeMaxHoldTimer_ = 0.0f;
 		}
 	}
 
-	if (!input_->IsPushKey(DIK_SPACE)) {
+	if (!jumpPress) {
 		if (!isJumpChargeCanceled_) {
 			int chargeLevel = GetCurrentChargeLevel();
 			chargeLevel = std::min(chargeLevel, GetAllowedChargeLevel());
@@ -1533,26 +1550,32 @@ Vector3 Player::GetMoveInputDirection(float cameraYaw) const {
 	Vector3 forward = { std::sin(cameraYaw), 0.0f, std::cos(cameraYaw) };
 	Vector3 right = { std::cos(cameraYaw), 0.0f, -std::sin(cameraYaw) };
 
-	if (input_->IsPushKey(DIK_W)) {
-		inputDir.x += forward.x;
-		inputDir.z += forward.z;
-		object_->PlayAnimation("walk", false);
+	// キーボードのデジタル入力
+	float keyX = 0.0f;
+	float keyY = 0.0f;
+	if (input_->IsPushKey(DIK_D)) { keyX += 1.0f; }
+	if (input_->IsPushKey(DIK_A)) { keyX -= 1.0f; }
+	if (input_->IsPushKey(DIK_W)) { keyY += 1.0f; }
+	if (input_->IsPushKey(DIK_S)) { keyY -= 1.0f; }
+
+	// パッドのアナログ入力
+	float padX = input_->GetLeftStickX();
+	float padY = input_->GetLeftStickY();
+
+	// 両方を合成して、最後に1回だけ方向決定
+	float moveX = keyX + padX;
+	float moveY = keyY + padY;
+
+	// 長さ1を超えないようにする
+	float len2 = moveX * moveX + moveY * moveY;
+	if (len2 > 1.0f) {
+		float invLen = 1.0f / std::sqrt(len2);
+		moveX *= invLen;
+		moveY *= invLen;
 	}
-	if (input_->IsPushKey(DIK_S)) {
-		inputDir.x -= forward.x;
-		inputDir.z -= forward.z;
-		object_->PlayAnimation("walk", false);
-	}
-	if (input_->IsPushKey(DIK_D)) {
-		inputDir.x += right.x;
-		inputDir.z += right.z;
-		object_->PlayAnimation("walk", false);
-	}
-	if (input_->IsPushKey(DIK_A)) {
-		inputDir.x -= right.x;
-		inputDir.z -= right.z;
-		object_->PlayAnimation("walk", false);
-	}
+
+	inputDir += right * moveX;
+	inputDir += forward * moveY;
 
 	float len = LengthXZ(inputDir);
 	if (len > 0.0001f) {
@@ -2112,24 +2135,36 @@ void Player::UpdateWallClinging(float cameraYaw) {
 		return;
 	}
 
-	Vector3 moveVec = {0.0f, 0.0f, 0.0f};
+	Vector3 moveVec = { 0.0f, 0.0f, 0.0f };
 
-	if (input_->IsPushKey(DIK_W)) {
-		moveVec += clingSurfaceUp_;
-	}
-	if (input_->IsPushKey(DIK_S)) {
-		moveVec -= clingSurfaceUp_;
-	}
-	if (input_->IsPushKey(DIK_D)) {
-		moveVec -= wallRightVec_;
-	}
-	if (input_->IsPushKey(DIK_A)) {
-		moveVec += wallRightVec_;
+	// キーボード
+	float keyX = 0.0f;
+	float keyY = 0.0f;
+	if (input_->IsPushKey(DIK_D)) { keyX += 1.0f; }
+	if (input_->IsPushKey(DIK_A)) { keyX -= 1.0f; }
+	if (input_->IsPushKey(DIK_W)) { keyY += 1.0f; }
+	if (input_->IsPushKey(DIK_S)) { keyY -= 1.0f; }
+
+	// パッド
+	float padX = input_->GetLeftStickX();
+	float padY = input_->GetLeftStickY();
+
+	float moveX = keyX + padX;
+	float moveY = keyY + padY;
+
+	float len2 = moveX * moveX + moveY * moveY;
+	if (len2 > 1.0f) {
+		float invLen = 1.0f / std::sqrt(len2);
+		moveX *= invLen;
+		moveY *= invLen;
 	}
 
-	float len = std::sqrt(moveVec.x * moveVec.x + moveVec.y * moveVec.y + moveVec.z * moveVec.z);
+	moveVec += clingSurfaceUp_ * moveY;
+	moveVec += wallRightVec_ * (-moveX);
+
+	float len = Length3(moveVec);
 	if (len > 0.0001f) {
-		moveVec = moveVec * (1.0f / len);
+		moveVec *= (1.0f / len);
 		position += moveVec * wallMoveSpeed_;
 	}
 
@@ -2156,7 +2191,8 @@ void Player::UpdateWallClinging(float cameraYaw) {
 		return;
 	}
 
-	if (input_->IsTriggerKey(DIK_SPACE)) {
+	if (input_->IsTriggerKey(DIK_SPACE) ||
+		input_->IsPressPad(XINPUT_GAMEPAD_A)) {
 		object_->SetTranslate(position);
 
 		// 天井に張り付いているときだけ高速移動モードへ移行
@@ -2283,7 +2319,7 @@ void Player::UpdateCeilingCrawling() {
 	object_->PlayAnimation("walk", false);
 
 	// 左クリックで手を離す
-	if (input_->IsTriggerMouse(0)) {
+	if (input_->IsTriggerMouse(0) || input_->GetRightTrigger() >= 0.5f) {
 		hasClingSurface_ = false;
 		velocity_ = {0.0f, 0.0f, 0.0f};
 		suppressTongueShotThisFrame_ = true;
@@ -2292,7 +2328,7 @@ void Player::UpdateCeilingCrawling() {
 	}
 
 	// もう一度 Space を押したら通常の張り付き状態へ戻す
-	if (input_->IsTriggerKey(DIK_SPACE)) {
+	if (input_->IsTriggerKey(DIK_SPACE) || input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 		TransitionTo(MovementState::WallClinging);
 		return;
 	}

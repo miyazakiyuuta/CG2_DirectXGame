@@ -132,42 +132,42 @@ void CameraController::Update(const Vector3& target){
 		return;
 	}
 
-	// 右クリック中は一人称寄りのエイム視点
-	isAimMode_ = input_->IsPressMouse(1);
+	// 右クリックまたはLTでエイム
+	isAimMode_ = input_->IsPressMouse(1) || (input_->GetLeftTrigger() > 0.35f);
 
-	debugTopAngleDeg_ = 0.0f;
-	debugIsInsideTopRelaxAngle_ = false;
-	debugHitSomething_ = false;
-	debugShouldRelax_ = false;
-	debugActuallyRelaxed_ = false;
-	debugActuallySkippedPullIn_ = false;
-	debugNearestT_ = -1.0f;
-	debugEffectiveMargin_ = cameraCollisionMargin_;
-	debugSafeT_ = -1.0f;
-	debugHasObstacleColliders_ = (obstacleColliders_ != nullptr);
-	debugIsAimMode_ = isAimMode_;
+	// キーボードの視点入力
+	float lookX = 0.0f;
+	float lookY = 0.0f;
 
-	// キーボード操作
-	if(input_->IsPushKey(DIK_LEFT)){
-		yaw_ -= yawSpeed_;
+	if (input_->IsPushKey(DIK_LEFT)) {
+		lookX -= yawSpeed_;
 	}
-	if(input_->IsPushKey(DIK_RIGHT)){
-		yaw_ += yawSpeed_;
+	if (input_->IsPushKey(DIK_RIGHT)) {
+		lookX += yawSpeed_;
 	}
-	if(input_->IsPushKey(DIK_UP)){
-		pitch_ += pitchSpeed_;
+	if (input_->IsPushKey(DIK_UP)) {
+		lookY += pitchSpeed_;
 	}
-	if(input_->IsPushKey(DIK_DOWN)){
-		pitch_ -= pitchSpeed_;
+	if (input_->IsPushKey(DIK_DOWN)) {
+		lookY -= pitchSpeed_;
 	}
 
-		const int mouseMoveX = input_->GetMouseMove().x;
-		const int mouseMoveY = -input_->GetMouseMove().y;
+	// マウスの視点入力
+	const int mouseMoveX = input_->GetMouseMove().x;
+	const int mouseMoveY = -input_->GetMouseMove().y;
 
-		yaw_ += static_cast<float>(mouseMoveX) * mouseSensitivity_;
+	lookX += static_cast<float>(mouseMoveX) * mouseSensitivity_;
 
-		const float ySign = invertY_ ? 1.0f : -1.0f;
-		pitch_ += static_cast<float>(mouseMoveY) * mouseSensitivity_ * ySign;
+	const float ySign = invertY_ ? 1.0f : -1.0f;
+	lookY += static_cast<float>(mouseMoveY) * mouseSensitivity_ * ySign;
+
+	// パッド右スティックの視点入力
+	lookX += input_->GetRightStickX() * 0.08f;
+	lookY += input_->GetRightStickY() * 0.06f * ySign;
+
+	// 実際の反映は1回だけ
+	yaw_ += lookX;
+	pitch_ += lookY;
 
 	// ホイール入力は通常時だけ反映
 	if(!isAimMode_){
