@@ -9,7 +9,6 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
 	spriteCommon_ = spriteCommon;
 	dxCommon_ = spriteCommon_->GetDxCommon();
 	filePath_ = textureFilePath;
-	textureIndex_ = TextureManager::GetInstance()->GetSrvIndex(filePath_);
 	srvIndex_ = TextureManager::GetInstance()->GetSrvIndex(filePath_);
 
 	CreateVertexData();
@@ -20,6 +19,7 @@ void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath)
 
 	CreateTransformationMatrixData();
 
+	AdjustTextureSize();
 }
 
 void Sprite::Update() {
@@ -40,7 +40,6 @@ void Sprite::Update() {
 		bottom = -bottom;
 	}
 
-	//const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
 	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetaData(filePath_);
 	float tex_left = textureLeftTop_.x / metadata.width;
 	float tex_right = (textureLeftTop_.x + textureSize_.x) / metadata.width;
@@ -48,36 +47,14 @@ void Sprite::Update() {
 	float tex_bottom = (textureLeftTop_.y + textureSize_.y) / metadata.height;
 
 	// 頂点リソースにデータを書き込む(4点分)
-	// 1枚目の三角形
 	vertexData_[0].position = { left,bottom,0.0f,1.0f }; // 左下
 	vertexData_[0].texcoord = { tex_left,tex_bottom };
-	vertexData_[0].normal = { 0.0f,0.0f,-1.0f };
 	vertexData_[1].position = { left,top,0.0f,1.0f }; // 左上
 	vertexData_[1].texcoord = { tex_left,tex_top };
-	vertexData_[1].normal = { 0.0f,0.0f,-1.0f };
 	vertexData_[2].position = { right,bottom,0.0f,1.0f }; // 右下
 	vertexData_[2].texcoord = { tex_right,tex_bottom };
-	vertexData_[2].normal = { 0.0f,0.0f,-1.0f };
-	// 2枚目の三角形
-	vertexData_[3].position = { right,top,0.0f,1.0f }; // 左上
+	vertexData_[3].position = { right,top,0.0f,1.0f }; // 右上
 	vertexData_[3].texcoord = { tex_right,tex_top };
-	vertexData_[3].normal = { 0.0f,0.0f,1.0f };
-	vertexData_[4].position = { right,top,0.0f,1.0f }; // 右上
-	vertexData_[4].texcoord = { tex_right,tex_top };
-	vertexData_[4].normal = { 0.0f,0.0f,1.0f };
-	vertexData_[5].position = { right,bottom,0.0f,1.0f }; // 右下
-	vertexData_[5].texcoord = { tex_right,tex_top };
-	vertexData_[5].normal = { 0.0f,0.0f,1.0f };
-
-	// インデックスリソースにデータを書き込む(6個分)
-	// IndexResourceにデータを書き込むためのアドレスを取得してindexDataに割り当てる
-	indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData_));
-	indexData_[0] = 0;
-	indexData_[1] = 1;
-	indexData_[2] = 2;
-	indexData_[3] = 1;
-	indexData_[4] = 3;
-	indexData_[5] = 2;
 
 	// Transform情報を作る
 	Transform transform{ {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
@@ -93,7 +70,6 @@ void Sprite::Update() {
 	Matrix4x4 projectionMatrix = Matrix4x4::Orthographic(0.0f, 0.0f, float(WinApp::kClientWidth), float(WinApp::kClientHeight), 0.0f, 100.0f);
 
 	transformationMatrixData_->WVP = worldMatrix * (viewMatrix * projectionMatrix);
-	transformationMatrixData_->World = worldMatrix;
 }
 
 void Sprite::Draw() {
@@ -110,7 +86,6 @@ void Sprite::Draw() {
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
 	// SRVのDescriptorTableの先頭を設定
-	//D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = dxCommon_->GetSRVGPUDescriptorHandle(1);
 	commandList->SetGraphicsRootDescriptorTable(
 		2, // SRV用のルートパラメータ番号
 		srvManager->GetGPUDescriptorHandle(srvIndex_)
@@ -121,13 +96,13 @@ void Sprite::Draw() {
 
 void Sprite::CreateVertexData() {
 	// VertexResourceを作る
-	vertexResource_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * 6);
+	vertexResource_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * 4);
 
 	// VertexBufferViewを作成する
 	// リソースの先頭のアドレスから使う
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-	// 使用するリソースのサイズは頂点6つ分のサイズ
-	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 6;
+	// 使用するリソースのサイズは頂点4つ分のサイズ
+	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 4;
 	// 1頂点あたりのサイズ
 	vertexBufferView_.StrideInBytes = sizeof(VertexData);
 
@@ -148,6 +123,18 @@ void Sprite::CreateIndexData() {
 	// インデックスはuint32_tとする
 	indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
 
+	// インデックスリソースにデータを書き込む(6個分)
+	// IndexResourceにデータを書き込むためのアドレスを取得してindexDataに割り当てる
+	uint32_t* indexData = nullptr;
+	indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+	indexData[0] = 0;
+	indexData[1] = 1;
+	indexData[2] = 2;
+	indexData[3] = 1;
+	indexData[4] = 3;
+	indexData[5] = 2;
+	indexResource_->Unmap(0, nullptr);
+
 }
 
 void Sprite::CreateMaterialData() {
@@ -158,7 +145,6 @@ void Sprite::CreateMaterialData() {
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 	// マテリアルデータの初期値を書き込む
 	materialData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
-	materialData_->enableLighting = false;
 	materialData_->uvTransform = Matrix4x4::Identity();
 }
 
@@ -171,13 +157,10 @@ void Sprite::CreateTransformationMatrixData() {
 
 	// 単位行列に書き込んでおく
 	transformationMatrixData_->WVP = Matrix4x4::Identity();
-	transformationMatrixData_->World = Matrix4x4::Identity();
-	transformationMatrixData_->WorldInverseTranspose = Matrix4x4::Identity();
 }
 
 void Sprite::AdjustTextureSize() {
 	// テクスチャメタデータを取得
-	//const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetadata(textureIndex_);
 	const DirectX::TexMetadata& metadata = TextureManager::GetInstance()->GetMetaData(filePath_);
 
 	textureSize_.x = static_cast<float>(metadata.width);

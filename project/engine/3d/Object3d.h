@@ -67,6 +67,10 @@ public: // セッター&ゲッター
 		}
 		return 0.0f;
 	}
+	// 指定したボーン名のワールド行列を取得（見つからなければnullopt）
+	std::optional<Matrix4x4> GetBoneWorldMatrix(const std::string& boneName) const;
+	// 位置だけ欲しい場合のショートカット
+	std::optional<Vector3> GetBoneWorldPosition(const std::string& boneName) const;
 
 private: // メンバ構造体
 
