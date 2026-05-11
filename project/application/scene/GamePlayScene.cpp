@@ -286,7 +286,7 @@ void GamePlayScene::Update() {
 		enemyManager_->SetBlockColliders(&stageBlockColliders_);
 		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
 	}
-
+ 
 
 	// 1. ポーズメニュー自体の更新（ESCキー判定など）
 	pauseMenu_->Update();
