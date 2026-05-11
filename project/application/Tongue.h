@@ -64,11 +64,13 @@ private:
 	void UpdateExtending(float deltaTime);
 	void UpdateReturning(float deltaTime);
 	Vector3 GetMouthWorldPosition() const;
+	void UpdateLinkVisual();
 
 private:
 	Player* owner_ = nullptr;
 	Camera* camera_ = nullptr;
 	std::unique_ptr<Object3d> object_ = nullptr;
+	std::unique_ptr<Object3d> linkObject_ = nullptr;
 
 	State state_ = State::Idle;
 
@@ -103,6 +105,8 @@ private:
 	float hitRadius_ = 0.3f;
 
 	float currentAlpha_ = 1.0f;
+
+	float linkThickness_ = 0.06f;
 
 	// スイープ状態の管理
 	bool sweeping_ = false;

@@ -666,7 +666,7 @@ Vector3 Player::GetHeadbornPosition() const {
 	const Matrix4x4& world = *boneWorldOpt;
 
 	// ボーン原点から口元までのローカル補正
-	Vector3 mouthLocalOffset = { 0.0f, 0.0f, 0.0f };
+	Vector3 mouthLocalOffset = { 0.0f, 0.5f, 0.0f };
 
 	// モデル見た目合わせ用のローカルYaw補正
 	const float mouthLocalYawOffsetDeg = 10.0f;
@@ -1010,8 +1010,6 @@ void Player::CheckTongueBlockHook() {
 
 			if (useTonguePull_) {
 				TransitionTo(MovementState::TonguePulling);
-			} else {
-				tongue_->StartReturn();
 			}
 			return;
 		}
@@ -1050,10 +1048,18 @@ void Player::UpdateTonguePulling() {
 		}
 
 		object_->SetTranslate(snapped);
-		velocity_ = {0.0f, 0.0f, 0.0f};
+		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
-		tongue_->StartReturn();
-		TransitionTo(MovementState::WallClinging);
+
+		// ここでは戻さない
+		// tongue_->StartReturn();
+
+		if (IsCeilingSurface(clingSurfaceNormal_)) {
+			TransitionTo(MovementState::CeilingCrawling);
+		}
+		else {
+			TransitionTo(MovementState::WallClinging);
+		}
 		return;
 	}
 
