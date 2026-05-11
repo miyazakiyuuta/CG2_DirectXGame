@@ -287,21 +287,6 @@ void GamePlayScene::Update() {
 		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
 	}
 
-	if (!stageEditor_->IsEditMode()) {
-		cameraController_->Update(player_->GetPosition());
-
-		// プレイヤーを Update する直前に減速倍率をセットする
-		if (enemyManager_ && player_) {
-			float totalSlowdown = enemyManager_->GetTotalPlayerSpeedMultiplier();
-			player_->SetSpeedMultiplier(totalSlowdown);
-		}
-
-		player_->Update();
-
-		if (enemyManager_) {
-			enemyManager_->Update(1.0f / 60.0f, player_.get());
-		}
-	}
 
 	// 1. ポーズメニュー自体の更新（ESCキー判定など）
 	pauseMenu_->Update();
