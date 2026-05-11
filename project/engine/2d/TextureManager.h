@@ -12,7 +12,9 @@ class SrvManager;
 // テクスチャマネージャー
 class TextureManager {
 public:
+	// シングルトンインスタンスの取得
 	static TextureManager* GetInstance();
+	// 終了
 	void Finalize();
 
 	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
@@ -20,6 +22,8 @@ public:
 	/// <summary>
 	/// テクスチャファイルの読み込み
 	/// </summary>
+	/// <param name="filePath">テクスチャファイルのパス</param>
+	/// <returns>画像イメージデータ</returns>
 	void LoadTexture(const std::string& filePath);
 
 	// メタデータの取得
@@ -29,6 +33,7 @@ public:
 	// GPUハンドルの取得
 	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvHandleGPU(const std::string& filePath);
 
+	// デフォルトテクスチャの名前
 	static inline const std::string kDefaultTextureName = "white";
 
 private:
@@ -36,8 +41,6 @@ private:
 	struct TextureData {
 		DirectX::TexMetadata metadata;
 		Microsoft::WRL::ComPtr<ID3D12Resource> resource;
-		// 【重要】GPUへの転送が完了するまでデータを維持するためのリソース
-		Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource;
 		uint32_t srvIndex;
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU;
 		D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPU;
@@ -53,6 +56,9 @@ private:
 	TextureManager& operator=(TextureManager&) = delete;
 
 	DirectXCommon* dxCommon_ = nullptr;
+
+	// テクスチャデータ
 	std::unordered_map<std::string, TextureData> textureDatas_;
+
 	SrvManager* srvManager_ = nullptr;
 };
