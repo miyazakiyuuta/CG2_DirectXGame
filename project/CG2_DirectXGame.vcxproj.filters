@@ -342,6 +342,7 @@
     <None Include="resources\shaders\Skybox.hlsli" />
     <None Include="resources\shaders\Sprite.hlsli" />
     <None Include="resources\shaders\Debug.hlsli" />
+    <None Include="resources\shaders\GammaCorrection.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />

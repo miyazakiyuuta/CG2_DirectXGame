@@ -1,4 +1,6 @@
 #include "Particle.hlsli"
+#include "GammaCorrection.hlsli"
+
 struct Material {
     float4 color;
     int enableLighting;
@@ -23,6 +25,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
     float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
     
     output.color = gMaterial.color * textureColor * input.color;
+    output.color.rgb = LinearToSRGB(output.color.rgb);
     
     if (textureColor.a == 0.0f) {
         discard;
