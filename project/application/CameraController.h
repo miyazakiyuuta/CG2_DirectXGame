@@ -9,33 +9,46 @@
 
 class Camera;
 
-class CameraController{
+class CameraController {
 public:
 	void Initialize(Camera* camera);
 
 	// プレイヤー位置を中心に、独立した yaw / pitch で回る
 	void Update(const Vector3& target);
 
-	void SetTargetOffset(const Vector3& offset){ targetOffset_ = offset; }
+	void SetTargetOffset(const Vector3& offset) { targetOffset_ = offset; }
 
-	void SetDistance(float distance){
+	void SetDistance(float distance) {
 		distance_ = distance;
 		targetDistance_ = distance;
 		normalDistance_ = distance;
 	}
 
-	void SetHeight(float height){
+	void SetHeight(float height) {
 		height_ = height;
 		normalHeight_ = height;
 	}
 
-	void SetYawSpeed(float speed){ yawSpeed_ = speed; }
-	void SetPitchSpeed(float speed){ pitchSpeed_ = speed; }
+	// 各種移動速度・感度の設定
+	void SetYawSpeed(float speed) { yawSpeed_ = speed; }
+	void SetPitchSpeed(float speed) { pitchSpeed_ = speed; }
+	void SetMouseSensitivity(float sensitivity) { mouseSensitivity_ = sensitivity; }
 
-	void SetZoomRange(float minZoom, float maxZoom){
+	// ベース速度のGetter/Setter (マジックナンバー排除用)
+	float GetBaseYawSpeed() const { return baseYawSpeed_; }
+	float GetBasePitchSpeed() const { return basePitchSpeed_; }
+	float GetBaseMouseSensitivity() const { return baseMouseSensitivity_; }
+	float GetBasePadYawSpeed() const { return basePadYawSpeed_; }
+	float GetBasePadPitchSpeed() const { return basePadPitchSpeed_; }
+
+	void SetBaseYawSpeed(float speed) { baseYawSpeed_ = speed; }
+	void SetBasePitchSpeed(float speed) { basePitchSpeed_ = speed; }
+	void SetBaseMouseSensitivity(float sensitivity) { baseMouseSensitivity_ = sensitivity; }
+
+	void SetZoomRange(float minZoom, float maxZoom) {
 		minZoom_ = minZoom;
 		maxZoom_ = maxZoom;
-		if(minZoom_ > maxZoom_){
+		if (minZoom_ > maxZoom_) {
 			std::swap(minZoom_, maxZoom_);
 		}
 		targetDistance_ = std::clamp(targetDistance_, minZoom_, maxZoom_);
@@ -43,61 +56,45 @@ public:
 		normalDistance_ = std::clamp(normalDistance_, minZoom_, maxZoom_);
 	}
 
-	void SetZoomStep(float step){ zoomStep_ = step; }
-	void SetZoomEaseSpeed(float speed){ zoomEaseSpeed_ = speed; }
+	void SetZoomStep(float step) { zoomStep_ = step; }
+	void SetZoomEaseSpeed(float speed) { zoomEaseSpeed_ = speed; }
 
-	void SetMouseSensitivity(float sensitivity){ mouseSensitivity_ = sensitivity; }
-	void SetInvertY(bool invert){ invertY_ = invert; }
+	void SetInvertY(bool invert) { invertY_ = invert; }
 
 	// 遮蔽物として使うブロック群
-	void SetObstacleColliders(const std::vector<CollisionUtility::OBB>* obstacleColliders){
-		obstacleColliders_ = obstacleColliders;
-	}
+	void SetObstacleColliders(const std::vector<CollisionUtility::OBB>* obstacleColliders) { obstacleColliders_ = obstacleColliders; }
 
-	// ヒット位置の手前にどれだけ余白を残すか
-	void SetCameraCollisionMargin(float margin){ cameraCollisionMargin_ = margin; }
+	void SetCameraCollisionMargin(float margin) { cameraCollisionMargin_ = margin; }
+	void SetEnableTopViewOcclusionRelax(bool enable) { enableTopViewOcclusionRelax_ = enable; }
 
-	// 上方視点時の遮蔽緩和設定
-	void SetEnableTopViewOcclusionRelax(bool enable){ enableTopViewOcclusionRelax_ = enable; }
-
-	// 0° = 真上, 90° = 水平
-	void SetTopViewRelaxAngleRange(float minAngleDeg, float maxAngleDeg){
+	void SetTopViewRelaxAngleRange(float minAngleDeg, float maxAngleDeg) {
 		topViewRelaxMinAngleDeg_ = std::clamp(minAngleDeg, 0.0f, 180.0f);
 		topViewRelaxMaxAngleDeg_ = std::clamp(maxAngleDeg, 0.0f, 180.0f);
-		if(topViewRelaxMinAngleDeg_ > topViewRelaxMaxAngleDeg_){
+		if (topViewRelaxMinAngleDeg_ > topViewRelaxMaxAngleDeg_) {
 			std::swap(topViewRelaxMinAngleDeg_, topViewRelaxMaxAngleDeg_);
 		}
 	}
 
-	// true なら角度範囲内で前寄せを完全に行わない
-	// false なら margin を縮めて「緩和だけ」する
-	void SetTopViewDisablePullIn(bool disable){ topViewDisablePullIn_ = disable; }
+	void SetTopViewDisablePullIn(bool disable) { topViewDisablePullIn_ = disable; }
 
-	// 緩和時に cameraCollisionMargin_ を何倍まで縮めるか
-	void SetTopViewOcclusionMarginScale(float scale){
-		topViewOcclusionMarginScale_ = std::clamp(scale, 0.0f, 1.0f);
-	}
+	void SetTopViewOcclusionMarginScale(float scale) { topViewOcclusionMarginScale_ = std::clamp(scale, 0.0f, 1.0f); }
 
-	float GetYaw() const{ return yaw_; }
-	float GetPitch() const{ return pitch_; }
-	float GetDistance() const{ return distance_; }
+	float GetYaw() const { return yaw_; }
+	float GetPitch() const { return pitch_; }
+	float GetDistance() const { return distance_; }
+	float GetMouseSensitivity() const { return mouseSensitivity_; }
 
-	bool SetIsUse(bool isUse){ return isUse_ = isUse; }
-	bool GetIsUse() const{ return isUse_; }
+	bool SetIsUse(bool isUse) { return isUse_ = isUse; }
+	bool GetIsUse() const { return isUse_; }
 
-	// 右クリック中の一人称寄り視点
-	bool IsAimMode() const{ return isAimMode_; }
+	bool IsAimMode() const { return isAimMode_; }
 	Vector3 GetForwardDirection() const;
 
 	void DrawImGui();
 
-	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder){
-		keepInsideCylinder_ = cylinder;
-	}
+	void SetKeepInsideCylinder(const CollisionUtility::Cylinder* cylinder) { keepInsideCylinder_ = cylinder; }
 
-	void SetObstacleCylinder(const CollisionUtility::Cylinder* cylinder){
-		obstacleCylinder_ = cylinder;
-	}
+	void SetObstacleCylinder(const CollisionUtility::Cylinder* cylinder) { obstacleCylinder_ = cylinder; }
 
 private:
 	Camera* camera_ = nullptr;
@@ -106,15 +103,21 @@ private:
 	float yaw_ = 0.0f;
 	float pitch_ = 0.35f;
 
-	// 実際の表示距離
 	float distance_ = 10.0f;
-	// ホイール入力で変わる目標距離
 	float targetDistance_ = 10.0f;
-
 	float height_ = 2.5f;
 
+	// 現在の適用速度
 	float yawSpeed_ = 0.03f;
 	float pitchSpeed_ = 0.02f;
+	float mouseSensitivity_ = 0.01f;
+
+	// ベース速度設定 (ここを基準に感度倍率をかける)
+	float baseYawSpeed_ = 0.03f;
+	float basePitchSpeed_ = 0.02f;
+	float baseMouseSensitivity_ = 0.005f; // デフォルト基準値
+	float basePadYawSpeed_ = 0.08f;
+	float basePadPitchSpeed_ = 0.06f;
 
 	// ズーム設定
 	float minZoom_ = 1.0f;
@@ -122,69 +125,45 @@ private:
 	float zoomStep_ = 0.02f;
 	float zoomEaseSpeed_ = 0.2f;
 
-	// マウス回転設定
-	float mouseSensitivity_ = 0.01f;
 	bool invertY_ = false;
 
-	Vector3 targetOffset_ = { 0.0f, 1.0f, 0.0f };
-
-	// 通常時のカメラ値
+	Vector3 targetOffset_ = {0.0f, 1.0f, 0.0f};
 	float normalDistance_ = 10.0f;
 	float normalHeight_ = 2.5f;
 
-	// 右クリック中の一人称寄りカメラ値
 	bool isAimMode_ = false;
 	float aimDistance_ = -0.20f;
 	float aimHeight_ = 0.10f;
-	Vector3 aimTargetOffset_ = { 0.0f, 1.35f, 0.0f };
+	Vector3 aimTargetOffset_ = {0.0f, 1.35f, 0.0f};
 
-	// カメラ遮蔽対策
 	const std::vector<CollisionUtility::OBB>* obstacleColliders_ = nullptr;
 	float cameraCollisionMargin_ = 0.50f;
-
-	// 0° = 真上, 90° = 水平
 	float topViewRelaxMinAngleDeg_ = 0.0f;
 	float topViewRelaxMaxAngleDeg_ = 90.0f;
-
-	// true: 範囲内なら前寄せしない
-	// false: 範囲内なら前寄せを緩和する
 	bool topViewDisablePullIn_ = true;
-
-	// 上方視点時だけ、遮蔽による前寄せ量を弱める
 	bool enableTopViewOcclusionRelax_ = true;
-
-	// toCamera と worldUp の内積。
-	// 0.70f 付近から緩和を開始し、0.85f で最大まで効かせる想定。
 	float topViewRelaxStartDot_ = 0.70f;
 	float topViewRelaxEndDot_ = 0.85f;
-
-	// 上方視点時に cameraCollisionMargin_ を何倍まで縮めるか。
-	// 1.0f なら緩和なし、0.35f なら 35% まで縮小。
 	float topViewOcclusionMarginScale_ = 0.35f;
 
 	bool isUse_ = true;
-
-	Vector3 currentForward_ = { 0.0f, 0.0f, 1.0f };
-
+	Vector3 currentForward_ = {0.0f, 0.0f, 1.0f};
 	float cameraBodyRadius_ = 0.05f;
-
 	float cameraCollisionMinDistance_ = 0.15f;
 
 	const CollisionUtility::Cylinder* obstacleCylinder_ = nullptr;
 	const CollisionUtility::Cylinder* keepInsideCylinder_ = nullptr;
 
-	// ---- Debug: Top-view occlusion relax ----
+	// Debug members...
 	float debugTopAngleDeg_ = 0.0f;
 	bool debugIsInsideTopRelaxAngle_ = false;
 	bool debugHitSomething_ = false;
 	bool debugShouldRelax_ = false;
 	bool debugActuallyRelaxed_ = false;
 	bool debugActuallySkippedPullIn_ = false;
-
 	float debugNearestT_ = -1.0f;
 	float debugEffectiveMargin_ = 0.0f;
 	float debugSafeT_ = -1.0f;
-
 	bool debugHasObstacleColliders_ = false;
 	bool debugIsAimMode_ = false;
 };

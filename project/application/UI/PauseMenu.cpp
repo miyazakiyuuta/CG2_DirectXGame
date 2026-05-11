@@ -120,7 +120,9 @@ void PauseMenu::HandleInput() {
 			delta = -0.01f;
 		if (input_->IsPushKey(DIK_D))
 			delta = 0.01f;
+
 		if (selectIndex_ == 0) {
+			// 感度倍率を変更 (0.1倍 ～ 5.0倍)
 			mouseSensitivity_ = (std::clamp)(mouseSensitivity_ + delta, 0.1f, 5.0f);
 			ApplySettings();
 		} else if (selectIndex_ == 1) {
@@ -131,8 +133,12 @@ void PauseMenu::HandleInput() {
 
 void PauseMenu::ApplySettings() {
 	if (cameraController_) {
-		cameraController_->SetYawSpeed(0.03f * mouseSensitivity_);
-		cameraController_->SetPitchSpeed(0.02f * mouseSensitivity_);
+		// 【修正】マジックナンバーを排除し、コントローラーが保持するベース速度に倍率をかける
+		float mult = mouseSensitivity_;
+
+		cameraController_->SetYawSpeed(cameraController_->GetBaseYawSpeed() * mult);
+		cameraController_->SetPitchSpeed(cameraController_->GetBasePitchSpeed() * mult);
+		cameraController_->SetMouseSensitivity(cameraController_->GetBaseMouseSensitivity() * mult);
 	}
 }
 
