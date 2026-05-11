@@ -8,7 +8,8 @@ using namespace Logger;
 SpriteCommon* SpriteCommon::instance = nullptr;
 
 SpriteCommon* SpriteCommon::GetInstance() {
-	if (!instance)instance = new SpriteCommon();
+	if (!instance)
+		instance = new SpriteCommon();
 	return instance;
 }
 
@@ -44,7 +45,7 @@ void SpriteCommon::CreateRootSignature() {
 	D3D12_DESCRIPTOR_RANGE srvRange[1] = {};
 	srvRange[0].BaseShaderRegister = 0; // 0から始まる
 	srvRange[0].NumDescriptors = 1;
-	srvRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRVを使う
+	srvRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;                              // SRVを使う
 	srvRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
 
 	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
@@ -61,19 +62,19 @@ void SpriteCommon::CreateRootSignature() {
 	rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(srvRange);
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
-	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // バイリニアフィルタ
+	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;   // バイリニアフィルタ
 	staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 0~1の範囲外をリピート
 	staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER; // 比較しない
-	staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX; // ありったけのMipmapを使う
-	staticSamplers[0].ShaderRegister = 0; // レジスタ番号0を使う
+	staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;     // 比較しない
+	staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;                       // ありったけのMipmapを使う
+	staticSamplers[0].ShaderRegister = 0;                               // レジスタ番号0を使う
 	staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
 
 	rootSignatureDesc.pStaticSamplers = staticSamplers;
 	rootSignatureDesc.NumStaticSamplers = _countof(staticSamplers);
 
-	rootSignatureDesc.pParameters = rootParameters; // ルートパラメータ配列へのポインタ
+	rootSignatureDesc.pParameters = rootParameters;             // ルートパラメータ配列へのポインタ
 	rootSignatureDesc.NumParameters = _countof(rootParameters); // 配列の長さ
 
 	// シリアライズしてバイナリにする
@@ -117,7 +118,7 @@ void SpriteCommon::CreateGraphicsPipelineState() {
 	// RasiterzerStateの設定
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
 	// 裏面(時計回り)を表示しない
-	//rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
+	// rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
 	// 三角形の中を塗りつぶす
 	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
@@ -130,12 +131,12 @@ void SpriteCommon::CreateGraphicsPipelineState() {
 	assert(pixelShaderBlob != nullptr);
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
-	pipelineStateDesc.pRootSignature = rootSignature_.Get(); // RootSignature
-	pipelineStateDesc.InputLayout = inputLayoutDesc; // InputLayout
-	pipelineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(),vertexShaderBlob->GetBufferSize() }; // VertexShader
-	pipelineStateDesc.PS = { pixelShaderBlob->GetBufferPointer(),pixelShaderBlob->GetBufferSize() }; // PixelShader
-	pipelineStateDesc.BlendState = blendDesc; // BlendState
-	pipelineStateDesc.RasterizerState = rasterizerDesc; // RasterizerState
+	pipelineStateDesc.pRootSignature = rootSignature_.Get();                                          // RootSignature
+	pipelineStateDesc.InputLayout = inputLayoutDesc;                                                  // InputLayout
+	pipelineStateDesc.VS = {vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize()}; // VertexShader
+	pipelineStateDesc.PS = {pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize()};   // PixelShader
+	pipelineStateDesc.BlendState = blendDesc;                                                         // BlendState
+	pipelineStateDesc.RasterizerState = rasterizerDesc;                                               // RasterizerState
 	// 書き込むRTVの情報
 	pipelineStateDesc.NumRenderTargets = 1;
 	pipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -159,7 +160,7 @@ void SpriteCommon::CreateGraphicsPipelineState() {
 	pipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 	// 実際に生成
-	
+
 	ID3D12Device* device = dxCommon_->GetDevice();
 	HRESULT hr = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(&pipelineState_));
 	assert(SUCCEEDED(hr));

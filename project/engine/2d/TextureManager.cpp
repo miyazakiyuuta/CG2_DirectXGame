@@ -1,6 +1,6 @@
 #include "2d/TextureManager.h"
-#include "utility/StringUtility.h"
 #include "base/SrvManager.h"
+#include "utility/StringUtility.h"
 
 using namespace StringUtility;
 using namespace Microsoft::WRL;
@@ -14,8 +14,7 @@ TextureManager* TextureManager::GetInstance() {
 	return instance;
 }
 
-void TextureManager::Finalize() {
-}
+void TextureManager::Finalize() {}
 
 void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
@@ -27,7 +26,7 @@ void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 }
 
 void TextureManager::LoadTexture(const std::string& filePath) {
-	
+
 	if (filePath.empty()) { // 空パスなら何もしない
 		return;
 	}
@@ -52,7 +51,7 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 	DirectX::ScratchImage mipImages{};
 
 	if (DirectX::IsCompressed(image.GetMetadata().format)) { // 圧縮フォーマットかどうか調べる
-		mipImages = std::move(image); // 圧縮フォーマットならそのまま使う
+		mipImages = std::move(image);                        // 圧縮フォーマットならそのまま使う
 	} else {
 		hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
 		assert(SUCCEEDED(hr));
@@ -71,7 +70,7 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
 
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
-	//srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
+	// srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
 
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {
@@ -106,14 +105,13 @@ void TextureManager::CreateDefaultTexture() {
 	TextureData& textureData = textureDatas_[kDefaultTextureName];
 	textureData.metadata = image.GetMetadata();
 	textureData.resource = dxCommon_->CreateTextureResource(textureData.metadata);
-	
+
 	// SRV確保と転送
 	textureData.srvIndex = srvManager_->Allocate();
 	textureData.srvHandleCPU = srvManager_->GetCPUDescriptorHandle(textureData.srvIndex);
 	textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, image);
-	
-	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 
+	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 }

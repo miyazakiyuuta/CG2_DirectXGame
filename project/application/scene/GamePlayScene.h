@@ -4,8 +4,9 @@
 #include "utility/CollisionUtility.h"
 
 #include "Enemy/Bug/Bug.h"
-#include "Slug.h" // ���ꂪ�G���[�Ȃ��ǂݍ��߂�K�v������܂�
+#include "Slug.h"
 #include "Reticle.h"
+
 
 #include <cstdint>
 #include <d3d12.h>
@@ -21,7 +22,8 @@ class Stage;
 class StageEditor;
 class Skybox;
 class DebugGrid;
-class EnemyManager; // 追加
+class EnemyManager;
+class PauseMenu;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -48,8 +50,10 @@ private:
     std::unique_ptr<Stage> stage_;
     std::unique_ptr<StageEditor> stageEditor_;
 
-	// 追加：エネミーを一括管理するマネージャー
+	// エネミーを一括管理するマネージャー
 	std::unique_ptr<EnemyManager> enemyManager_;
+	// ポーズメニュー
+	std::unique_ptr<PauseMenu> pauseMenu_;
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
 	std::vector<CollisionUtility::OBB> waterBlockColliders_;

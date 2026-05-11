@@ -3,6 +3,7 @@
 #include "math/Matrix4x4.h"
 #include "math/Vector4.h"
 #include "math/Vector2.h"
+#include "math/Vector4.h"
 #include <string>
 
 class SpriteCommon;
@@ -12,8 +13,8 @@ class SrvManager;
 class Sprite {
 public: // メンバ関数
 	void Initialize(SpriteCommon* spriteCommon, std::string textureFilePath);
-    void Update();
-    void Draw();
+	void Update();
+	void Draw();
 
 public:
     // getter
@@ -35,12 +36,12 @@ public:
 	void SetTextureSize(const Vector2& size) { textureSize_ = size; } // テクスチャの切り出しサイズ
 
 private:
-    void CreateVertexData();
-    void CreateIndexData();
-    void CreateMaterialData();
-    void CreateTransformationMatrixData();
-    // テクスチャサイズをイメージに合わせる
-    void AdjustTextureSize();
+	void CreateVertexData();
+	void CreateIndexData();
+	void CreateMaterialData();
+	void CreateTransformationMatrixData();
+	// テクスチャサイズをイメージに合わせる
+	void AdjustTextureSize();
 
 private:
     // 頂点データ
@@ -61,7 +62,7 @@ private:
     };
 
 	SpriteCommon* spriteCommon_ = nullptr;
-    DirectXCommon* dxCommon_ = nullptr;
+	DirectXCommon* dxCommon_ = nullptr;
 
     // バッファリソース
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
@@ -82,17 +83,16 @@ private:
 
     Vector2 anchorPoint_ = { 0.0f,0.0f };
 
-    // 左右フリップ
+	// 左右フリップ
 	bool isFlipX_ = false;
 	// 上下フリップ
 	bool isFlipY_ = false;
 
-    // テクスチャ左上座標
-    Vector2 textureLeftTop_ = { 0.0f,0.0f };
-    // テクスチャ切り出しサイズ
-    Vector2 textureSize_ = { 100.0f,100.0f };
+	// テクスチャ左上座標
+	Vector2 textureLeftTop_ = {0.0f, 0.0f};
+	// テクスチャ切り出しサイズ
+	Vector2 textureSize_ = {100.0f, 100.0f};
 
-    std::string filePath_;
-    uint32_t srvIndex_ = 0;
+	std::string filePath_;
+	uint32_t srvIndex_ = 0;
 };
-

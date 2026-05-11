@@ -1,8 +1,8 @@
-#include "base/WinApp.h"
-#include "base/SrvManager.h"
 #include "2d/Sprite.h"
 #include "2d/SpriteCommon.h"
 #include "2d/TextureManager.h"
+#include "base/SrvManager.h"
+#include "base/WinApp.h"
 #include "math/Transform.h"
 
 void Sprite::Initialize(SpriteCommon* spriteCommon, std::string textureFilePath) {
@@ -57,10 +57,14 @@ void Sprite::Update() {
 	vertexData_[3].texcoord = { tex_right,tex_top };
 
 	// Transform情報を作る
-	Transform transform{ {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
-	transform.translate = { pos_.x,pos_.y,0.0f };
-	transform.rotate = { 0.0f,0.0f,rotation_ };
-	transform.scale = { size_.x,size_.y,1.0f };
+	Transform transform{
+	    {1.0f, 1.0f, 1.0f},
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f}
+    };
+	transform.translate = {pos_.x, pos_.y, 0.0f};
+	transform.rotate = {0.0f, 0.0f, rotation_};
+	transform.scale = {size_.x, size_.y, 1.0f};
 
 	// TransformからWorldMatrixを作る
 	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform.scale, transform.rotate, transform.translate);
@@ -87,9 +91,8 @@ void Sprite::Draw() {
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
 	// SRVのDescriptorTableの先頭を設定
 	commandList->SetGraphicsRootDescriptorTable(
-		2, // SRV用のルートパラメータ番号
-		srvManager->GetGPUDescriptorHandle(srvIndex_)
-	);
+	    2, // SRV用のルートパラメータ番号
+	    srvManager->GetGPUDescriptorHandle(srvIndex_));
 	// 描画！(DrawCall/ドローコール)
 	commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 }
@@ -108,7 +111,6 @@ void Sprite::CreateVertexData() {
 
 	// VertexResourceにデータを書き込むためのアドレスを取得してvertexDataに割り当てる
 	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData_));
-
 }
 
 void Sprite::CreateIndexData() {
