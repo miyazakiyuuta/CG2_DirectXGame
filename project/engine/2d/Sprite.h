@@ -1,7 +1,6 @@
 #pragma once
 #include "base/DirectXCommon.h"
 #include "math/Matrix4x4.h"
-#include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "math/Vector2.h"
 #include <string>
@@ -18,7 +17,6 @@ public: // メンバ関数
 
 public:
     // getter
-
     const Vector2& GetPos()const { return pos_; }
     float GetRotation()const { return rotation_; }
     const Vector4& GetColor() const { return materialData_->color; }
@@ -26,16 +24,15 @@ public:
     const Vector2& GetAnchorPoint() const { return anchorPoint_; }
 
     // setter
-
     void SetPos(const Vector2& pos) { pos_ = pos; }
     void SetRotation(float rotation) { rotation_ = rotation; }
     void SetColor(const Vector4& color) { materialData_->color = color; }
     void SetSize(const Vector2& size) { size_ = size; }
-    void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; }
-	void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; }
-	void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; }
-    void SetTextureLeftTop(const Vector2& leftTop) { textureLeftTop_ = leftTop; }
-	void SetTextureSize(const Vector2& size) { textureSize_ = size; }
+	void SetAnchorPoint(const Vector2& anchorPoint) { anchorPoint_ = anchorPoint; } // (0,0)から(1,1)の範囲で指定。例えば(0.5,0.5)なら中心、(0,0)なら左上、(1,1)なら右下
+	void SetFlipX(bool isFlipX) { isFlipX_ = isFlipX; } // 左右フリップ
+	void SetFlipY(bool isFlipY) { isFlipY_ = isFlipY; } // 上下フリップ
+	void SetTextureLeftTop(const Vector2& leftTop) { textureLeftTop_ = leftTop; } // テクスチャの切り出し左上座標
+	void SetTextureSize(const Vector2& size) { textureSize_ = size; } // テクスチャの切り出しサイズ
 
 private:
     void CreateVertexData();
@@ -50,22 +47,17 @@ private:
     struct VertexData {
         Vector4 position;
         Vector2 texcoord;
-        Vector3 normal;
     };
 
     //マテリアルデータ
     struct Material {
         Vector4 color;
-        int32_t enableLighting;
-        float padding[3];
         Matrix4x4 uvTransform;
     };
 
     // 座標変換行列データ
     struct TransformationMatrix {
         Matrix4x4 WVP;
-        Matrix4x4 World;
-        Matrix4x4 WorldInverseTranspose;;
     };
 
 	SpriteCommon* spriteCommon_ = nullptr;
@@ -78,7 +70,6 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
     // バッファリソース内のデータを指すポインタ
     VertexData* vertexData_ = nullptr;
-    uint32_t* indexData_ = nullptr;
     Material* materialData_ = nullptr;
     TransformationMatrix* transformationMatrixData_ = nullptr;
     // バッファリソースの使い道を捕捉するバッファビュー
@@ -88,9 +79,6 @@ private:
     Vector2 pos_ = { 0.0f,0.0f };
     float rotation_ = 0.0f;
     Vector2 size_ = { 1.0f,1.0f };
-
-    // テクスチャ番号
-    uint32_t textureIndex_ = 0;
 
     Vector2 anchorPoint_ = { 0.0f,0.0f };
 
