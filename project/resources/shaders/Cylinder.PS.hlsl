@@ -1,4 +1,5 @@
 #include "Cylinder.hlsli"
+#include "GammaCorrection.hlsli"
 
 struct PixelShaderOutput {
     float4 color : SV_TARGET0;
@@ -15,6 +16,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
     float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
     
     output.color = gMaterial.color * textureColor * input.color;
+    output.color.rgb = LinearToSRGB(output.color.rgb);
     
     if (textureColor.a == 0.0f) {
         discard;

@@ -1,4 +1,6 @@
 #include "Object3d.hlsli"
+#include "GammaCorrection.hlsli"
+
 struct Material {
     float4 color;
     int enableLighting;
@@ -112,9 +114,11 @@ PixelShaderOutput main(VertexShaderOutput input) {
         }
         
         output.color.a = gMaterial.color.a * textureColor.a;
+        output.color.rgb = LinearToSRGB(output.color.rgb);
         
     } else { // Lightingしない場合。
         output.color = gMaterial.color * textureColor;
+        output.color.rgb = LinearToSRGB(output.color.rgb);
     }
     
     return output;

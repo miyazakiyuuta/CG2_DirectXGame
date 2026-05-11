@@ -494,6 +494,7 @@
     <None Include="resources\shaders\Debug.hlsli" />
     <None Include="resources\enemy_drops.json" />
     <None Include="resources\ability_config.json" />
+    <None Include="resources\shaders\GammaCorrection.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />
