@@ -367,7 +367,7 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
 	originalColor_ = {0.2f, 0.8f, 0.5f, 1.0f};
 
 	tongue_ = std::make_unique<Tongue>();
-	tongue_->Initialize(object3dCommon, camera_, this, "Cube.obj");
+	tongue_->Initialize(object3dCommon, camera_, this, "tongue/tongue.obj");
 
 	velocity_ = {0.0f, 0.0f, 0.0f};
 	lastMove_ = {0.0f, 0.0f, 0.0f};
@@ -652,6 +652,43 @@ void Player::SetPendingTeleport(const Vector3& position) {
 void Player::SetRidingPlatformDelta(const Vector3& delta) { ridingPlatformDelta_ = delta; }
 
 void Player::ClearRidingPlatformDelta() { ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f}; }
+
+Vector3 Player::GetHeadbornPosition() const {
+	if (!object_) {
+		return { 0.0f, 0.0f, 0.0f };
+	}
+
+	auto boneWorldOpt = object_->GetBoneWorldMatrix("ボーン.004");
+	if (!boneWorldOpt) {
+		return object_->GetTranslate();
+	}
+
+	const Matrix4x4& world = *boneWorldOpt;
+
+	// ボーン原点から口元までのローカル補正
+	Vector3 mouthLocalOffset = { 0.0f, 0.0f, 0.0f };
+
+	// モデル見た目合わせ用のローカルYaw補正
+	const float mouthLocalYawOffsetDeg = 10.0f;
+	const float mouthLocalYawOffsetRad = mouthLocalYawOffsetDeg * (3.14159265f / 180.0f);
+
+	const float s = std::sin(mouthLocalYawOffsetRad);
+	const float c = std::cos(mouthLocalYawOffsetRad);
+
+	Vector3 rotatedOffset = {
+		mouthLocalOffset.x * c - mouthLocalOffset.z * s,
+		mouthLocalOffset.y,
+		mouthLocalOffset.x * s + mouthLocalOffset.z * c
+	};
+
+	Vector3 position = {
+		rotatedOffset.x * world.m[0][0] + rotatedOffset.y * world.m[1][0] + rotatedOffset.z * world.m[2][0] + world.m[3][0],
+		rotatedOffset.x * world.m[0][1] + rotatedOffset.y * world.m[1][1] + rotatedOffset.z * world.m[2][1] + world.m[3][1],
+		rotatedOffset.x * world.m[0][2] + rotatedOffset.y * world.m[1][2] + rotatedOffset.z * world.m[2][2] + world.m[3][2]
+	};
+
+	return position;
+}
 
 Vector3 Player::GetPosition() const {
 	if (!object_) {

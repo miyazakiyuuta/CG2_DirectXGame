@@ -74,7 +74,7 @@ void Tongue::Update(float deltaTime){
 void Tongue::Draw(){
 	if(object_){
 		object_->Update();
-		object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
+		object_->SetColor({ 0.969f, 0.678f, 0.765f, currentAlpha_ });
 		object_->SetDissolve(1.0f - currentAlpha_);
 		object_->Draw();
 	}
@@ -325,32 +325,13 @@ void Tongue::UpdateReturning(float deltaTime){
 	object_->SetRotate({ 0.0f, tongueYaw, 0.0f });
 }
 
-Vector3 Tongue::GetMouthWorldPosition() const{
-	if(!owner_){
+Vector3 Tongue::GetMouthWorldPosition() const {
+	if (!owner_) {
 		return { 0.0f, 0.0f, 0.0f };
 	}
 
-	Vector3 playerPos = owner_->GetPosition();
-	float yaw = owner_->GetYaw();
-
-	Vector3 forward = {
-		std::sin(yaw),
-		0.0f,
-		std::cos(yaw)
-	};
-
-	Vector3 right = {
-		std::cos(yaw),
-		0.0f,
-		-std::sin(yaw)
-	};
-
-	Vector3 result = playerPos;
-	result.x += right.x * localOffset_.x + forward.x * localOffset_.z;
-	result.y += localOffset_.y;
-	result.z += right.z * localOffset_.x + forward.z * localOffset_.z;
-
-	return result;
+	// 口元ボーン基準のワールド座標をそのまま使う
+	return owner_->GetHeadbornPosition();
 }
 
 CollisionUtility::Sphere Tongue::GetHitSphere() const{

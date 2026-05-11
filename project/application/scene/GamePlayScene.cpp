@@ -66,6 +66,7 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
+	ModelManager::GetInstance()->LoadModel("tongue/tongue.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 

@@ -58,6 +58,8 @@ public:
 	void SetRidingPlatformDelta(const Vector3& delta);
 	void ClearRidingPlatformDelta();
 
+	Vector3 GetHeadbornPosition() const;
+
 	void SetGroundHeight(float groundHeight) { groundHeight_ = groundHeight; }
 	bool IsOnGround() const { return isOnGround_; }
 
