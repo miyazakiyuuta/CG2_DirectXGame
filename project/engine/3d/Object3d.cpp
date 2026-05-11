@@ -4,8 +4,7 @@
 #include "Model.h"
 #include "ModelManager.h"
 #include "Camera.h"
-#include "debug/debugSphere.h"
-#include "utility/Logger.h"
+#include "debug/debugRenderer.h"
 
 Object3d::Object3d() = default;
 Object3d::~Object3d() = default;
@@ -94,7 +93,7 @@ void Object3d::Draw() {
 			commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(model_->GetSkinCluster().paletteSrvIndex));
 		}
 		model_->Draw();
-		//DrawDebugSkeleton();
+		DrawDebugSkeleton();
 	}
 }
 
@@ -218,4 +217,7 @@ void Object3d::DrawDebugSkeleton() {
 	}
 	float radius = 0.05f;
 	Vector4 color = { 0.0f,0.0f,0.0f,1.0f };
+	for (auto pos : jointPositions) {
+		DebugRenderer::GetInstance()->AddSphere(pos, radius, color);
+	}
 }
