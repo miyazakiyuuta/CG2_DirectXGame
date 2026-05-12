@@ -64,6 +64,9 @@ public:
 	bool IsOnGround() const { return isOnGround_; }
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders) { blockColliders_ = blockColliders; }
+	void SetBreakableBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) {
+		breakableBlockColliders_ = colliders;
+	}
 
 	void SetMovementLimitCylinder(const CollisionUtility::Cylinder* cylinder) { movementLimitCylinder_ = cylinder; }
 
@@ -309,6 +312,7 @@ public:
 	Vector3 wallRightVec_ = {1.0f, 0.0f, 0.0f};
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+	const std::vector<CollisionUtility::OBB>* breakableBlockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
 	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.0f};

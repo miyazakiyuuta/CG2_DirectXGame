@@ -56,6 +56,7 @@ private:
 	std::unique_ptr<PauseMenu> pauseMenu_;
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
+	std::vector<CollisionUtility::OBB> breakableBlockColliders_;
 	std::vector<CollisionUtility::OBB> waterBlockColliders_;
 
 	// warp cooldown to avoid immediate re-triggering

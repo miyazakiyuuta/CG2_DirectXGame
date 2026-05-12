@@ -87,7 +87,7 @@ void Object3d::Draw() {
 			commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(model_->GetSkinCluster().paletteSrvIndex));
 		}
 		model_->Draw();
-		DrawDebugSkeleton();
+		//DrawDebugSkeleton();
 	}
 }
 

@@ -1017,7 +1017,7 @@ void Player::CheckTongueBlockHook() {
 }
 
 bool Player::CheckTongueBlockDamage() {
-	if (!tongue_ || !stage_ || !blockColliders_) {
+	if (!tongue_ || !stage_ || !breakableBlockColliders_) {
 		return false;
 	}
 
@@ -1030,7 +1030,7 @@ bool Player::CheckTongueBlockDamage() {
 
 	// 通常ショットは舌先だけ
 	if (!tongue_->IsSweeping()) {
-		for (const auto& obb : *blockColliders_) {
+		for (const auto& obb : *breakableBlockColliders_) {
 			if (!CollisionUtility::IntersectSphere_OBB(tipSphere, obb)) {
 				continue;
 			}
@@ -1314,7 +1314,7 @@ void Player::Update() {
 	}
 
 	// B key: perform tongue-beam sweep (扇状薙ぎ)
-	if (input_->IsTriggerKey(DIK_E) || input_->IsPressPad(XINPUT_GAMEPAD_B)) {
+	if ((input_->IsTriggerKey(DIK_E) || input_->IsPressPad(XINPUT_GAMEPAD_B)) && (moveState_ == MovementState::Root || moveState_ == MovementState::Jumping)) {
 		// Use player's facing direction (yaw) for the sweep so arc is relative to player forward
 		float yawForward = GetYaw();
 		Vector3 beamDir = {std::sin(yawForward), 0.0f, std::cos(yawForward)};

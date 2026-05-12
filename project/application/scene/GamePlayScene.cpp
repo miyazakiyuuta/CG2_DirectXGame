@@ -267,6 +267,25 @@ void GamePlayScene::Update() {
 
 	// 実行時ステージから必要情報を取得
 	stageBlockColliders_ = stage_->GetBlockOBBs();
+	breakableBlockColliders_.clear();
+	for (const auto& o : stage_->GetStageData().objects) {
+		if (o.modelName != "Cube.obj") {
+			continue;
+		}
+		if (o.blockId != BlockID::Breakable) {
+			continue;
+		}
+
+		Transform t;
+		t.translate = o.position;
+		t.rotate = o.rotation;
+		t.scale = o.scale;
+
+		breakableBlockColliders_.push_back(
+			CollisionUtility::MakeOBBFromTransform(t, { 1.0f, 1.0f, 1.0f })
+		);
+	}
+	player_->SetBreakableBlockColliders(&breakableBlockColliders_);
 	waterBlockColliders_ = stage_->GetWaterBlockOBBs();
 	player_->SetBlockColliders(&stageBlockColliders_);
 	cameraController_->SetObstacleColliders(&stageBlockColliders_);
