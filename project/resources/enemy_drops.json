@@ -2,42 +2,49 @@
   {
     "enemyType": 0,
     "drops": [
-      { "ability": "Camouflage", "weight": 5.0, "min": 1, "max": 2, "chance": 1.0 },
-      { "ability": "Sonar",      "weight": 1.0, "min": 1, "max": 1, "chance": 0.25 }
+      { "ability": "JumpPower",  "weight": 5.0, "min": 2, "max": 4, "chance": 1.0 },
+      { "ability": "TongueRange","weight": 1.0, "min": 1, "max": 2, "chance": 0.25 },
+      { "ability": "WallCling",  "weight": 1.0, "min": 1, "max": 1, "chance": 0.10 }
     ]
   },
   {
     "enemyType": 1,
     "drops": [
-      { "ability": "Sonar",      "weight": 4.0, "min": 1, "max": 3, "chance": 1.0 },
-      { "ability": "Camouflage", "weight": 1.0, "min": 1, "max": 1, "chance": 0.15 }
+      { "ability": "TongueRange","weight": 5.0, "min": 2, "max": 4, "chance": 1.0 },
+      { "ability": "Sonar",      "weight": 2.0, "min": 1, "max": 2, "chance": 0.35 },
+      { "ability": "JumpPower",  "weight": 1.0, "min": 1, "max": 1, "chance": 0.12 }
     ]
   },
   {
     "enemyType": 2,
     "drops": [
-      { "ability": "Camouflage", "weight": 3.0, "min": 1, "max": 2, "chance": 0.9 },
-      { "ability": "Sonar",      "weight": 2.0, "min": 1, "max": 2, "chance": 0.5 }
+      { "ability": "WallCling",  "weight": 5.0, "min": 2, "max": 4, "chance": 1.0 },
+      { "ability": "Camouflage", "weight": 2.0, "min": 1, "max": 2, "chance": 0.40 },
+      { "ability": "Sonar",      "weight": 1.0, "min": 1, "max": 1, "chance": 0.15 }
     ]
   },
   {
     "enemyType": 3,
     "drops": [
-      { "ability": "Camouflage", "weight": 2.0, "min": 1, "max": 1, "chance": 0.8 },
-      { "ability": "Sonar",      "weight": 2.0, "min": 1, "max": 2, "chance": 0.6 }
+      { "ability": "Camouflage", "weight": 4.0, "min": 1, "max": 3, "chance": 1.0 },
+      { "ability": "JumpPower",  "weight": 2.0, "min": 1, "max": 2, "chance": 0.30 },
+      { "ability": "WallCling",  "weight": 1.0, "min": 1, "max": 1, "chance": 0.15 }
     ]
   },
   {
     "enemyType": 4,
     "drops": [
-      { "ability": "Sonar",      "weight": 5.0, "min": 2, "max": 4, "chance": 1.0 }
+      { "ability": "Sonar",      "weight": 6.0, "min": 2, "max": 5, "chance": 1.0 },
+      { "ability": "TongueRange","weight": 1.0, "min": 1, "max": 2, "chance": 0.20 }
     ]
   },
   {
     "enemyType": 5,
     "drops": [
-      { "ability": "Camouflage", "weight": 1.0, "min": 1, "max": 1, "chance": 0.5 },
-      { "ability": "Sonar",      "weight": 1.0, "min": 1, "max": 1, "chance": 0.5 }
+      { "ability": "Camouflage", "weight": 3.0, "min": 1, "max": 2, "chance": 1.0 },
+      { "ability": "Sonar",      "weight": 3.0, "min": 1, "max": 2, "chance": 1.0 },
+      { "ability": "WallCling",  "weight": 1.0, "min": 1, "max": 1, "chance": 0.12 },
+      { "ability": "JumpPower",  "weight": 1.0, "min": 1, "max": 1, "chance": 0.12 }
     ]
   }
 ]

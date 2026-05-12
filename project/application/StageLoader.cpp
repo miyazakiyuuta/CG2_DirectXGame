@@ -1,5 +1,6 @@
 #include "StageLoader.h"
 #include <algorithm>
+#include "base/DirectXCommon.h"
 
 /// <summary>
 /// コンストラクタ
@@ -77,8 +78,29 @@ void StageLoader::CreateFromData(const StageData& data)
         }
     }
 
-    // 置き換え
+    // 消去されたオブジェクトを GPU の描画完了後に削除するためのリスト
+    std::vector<std::unique_ptr<Object3d>> toDelete;
+    for (auto &oldInst : instances_) {
+        if (oldInst.object) {
+            // 既存インスタンスのIDが新しいデータに存在しない場合は削除対象
+            toDelete.push_back(std::move(oldInst.object));
+        }
+    }
+
+    // 新しいインスタンスリストに置き換える
     instances_ = std::move(newInstances);
+
+    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
+    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
+        for (auto &ptr : toDelete) {
+            // ptr を shared_ptr に移動してキャプチャすることで、lambda 内で安全にリソースを保持できるようにする
+            std::shared_ptr<Object3d> sp = std::move(ptr);
+            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
+                // ここで sp がスコープから外れると、Object3d のデストラクタが呼び出される
+                sp.reset();
+            });
+        }
+    }
 }
 
 /// <summary>
@@ -135,8 +157,27 @@ void StageLoader::UpdateOrCreateInstance(const StageObject& o)
 /// </summary>
 void StageLoader::RemoveInstanceById(int id)
 {
-    // 指定ID以外のインスタンスだけを残す
+    // 削除対象のインスタンスを GPU の描画完了後に削除するためのリスト
+    std::vector<std::unique_ptr<Object3d>> toDelete;
+    // 指定IDのインスタンスを検索して削除対象リストに移動
+    for (auto &inst : instances_) {
+        if (inst.id == id && inst.object) {
+            toDelete.push_back(std::move(inst.object));
+        }
+    }
+
+    // インスタンスリストから指定IDのインスタンスを削除
     instances_.erase(std::remove_if(instances_.begin(), instances_.end(), [id](const Instance& a) { return a.id == id; }), instances_.end());
+
+    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
+    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
+        for (auto &ptr : toDelete) {
+            std::shared_ptr<Object3d> sp = std::move(ptr);
+            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
+                sp.reset();
+            });
+        }
+    }
 }
 
 /// <summary>
@@ -180,8 +221,22 @@ void StageLoader::SetInstanceColorById(int id, const Vector4& color)
 /// </summary>
 void StageLoader::Clear()
 {
-    // unique_ptr なので clear するだけで破棄される
+    // すべてのインスタンスを GPU の描画完了後に削除するためのリスト
+    std::vector<std::unique_ptr<Object3d>> toDelete;
+    for (auto &inst : instances_) {
+        if (inst.object) toDelete.push_back(std::move(inst.object));
+    }
     instances_.clear();
+
+    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
+    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
+        for (auto &ptr : toDelete) {
+            std::shared_ptr<Object3d> sp = std::move(ptr);
+            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
+                sp.reset();
+            });
+        }
+    }
 }
 
 /// <summary>

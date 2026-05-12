@@ -12,6 +12,7 @@
 #include <d3d12.h>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 class Camera;
 class DebugCamera;
@@ -38,6 +39,23 @@ public:
 	~GamePlayScene() override;
 
 private:
+  struct EnemySpawnRuntime {
+		Vector3 basePosition{};
+        int enemyType = 0;
+		float respawnIntervalSec = 5.0f;
+		float cooldownSec = 0.0f;
+		class BaseEnemy* current = nullptr;
+	};
+
+	std::vector<EnemySpawnRuntime> enemySpawns_;
+	std::unordered_map<class BaseEnemy*, size_t> enemyToSpawnIndex_;
+	bool enemiesInitializedFromStage_ = false;
+	float enemySpawnYOffset_ = 5.0f;
+	void InitializeEnemiesFromStage();
+	void UpdateEnemyRespawns(float deltaTime);
+	void SpawnEnemyForPoint(size_t idx);
+	void OnEnemyDead(class BaseEnemy* e);
+
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
 

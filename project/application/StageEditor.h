@@ -254,4 +254,6 @@ private:
 
     int placingEnemyType_ = 0;
     int editEnemyType_ = 0;
+  float placingEnemyRespawnInterval_ = 5.0f;
+    float editEnemyRespawnInterval_ = 5.0f;
 };

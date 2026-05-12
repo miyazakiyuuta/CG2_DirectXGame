@@ -1,7 +1,8 @@
 {
+  "XP": { "mode": "Odd", "oddScale": 1.0, "base": 25.0, "growth": 1.6 },
   "JumpPower": { "perLevel": 0.10 },
-  "TongueRange": { "base": 30.0, "perLevel": 0.08 },
-  "SonarDuration": { "base": 3.0, "perLevel": 0.10 },
-  "WallClingDuration": { "base": 100.0, "perLevel": 0.10 },
-  "CamouflageDuration": { "base": 180.0, "perLevel": 0.10 }
+  "TongueRange": { "base": 18.0, "perLevel": 0.08 },
+  "SonarDuration": { "base": 1.8, "perLevel": 0.10 },
+  "WallClingDuration": { "base": 60.0, "perLevel": 0.10 },
+  "CamouflageDuration": { "base": 108.0, "perLevel": 0.10 }
 }
