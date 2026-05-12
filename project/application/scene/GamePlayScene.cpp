@@ -206,7 +206,9 @@ void GamePlayScene::Initialize() {
 }
 
 void GamePlayScene::Finalize() {
-	// 終了処理の実体を追加
+	// シングルトンが保持するこのシーンのポインタをクリアして
+	// ダングリングポインタによるクラッシュを防止する
+	ParticleManager::GetInstance()->SetCamera(nullptr);
 }
 
 void GamePlayScene::Update() {
@@ -292,10 +294,11 @@ void GamePlayScene::Update() {
 	pauseMenu_->Update();
 
 	// 2. ポーズメニューからの要求（リスタート・終了）を処理
+	// リスタート要求：SceneManager経由で新しいGamePlaySceneを生成する。
+	// this->Initialize() を直接呼ぶと ParticleManager 等のシングルトンが
+	// 二重初期化されて assert 落ちするため、シーンごと作り直す。
 	if (pauseMenu_->IsRestartRequested()) {
-		this->Initialize(); // シーン再初期化
-		pauseMenu_->ClearRequests();
-		pauseMenu_->SetPaused(false);
+		SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
 		return;
 	}
 	if (pauseMenu_->IsTitleRequested()) {
