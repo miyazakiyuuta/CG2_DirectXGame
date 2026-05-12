@@ -45,6 +45,8 @@ public:
 	float GetTotalPlayerSpeedMultiplier() const;
 
 private:
+	void CheckPlayerProjectileHits(Player* player);
+
 	Object3dCommon* common_ = nullptr;
 	Camera* camera_ = nullptr;
 	std::list<std::unique_ptr<BaseEnemy>> enemies_;

@@ -515,6 +515,8 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
     isOnGround_ = false;
 
     waterGauge_ = maxWaterGauge_;
+    hp_ = maxHp_;
+    enemyContactInvincibilityTimer_ = 0.0f;
 
     isChargingJump_ = false;
     isJumpChargeCanceled_ = false;
@@ -543,6 +545,30 @@ void Player::InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTe
     jumpGaugeFillSprite_->SetColor({ 0.3f, 1.0f, 0.2f, 0.9f });
 
     showJumpGauge_ = false;
+
+    hpGaugeBackSprite_ = std::make_unique<Sprite>();
+    hpGaugeBackSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+    hpGaugeBackSprite_->SetPos(hpGaugePos_);
+    hpGaugeBackSprite_->SetSize(hpGaugeSize_);
+    hpGaugeBackSprite_->SetColor({ 0.05f, 0.05f, 0.05f, 0.75f });
+
+    hpGaugeFillSprite_ = std::make_unique<Sprite>();
+    hpGaugeFillSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+    hpGaugeFillSprite_->SetPos(hpGaugePos_);
+    hpGaugeFillSprite_->SetSize(hpGaugeSize_);
+    hpGaugeFillSprite_->SetColor({ 0.85f, 0.15f, 0.15f, 0.95f });
+
+    hpGaugeFrameSprite_ = std::make_unique<Sprite>();
+    hpGaugeFrameSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+    hpGaugeFrameSprite_->SetPos({
+        hpGaugePos_.x - hpGaugeFrameThickness_,
+        hpGaugePos_.y - hpGaugeFrameThickness_
+        });
+    hpGaugeFrameSprite_->SetSize({
+        hpGaugeSize_.x + hpGaugeFrameThickness_ * 2.0f,
+        hpGaugeSize_.y + hpGaugeFrameThickness_ * 2.0f
+        });
+    hpGaugeFrameSprite_->SetColor({ 0.95f, 0.95f, 0.95f, 0.9f });
 }
 
 void Player::ResolveMovementLimitCylinder()
@@ -886,6 +912,24 @@ bool Player::ConsumeWater(float amount)
     return true;
 }
 
+void Player::ApplyDamage(int damage)
+{
+    if (damage <= 0) {
+        return;
+    }
+
+    if (enemyContactInvincibilityTimer_ > 0.0f) {
+        return;
+    }
+
+    hp_ -= damage;
+    if (hp_ < 0) {
+        hp_ = 0;
+    }
+
+    enemyContactInvincibilityTimer_ = enemyContactInvincibilityFrames_;
+}
+
 bool Player::TryShotTongue(const Vector3& direction)
 {
     if (!CanStartTongueShot()) {
@@ -1173,6 +1217,37 @@ void Player::CheckTongueBlockHook()
 	}
 }
 
+void Player::CheckEnemyContactDamage()
+{
+    if (!enemyManager_ || !object_) {
+        return;
+    }
+
+    if (enemyContactInvincibilityTimer_ > 0.0f) {
+        return;
+    }
+
+    CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
+
+    bool hitEnemy = false;
+
+    enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
+        if (hitEnemy || !e) {
+            return;
+        }
+
+        CollisionUtility::OBB enemyObb = e->GetOBB(e->GetPosition(), 0.8f);
+
+        if (CollisionUtility::IntersectOBB_OBB(playerObb, enemyObb)) {
+            hitEnemy = true;
+        }
+        });
+
+    if (hitEnemy) {
+        ApplyDamage(enemyContactDamage_);
+    }
+}
+
 bool Player::CheckTongueBlockDamage() {
 	if (!tongue_ || !stage_ || !breakableBlockColliders_) {
 		return false;
@@ -1248,7 +1323,7 @@ void Player::UpdateTonguePulling() {
 		if (lastHitEnemy_) {
 			// 【自動射出】たどり着いた瞬間に、敵の慣性を利用して自分を弾き飛ばす！
            velocity_ = lastHitEnemy_->GetVelocity();
-            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 10.0f; // 少し上に跳ね上げる (upgrade applied)
+            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 2.0f; // 少し上に跳ね上げる (upgrade applied)
 
             // 重要なのは「遷移する前に情報をクリアする」こと
             lastHitEnemy_ = nullptr;
@@ -1677,6 +1752,12 @@ void Player::Update()
         beamActiveTimer_ = std::max(0.0f, beamActiveTimer_ - 1.0f);
     }
 
+    if (enemyContactInvincibilityTimer_ > 0.0f) {
+        enemyContactInvincibilityTimer_ =
+            std::max(0.0f, enemyContactInvincibilityTimer_ - 1.0f);
+    }
+
+    UpdateHPGaugeSprite();
     UpdateJumpGaugeSprite();
 
     speedMultiplier_ = 1.0f;
@@ -3207,8 +3288,60 @@ void Player::UpdateJumpGaugeSprite()
     jumpGaugeFillSprite_->Update();
 }
 
+void Player::UpdateHPGaugeSprite()
+{
+    if (!hpGaugeBackSprite_ || !hpGaugeFillSprite_ || !hpGaugeFrameSprite_) {
+        return;
+    }
+
+    float hpRate = 1.0f;
+    if (maxHp_ > 0) {
+        hpRate = static_cast<float>(hp_) / static_cast<float>(maxHp_);
+    }
+    hpRate = ClampFloat(hpRate, 0.0f, 1.0f);
+
+    hpGaugeBackSprite_->SetPos(hpGaugePos_);
+    hpGaugeBackSprite_->SetSize(hpGaugeSize_);
+    hpGaugeBackSprite_->Update();
+
+    hpGaugeFrameSprite_->SetPos({
+        hpGaugePos_.x - hpGaugeFrameThickness_,
+        hpGaugePos_.y - hpGaugeFrameThickness_
+        });
+    hpGaugeFrameSprite_->SetSize({
+        hpGaugeSize_.x + hpGaugeFrameThickness_ * 2.0f,
+        hpGaugeSize_.y + hpGaugeFrameThickness_ * 2.0f
+        });
+    hpGaugeFrameSprite_->Update();
+
+    Vector4 hpColor = { 0.85f, 0.15f, 0.15f, 0.95f };
+    if (hpRate <= 0.5f) {
+        hpColor = { 0.95f, 0.75f, 0.15f, 0.95f };
+    }
+    if (hpRate <= 0.25f) {
+        hpColor = { 0.95f, 0.25f, 0.10f, 0.98f };
+    }
+
+    hpGaugeFillSprite_->SetPos(hpGaugePos_);
+    hpGaugeFillSprite_->SetSize({
+        hpGaugeSize_.x * hpRate,
+        hpGaugeSize_.y
+        });
+    hpGaugeFillSprite_->SetColor(hpColor);
+    hpGaugeFillSprite_->Update();
+}
 void Player::DrawUI()
 {
+    if (hpGaugeFrameSprite_) {
+        hpGaugeFrameSprite_->Draw();
+    }
+    if (hpGaugeBackSprite_) {
+        hpGaugeBackSprite_->Draw();
+    }
+    if (hpGaugeFillSprite_) {
+        hpGaugeFillSprite_->Draw();
+    }
+
     if (!showJumpGauge_) {
         return;
     }
@@ -3217,9 +3350,9 @@ void Player::DrawUI()
         jumpGaugeBackSprite_->Draw();
     }
 
-	if(jumpGaugeFillSprite_){
-		jumpGaugeFillSprite_->Draw();
-	}
+    if (jumpGaugeFillSprite_) {
+        jumpGaugeFillSprite_->Draw();
+    }
 }
 
 void Player::ApplyClingSurfaceRotation() {

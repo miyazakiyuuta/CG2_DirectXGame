@@ -178,6 +178,12 @@ bool ProminenceSensor::CanSeePlayer(const Vector3& playerPos) {
 	return true;
 }
 
+Vector3 ProminenceSensor::GetBeamOrigin() const {
+	Vector3 eyePos = position_;
+	eyePos.y += 0.6f;
+	return eyePos;
+}
+
 void ProminenceSensor::Draw() {
 	if (object_)
 		object_->Draw();

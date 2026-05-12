@@ -20,6 +20,24 @@
 EnemyManager::EnemyManager() = default;
 EnemyManager::~EnemyManager() = default;
 
+namespace {
+    float PointToSegmentDistSq(const Vector3& p, const Vector3& a, const Vector3& b)
+    {
+        Vector3 ab = b - a;
+        Vector3 ap = p - a;
+        float abLen2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
+        if (abLen2 <= 1e-6f) {
+            Vector3 d = p - a;
+            return d.x * d.x + d.y * d.y + d.z * d.z;
+        }
+        float t = (ap.x * ab.x + ap.y * ab.y + ap.z * ab.z) / abLen2;
+        t = std::max(0.0f, std::min(1.0f, t));
+        Vector3 proj = { a.x + ab.x * t, a.y + ab.y * t, a.z + ab.z * t };
+        Vector3 d = p - proj;
+        return d.x * d.x + d.y * d.y + d.z * d.z;
+    }
+}
+
 void EnemyManager::Initialize(Object3dCommon* common, Camera* camera)
 {
     common_ = common;
@@ -97,7 +115,7 @@ void EnemyManager::Update(float deltaTime, Player* player)
             ++it;
         }
     }
-
+    CheckPlayerProjectileHits(player);
     // 切り出した死体を安全に処理する（deadEnemies が所有）
     for (auto& de : deadEnemies) {
         if (de) {
@@ -222,4 +240,54 @@ void EnemyManager::DrawImGui()
     }
     ImGui::End();
 #endif
+}
+
+void EnemyManager::CheckPlayerProjectileHits(Player* player)
+{
+    if (!player) {
+        return;
+    }
+
+    const CollisionUtility::OBB playerObb = player->GetPlayerOBB(player->GetPosition());
+    const Vector3 playerPos = player->GetPosition();
+
+    // ビームは OBB で厳密にやるより、まずはプレイヤー中心 + 半径で簡潔に取る
+    const float kPlayerBeamHitRadius = 1.0f;
+
+    for (auto& enemy : enemies_) {
+        if (!enemy || enemy->IsDead()) {
+            continue;
+        }
+
+        // ShootingEnemy の弾
+        if (auto* shooting = dynamic_cast<ShootingEnemy*>(enemy.get())) {
+            for (auto& bullet : shooting->GetBullets()) {
+                if (!bullet || bullet->IsDead()) {
+                    continue;
+                }
+
+                if (CollisionUtility::IntersectSphere_OBB(bullet->GetHitSphere(), playerObb)) {
+                    player->ApplyDamage(1);
+                    bullet->Kill();
+                }
+            }
+        }
+
+        // ProminenceSensor のビーム
+        if (auto* sensor = dynamic_cast<ProminenceSensor*>(enemy.get())) {
+            if (!sensor->IsFiring()) {
+                continue;
+            }
+
+            Vector3 beamStart = sensor->GetBeamOrigin();
+            Vector3 beamEnd = beamStart + sensor->GetBeamDirection() * sensor->GetBeamRange();
+
+            float distSq = PointToSegmentDistSq(playerPos, beamStart, beamEnd);
+            float hitRadius = sensor->GetBeamRadius() + kPlayerBeamHitRadius;
+
+            if (distSq <= hitRadius * hitRadius) {
+                player->ApplyDamage(1);
+            }
+        }
+    }
 }

@@ -78,6 +78,13 @@ public:
 	void AddWater(float amount);
 	bool ConsumeWater(float amount);
 
+	int GetHP() const { return hp_; }
+	int GetMaxHP() const { return maxHp_; }
+	bool IsDead() const { return hp_ <= 0; }
+
+	void ApplyDamage(int damage);
+	void CheckEnemyContactDamage();
+
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
 	int GetCurrentVisibleChargeLevel() const;
@@ -219,6 +226,7 @@ public:
 	Vector3 ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
 
 	void UpdateJumpGaugeSprite();
+	void UpdateHPGaugeSprite();
 	void DrawUI();
 
 	void ApplyClingSurfaceRotation();
@@ -380,7 +388,7 @@ public:
 	float beamHalfAngleDeg_ = 30.0f; // 扇の半角度
 	float beamCapsuleRadius_ = 0.8f; // 判定用カプセル半径
 	int beamSamples_ = 5;            // 扇を分割して複数のカプセルで判定
-	float beamWaterCost_ = 10.0f;
+	float beamWaterCost_ = 0.0f;
     // スイープ中の状態
     float beamActiveTimer_ = 0.0f;               
 	float beamActiveDuration_ = 45.0f;           
@@ -470,4 +478,19 @@ public:
 
 	bool showJumpGauge_ = false;
 
+	std::unique_ptr<Sprite> hpGaugeBackSprite_ = nullptr;
+	std::unique_ptr<Sprite> hpGaugeFillSprite_ = nullptr;
+	std::unique_ptr<Sprite> hpGaugeFrameSprite_ = nullptr;
+
+	Vector2 hpGaugePos_ = { 40.0f, 32.0f };
+	Vector2 hpGaugeSize_ = { 320.0f, 20.0f };
+	float hpGaugeFrameThickness_ = 3.0f;
+
+	int maxHp_ = 30;
+	int hp_ = 30;
+
+	// 接触ダメージ設定
+	int enemyContactDamage_ = 1;
+	float enemyContactInvincibilityFrames_ = 30.0f;
+	float enemyContactInvincibilityTimer_ = 0.0f;
 };

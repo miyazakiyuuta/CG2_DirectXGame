@@ -11,6 +11,7 @@ public:
 	void Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) override;
 	void Update(float deltaTime, const Vector3& playerPos) override;
 	void Draw() override;
+	const std::list<std::unique_ptr<EnemyBullet>>& GetBullets() const { return bullets_; }
 
 private:
 	void Shoot(const Vector3& target);

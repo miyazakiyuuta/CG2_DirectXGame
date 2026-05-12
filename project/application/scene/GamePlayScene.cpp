@@ -451,6 +451,10 @@ void GamePlayScene::Update()
 			if (enemyManager_) {
 				enemyManager_->Update(1.0f / 60.0f, player_.get());
 			}
+
+			if (player_) {
+				player_->CheckEnemyContactDamage();
+			}
 		}
 
 		// Warp detection: run before player update so teleport is immediate in gameplay mode
