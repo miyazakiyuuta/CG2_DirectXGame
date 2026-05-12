@@ -1021,24 +1021,58 @@ bool Player::CheckTongueBlockDamage() {
 		return false;
 	}
 
-	// 飛んでいる途中だけ判定
 	if (tongue_->GetState() != Tongue::State::Extending) {
 		return false;
 	}
 
-	const CollisionUtility::Sphere tongueSphere = tongue_->GetHitSphere();
+	const CollisionUtility::Sphere tipSphere = tongue_->GetHitSphere();
+	const float hitRadius = tipSphere.radius;
 
-	for (const auto& obb : *blockColliders_) {
-		if (!CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
-			continue;
+	// 通常ショットは舌先だけ
+	if (!tongue_->IsSweeping()) {
+		for (const auto& obb : *blockColliders_) {
+			if (!CollisionUtility::IntersectSphere_OBB(tipSphere, obb)) {
+				continue;
+			}
+
+			stage_->ApplyDamageAtSphere(tipSphere, 1);
+			tongue_->Reset();
+			return true;
 		}
 
-		stage_->ApplyDamageAtSphere(tongueSphere, 1);
-		tongue_->Reset();
-		return true;
+		return false;
 	}
 
-	return false;
+	// 薙ぎ払い中は「口元 → 舌先」の間も当たりにする
+	Vector3 mouth = tongue_->GetMouthWorldPositionPublic();
+	Vector3 tip = tongue_->GetPosition();
+	Vector3 segment = tip - mouth;
+	float segmentLen = Length3(segment);
+
+	int steps = std::max(1, static_cast<int>(std::ceil(segmentLen / std::max(0.05f, hitRadius * 0.75f))));
+	bool damaged = false;
+
+	for (int s = 0; s <= steps; ++s) {
+		float t = static_cast<float>(s) / static_cast<float>(steps);
+
+		CollisionUtility::Sphere sampleSphere;
+		sampleSphere.radius = hitRadius;
+		sampleSphere.center = mouth + segment * t;
+
+		for (const auto& obb : *blockColliders_) {
+			if (!CollisionUtility::IntersectSphere_OBB(sampleSphere, obb)) {
+				continue;
+			}
+
+			stage_->ApplyDamageAtSphere(sampleSphere, 1);
+			damaged = true;
+		}
+	}
+
+	// 薙ぎ払いはそのまま続けたいので Reset はしない
+	// ただし、このフレームは「壊した」扱いとして true を返し、
+	// 後続のフック判定へ行かないようにする
+	return damaged;
 }
 
 void Player::UpdateTonguePulling() {

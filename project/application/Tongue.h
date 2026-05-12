@@ -44,6 +44,7 @@ public:
 
 	Vector3 GetPosition() const{ return worldPosition_; }
 	Vector3 GetPrevPosition() const{ return prevWorldPosition_; }
+	bool IsSweeping() const { return sweeping_; }
 
 	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
 	float GetAlpha() const{ return currentAlpha_; }
