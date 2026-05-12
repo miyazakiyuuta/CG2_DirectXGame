@@ -143,6 +143,47 @@ const StageData& Stage::GetStageData() const{
 void Stage::RefreshInstances(){
     loader_.CreateFromData(data_);
 }
+float Stage::GetHeightAt(const Vector3& pos) const{
+    // 同じXZに複数の床（上下に別の足場）がある場合、
+    // 「その位置(pos.y)より下にある一番高い床」を返す。
+    // （経験値オーブの groundY が上の足場に吸われてワープするのを防ぐ）
+    constexpr float kNoHit = -1e9f;
+    constexpr float kEpsilon = 0.10f;
+
+    float bestBelowY = kNoHit;
+    float bestAnyY = kNoHit;
+
+    for (const auto& o : data_.objects) {
+        if (!(o.blockId == BlockID::Normal || o.blockId == BlockID::Breakable || o.blockId == BlockID::MovingPlatform)) {
+            continue;
+        }
+
+        Vector3 halfSize = { 1.0f * o.scale.x, 1.0f * o.scale.y, 1.0f * o.scale.z };
+        float minX = o.position.x - halfSize.x;
+        float maxX = o.position.x + halfSize.x;
+        float minZ = o.position.z - halfSize.z;
+        float maxZ = o.position.z + halfSize.z;
+        if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ) {
+            continue;
+        }
+
+        float topY = o.position.y + halfSize.y;
+        if (topY > bestAnyY) {
+            bestAnyY = topY;
+        }
+        if (topY <= pos.y + kEpsilon && topY > bestBelowY) {
+            bestBelowY = topY;
+        }
+    }
+
+    if (bestBelowY > kNoHit * 0.5f) {
+        return bestBelowY;
+    }
+    if (bestAnyY > kNoHit * 0.5f) {
+        return bestAnyY;
+    }
+    return 0.0f;
+}
 
 void Stage::Draw(){
     loader_.DrawAndUpdate();
@@ -256,6 +297,7 @@ std::vector<EnemySpawnPoint> Stage::GetEnemySpawnPoints() const{
         EnemySpawnPoint spawn;
         spawn.position = o.position;
         spawn.enemyType = o.enemyType;
+        spawn.respawnInterval = o.enemyRespawnInterval;
         result.push_back(spawn);
     }
 

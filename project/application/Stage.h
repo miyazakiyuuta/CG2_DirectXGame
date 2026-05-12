@@ -45,6 +45,9 @@ public:
     std::optional<Vector3> GetPlayerSpawnPosition() const;
     std::vector<EnemySpawnPoint> GetEnemySpawnPoints() const;
 
+    // 取得したい位置の高さを返す。ブロックがない場合は0を返す
+    float GetHeightAt(const Vector3& pos) const;
+
     // ダメージ判定: 指定した球に当たった破壊可能ブロックにダメージを与える
     void ApplyDamageAtSphere(const CollisionUtility::Sphere& sphere, int damage);
 

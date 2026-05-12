@@ -38,19 +38,133 @@
 #include <numbers>
 #include <sstream>
 
+namespace {
+    EnemyType ClampEnemyTypeInt(int et)
+    {
+        if (et < 0) {
+            et = 0;
+        }
+        const int kMaxEnemyType = static_cast<int>(EnemyType::PhaseGhost);
+        if (et > kMaxEnemyType) {
+            et = 0;
+        }
+        return static_cast<EnemyType>(et);
+    }
+}
+
+void GamePlayScene::InitializeEnemiesFromStage()
+{
+    enemySpawns_.clear();
+    enemyToSpawnIndex_.clear();
+    enemiesInitializedFromStage_ = true;
+
+    if (!stage_ || !enemyManager_) {
+        return;
+    }
+
+    const auto spawns = stage_->GetEnemySpawnPoints();
+    enemySpawns_.reserve(spawns.size());
+
+    for (const auto& s : spawns) {
+        EnemySpawnRuntime rt;
+        rt.basePosition = s.position;
+       rt.enemyType = static_cast<int>(ClampEnemyTypeInt(s.enemyType));
+        rt.respawnIntervalSec = s.respawnInterval;
+        if (rt.respawnIntervalSec < 0.0f) {
+            rt.respawnIntervalSec = 0.0f;
+        }
+        rt.cooldownSec = 0.0f;
+        rt.current = nullptr;
+        enemySpawns_.push_back(rt);
+    }
+
+    for (size_t i = 0; i < enemySpawns_.size(); ++i) {
+        SpawnEnemyForPoint(i);
+    }
+}
+
+void GamePlayScene::SpawnEnemyForPoint(size_t idx)
+{
+    if (!enemyManager_ || idx >= enemySpawns_.size()) {
+        return;
+    }
+
+    auto& sp = enemySpawns_[idx];
+    if (sp.current != nullptr) {
+        return; // maxAlive=1
+    }
+
+    Vector3 pos = sp.basePosition;
+    pos.y += enemySpawnYOffset_;
+
+    BaseEnemy* created = enemyManager_->CreateEnemy(ClampEnemyTypeInt(sp.enemyType), pos);
+    if (created) {
+        sp.current = created;
+        enemyToSpawnIndex_[created] = idx;
+    }
+}
+
+void GamePlayScene::OnEnemyDead(BaseEnemy* e)
+{
+    if (!e) {
+        return;
+    }
+
+    auto it = enemyToSpawnIndex_.find(e);
+    if (it == enemyToSpawnIndex_.end()) {
+        return;
+    }
+
+    const size_t idx = it->second;
+    enemyToSpawnIndex_.erase(it);
+    if (idx >= enemySpawns_.size()) {
+        return;
+    }
+
+    auto& sp = enemySpawns_[idx];
+    if (sp.current == e) {
+        sp.current = nullptr;
+        sp.cooldownSec = sp.respawnIntervalSec;
+    }
+}
+
+void GamePlayScene::UpdateEnemyRespawns(float deltaTime)
+{
+    if (!enemyManager_ || enemySpawns_.empty()) {
+        return;
+    }
+
+    // クールダウン更新と再スポーン
+    for (size_t i = 0; i < enemySpawns_.size(); ++i) {
+        auto& sp = enemySpawns_[i];
+        if (sp.current != nullptr) {
+            continue;
+        }
+        if (sp.cooldownSec > 0.0f) {
+            sp.cooldownSec -= deltaTime;
+            if (sp.cooldownSec > 0.0f) {
+                continue;
+            }
+            sp.cooldownSec = 0.0f;
+        }
+
+        SpawnEnemyForPoint(i);
+    }
+}
+
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
 	camera_->SetRotate({std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f});
 	camera_->SetTranslate({0.0f, 7.5f, -20.0f});
 
-	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
-	ParticleManager::GetInstance()->SetCamera(camera_.get());
-	// simple particle group used for block destruction
-	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
+    ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+    ParticleManager::GetInstance()->SetCamera(camera_.get());
+    // パーティクルグループの作成。第一引数はグループ名、第二引数はテクスチャファイルパス
+    ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
 
-	debugCamera_ = std::make_unique<DebugCamera>();
-	debugCamera_->Initialize();
+    debugCamera_ = std::make_unique<DebugCamera>();
+    debugCamera_->Initialize();
 
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
@@ -64,11 +178,12 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
+	ModelManager::GetInstance()->LoadModel("tongue/tongue.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
-	// Load the single well model so it can be placed in the scene
-	ModelManager::GetInstance()->LoadModel("well", "well.obj");
+    // Load the single well model so it can be placed in the scene
+    ModelManager::GetInstance()->LoadModel("well", "well.obj");
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
@@ -79,83 +194,83 @@ void GamePlayScene::Initialize() {
 	object3d_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
 	object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
-	// Create the well object and place it at a fixed position only if model is loaded
-	if (Object3dCommon::GetInstance() && camera_) {
-		// Ensure model was actually loaded
-		if (ModelManager::GetInstance()->FindModel("well.obj")) {
-			wellObject_ = std::make_unique<Object3d>();
-			wellObject_->Initialize(Object3dCommon::GetInstance());
-			wellObject_->SetModel("well.obj");
-			wellObject_->SetCamera(camera_.get());
-			// Adjust this position as needed
-			// Move the well slightly further from the camera and make it very small
-			wellObject_->SetTranslate({0.0f, 0.0f, 0.0f});
-			wellObject_->SetScale({60.0f, 60.0f, 60.0f});
-			wellObject_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
-			if (wellObject_) {
-				Vector3 wellPos = wellObject_->GetTranslate();
-				Vector3 wellScale = wellObject_->GetScale();
+    // Create the well object and place it at a fixed position only if model is loaded
+    if (Object3dCommon::GetInstance() && camera_) {
+        // Ensure model was actually loaded
+        if (ModelManager::GetInstance()->FindModel("well.obj")) {
+            wellObject_ = std::make_unique<Object3d>();
+            wellObject_->Initialize(Object3dCommon::GetInstance());
+            wellObject_->SetModel("well.obj");
+            wellObject_->SetCamera(camera_.get());
+            // Adjust this position as needed
+            // Move the well slightly further from the camera and make it very small
+            wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
+            wellObject_->SetScale({ 60.0f, 500.0f, 60.0f });
+            wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+            if (wellObject_) {
+                Vector3 wellPos = wellObject_->GetTranslate();
+                Vector3 wellScale = wellObject_->GetScale();
 
-				wellCylinder_.center = wellPos;
-				wellCylinder_.radius = 58.5f;
-				wellCylinder_.halfHeight = 1000.0f;
-			}
-		} else {
-			// Model not found; skip creating wellObject_
-			wellObject_.reset();
-		}
-	} else {
-		wellObject_.reset();
-	}
+                wellCylinder_.center = wellPos;
+                wellCylinder_.radius = 58.5f;
+                wellCylinder_.halfHeight = 1000.0f;
+            }
+        } else {
+            // Model not found; skip creating wellObject_
+            wellObject_.reset();
+        }
+    } else {
+        wellObject_.reset();
+    }
 
-	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
-	TextureManager::GetInstance()->LoadTexture(envMapPath);
-	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
-	Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
+    std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
+    TextureManager::GetInstance()->LoadTexture(envMapPath);
+    uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
+    Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
 
-	skybox_ = std::make_unique<Skybox>();
-	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
+    skybox_ = std::make_unique<Skybox>();
+    skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-	// 実行時ステージを生成
-	stage_ = std::make_unique<Stage>(Object3dCommon::GetInstance(), camera_.get());
+    // 実行時ステージを生成
+    stage_ = std::make_unique<Stage>(Object3dCommon::GetInstance(), camera_.get());
 
-	// ステージファイルの読み込みは GamePlayScene が担当
-	auto loadedStage = StageSerializer::LoadFromFile("resources/stage.json");
-	if (loadedStage) {
-		stage_->SetStageData(*loadedStage);
-	}
+    // ステージファイルの読み込みは GamePlayScene が担当
+    auto loadedStage = StageSerializer::LoadFromFile("resources/stage.json");
+    if (loadedStage) {
+        stage_->SetStageData(*loadedStage);
+    }
 
-	// プレイヤー開始位置を Stage から取得
-	Vector3 playerStart = {0.0f, 3.0f, 0.0f};
-	if (auto spawn = stage_->GetPlayerSpawnPosition()) {
-		playerStart = *spawn;
-	}
+    // プレイヤー開始位置を Stage から取得
+    Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
+    if (auto spawn = stage_->GetPlayerSpawnPosition()) {
+        playerStart = *spawn;
+    }
 
 	player_ = std::make_unique<Player>();
 	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Frog.gltf", playerStart);
 	// give player a reference to the stage for abilities (camouflage lookup / sonar)
 	player_->SetStage(stage_.get());
 
-	cameraController_ = std::make_unique<CameraController>();
-	cameraController_->Initialize(camera_.get());
-	cameraController_->SetTargetOffset({0.0f, 1.0f, 0.0f});
-	cameraController_->SetDistance(25.0f);
-	cameraController_->SetHeight(1.5f);
-	cameraController_->SetYawSpeed(0.03f);
-	cameraController_->SetPitchSpeed(0.02f);
-	cameraController_->SetObstacleColliders(&stageBlockColliders_);
-	cameraController_->SetObstacleCylinder(&wellCylinder_);
-	cameraController_->SetKeepInsideCylinder(&wellCylinder_);
+    cameraController_ = std::make_unique<CameraController>();
+    cameraController_->Initialize(camera_.get());
+    cameraController_->SetTargetOffset({ 0.0f, 1.0f, 0.0f });
+    cameraController_->SetDistance(25.0f);
+    cameraController_->SetHeight(1.5f);
+    cameraController_->SetYawSpeed(0.03f);
+    cameraController_->SetPitchSpeed(0.02f);
+    cameraController_->SetObstacleColliders(&stageBlockColliders_);
+    cameraController_->SetObstacleCylinder(&wellCylinder_);
+    cameraController_->SetKeepInsideCylinder(&wellCylinder_);
 
-	player_->SetCameraController(cameraController_.get());
-	player_->SetMovementLimitCylinder(&wellCylinder_);
+    player_->SetCameraController(cameraController_.get());
+    player_->SetMovementLimitCylinder(&wellCylinder_);
 
 	reticle_ = std::make_unique<Reticle>();
 	reticle_->Initialize(SpriteCommon::GetInstance(), camera_.get(), cameraController_.get(), player_.get(), &stageBlockColliders_);
 
-	// StageEditor は Stage を受け取って編集するだけ
-	stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
-	stageEditor_->Initialize("Cube.obj");
+    // StageEditor は Stage を受け取って編集するだけ
+    stageEditor_ = std::make_unique<StageEditor>(stage_.get(), Object3dCommon::GetInstance(), camera_.get());
+    stageEditor_->Initialize("Cube.obj");
 
 	// --- エネミーマネージャーの初期化 ---
 	enemyManager_ = std::make_unique<EnemyManager>();
@@ -186,10 +301,10 @@ void GamePlayScene::Initialize() {
 		player_->SetEnemyManager(enemyManager_.get());
 	}
 
-	debugGrid_ = std::make_unique<DebugGrid>();
-	debugGrid_->Initialize(DirectXCommon::GetInstance());
+    debugGrid_ = std::make_unique<DebugGrid>();
+    debugGrid_->Initialize(DirectXCommon::GetInstance());
 
-	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
+    DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
 	Object3dCommon::GetInstance()->SetPointLight({
 	    {1.0f, 1.0f, 1.0f, 1.0f}, // color
@@ -211,35 +326,36 @@ void GamePlayScene::Finalize() {
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 }
 
-void GamePlayScene::Update() {
+void GamePlayScene::Update()
+{
 
-	// Advance stage runtime (moving platforms, etc.) with fixed timestep
-	if (stage_) {
-		stage_->Update(1.0f / 60.0f);
-		// Apply platform movement deltas to any player standing on them
-		auto deltas = stage_->ConsumePlatformDeltas();
-		if (player_) {
-			Vector3 ppos = player_->GetPosition();
-			bool applied = false;
-			// assume player's half-height ~1.0f (matches Player::colliderHalfSize_ default)
-			const float playerHalfY = 1.0f;
+    // Advance stage runtime (moving platforms, etc.) with fixed timestep
+    if (stage_) {
+        stage_->Update(1.0f / 60.0f);
+        // Apply platform movement deltas to any player standing on them
+        auto deltas = stage_->ConsumePlatformDeltas();
+        if (player_) {
+            Vector3 ppos = player_->GetPosition();
+            bool applied = false;
+            // assume player's half-height ~1.0f (matches Player::colliderHalfSize_ default)
+            const float playerHalfY = 1.0f;
 
-			for (const auto& o : stage_->GetStageData().objects) {
-				if (o.blockId != BlockID::MovingPlatform)
-					continue;
-				auto it = deltas.find(o.id);
-				if (it == deltas.end())
-					continue;
-				const Vector3 delta = it->second;
+            for (const auto& o : stage_->GetStageData().objects) {
+                if (o.blockId != BlockID::MovingPlatform)
+                    continue;
+                auto it = deltas.find(o.id);
+                if (it == deltas.end())
+                    continue;
+                const Vector3 delta = it->second;
 
-				// compute platform top Y using half-height = o.scale.y
-				float topY = o.position.y + o.scale.y;
-				float playerBottom = ppos.y - playerHalfY;
+                // compute platform top Y using half-height = o.scale.y
+                float topY = o.position.y + o.scale.y;
+                float playerBottom = ppos.y - playerHalfY;
 
-				const float kVertEps = 0.25f; // tolerance for standing on top
-				// horizontal extents (use o.scale as half extents)
-				float halfX = o.scale.x;
-				float halfZ = o.scale.z;
+                const float kVertEps = 0.25f; // tolerance for standing on top
+                // horizontal extents (use o.scale as half extents)
+                float halfX = o.scale.x;
+                float halfZ = o.scale.z;
 
 				if (std::fabs(playerBottom - topY) <= kVertEps && std::fabs(ppos.x - o.position.x) <= halfX + 0.5f && std::fabs(ppos.z - o.position.z) <= halfZ + 0.5f) {
 					// Apply full delta (or only horizontal components depending on direction)
@@ -268,20 +384,39 @@ void GamePlayScene::Update() {
 
 	// 実行時ステージから必要情報を取得
 	stageBlockColliders_ = stage_->GetBlockOBBs();
+	breakableBlockColliders_.clear();
+	for (const auto& o : stage_->GetStageData().objects) {
+		if (o.modelName != "Cube.obj") {
+			continue;
+		}
+		if (o.blockId != BlockID::Breakable) {
+			continue;
+		}
+
+		Transform t;
+		t.translate = o.position;
+		t.rotate = o.rotation;
+		t.scale = o.scale;
+
+		breakableBlockColliders_.push_back(
+			CollisionUtility::MakeOBBFromTransform(t, { 1.0f, 1.0f, 1.0f })
+		);
+	}
+	player_->SetBreakableBlockColliders(&breakableBlockColliders_);
 	waterBlockColliders_ = stage_->GetWaterBlockOBBs();
 	player_->SetBlockColliders(&stageBlockColliders_);
 	cameraController_->SetObstacleColliders(&stageBlockColliders_);
 	if (reticle_) {
 		reticle_->Update();
 
-		if (player_) {
-			if (reticle_->HasAimTargetPoint()) {
-				player_->SetAimTargetPoint(reticle_->GetAimTargetPoint());
-			} else {
-				player_->ClearAimTargetPoint();
-			}
-		}
-	}
+        if (player_) {
+            if (reticle_->HasAimTargetPoint()) {
+                player_->SetAimTargetPoint(reticle_->GetAimTargetPoint());
+            } else {
+                player_->ClearAimTargetPoint();
+            }
+        }
+    }
 
 	// エネミーマネージャーに当たり判定データを渡す
 	if (enemyManager_) {
@@ -317,6 +452,10 @@ void GamePlayScene::Update() {
 			player_->Update();
 			if (enemyManager_) {
 				enemyManager_->Update(1.0f / 60.0f, player_.get());
+			}
+
+			if (player_) {
+				player_->CheckEnemyContactDamage();
 			}
 		}
 
@@ -366,34 +505,17 @@ void GamePlayScene::Update() {
 
 		player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
-		if (player_) {
-			Tongue* tongue = player_->GetTongue();
-
-			// Tongue hitting stage blocks (apply damage to breakable blocks)
-			if (tongue) {
-				const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-				for (const auto& obb : stageBlockColliders_) {
-					if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
-						// apply damage (1) at tongue sphere
-						stage_->ApplyDamageAtSphere(tongueSphere, 1);
-						tongue->Reset();
-						break;
-					}
-				}
+	// 水ブロックに触れている間は徐々に回復
+	bool isTouchingWater = false;
+	if (player_) {
+		const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+		for (const auto& waterBox : waterBlockColliders_) {
+			if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
+				isTouchingWater = true;
+				break;
 			}
 		}
-
-		// 水ブロックに触れている間は徐々に回復
-		bool isTouchingWater = false;
-		if (player_) {
-			const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
-			for (const auto& waterBox : waterBlockColliders_) {
-				if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
-					isTouchingWater = true;
-					break;
-				}
-			}
-		}
+	}
 
 		if (isTouchingWater) {
 			player_->AddWater(15.0f / 60.0f);
@@ -428,9 +550,9 @@ void GamePlayScene::Update() {
 void GamePlayScene::Draw() {
 	// skybox_->Draw(*camera_);
 
-	if (wellObject_) {
-		wellObject_->Draw();
-	}
+    if (wellObject_) {
+        wellObject_->Draw();
+    }
 
 	object3d_->Draw();
 	// --- 不透明オブジェクトの描画 ---
@@ -438,10 +560,10 @@ void GamePlayScene::Draw() {
 	stageEditor_->Draw();
 	player_->Draw();
 
-	// 【追加】エネミーの描画
-	if (enemyManager_) {
-		enemyManager_->Draw();
-	}
+    // 【追加】エネミーの描画
+    if (enemyManager_) {
+        enemyManager_->Draw();
+    }
 
 	debugGrid_->Draw(*camera_);
 

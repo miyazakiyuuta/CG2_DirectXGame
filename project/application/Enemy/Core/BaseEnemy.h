@@ -55,7 +55,9 @@ public:
    // この敵インスタンス用のドロップテーブルを設定
 	void SetDropTable(const std::vector<DropEntry>& table) { dropTable_ = table; }
     // 添付されたプレイヤーへドロップ配布（死亡時に呼ばれる）
-	void DistributeDrops();
+	// 戻り値: 配布した総ドロップ量（整数）。0 の場合はドロップ無し。
+	int DistributeDrops();
+	AbilityId GetLastDropAbility() const { return lastDropAbility_; }
 
 	// ソナー（エコー）が当たった時に呼ばれる
 	virtual void OnSonarHit() {}
@@ -102,4 +104,5 @@ protected:
 
 	class Player* player_ = nullptr;
     std::vector<DropEntry> dropTable_;
+  AbilityId lastDropAbility_ = AbilityId::Unknown;
 };

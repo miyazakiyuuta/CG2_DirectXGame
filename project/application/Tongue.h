@@ -44,6 +44,7 @@ public:
 
 	Vector3 GetPosition() const{ return worldPosition_; }
 	Vector3 GetPrevPosition() const{ return prevWorldPosition_; }
+	bool IsSweeping() const { return sweeping_; }
 
 	void SetAlpha(float alpha){ currentAlpha_ = alpha; }
 	float GetAlpha() const{ return currentAlpha_; }
@@ -58,17 +59,23 @@ public:
 
 	void SetMaxDistance(float d) { maxDistance_ = d; }
 	float GetMaxDistance() const { return maxDistance_; }
+    float GetSweepDuration() const { return sweepDuration_; }
+
+    float GetCurrentDistance() const { return currentDistance_; }
+    float GetExtraExtendDistance() const { return extraExtendDistance_; }
 
 private:
 	void UpdateIdle();
 	void UpdateExtending(float deltaTime);
 	void UpdateReturning(float deltaTime);
 	Vector3 GetMouthWorldPosition() const;
+	void UpdateLinkVisual();
 
 private:
 	Player* owner_ = nullptr;
 	Camera* camera_ = nullptr;
 	std::unique_ptr<Object3d> object_ = nullptr;
+	std::unique_ptr<Object3d> linkObject_ = nullptr;
 
 	State state_ = State::Idle;
 
@@ -81,14 +88,13 @@ private:
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 
-	
-    float maxDistance_ = 30.0f;
+	float maxDistance_ = 18.0f;
 
 	// 通常ショット用
 	float normalExtendSpeed_ = 120.0f;
 	float normalReturnSpeed_ = 90.0f;
 
-	// 振る攻撃用
+    // 振る攻撃用
 	float sweepExtendSpeed_ = 180.0f;
 	float sweepReturnSpeed_ = 180.0f;
 	float sweepArcDuration_ = 0.40f;
@@ -103,6 +109,8 @@ private:
 	float hitRadius_ = 0.3f;
 
 	float currentAlpha_ = 1.0f;
+
+	float linkThickness_ = 0.06f;
 
 	// スイープ状態の管理
 	bool sweeping_ = false;

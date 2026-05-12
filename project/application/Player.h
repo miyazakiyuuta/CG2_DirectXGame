@@ -58,10 +58,15 @@ public:
 	void SetRidingPlatformDelta(const Vector3& delta);
 	void ClearRidingPlatformDelta();
 
+	Vector3 GetHeadbornPosition() const;
+
 	void SetGroundHeight(float groundHeight) { groundHeight_ = groundHeight; }
 	bool IsOnGround() const { return isOnGround_; }
 
 	void SetBlockColliders(const std::vector<CollisionUtility::OBB>* blockColliders) { blockColliders_ = blockColliders; }
+	void SetBreakableBlockColliders(const std::vector<CollisionUtility::OBB>* colliders) {
+		breakableBlockColliders_ = colliders;
+	}
 
 	void SetMovementLimitCylinder(const CollisionUtility::Cylinder* cylinder) { movementLimitCylinder_ = cylinder; }
 
@@ -72,6 +77,13 @@ public:
 	float GetMaxWaterGauge() const { return maxWaterGauge_; }
 	void AddWater(float amount);
 	bool ConsumeWater(float amount);
+
+	int GetHP() const { return hp_; }
+	int GetMaxHP() const { return maxHp_; }
+	bool IsDead() const { return hp_ <= 0; }
+
+	void ApplyDamage(int damage);
+	void CheckEnemyContactDamage();
 
 	// チャージジャンプ
 	float GetJumpChargeRate() const;
@@ -138,6 +150,7 @@ public:
 	BaseEnemy* GetLastHitEnemy() const { return lastHitEnemy_; }
 
 private:
+	bool StartBeamActive(const Vector3& beamDir);
     // 能力の状態を管理する構造体
 	struct AbilityState {
 		int level = 1;
@@ -170,6 +183,7 @@ public:
 	void UpdateCeilingCrawling();
 	void UpdateTonguePulling();
 	void CheckTongueBlockHook();
+	bool CheckTongueBlockDamage();
 
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;
@@ -212,13 +226,14 @@ public:
 	Vector3 ClampPlayerPositionInsideMovementCylinder(const Vector3& position, float extraMargin = 0.0f) const;
 
 	void UpdateJumpGaugeSprite();
+	void UpdateHPGaugeSprite();
 	void DrawUI();
 
 	void ApplyClingSurfaceRotation();
 	void ApplyClingSurfaceRotationFacing(const Vector3& desiredForward);
 
 private:
-        // 経験値とレベルアップの保留キュー
+    // 経験値とレベルアップの保留キュー
 	std::vector<std::pair<AbilityId, float>> pendingAbilityXP_;
 	std::vector<std::pair<AbilityId, int>> pendingLevelUps_;
 
@@ -230,6 +245,16 @@ private:
 public:
     // 外部から直接能力XPを加算するための関数（テスト用など。通常は EnqueueAbilityXP を使うべき）
 	void AddAbilityXP(AbilityId ability, float amount);
+
+	// XP tuning loaded from resources/ability_config.json
+  enum class XPMode {
+		Power,
+		Odd,
+	};
+	XPMode xpMode_ = XPMode::Power;
+	float xpOddScale_ = 1.0f; // Odd mode: need = oddScale * (2*level - 1)
+	float xpBase_ = 50.0f;
+	float xpGrowth_ = 2.0f;
 	std::unique_ptr<Object3d> object_ = nullptr;
 	Camera* camera_ = nullptr;
 	CameraController* cameraController_ = nullptr;
@@ -276,7 +301,7 @@ public:
 
 	// 能力強化の倍率（1.0が通常）
 	float jumpPowerMultiplier_ = 1.0f;
-	float baseJumpPowers_[4] = {0.55f, 0.70f, 0.80f, 1.10f};
+    float baseJumpPowers_[4] = {0.33f, 0.42f, 0.48f, 0.66f};
 
 	float tongueRangeMultiplier_ = 1.0f;
 	float baseTongueMaxDistance_ = 30.0f; // will be synced to Tongue
@@ -306,6 +331,7 @@ public:
 	Vector3 wallRightVec_ = {1.0f, 0.0f, 0.0f};
 
 	const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;
+	const std::vector<CollisionUtility::OBB>* breakableBlockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
 	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.0f};
@@ -355,7 +381,6 @@ public:
 	float clingGroundNormalThreshold_ = 0.6f;
 	float clingCeilingNormalThreshold_ = 0.6f;
 
-	// Beam attack (扇状薙ぎ払い) parameters
 	EnemyManager* enemyManager_ = nullptr;
 	float beamCooldown_ = 60.0f; // frames
 	float beamTimer_ = 0.0f;
@@ -363,7 +388,18 @@ public:
 	float beamHalfAngleDeg_ = 30.0f; // 扇の半角度
 	float beamCapsuleRadius_ = 0.8f; // 判定用カプセル半径
 	int beamSamples_ = 5;            // 扇を分割して複数のカプセルで判定
-	float beamWaterCost_ = 10.0f;
+	float beamWaterCost_ = 0.0f;
+    // スイープ中の状態
+    float beamActiveTimer_ = 0.0f;               
+	float beamActiveDuration_ = 45.0f;           
+	float beamBaseActiveDuration_ = 45.0f;       
+	Vector3 beamActiveOrigin_ = {0.0f,0.0f,0.0f};
+	Vector3 beamActiveDir_ = {0.0f,0.0f,1.0f};
+	float beamActiveHalfAngleDeg_ = 0.0f;
+	float beamActiveMaxRadius_ = 0.0f;
+	std::vector<BaseEnemy*> beamActiveHitList_;
+    // Beam attack の判定に使うカプセルの半径は、プレイヤーの当たり判定より少し大きめにして、ヒットさせやすくする
+	float beamOriginalCapsuleRadius_ = 0.8f;
 
 	// Per-frame delta applied when standing on a moving platform
 	Vector3 ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f};
@@ -442,4 +478,19 @@ public:
 
 	bool showJumpGauge_ = false;
 
+	std::unique_ptr<Sprite> hpGaugeBackSprite_ = nullptr;
+	std::unique_ptr<Sprite> hpGaugeFillSprite_ = nullptr;
+	std::unique_ptr<Sprite> hpGaugeFrameSprite_ = nullptr;
+
+	Vector2 hpGaugePos_ = { 40.0f, 32.0f };
+	Vector2 hpGaugeSize_ = { 320.0f, 20.0f };
+	float hpGaugeFrameThickness_ = 3.0f;
+
+	int maxHp_ = 30;
+	int hp_ = 30;
+
+	// 接触ダメージ設定
+	int enemyContactDamage_ = 1;
+	float enemyContactInvincibilityFrames_ = 30.0f;
+	float enemyContactInvincibilityTimer_ = 0.0f;
 };

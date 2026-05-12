@@ -31,13 +31,7 @@ void Object3d::Update() {
 		model_->Update(skeleton_);
 	}
 
-    Matrix4x4 finalWorldMatrix;
-    if (model_) {
-        finalWorldMatrix = model_->GetModelData().rootNode.localMatrix * worldMatrix;
-    } else {
-        // No model assigned -> use worldMatrix directly
-        finalWorldMatrix = worldMatrix;
-    }
+    Matrix4x4 finalWorldMatrix = worldMatrix;
 
 	transformationMatrixData_->World = finalWorldMatrix;
 	transformationMatrixData_->WorldInverseTranspose = finalWorldMatrix.Inverse().Transpose();
@@ -93,7 +87,7 @@ void Object3d::Draw() {
 			commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(model_->GetSkinCluster().paletteSrvIndex));
 		}
 		model_->Draw();
-		DrawDebugSkeleton();
+		//DrawDebugSkeleton();
 	}
 }
 

@@ -26,6 +26,12 @@ public:
 	void Update(float deltaTime, const Vector3& playerPos) override;
 	void Draw() override;
 
+	bool IsFiring() const { return state_ == SensorState::Firing; }
+	Vector3 GetBeamOrigin() const;
+	Vector3 GetBeamDirection() const { return lockOnDir_; }
+	float GetBeamRange() const { return kDetectRange; }
+	float GetBeamRadius() const { return kBeamRadius; }
+
 private:
 	// 視野角（FOV）と距離、擬態を考慮した判定
 	bool CanSeePlayer(const Vector3& playerPos);
@@ -48,4 +54,5 @@ private:
 	Vector3 forwardDir_;     // 現在の視線方向
 	Vector3 baseForwardDir_; // 【追加】索敵の基準となる正面方向
 	float searchTimer_;      // 【追加】首振り計算用のタイマー
+	static constexpr float kBeamRadius = 0.8f; //ビームの当たり判定用半径
 };

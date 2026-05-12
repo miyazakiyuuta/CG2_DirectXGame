@@ -1,112 +1,123 @@
 #pragma once
 #include "base/DirectXCommon.h"
+#include "effect/ParticleConfig.h"
 #include "math/Matrix4x4.h"
+#include "math/Transform.h"
 #include "math/Vector2.h"
 #include "math/Vector3.h"
 #include "math/Vector4.h"
-#include "math/Transform.h"
-#include "effect/ParticleConfig.h"
-#include <string>
+#include <functional>
 #include <random>
+#include <string>
+#include <vector>
+
+class XPOrb;
+#include <memory>
+
+enum class AbilityId : int;
 
 class SrvManager;
 class Camera;
 
 class ParticleManager {
 public:
-	static ParticleManager* GetInstance();
+    static ParticleManager* GetInstance();
 
-	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
+    struct InstanceData {
+        Matrix4x4 wvp;
+        Matrix4x4 world;
+        Vector4 color;
+    };
 
-	void Update(float deltaTime);
+    void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 
-	void Draw();
+    void Update(float deltaTime);
 
-	void CreateParticleGroup(const std::string name, const std::string textureFilePath);
+    void Draw();
 
-	void Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count);
+    void CreateParticleGroup(const std::string name, const std::string textureFilePath);
 
-	void SetCamera(const Camera* camera) { camera_ = camera; }
+    void EnsureParticleGroup(const std::string& name, const std::string& textureFilePath);
 
-private:
-	struct MaterialData {
-		std::string textureFilePath;
-		uint32_t srvIndex = 0;
-	};
+    void Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count);
 
-	struct Particle {
-		Transform transform;
-		Vector3 velocity;
-		Vector4 color;
-		float lifeTime;
-		float currentTime;
-		ParticleMoveType moveType;
-	};
+    void SetCamera(const Camera* camera) { camera_ = camera; }
 
-	struct InstanceData {
-		Matrix4x4 wvp;
-		Matrix4x4 world;
-		Vector4 color;
-	};
-
-	struct ParticleGroup {
-		MaterialData material;
-		std::list<Particle> particles;
-		uint32_t instancingSrvIndex = 0;
-		Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
-		uint32_t instanceCount = 0;
-		InstanceData* instancingData = nullptr; // 書き込み先
-	};
-
-	// 頂点データ
-	struct VertexData {
-		Vector4 position;
-		Vector2 texcoord;
-		Vector3 normal;
-	};
-
-	struct MaterialForGPU {
-		Vector4 color;
-		int32_t enableLighting;
-		float padding[3];
-		Matrix4x4 uvTransform;
-	};
+    // External instancing write access (used by gameplay systems like XPOrbSystem)
+    InstanceData* GetInstancingDataWritePtr(const std::string& groupName, uint32_t& outMaxInstances);
+    void SetExternalInstanceCount(const std::string& groupName, uint32_t instanceCount);
+    uint32_t GetMaxInstancesPerGroup() const { return kNumMaxInstance; }
 
 private:
-	void CreateInstancingResource(ParticleGroup& group);
+    struct MaterialData {
+        std::string textureFilePath;
+        uint32_t srvIndex = 0;
+    };
 
-	void CreateRootSignature();
+    struct Particle {
+        Transform transform;
+        Vector3 velocity;
+        Vector4 color;
+        float lifeTime;
+        float currentTime;
+        ParticleMoveType moveType;
+    };
 
-	void CreateGraphicsPipelineState();
+    struct ParticleGroup {
+        MaterialData material;
+        std::list<Particle> particles;
+        uint32_t instancingSrvIndex = 0;
+        Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
+        uint32_t instanceCount = 0;
+        InstanceData* instancingData = nullptr; // 書き込み先
+    };
 
-	void CreateVertexResource();
+    // 頂点データ
+    struct VertexData {
+        Vector4 position;
+        Vector2 texcoord;
+        Vector3 normal;
+    };
+
+    struct MaterialForGPU {
+        Vector4 color;
+        int32_t enableLighting;
+        float padding[3];
+        Matrix4x4 uvTransform;
+    };
 
 private:
+    void CreateInstancingResource(ParticleGroup& group);
 
-	static ParticleManager* instance;
+    void CreateRootSignature();
 
-	ParticleManager() = default;
-	ParticleManager(ParticleManager&) = delete;
-	ParticleManager& operator=(ParticleManager&) = delete;
+    void CreateGraphicsPipelineState();
 
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
+    void CreateVertexResource();
 
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
+private:
+    static ParticleManager* instance;
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
+    ParticleManager() = default;
+    ParticleManager(ParticleManager&) = delete;
+    ParticleManager& operator=(ParticleManager&) = delete;
 
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 
-	Microsoft::WRL::ComPtr< ID3D12Resource> materialResource_;
-	MaterialForGPU* materialData_ = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
 
-	DirectXCommon* dxCommon_ = nullptr;
-	SrvManager* srvManager_ = nullptr;
-	const Camera* camera_ = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 
-	const uint32_t kNumMaxInstance = 1024;
+    D3D12_VERTEX_BUFFER_VIEW vertexBufferView_;
 
-	std::unordered_map<std::string, ParticleGroup> particleGroups_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
+    MaterialForGPU* materialData_ = nullptr;
 
+    DirectXCommon* dxCommon_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
+    const Camera* camera_ = nullptr;
+
+    const uint32_t kNumMaxInstance = 1024;
+
+    std::unordered_map<std::string, ParticleGroup> particleGroups_;
 };
-
