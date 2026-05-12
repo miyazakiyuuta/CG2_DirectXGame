@@ -78,6 +78,7 @@ void EnemyManager::Update(float deltaTime, Player* player)
         if (enemy) {
             enemy->SetBlockColliders(blockColliders_);
             enemy->SetPlayer(player); // 【追加】情報を渡す
+            enemy->SetKeepInsideCylinder(keepInsideCylinder_);
             // すでに死亡フラグが立っている敵は更新しない。
             // （死亡後にもう1フレーム移動してしまい、ドロップ位置がズレるのを防ぐ）
             if (!enemy->IsDead()) {

@@ -61,7 +61,6 @@ public:
 	float GetMaxDistance() const { return maxDistance_; }
     float GetSweepDuration() const { return sweepDuration_; }
 
-	bool IsSweeping() const { return sweeping_; }
     float GetCurrentDistance() const { return currentDistance_; }
     float GetExtraExtendDistance() const { return extraExtendDistance_; }
 
