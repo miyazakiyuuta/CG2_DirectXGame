@@ -31,13 +31,7 @@ void Object3d::Update() {
 		model_->Update(skeleton_);
 	}
 
-    Matrix4x4 finalWorldMatrix;
-    if (model_) {
-        finalWorldMatrix = model_->GetModelData().rootNode.localMatrix * worldMatrix;
-    } else {
-        // No model assigned -> use worldMatrix directly
-        finalWorldMatrix = worldMatrix;
-    }
+    Matrix4x4 finalWorldMatrix = worldMatrix;
 
 	transformationMatrixData_->World = finalWorldMatrix;
 	transformationMatrixData_->WorldInverseTranspose = finalWorldMatrix.Inverse().Transpose();

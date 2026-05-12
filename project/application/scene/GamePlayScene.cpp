@@ -64,6 +64,7 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
+	ModelManager::GetInstance()->LoadModel("tongue/tongue.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
@@ -363,34 +364,17 @@ void GamePlayScene::Update() {
 
 		player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
-		if (player_) {
-			Tongue* tongue = player_->GetTongue();
-
-			// Tongue hitting stage blocks (apply damage to breakable blocks)
-			if (tongue) {
-				const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-				for (const auto& obb : stageBlockColliders_) {
-					if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
-						// apply damage (1) at tongue sphere
-						stage_->ApplyDamageAtSphere(tongueSphere, 1);
-						tongue->Reset();
-						break;
-					}
-				}
+	// 水ブロックに触れている間は徐々に回復
+	bool isTouchingWater = false;
+	if (player_) {
+		const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
+		for (const auto& waterBox : waterBlockColliders_) {
+			if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
+				isTouchingWater = true;
+				break;
 			}
 		}
-
-		// 水ブロックに触れている間は徐々に回復
-		bool isTouchingWater = false;
-		if (player_) {
-			const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
-			for (const auto& waterBox : waterBlockColliders_) {
-				if (CollisionUtility::IntersectOBB_OBB(playerObb, waterBox)) {
-					isTouchingWater = true;
-					break;
-				}
-			}
-		}
+	}
 
 		if (isTouchingWater) {
 			player_->AddWater(15.0f / 60.0f);

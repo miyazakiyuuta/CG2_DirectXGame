@@ -41,40 +41,61 @@ void Tongue::Initialize(
 	object_->SetCamera(camera_);
 	object_->SetScale({ 0.3f, 0.3f, 0.3f });
 
+	linkObject_ = std::make_unique<Object3d>();
+	linkObject_->Initialize(object3dCommon);
+	linkObject_->SetModel("Cube.obj");
+	linkObject_->SetCamera(camera_);
+	linkObject_->SetScale({ linkThickness_, linkThickness_, 0.1f });
+
 	Reset();
 }
 
-void Tongue::Update(float deltaTime){
-	if(!object_ || !owner_){
+void Tongue::Update(float deltaTime) {
+	if (!object_ || !owner_) {
 		return;
 	}
 
-	switch(state_){
-		case State::Idle:
-			UpdateIdle();
-			break;
+	switch (state_) {
+	case State::Idle:
+		UpdateIdle();
+		break;
 
-		case State::Extending:
-			UpdateExtending(deltaTime);
-			break;
+	case State::Extending:
+		UpdateExtending(deltaTime);
+		break;
 
-		case State::Hooked:
-			prevWorldPosition_ = worldPosition_;
-			worldPosition_ = hookPosition_;
-			break;
+	case State::Hooked:
+		prevWorldPosition_ = worldPosition_;
+		worldPosition_ = hookPosition_;
+		break;
 
-		case State::Returning:
-			UpdateReturning(deltaTime);
-			break;
+	case State::Returning:
+		UpdateReturning(deltaTime);
+		break;
 	}
 
 	object_->SetTranslate(worldPosition_);
-}
 
-void Tongue::Draw(){
-	if(object_){
+	if (state_ != State::Idle) {
+		UpdateLinkVisual();
+	}
+}
+void Tongue::Draw() {
+	if (state_ == State::Idle) {
+		return;
+	}
+
+
+	if (linkObject_) {
+		linkObject_->Update();
+		linkObject_->SetColor({ 1.0f, 0.6f, 0.6f, currentAlpha_ });
+		linkObject_->SetDissolve(1.0f - currentAlpha_);
+		linkObject_->Draw();
+	}
+
+	if (object_) {
 		object_->Update();
-		object_->SetColor({ 1.0f, 1.0f, 1.0f, currentAlpha_ });
+		object_->SetColor({ 1.0f, 0.6f, 0.6f, currentAlpha_ });
 		object_->SetDissolve(1.0f - currentAlpha_);
 		object_->Draw();
 	}
@@ -325,32 +346,13 @@ void Tongue::UpdateReturning(float deltaTime){
 	object_->SetRotate({ 0.0f, tongueYaw, 0.0f });
 }
 
-Vector3 Tongue::GetMouthWorldPosition() const{
-	if(!owner_){
+Vector3 Tongue::GetMouthWorldPosition() const {
+	if (!owner_) {
 		return { 0.0f, 0.0f, 0.0f };
 	}
 
-	Vector3 playerPos = owner_->GetPosition();
-	float yaw = owner_->GetYaw();
-
-	Vector3 forward = {
-		std::sin(yaw),
-		0.0f,
-		std::cos(yaw)
-	};
-
-	Vector3 right = {
-		std::cos(yaw),
-		0.0f,
-		-std::sin(yaw)
-	};
-
-	Vector3 result = playerPos;
-	result.x += right.x * localOffset_.x + forward.x * localOffset_.z;
-	result.y += localOffset_.y;
-	result.z += right.z * localOffset_.x + forward.z * localOffset_.z;
-
-	return result;
+	// 口元ボーン基準のワールド座標をそのまま使う
+	return owner_->GetHeadbornPosition();
 }
 
 CollisionUtility::Sphere Tongue::GetHitSphere() const{
@@ -358,4 +360,47 @@ CollisionUtility::Sphere Tongue::GetHitSphere() const{
 	sphere.center = worldPosition_;
 	sphere.radius = hitRadius_;
 	return sphere;
+}
+
+void Tongue::UpdateLinkVisual() {
+	if (!linkObject_ || !owner_) {
+		return;
+	}
+
+	Vector3 mouth = GetMouthWorldPosition();
+	Vector3 tip = worldPosition_;
+
+	Vector3 diff = {
+		tip.x - mouth.x,
+		tip.y - mouth.y,
+		tip.z - mouth.z
+	};
+
+	float length = Length(diff);
+	if (length <= 0.0001f) {
+		linkObject_->SetTranslate(mouth);
+		linkObject_->SetScale({ linkThickness_, linkThickness_, 0.001f });
+		return;
+	}
+
+	Vector3 dir = Normalize(diff);
+
+	// 中点へ配置
+	Vector3 center = {
+		(mouth.x + tip.x) * 0.5f,
+		(mouth.y + tip.y) * 0.5f,
+		(mouth.z + tip.z) * 0.5f
+	};
+
+	// Z前方を diff へ向ける回転
+	float yaw = std::atan2(dir.x, dir.z);
+	float horizontalLen = std::sqrt(dir.x * dir.x + dir.z * dir.z);
+	float pitch = std::atan2(-dir.y, horizontalLen);
+
+	linkObject_->SetTranslate(center);
+	linkObject_->SetRotate({ pitch, yaw, 0.0f });
+
+	// Cube.obj が Blender デフォルト立方体なら長さ2基準のことが多いので 0.5f を掛ける
+	// もし短すぎたら 0.5f を外して length にしてね
+	linkObject_->SetScale({ linkThickness_, linkThickness_, length * 0.5f });
 }

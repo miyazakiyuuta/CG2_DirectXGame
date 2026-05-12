@@ -58,6 +58,8 @@ public:
 	void SetRidingPlatformDelta(const Vector3& delta);
 	void ClearRidingPlatformDelta();
 
+	Vector3 GetHeadbornPosition() const;
+
 	void SetGroundHeight(float groundHeight) { groundHeight_ = groundHeight; }
 	bool IsOnGround() const { return isOnGround_; }
 
@@ -170,6 +172,7 @@ public:
 	void UpdateCeilingCrawling();
 	void UpdateTonguePulling();
 	void CheckTongueBlockHook();
+	bool CheckTongueBlockDamage();
 
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;

@@ -367,7 +367,7 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
 	originalColor_ = {0.2f, 0.8f, 0.5f, 1.0f};
 
 	tongue_ = std::make_unique<Tongue>();
-	tongue_->Initialize(object3dCommon, camera_, this, "Cube.obj");
+	tongue_->Initialize(object3dCommon, camera_, this, "tongue/tongue.obj");
 
 	velocity_ = {0.0f, 0.0f, 0.0f};
 	lastMove_ = {0.0f, 0.0f, 0.0f};
@@ -652,6 +652,43 @@ void Player::SetPendingTeleport(const Vector3& position) {
 void Player::SetRidingPlatformDelta(const Vector3& delta) { ridingPlatformDelta_ = delta; }
 
 void Player::ClearRidingPlatformDelta() { ridingPlatformDelta_ = {0.0f, 0.0f, 0.0f}; }
+
+Vector3 Player::GetHeadbornPosition() const {
+	if (!object_) {
+		return { 0.0f, 0.0f, 0.0f };
+	}
+
+	auto boneWorldOpt = object_->GetBoneWorldMatrix("ボーン.004");
+	if (!boneWorldOpt) {
+		return object_->GetTranslate();
+	}
+
+	const Matrix4x4& world = *boneWorldOpt;
+
+	// ボーン原点から口元までのローカル補正
+	Vector3 mouthLocalOffset = { 0.0f, 0.5f, 0.0f };
+
+	// モデル見た目合わせ用のローカルYaw補正
+	const float mouthLocalYawOffsetDeg = 10.0f;
+	const float mouthLocalYawOffsetRad = mouthLocalYawOffsetDeg * (3.14159265f / 180.0f);
+
+	const float s = std::sin(mouthLocalYawOffsetRad);
+	const float c = std::cos(mouthLocalYawOffsetRad);
+
+	Vector3 rotatedOffset = {
+		mouthLocalOffset.x * c - mouthLocalOffset.z * s,
+		mouthLocalOffset.y,
+		mouthLocalOffset.x * s + mouthLocalOffset.z * c
+	};
+
+	Vector3 position = {
+		rotatedOffset.x * world.m[0][0] + rotatedOffset.y * world.m[1][0] + rotatedOffset.z * world.m[2][0] + world.m[3][0],
+		rotatedOffset.x * world.m[0][1] + rotatedOffset.y * world.m[1][1] + rotatedOffset.z * world.m[2][1] + world.m[3][1],
+		rotatedOffset.x * world.m[0][2] + rotatedOffset.y * world.m[1][2] + rotatedOffset.z * world.m[2][2] + world.m[3][2]
+	};
+
+	return position;
+}
 
 Vector3 Player::GetPosition() const {
 	if (!object_) {
@@ -973,12 +1010,69 @@ void Player::CheckTongueBlockHook() {
 
 			if (useTonguePull_) {
 				TransitionTo(MovementState::TonguePulling);
-			} else {
-				tongue_->StartReturn();
 			}
 			return;
 		}
 	}
+}
+
+bool Player::CheckTongueBlockDamage() {
+	if (!tongue_ || !stage_ || !blockColliders_) {
+		return false;
+	}
+
+	if (tongue_->GetState() != Tongue::State::Extending) {
+		return false;
+	}
+
+	const CollisionUtility::Sphere tipSphere = tongue_->GetHitSphere();
+	const float hitRadius = tipSphere.radius;
+
+	// 通常ショットは舌先だけ
+	if (!tongue_->IsSweeping()) {
+		for (const auto& obb : *blockColliders_) {
+			if (!CollisionUtility::IntersectSphere_OBB(tipSphere, obb)) {
+				continue;
+			}
+
+			stage_->ApplyDamageAtSphere(tipSphere, 1);
+			tongue_->Reset();
+			return true;
+		}
+
+		return false;
+	}
+
+	// 薙ぎ払い中は「口元 → 舌先」の間も当たりにする
+	Vector3 mouth = tongue_->GetMouthWorldPositionPublic();
+	Vector3 tip = tongue_->GetPosition();
+	Vector3 segment = tip - mouth;
+	float segmentLen = Length3(segment);
+
+	int steps = std::max(1, static_cast<int>(std::ceil(segmentLen / std::max(0.05f, hitRadius * 0.75f))));
+	bool damaged = false;
+
+	for (int s = 0; s <= steps; ++s) {
+		float t = static_cast<float>(s) / static_cast<float>(steps);
+
+		CollisionUtility::Sphere sampleSphere;
+		sampleSphere.radius = hitRadius;
+		sampleSphere.center = mouth + segment * t;
+
+		for (const auto& obb : *blockColliders_) {
+			if (!CollisionUtility::IntersectSphere_OBB(sampleSphere, obb)) {
+				continue;
+			}
+
+			stage_->ApplyDamageAtSphere(sampleSphere, 1);
+			damaged = true;
+		}
+	}
+
+	// 薙ぎ払いはそのまま続けたいので Reset はしない
+	// ただし、このフレームは「壊した」扱いとして true を返し、
+	// 後続のフック判定へ行かないようにする
+	return damaged;
 }
 
 void Player::UpdateTonguePulling() {
@@ -997,7 +1091,7 @@ void Player::UpdateTonguePulling() {
 		if (lastHitEnemy_) {
 			// 【自動射出】たどり着いた瞬間に、敵の慣性を利用して自分を弾き飛ばす！
            velocity_ = lastHitEnemy_->GetVelocity();
-            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_; // 少し上に跳ね上げる (upgrade applied)
+            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 10.0f; // 少し上に跳ね上げる (upgrade applied)
 
 			// 重要なのは「遷移する前に情報をクリアする」こと
 			lastHitEnemy_ = nullptr;
@@ -1013,10 +1107,17 @@ void Player::UpdateTonguePulling() {
 		}
 
 		object_->SetTranslate(snapped);
-		velocity_ = {0.0f, 0.0f, 0.0f};
+		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
-		tongue_->StartReturn();
-		TransitionTo(MovementState::WallClinging);
+
+		 tongue_->StartReturn();
+
+		if (IsCeilingSurface(clingSurfaceNormal_)) {
+			TransitionTo(MovementState::WallClinging);
+		}
+		else {
+			TransitionTo(MovementState::WallClinging);
+		}
 		return;
 	}
 
@@ -1232,7 +1333,11 @@ void Player::Update() {
 
 	if (tongue_) {
 		tongue_->Update(1.0f / 60.0f);
-		CheckTongueBlockHook();
+
+		bool brokeBlock = CheckTongueBlockDamage();
+		if (!brokeBlock) {
+			CheckTongueBlockHook();
+		}
 	}
 
 	// Q key: cycle selected ability
