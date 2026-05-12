@@ -1032,7 +1032,7 @@ void Player::UpdateTonguePulling() {
 		if (lastHitEnemy_) {
 			// 【自動射出】たどり着いた瞬間に、敵の慣性を利用して自分を弾き飛ばす！
            velocity_ = lastHitEnemy_->GetVelocity();
-            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_; // 少し上に跳ね上げる (upgrade applied)
+            velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 10.0f; // 少し上に跳ね上げる (upgrade applied)
 
 			// 重要なのは「遷移する前に情報をクリアする」こと
 			lastHitEnemy_ = nullptr;
@@ -1051,11 +1051,10 @@ void Player::UpdateTonguePulling() {
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		isOnGround_ = false;
 
-		// ここでは戻さない
-		// tongue_->StartReturn();
+		 tongue_->StartReturn();
 
 		if (IsCeilingSurface(clingSurfaceNormal_)) {
-			TransitionTo(MovementState::CeilingCrawling);
+			TransitionTo(MovementState::WallClinging);
 		}
 		else {
 			TransitionTo(MovementState::WallClinging);
