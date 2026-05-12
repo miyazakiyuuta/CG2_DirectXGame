@@ -172,7 +172,7 @@ public:
 	void ApplyGravity();
 
 	Vector3 GetMoveInputDirection(float cameraYaw) const;
-	void UpdateAirborneHorizontalMove();
+	void UpdateAirborneHorizontalMove(float cameraYaw);
 
 	int GetCurrentChargeLevel() const;
 	int GetAllowedChargeLevel() const;
@@ -458,6 +458,13 @@ public:
 
 	// ジャンプ開始時に固定する水平移動ベクトル
 	Vector3 lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+	float airControlAccelerationMin_ = 0.004f;
+	float airControlAccelerationMax_ = 0.010f;
+	float airControlMaxSpeed_ = moveSpeed_;
+	float airControlDrag_ = 0.045f;
+
+	float maxFallSpeed_ = 0.60f;
 
 	// 徐々に向きを変えるための設定
 	float turnSpeedRad_ = 0.48f;                  // 1フレームで回る最大量

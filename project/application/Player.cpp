@@ -1489,7 +1489,7 @@ void Player::Update()
 	case MovementState::Jumping: {
 		Vector3 previousPosition = object_->GetTranslate();
 
-		UpdateAirborneHorizontalMove();
+        UpdateAirborneHorizontalMove(cameraYaw);
 		ResolveHorizontalCollisions(previousPosition);
 		ResolveMovementLimitCylinder();
 
@@ -1993,6 +1993,10 @@ void Player::ApplyGravity()
     isOnGround_ = false;
 
     velocity_.y += gravity_;
+
+    // 下方向だけ制限
+    velocity_.y = std::max(velocity_.y, -maxFallSpeed_);
+
     position.y += velocity_.y;
 
 	// 非常用の落下リセット
@@ -2049,18 +2053,70 @@ Vector3 Player::GetMoveInputDirection(float cameraYaw) const {
 	return inputDir;
 }
 
-void Player::UpdateAirborneHorizontalMove() {
-	Vector3 position = object_->GetTranslate();
+void Player::UpdateAirborneHorizontalMove(float cameraYaw) {
+    Vector3 position = object_->GetTranslate();
 
-	position.x += lockedJumpMoveVelocity_.x;
-	position.z += lockedJumpMoveVelocity_.z;
+    Vector3 inputDir = GetMoveInputDirection(cameraYaw);
 
-	velocity_.x = lockedJumpMoveVelocity_.x;
-	velocity_.z = lockedJumpMoveVelocity_.z;
+    Vector3 horizontalVelocity = {
+        lockedJumpMoveVelocity_.x,
+        0.0f,
+        lockedJumpMoveVelocity_.z
+    };
 
-	object_->SetTranslate(position);
+    float currentSpeed = LengthXZ(horizontalVelocity);
+
+    if (LengthXZ(inputDir) > 0.0001f) {
+        float alignment = 0.0f;
+
+        if (currentSpeed > 0.0001f) {
+            Vector3 currentDir = {
+                horizontalVelocity.x / currentSpeed,
+                0.0f,
+                horizontalVelocity.z / currentSpeed
+            };
+
+            alignment = Vector3::Dot(currentDir, inputDir);
+            alignment = ClampFloat(alignment, 0.0f, 1.0f);
+        }
+        else {
+            alignment = 1.0f;
+        }
+
+        float accel = airControlAccelerationMin_ +
+            (airControlAccelerationMax_ - airControlAccelerationMin_) * alignment;
+
+        horizontalVelocity.x += inputDir.x * accel;
+        horizontalVelocity.z += inputDir.z * accel;
+    }
+    else {
+        float speed = LengthXZ(horizontalVelocity);
+        if (speed > 0.0001f) {
+            float newSpeed = std::max(0.0f, speed - airControlDrag_);
+            float scale = newSpeed / speed;
+            horizontalVelocity.x *= scale;
+            horizontalVelocity.z *= scale;
+        }
+    }
+
+    float newSpeed = LengthXZ(horizontalVelocity);
+    if (newSpeed > airControlMaxSpeed_ && newSpeed > 0.0001f) {
+        float scale = airControlMaxSpeed_ / newSpeed;
+        horizontalVelocity.x *= scale;
+        horizontalVelocity.z *= scale;
+    }
+
+    lockedJumpMoveVelocity_.x = horizontalVelocity.x;
+    lockedJumpMoveVelocity_.z = horizontalVelocity.z;
+
+    position.x += lockedJumpMoveVelocity_.x;
+    position.z += lockedJumpMoveVelocity_.z;
+
+    velocity_.x = lockedJumpMoveVelocity_.x;
+    velocity_.z = lockedJumpMoveVelocity_.z;
+
+    object_->SetTranslate(position);
 }
-
 const char* Player::GetMovementStateName() const
 {
     switch (moveState_) {
