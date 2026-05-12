@@ -569,6 +569,18 @@ void Player::InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTe
         hpGaugeSize_.y + hpGaugeFrameThickness_ * 2.0f
         });
     hpGaugeFrameSprite_->SetColor({ 0.95f, 0.95f, 0.95f, 0.9f });
+
+    wallClingGaugeBackSprite_ = std::make_unique<Sprite>();
+    wallClingGaugeBackSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+    wallClingGaugeBackSprite_->SetPos(wallClingGaugePos_);
+    wallClingGaugeBackSprite_->SetSize(wallClingGaugeSize_);
+    wallClingGaugeBackSprite_->SetColor({ 0.10f, 0.10f, 0.10f, 0.75f });
+
+    wallClingGaugeFillSprite_ = std::make_unique<Sprite>();
+    wallClingGaugeFillSprite_->Initialize(spriteCommon, gaugeTextureFilePath);
+    wallClingGaugeFillSprite_->SetPos(wallClingGaugePos_);
+    wallClingGaugeFillSprite_->SetSize(wallClingGaugeSize_);
+    wallClingGaugeFillSprite_->SetColor({ 0.95f, 0.85f, 0.15f, 0.95f });
 }
 
 void Player::ResolveMovementLimitCylinder()
@@ -1759,6 +1771,7 @@ void Player::Update()
 
     UpdateHPGaugeSprite();
     UpdateJumpGaugeSprite();
+    UpdateWallClingGaugeUISprite();
 
     speedMultiplier_ = 1.0f;
 }
@@ -3237,15 +3250,19 @@ void Player::UpdateJumpGaugeSprite()
     Vector3 worldPos = GetPosition();
     worldPos.y += 2.0f;
 
-    Vector2 screenPos {};
+    const float screenW = static_cast<float>(WinApp::kClientWidth);
+    const float screenH = static_cast<float>(WinApp::kClientHeight);
+
+    Vector2 screenPos{};
     if (!WorldToScreenSimple(
-            worldPos,
-            camera_->GetViewProjectionMatrix(),
-            static_cast<float>(WinApp::kClientWidth),
-            static_cast<float>(WinApp::kClientHeight),
-            screenPos)) {
-        showJumpGauge_ = false;
-        return;
+        worldPos,
+        camera_->GetViewProjectionMatrix(),
+        screenW,
+        screenH,
+        screenPos)) {
+        // 投影失敗時も消さず、画面上部中央へ逃がす
+        screenPos.x = screenW * 0.5f;
+        screenPos.y = screenH * 0.20f;
     }
 
     Vector2 gaugePos = {
@@ -3253,15 +3270,17 @@ void Player::UpdateJumpGaugeSprite()
         screenPos.y + jumpGaugeOffset_.y
     };
 
-	gaugePos.x = ClampFloat(
-		gaugePos.x,
-		static_cast<float>(WinApp::kClientWidth) * 0.4f,
-		static_cast<float>(WinApp::kClientWidth) - jumpGaugeSize_.x - static_cast<float>(WinApp::kClientWidth) * 0.4f);
+    const float kScreenMargin = 8.0f;
 
-	gaugePos.y = ClampFloat(
-		gaugePos.y,
-		static_cast<float>(WinApp::kClientHeight) * 0.4f,
-		static_cast<float>(WinApp::kClientHeight) - jumpGaugeSize_.y - static_cast<float>(WinApp::kClientHeight) * 0.4f);
+    gaugePos.x = ClampFloat(
+        gaugePos.x,
+        kScreenMargin,
+        screenW - jumpGaugeSize_.x - kScreenMargin);
+
+    gaugePos.y = ClampFloat(
+        gaugePos.y,
+        kScreenMargin,
+        screenH - jumpGaugeSize_.y - kScreenMargin);
 
     jumpGaugeBackSprite_->SetPos(gaugePos);
     jumpGaugeBackSprite_->SetSize(jumpGaugeSize_);
@@ -3271,20 +3290,26 @@ void Player::UpdateJumpGaugeSprite()
     int visibleLevel = GetCurrentVisibleChargeLevel();
     float phaseRate = ClampFloat(GetCurrentChargePhaseRate(), 0.0f, 1.0f);
 
-    // 現在の段階色
     Vector4 segmentColors[4] = {
-        { 0.25f, 1.0f, 0.2f, 0.9f }, // 1段目
-        { 0.95f, 0.95f, 0.2f, 0.9f }, // 2段目
-        { 1.0f, 0.6f, 0.2f, 0.9f }, // 3段目
-        { 1.0f, 0.2f, 0.2f, 0.9f } // 保険
+        { 0.25f, 1.0f, 0.2f, 0.9f },
+        { 0.95f, 0.95f, 0.2f, 0.9f },
+        { 1.0f, 0.6f, 0.2f, 0.9f },
+        { 1.0f, 0.25f, 0.25f, 0.9f }
     };
 
-    int currentSegment = std::min(visibleLevel, allowedLevel - 1);
+    Vector4 gaugeColor = segmentColors[std::clamp(visibleLevel, 0, 3)];
+    jumpGaugeFillSprite_->SetColor(gaugeColor);
+
+    float totalWidth = jumpGaugeSize_.x;
+    float fillRate = 0.0f;
+
+    if (allowedLevel > 0) {
+        fillRate = (static_cast<float>(visibleLevel) + phaseRate) / static_cast<float>(allowedLevel);
+    }
+    fillRate = ClampFloat(fillRate, 0.0f, 1.0f);
 
     jumpGaugeFillSprite_->SetPos(gaugePos);
-    jumpGaugeFillSprite_->SetSize({ jumpGaugeSize_.x * phaseRate,
-        jumpGaugeSize_.y });
-    jumpGaugeFillSprite_->SetColor(segmentColors[std::min(currentSegment, 3)]);
+    jumpGaugeFillSprite_->SetSize({ totalWidth * fillRate, jumpGaugeSize_.y });
     jumpGaugeFillSprite_->Update();
 }
 
@@ -3330,6 +3355,40 @@ void Player::UpdateHPGaugeSprite()
     hpGaugeFillSprite_->SetColor(hpColor);
     hpGaugeFillSprite_->Update();
 }
+
+void Player::UpdateWallClingGaugeUISprite()
+{
+    if (!wallClingGaugeBackSprite_ || !wallClingGaugeFillSprite_) {
+        return;
+    }
+
+    float rate = 1.0f;
+    if (maxWallClingGauge_ > 0.0001f) {
+        rate = wallClingGauge_ / maxWallClingGauge_;
+    }
+    rate = ClampFloat(rate, 0.0f, 1.0f);
+
+    wallClingGaugeBackSprite_->SetPos(wallClingGaugePos_);
+    wallClingGaugeBackSprite_->SetSize(wallClingGaugeSize_);
+    wallClingGaugeBackSprite_->Update();
+
+    Vector4 staminaColor = { 0.95f, 0.85f, 0.15f, 0.95f };
+    if (rate <= 0.5f) {
+        staminaColor = { 1.0f, 0.70f, 0.10f, 0.95f };
+    }
+    if (rate <= 0.25f) {
+        staminaColor = { 1.0f, 0.45f, 0.10f, 0.98f };
+    }
+
+    wallClingGaugeFillSprite_->SetPos(wallClingGaugePos_);
+    wallClingGaugeFillSprite_->SetSize({
+        wallClingGaugeSize_.x * rate,
+        wallClingGaugeSize_.y
+        });
+    wallClingGaugeFillSprite_->SetColor(staminaColor);
+    wallClingGaugeFillSprite_->Update();
+}
+
 void Player::DrawUI()
 {
     if (hpGaugeFrameSprite_) {
@@ -3340,6 +3399,16 @@ void Player::DrawUI()
     }
     if (hpGaugeFillSprite_) {
         hpGaugeFillSprite_->Draw();
+    }
+
+    // 壁のぼりスタミナ
+    if (showWallClingGaugeUI_) {
+        if (wallClingGaugeBackSprite_) {
+            wallClingGaugeBackSprite_->Draw();
+        }
+        if (wallClingGaugeFillSprite_) {
+            wallClingGaugeFillSprite_->Draw();
+        }
     }
 
     if (!showJumpGauge_) {

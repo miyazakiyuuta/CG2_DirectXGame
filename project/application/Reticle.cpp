@@ -65,14 +65,15 @@ void Reticle::Initialize(
 	UpdateAimTarget();
 }
 
-void Reticle::SetColor(const Vector4& color){
+void Reticle::SetColor(const Vector4& color) {
+	normalColor_ = color;
 	color_ = color;
 
-	if(centerDot_) centerDot_->SetColor(color_);
-	if(barUp_)     barUp_->SetColor(color_);
-	if(barDown_)   barDown_->SetColor(color_);
-	if(barLeft_)   barLeft_->SetColor(color_);
-	if(barRight_)  barRight_->SetColor(color_);
+	if (centerDot_) centerDot_->SetColor(color_);
+	if (barUp_)     barUp_->SetColor(color_);
+	if (barDown_)   barDown_->SetColor(color_);
+	if (barLeft_)   barLeft_->SetColor(color_);
+	if (barRight_)  barRight_->SetColor(color_);
 }
 
 void Reticle::ApplyLayout(){
@@ -190,10 +191,16 @@ CollisionUtility::RayHitResult Reticle::CastPlayerAimRay(const Vector3& targetPo
 	return best;
 }
 
-void Reticle::UpdateAimTarget(){
+void Reticle::UpdateAimTarget() {
 	hasAimTargetPoint_ = false;
+	canReachTongueTarget_ = false;
 
 	if(!camera_ || !cameraController_){
+		color_ = normalColor_;
+		if (centerDot_) centerDot_->SetColor(color_);
+		if (barDown_)   barDown_->SetColor(color_);
+		if (barLeft_)   barLeft_->SetColor(color_);
+		if (barRight_)  barRight_->SetColor(color_);
 		return;
 	}
 
@@ -208,6 +215,26 @@ void Reticle::UpdateAimTarget(){
 
 	aimTargetPoint_ = playerHit.hit ? playerHit.point : cameraTargetPoint;
 	hasAimTargetPoint_ = true;
+
+	// ブロックに実際に当たる点があり、かつ舌が届くときだけ赤
+	if (player_ && playerHit.hit) {
+		Tongue* tongue = player_->GetTongue();
+		if (tongue) {
+			Vector3 mouthPos = tongue->GetMouthWorldPositionPublic();
+			Vector3 toHit = playerHit.point - mouthPos;
+
+			float distance = toHit.Length();
+			canReachTongueTarget_ = (distance <= tongue->GetMaxDistance());
+		}
+	}
+
+	color_ = canReachTongueTarget_ ? reachableColor_ : normalColor_;
+
+	if (centerDot_) centerDot_->SetColor(color_);
+	if (barUp_)     barUp_->SetColor(color_);
+	if (barDown_)   barDown_->SetColor(color_);
+	if (barLeft_)   barLeft_->SetColor(color_);
+	if (barRight_)  barRight_->SetColor(color_);
 }
 
 void Reticle::Update(){
