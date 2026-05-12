@@ -25,12 +25,16 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
     srvManager_ = srvManager;
     assert(srvManager_);
 
-    // MaterialCB作成
-    materialResource_ = dxCommon_->CreateBufferResource(sizeof(MaterialForGPU));
-    materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    materialData_->enableLighting = 0;
-    materialData_->uvTransform = Matrix4x4::Identity();
+	// シーン再生成時に前回のグループが残っているとCreateParticleGroupで
+	// assert落ちするため、再初期化時は既存グループをクリアする
+	particleGroups_.clear();
+
+	// MaterialCB作成
+	materialResource_ = dxCommon_->CreateBufferResource(sizeof(MaterialForGPU));
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
+	materialData_->color = { 1.0f,1.0f,1.0f,1.0f };
+	materialData_->enableLighting = 0;
+	materialData_->uvTransform = Matrix4x4::Identity();
 
     CreateVertexResource();
     CreateGraphicsPipelineState();

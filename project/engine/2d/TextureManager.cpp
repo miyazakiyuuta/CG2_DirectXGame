@@ -44,7 +44,7 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 	if (filePathW.ends_with(L".dds")) { // .ddsで終わっていたらdssとみなす。(より安全な方法はある)
 		hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
 	} else { // それ以外(WIC)として読み込む
-		hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+		hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
 	}
 	assert(SUCCEEDED(hr));
 

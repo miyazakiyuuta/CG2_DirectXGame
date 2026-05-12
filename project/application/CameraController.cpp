@@ -115,6 +115,8 @@ void CameraController::Initialize(Camera* camera){
 	yawSpeed_ = baseYawSpeed_;
 	pitchSpeed_ = basePitchSpeed_;
 	mouseSensitivity_ = baseMouseSensitivity_;
+	padYawSpeed_ = basePadYawSpeed_;
+	padPitchSpeed_ = basePadPitchSpeed_;
 
 	if(camera_){
 		camera_->SetRotate({ pitch_, yaw_, 0.0f });
@@ -166,9 +168,9 @@ void CameraController::Update(const Vector3& target){
 	const float ySign = invertY_ ? 1.0f : -1.0f;
 	lookY += static_cast<float>(mouseMoveY) * mouseSensitivity_ * ySign;
 
-	// パッド右スティックの視点入力
-	lookX += input_->GetRightStickX() * basePadYawSpeed_;
-	lookY += input_->GetRightStickY() * basePadPitchSpeed_ * ySign;
+	// パッド右スティックの視点入力（感度設定が反映される適用速度を使う）
+	lookX += input_->GetRightStickX() * padYawSpeed_;
+	lookY += input_->GetRightStickY() * padPitchSpeed_ * ySign;
 
 	// 実際の反映は1回だけ
 	yaw_ += lookX;
