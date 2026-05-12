@@ -361,23 +361,6 @@ void GamePlayScene::Update() {
 
 	player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 
-	//if (player_) {
-	//	Tongue* tongue = player_->GetTongue();
-
-	//	// Tongue hitting stage blocks (apply damage to breakable blocks)
-	//	if (tongue) {
-	//		const CollisionUtility::Sphere tongueSphere = tongue->GetHitSphere();
-	//		for (const auto& obb : stageBlockColliders_) {
-	//			if (CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
-	//				// apply damage (1) at tongue sphere
-	//				stage_->ApplyDamageAtSphere(tongueSphere, 1);
-	//				tongue->Reset();
-	//				break;
-	//			}
-	//		}
-	//	}
-	//}
-
 	// 水ブロックに触れている間は徐々に回復
 	bool isTouchingWater = false;
 	if (player_) {

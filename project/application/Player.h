@@ -172,6 +172,7 @@ public:
 	void UpdateCeilingCrawling();
 	void UpdateTonguePulling();
 	void CheckTongueBlockHook();
+	bool CheckTongueBlockDamage();
 
 	void TransitionTo(MovementState nextState);
 	const char* GetMovementStateName() const;

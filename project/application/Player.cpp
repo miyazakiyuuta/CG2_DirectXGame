@@ -1016,6 +1016,31 @@ void Player::CheckTongueBlockHook() {
 	}
 }
 
+bool Player::CheckTongueBlockDamage() {
+	if (!tongue_ || !stage_ || !blockColliders_) {
+		return false;
+	}
+
+	// 飛んでいる途中だけ判定
+	if (tongue_->GetState() != Tongue::State::Extending) {
+		return false;
+	}
+
+	const CollisionUtility::Sphere tongueSphere = tongue_->GetHitSphere();
+
+	for (const auto& obb : *blockColliders_) {
+		if (!CollisionUtility::IntersectSphere_OBB(tongueSphere, obb)) {
+			continue;
+		}
+
+		stage_->ApplyDamageAtSphere(tongueSphere, 1);
+		tongue_->Reset();
+		return true;
+	}
+
+	return false;
+}
+
 void Player::UpdateTonguePulling() {
 	if (!object_ || !tongue_) {
 		return;
@@ -1274,7 +1299,11 @@ void Player::Update() {
 
 	if (tongue_) {
 		tongue_->Update(1.0f / 60.0f);
-		CheckTongueBlockHook();
+
+		bool brokeBlock = CheckTongueBlockDamage();
+		if (!brokeBlock) {
+			CheckTongueBlockHook();
+		}
 	}
 
 	// Q key: cycle selected ability
