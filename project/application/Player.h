@@ -227,6 +227,7 @@ public:
 
 	void UpdateJumpGaugeSprite();
 	void UpdateHPGaugeSprite();
+	void UpdateWallClingGaugeUISprite();
 	void DrawUI();
 
 	void ApplyClingSurfaceRotation();
@@ -488,6 +489,13 @@ public:
 
 	int maxHp_ = 30;
 	int hp_ = 30;
+
+	std::unique_ptr<Sprite> wallClingGaugeBackSprite_ = nullptr;
+	std::unique_ptr<Sprite> wallClingGaugeFillSprite_ = nullptr;
+
+	Vector2 wallClingGaugePos_ = { 40.0f, 60.0f };   // HPバーの下に置く
+	Vector2 wallClingGaugeSize_ = { 320.0f, 14.0f };
+	bool showWallClingGaugeUI_ = true;
 
 	// 接触ダメージ設定
 	int enemyContactDamage_ = 1;

@@ -67,6 +67,9 @@ private:
 
 	Vector2 center_ = { static_cast<float>(WinApp::kClientWidth) / 2.0f, static_cast<float>(WinApp::kClientHeight) / 2.0f};
 	Vector4 color_ = { 1.0f, 1.0f, 1.0f, 0.9f };
+	Vector4 normalColor_ = { 1.0f, 1.0f, 1.0f, 0.9f };
+	Vector4 reachableColor_ = { 1.0f, 0.2f, 0.2f, 0.95f };
+	bool canReachTongueTarget_ = false;
 
 	bool isVisible_ = true;
 
