@@ -116,9 +116,9 @@ CollisionUtility::OBB BaseEnemy::GetOBB(const Vector3& pos, float radius) const
 }
 
 // ドロップ配布の実装
-void BaseEnemy::DistributeDrops() {
+int BaseEnemy::DistributeDrops() {
     if (dropTable_.empty() || !player_)
-        return;
+        return 0;
 
     std::vector<float> weights;
     std::vector<const DropEntry*> entries;
@@ -135,13 +135,13 @@ void BaseEnemy::DistributeDrops() {
     }
 
     if (entries.empty())
-        return;
+        return 0;
 
     std::discrete_distribution<size_t> dist(weights.begin(), weights.end());
     size_t idx = dist(gen);
     const DropEntry* chosen = entries[idx];
     if (!chosen)
-        return;
+        return 0;
 
     int amount = chosen->minAmount;
     if (chosen->maxAmount > chosen->minAmount) {
@@ -149,8 +149,7 @@ void BaseEnemy::DistributeDrops() {
         amount = amtDist(gen);
     }
 
-    // プレイヤーに能力XPを付与
-    if (player_) {
-        player_->EnqueueAbilityXP(chosen->ability, static_cast<float>(amount));
-    }
+    lastDropAbility_ = chosen->ability;
+
+    return amount;
 }

@@ -225,6 +225,9 @@
     <ClCompile Include="application\Enemy\Types\PhaseGhost.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="application\XPOrb.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engine\math\Vector3.h">
@@ -458,6 +461,9 @@
     <ClInclude Include="application\Ability.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="application\XPOrb.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -479,6 +485,7 @@
     <None Include="resources\shaders\Debug.hlsli" />
     <None Include="resources\enemy_drops.json" />
     <None Include="resources\ability_config.json" />
+    <None Include="resources\stage_enemies.json" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />

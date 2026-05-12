@@ -666,7 +666,10 @@ void StageEditor::DrawImGui(){
     const char* enemyTypes[] = {
         "Chasing",
         "Shooting",
-        "Sentinel"
+        "Sentinel",
+        "ClusterSlime",
+        "ProminenceSensor",
+        "PhaseGhost",
     };
 
     if(currentMode != EditorUIMode::SelectedEdit){
@@ -735,7 +738,15 @@ void StageEditor::DrawImGui(){
         }
 
         if(placingBlockId_ == BlockID::EnemySpawn){
+            if(placingEnemyType_ < 0 || placingEnemyType_ >= IM_ARRAYSIZE(enemyTypes)){
+                placingEnemyType_ = 0;
+            }
             ImGui::Combo("Enemy Type", &placingEnemyType_, enemyTypes, IM_ARRAYSIZE(enemyTypes));
+
+            ImGui::InputFloat("Respawn Interval (sec)", &placingEnemyRespawnInterval_);
+            if(placingEnemyRespawnInterval_ < 0.0f){
+                placingEnemyRespawnInterval_ = 0.0f;
+            }
         }
 
         ImGui::Separator();
@@ -768,6 +779,7 @@ void StageEditor::DrawImGui(){
                 }
                 if(o.blockId == BlockID::EnemySpawn){
                     o.enemyType = placingEnemyType_;
+                    o.enemyRespawnInterval = placingEnemyRespawnInterval_;
                 }
 
                 data.objects.push_back(o);
@@ -1072,11 +1084,28 @@ void StageEditor::DrawImGui(){
                 }
 
                 if(editBlockId_ == BlockID::EnemySpawn){
+                    if(editEnemyType_ < 0 || editEnemyType_ >= IM_ARRAYSIZE(enemyTypes)){
+                        editEnemyType_ = 0;
+                    }
                     if(ImGui::Combo("Enemy Type", &editEnemyType_, enemyTypes, IM_ARRAYSIZE(enemyTypes))){
                         if(liveEdit_){
                             for(auto& obj : data.objects){
                                 if(obj.id == selectedObjectId_){
                                     obj.enemyType = editEnemyType_;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if(ImGui::InputFloat("Respawn Interval (sec)", &editEnemyRespawnInterval_)){
+                        if(editEnemyRespawnInterval_ < 0.0f){
+                            editEnemyRespawnInterval_ = 0.0f;
+                        }
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){
+                                if(obj.id == selectedObjectId_){
+                                    obj.enemyRespawnInterval = editEnemyRespawnInterval_;
                                     break;
                                 }
                             }
@@ -1125,6 +1154,10 @@ void StageEditor::DrawImGui(){
                                 obj.moveSpeed = editMoveSpeed_;
                                 obj.moveRange = editMoveRange_;
                         obj.movePhase = editMovePhase_;
+                            }
+                          if(obj.blockId == BlockID::EnemySpawn){
+                                obj.enemyType = editEnemyType_;
+                                obj.enemyRespawnInterval = editEnemyRespawnInterval_;
                             }
                             break;
                         }

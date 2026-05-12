@@ -65,6 +65,9 @@ struct StageObject {
 
     // 敵スポーン用
     int enemyType = 0; // EnemyType::Chasing 相当をデフォルト
+
+    // 敵リスポーン用（秒）
+    float enemyRespawnInterval = 5.0f;
 };
 
 /// <summary>
@@ -82,4 +85,5 @@ struct StageData {
 struct EnemySpawnPoint{
     Vector3 position{};
     int enemyType = 0;
+    float respawnInterval = 5.0f;
 };

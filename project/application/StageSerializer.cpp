@@ -4,6 +4,31 @@
 #include <iomanip>
 #include <../externals/nlohmann/json.hpp>
 
+namespace {
+    std::vector<std::string> GetEnemyFileCandidates(const std::string& stagePathStr)
+    {
+        std::vector<std::string> result;
+        std::filesystem::path stagePath(stagePathStr);
+        // Preferred: <stem>_enemies.json (e.g. resources/stage.json -> resources/stage_enemies.json)
+        result.push_back((stagePath.parent_path() / (stagePath.stem().string() + "_enemies.json")).string());
+        return result;
+    }
+
+    bool TryWriteJsonFile(const std::string& path, const nlohmann::json& j)
+    {
+        try {
+            std::ofstream ofs(path);
+            if (!ofs.is_open()) {
+                return false;
+            }
+            ofs << std::setw(2) << j << std::endl;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+}
+
 /// <summary>
 /// JSONファイルに StageData を保存
 /// </summary>
@@ -70,6 +95,7 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
         jo["moveRange"] = o.moveRange;
         jo["movePhase"] = o.movePhase;
         jo["enemyType"] = o.enemyType;
+        jo["enemyRespawnInterval"] = o.enemyRespawnInterval;
 
         // オブジェクトをオブジェクト配列に追加
         j["objects"].push_back(jo);
@@ -87,11 +113,28 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
 
     // 正常に保存できた場合は true を返す
     try {
-        std::string enemyPath = path + ".enemies.json";
+        // EnemySpawn は別ファイルにも書き出しておく（編集・差し替え用）
+        // 例: resources/stage.json -> resources/stage_enemies.json
         nlohmann::json je = nlohmann::json::array();
-        std::ofstream eofs(enemyPath);
-        if (eofs.is_open()) {
-            eofs << std::setw(2) << je << std::endl;
+        for (const auto& o : data.objects) {
+            if (o.blockId != BlockID::EnemySpawn) {
+                continue;
+            }
+            nlohmann::json se;
+            se["id"] = o.id;
+            nlohmann::json pos;
+            pos["x"] = o.position.x;
+            pos["y"] = o.position.y;
+            pos["z"] = o.position.z;
+            se["position"] = pos;
+            se["enemyType"] = o.enemyType;
+            se["enemyRespawnInterval"] = o.enemyRespawnInterval;
+            je.push_back(se);
+        }
+
+        const auto candidates = GetEnemyFileCandidates(path);
+        for (const auto& enemyPath : candidates) {
+            (void)TryWriteJsonFile(enemyPath, je);
         }
     } catch (...) {
     }
@@ -208,6 +251,9 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                 if(jo.contains("enemyType")){
                     o.enemyType = jo["enemyType"].get<int>();
                 }
+                if(jo.contains("enemyRespawnInterval")){
+                    o.enemyRespawnInterval = jo["enemyRespawnInterval"].get<float>();
+                }
 
                 // 読み込んだオブジェクトを StageData に追加
                 data.objects.push_back(o);
@@ -215,6 +261,77 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
         }
 
         // 正常に読み込めた場合は StageData を返す
+        // EnemySpawn の上書き（敵スポーン情報を別ファイルから読み込む）
+        try {
+            for (const auto& enemyPath : GetEnemyFileCandidates(path)) {
+                if (!std::filesystem::exists(enemyPath)) {
+                    continue;
+                }
+                std::ifstream eifs(enemyPath);
+                if (!eifs.is_open()) {
+                    continue;
+                }
+
+                nlohmann::json je;
+                eifs >> je;
+                if (!je.is_array()) {
+                    continue;
+                }
+
+                // 別ファイルが見つかったら、stage.json 側の EnemySpawn は無視して差し替える
+                data.objects.erase(
+                    std::remove_if(data.objects.begin(), data.objects.end(), [](const StageObject& o) {
+                        return o.blockId == BlockID::EnemySpawn;
+                    }),
+                    data.objects.end());
+
+                int maxId = 0;
+                for (const auto& o : data.objects) {
+                    maxId = (std::max)(maxId, o.id);
+                }
+                int nextId = maxId + 1;
+
+                for (const auto& item : je) {
+                    StageObject o;
+                    o.blockId = BlockID::EnemySpawn;
+                    o.modelName = "Cube.obj";
+                    o.scale = { 1.0f, 1.0f, 1.0f };
+                    o.color = { 0.0f, 1.0f, 0.0f, 1.0f };
+
+                    if (item.contains("id")) {
+                        o.id = item["id"].get<int>();
+                    } else {
+                        o.id = nextId++;
+                    }
+
+                    if (item.contains("position")) {
+                        o.position.x = item["position"].value("x", 0.0f);
+                        o.position.y = item["position"].value("y", 0.0f);
+                        o.position.z = item["position"].value("z", 0.0f);
+                    } else {
+                        o.position.x = item.value("x", 0.0f);
+                        o.position.y = item.value("y", 0.0f);
+                        o.position.z = item.value("z", 0.0f);
+                    }
+
+                    o.enemyType = item.value("enemyType", 0);
+                    if (item.contains("enemyRespawnInterval")) {
+                        o.enemyRespawnInterval = item["enemyRespawnInterval"].get<float>();
+                    } else if (item.contains("respawnInterval")) {
+                        o.enemyRespawnInterval = item["respawnInterval"].get<float>();
+                    }
+                    if (o.enemyRespawnInterval < 0.0f) {
+                        o.enemyRespawnInterval = 0.0f;
+                    }
+
+                    data.objects.push_back(o);
+                }
+                break; // first valid enemies file wins
+            }
+        } catch (...) {
+            // ignore
+        }
+
         return data;
 
     } catch (...) {

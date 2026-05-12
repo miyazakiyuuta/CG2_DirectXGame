@@ -58,6 +58,11 @@ public:
 
 	void SetMaxDistance(float d) { maxDistance_ = d; }
 	float GetMaxDistance() const { return maxDistance_; }
+    float GetSweepDuration() const { return sweepDuration_; }
+
+	bool IsSweeping() const { return sweeping_; }
+    float GetCurrentDistance() const { return currentDistance_; }
+    float GetExtraExtendDistance() const { return extraExtendDistance_; }
 
 private:
 	void UpdateIdle();
@@ -81,14 +86,13 @@ private:
 	Vector3 shotDirection_ = {};
 	Vector3 shotStartPosition_ = {};
 
-	
-    float maxDistance_ = 30.0f;
+	float maxDistance_ = 18.0f;
 
 	// 通常ショット用
 	float normalExtendSpeed_ = 120.0f;
 	float normalReturnSpeed_ = 90.0f;
 
-	// 振る攻撃用
+    // 振る攻撃用
 	float sweepExtendSpeed_ = 180.0f;
 	float sweepReturnSpeed_ = 180.0f;
 	float sweepArcDuration_ = 0.40f;
