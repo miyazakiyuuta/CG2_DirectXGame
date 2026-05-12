@@ -66,7 +66,9 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 }
 
 void PauseMenu::Update() {
-	if (input_->IsTriggerKey(DIK_ESCAPE)) {
+	// ESCキー または STARTボタン でポーズ切り替え
+	if (input_->IsTriggerKey(DIK_ESCAPE) ||
+	    input_->IsTriggerPad(XINPUT_GAMEPAD_START)) {
 		isPaused_ = !isPaused_;
 		if (isPaused_) {
 			selectIndex_ = 0;
@@ -83,26 +85,37 @@ void PauseMenu::Update() {
 }
 
 void PauseMenu::HandleInput() {
-	// タブ切り替え
-	if (input_->IsTriggerKey(DIK_Q)) {
+	// --- タブ切り替え ---
+	// Qキー or LBボタン : 左のタブへ
+	if (input_->IsTriggerKey(DIK_Q) ||
+	    input_->IsTriggerPad(XINPUT_GAMEPAD_LEFT_SHOULDER)) {
 		activeTab_ = static_cast<Tab>((static_cast<int>(activeTab_) + 2) % 3);
 		selectIndex_ = 0;
 	}
-	if (input_->IsTriggerKey(DIK_E)) {
+	// Eキー or RBボタン : 右のタブへ
+	if (input_->IsTriggerKey(DIK_E) ||
+	    input_->IsTriggerPad(XINPUT_GAMEPAD_RIGHT_SHOULDER)) {
 		activeTab_ = static_cast<Tab>((static_cast<int>(activeTab_) + 1) % 3);
 		selectIndex_ = 0;
 	}
 
+	// --- カーソル上下移動 ---
 	int maxItems = (activeTab_ == Tab::System) ? 3 : (activeTab_ == Tab::Options) ? 2 : 0;
 	if (maxItems > 0) {
-		if (input_->IsTriggerKey(DIK_W))
+		// Wキー or Dパッド上 : カーソルを上へ
+		if (input_->IsTriggerKey(DIK_W) ||
+		    input_->IsTriggerPad(XINPUT_GAMEPAD_DPAD_UP))
 			selectIndex_ = (selectIndex_ + maxItems - 1) % maxItems;
-		if (input_->IsTriggerKey(DIK_S))
+		// Sキー or Dパッド下 : カーソルを下へ
+		if (input_->IsTriggerKey(DIK_S) ||
+		    input_->IsTriggerPad(XINPUT_GAMEPAD_DPAD_DOWN))
 			selectIndex_ = (selectIndex_ + 1) % maxItems;
 	}
 
-	// 決定処理
-	if (input_->IsTriggerKey(DIK_SPACE) || input_->IsTriggerKey(DIK_RETURN)) {
+	// --- 決定処理 ---
+	// SPACEキー / Enterキー or Aボタン
+	if (input_->IsTriggerKey(DIK_SPACE) || input_->IsTriggerKey(DIK_RETURN) ||
+	    input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 		if (activeTab_ == Tab::System) {
 			if (selectIndex_ == 0)
 				isPaused_ = false;
@@ -113,12 +126,22 @@ void PauseMenu::HandleInput() {
 		}
 	}
 
-	// オプション調整
+	// --- キャンセル（ポーズを閉じる） ---
+	// Bボタンでポーズメニューを閉じる
+	if (input_->IsTriggerPad(XINPUT_GAMEPAD_B)) {
+		isPaused_ = false;
+	}
+
+	// --- オプション調整（スライダー操作） ---
 	if (activeTab_ == Tab::Options) {
 		float delta = 0.0f;
-		if (input_->IsPushKey(DIK_A))
+		// Aキー or Dパッド左 : 値を下げる
+		if (input_->IsPushKey(DIK_A) ||
+		    input_->IsPressPad(XINPUT_GAMEPAD_DPAD_LEFT))
 			delta = -0.01f;
-		if (input_->IsPushKey(DIK_D))
+		// Dキー or Dパッド右 : 値を上げる
+		if (input_->IsPushKey(DIK_D) ||
+		    input_->IsPressPad(XINPUT_GAMEPAD_DPAD_RIGHT))
 			delta = 0.01f;
 
 		if (selectIndex_ == 0) {
@@ -133,12 +156,17 @@ void PauseMenu::HandleInput() {
 
 void PauseMenu::ApplySettings() {
 	if (cameraController_) {
-		// 【修正】マジックナンバーを排除し、コントローラーが保持するベース速度に倍率をかける
+		// 感度倍率をベース速度にかけて適用
 		float mult = mouseSensitivity_;
 
+		// キーボード・マウスの感度
 		cameraController_->SetYawSpeed(cameraController_->GetBaseYawSpeed() * mult);
 		cameraController_->SetPitchSpeed(cameraController_->GetBasePitchSpeed() * mult);
 		cameraController_->SetMouseSensitivity(cameraController_->GetBaseMouseSensitivity() * mult);
+
+		// コントローラーの感度にも同じ倍率を適用
+		cameraController_->SetPadYawSpeed(cameraController_->GetBasePadYawSpeed() * mult);
+		cameraController_->SetPadPitchSpeed(cameraController_->GetBasePadPitchSpeed() * mult);
 	}
 }
 

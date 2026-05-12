@@ -33,6 +33,9 @@ public:
 	void SetYawSpeed(float speed) { yawSpeed_ = speed; }
 	void SetPitchSpeed(float speed) { pitchSpeed_ = speed; }
 	void SetMouseSensitivity(float sensitivity) { mouseSensitivity_ = sensitivity; }
+	// コントローラーの適用感度を変更するセッター
+	void SetPadYawSpeed(float speed) { padYawSpeed_ = speed; }
+	void SetPadPitchSpeed(float speed) { padPitchSpeed_ = speed; }
 
 	// ベース速度のGetter/Setter (マジックナンバー排除用)
 	float GetBaseYawSpeed() const { return baseYawSpeed_; }
@@ -118,6 +121,10 @@ private:
 	float baseMouseSensitivity_ = 0.005f; // デフォルト基準値
 	float basePadYawSpeed_ = 0.08f;
 	float basePadPitchSpeed_ = 0.06f;
+
+	// パッドの現在の適用速度（ベース値に感度倍率をかけた値）
+	float padYawSpeed_ = 0.08f;
+	float padPitchSpeed_ = 0.06f;
 
 	// ズーム設定
 	float minZoom_ = 1.0f;
