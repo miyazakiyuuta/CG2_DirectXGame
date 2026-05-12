@@ -26,6 +26,7 @@ void SpriteCommon::CommonDrawSetting() {
 	/*assert(commandList);
 	assert(rootSignature_);
 	assert(pipelineState_);*/
+	srvManager_->PreDraw(); 
 
 	// ルートシグネチャのセット
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());

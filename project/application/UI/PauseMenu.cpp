@@ -33,8 +33,10 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	CreatePrim(bgSprite_, {screenW, screenH}, kColorBg);
 	CreatePrim(headerLine_, {screenW, 2.0f}, kColorAccent);
 	CreatePrim(footerLine_, {screenW, 2.0f}, kColorAccent);
-	CreatePrim(tabUnderline_, {240.0f, 4.0f}, kColorAccent);
-	CreatePrim(selectorSprite_, {500.0f, 75.0f}, kColorAccent);
+	// タブ名の下に表示するアクセント下線（タブ名に合わせた幅）
+	CreatePrim(tabUnderline_, {140.0f, 3.0f}, kColorAccent);
+	// 選択中の項目を囲む点滅ハイライト矩形（テキストに合わせた控えめなサイズ）
+	CreatePrim(selectorSprite_, {200.0f, 40.0f}, kColorAccent);
 
 	for (int i = 0; i < 2; ++i) {
 		CreatePrim(sliderBg_[i], {400.0f, 15.0f}, {0.1f, 0.1f, 0.15f, 1.0f});
@@ -194,14 +196,20 @@ void PauseMenu::Draw() {
 	footerLine_->Update();
 	footerLine_->Draw();
 
-	// 3. タブ描画
-	DrawTextSprite(textSprites_["resources/ui/txt_system.png"].get(), {350, 45}, (activeTab_ == Tab::System ? kColorAccent : kColorInactive));
-	DrawTextSprite(textSprites_["resources/ui/txt_options.png"].get(), {550, 45}, (activeTab_ == Tab::Options ? kColorAccent : kColorInactive));
-	DrawTextSprite(textSprites_["resources/ui/txt_controls.png"].get(), {750, 45}, (activeTab_ == Tab::Controls ? kColorAccent : kColorInactive));
+	// 3. タブ描画 — 3つのタブ名を画面中央に等間隔で並べる
+	// 画面幅1280の中央640を基準に、左右に180px間隔で配置
+	const float tabCenterX = 640.0f;
+	const float tabSpacing = 180.0f;
+	const float tabY = 50.0f;
+	float tabPositions[3] = {tabCenterX - tabSpacing, tabCenterX, tabCenterX + tabSpacing};
 
-	// タブ下線
-	float tabX = 350.0f + (static_cast<int>(activeTab_) * 200.0f);
-	tabUnderline_->SetPos({tabX, 90});
+	DrawTextSprite(textSprites_["resources/ui/txt_system.png"].get(), {tabPositions[0], tabY}, (activeTab_ == Tab::System ? kColorAccent : kColorInactive));
+	DrawTextSprite(textSprites_["resources/ui/txt_options.png"].get(), {tabPositions[1], tabY}, (activeTab_ == Tab::Options ? kColorAccent : kColorInactive));
+	DrawTextSprite(textSprites_["resources/ui/txt_controls.png"].get(), {tabPositions[2], tabY}, (activeTab_ == Tab::Controls ? kColorAccent : kColorInactive));
+
+	// 選択中タブの真下にアクセント下線を描画
+	float tabX = tabPositions[static_cast<int>(activeTab_)];
+	tabUnderline_->SetPos({tabX, tabY + 40.0f});
 	tabUnderline_->SetColor({kColorAccent.x, kColorAccent.y, kColorAccent.z, menuAlpha_});
 	tabUnderline_->Update();
 	tabUnderline_->Draw();
@@ -209,16 +217,21 @@ void PauseMenu::Draw() {
 	// 4. コンテンツ描画
 	if (activeTab_ == Tab::System) {
 		std::string items[] = {"resources/ui/txt_resume.png", "resources/ui/txt_restart.png", "resources/ui/txt_title.png"};
+		// メニュー項目を画面中央に配置（画面幅1280の中央 = 640）
+		const float itemCenterX = 640.0f;
 		for (int i = 0; i < 3; ++i) {
-			float y = 220.0f + (i * 100.0f);
+			float y = 250.0f + (i * 90.0f);
 			if (selectIndex_ == i) {
+				// 選択中のメニュー項目背景を点滅表示
 				float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.2f;
-				selectorSprite_->SetPos({390, y - 10});
+				// セレクター矩形をテキストの中央に合わせる（200幅の半分=100を引く）
+				selectorSprite_->SetPos({itemCenterX - 100.0f, y});
 				selectorSprite_->SetColor({kColorAccent.x, kColorAccent.y, kColorAccent.z, (0.2f + pulse) * menuAlpha_});
 				selectorSprite_->Update();
 				selectorSprite_->Draw();
 			}
-			DrawTextSprite(textSprites_[items[i]].get(), {440, y}, (selectIndex_ == i ? kColorAccent : kColorNormal));
+			// テキストもセレクターと同じ中心に配置
+			DrawTextSprite(textSprites_[items[i]].get(), {itemCenterX - 80.0f, y}, (selectIndex_ == i ? kColorAccent : kColorNormal));
 		}
 	} else if (activeTab_ == Tab::Options) {
 		DrawTextSprite(textSprites_["resources/ui/txt_sensitivity.png"].get(), {200, 250}, (selectIndex_ == 0 ? kColorAccent : kColorNormal));
