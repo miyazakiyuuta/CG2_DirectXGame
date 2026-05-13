@@ -22,9 +22,7 @@ void SpriteCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 void SpriteCommon::CommonDrawSetting() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
-	/*assert(commandList);
-	assert(rootSignature_);
-	assert(pipelineState_);*/
+	srvManager_->PreDraw();
 
 	// ルートシグネチャのセット
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());
@@ -118,8 +116,8 @@ void SpriteCommon::CreateGraphicsPipelineState() {
 	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
 	// RasiterzerStateの設定

@@ -70,6 +70,8 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
 
+	dxCommon_->ExecuteCommandListAndWait();
+
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 	//srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
@@ -113,7 +115,13 @@ void TextureManager::CreateDefaultTexture() {
 	textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, image);
+<<<<<<< Updated upstream
 	
+=======
+
+	dxCommon_->ExecuteCommandListAndWait();
+
+>>>>>>> Stashed changes
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 
 }
