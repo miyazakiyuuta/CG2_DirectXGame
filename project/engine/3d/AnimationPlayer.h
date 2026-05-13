@@ -29,6 +29,26 @@ public:
 	void SetPause(bool pause) { isPaused_ = pause; }
 	bool GetIsPaused() { return isPaused_; }
 
+	static constexpr float kFPS = 60.0f;
+
+	// 総フレーム数を返す（アニメーションがなければ0）
+	int GetTotalFrames() const {
+		if (!currentAnimation_) return 0;
+		return static_cast<int>(currentAnimation_->duration * kFPS);
+	}
+
+	// 現在のフレーム番号を返す
+	int GetCurrentFrame() const {
+		if (!currentAnimation_) return 0;
+		return static_cast<int>(currentTime_ * kFPS);
+	}
+
+	// 0.0〜1.0の再生進捗率
+	float GetProgress() const {
+		if (!currentAnimation_ || currentAnimation_->duration <= 0.0f) return 0.0f;
+		return currentTime_ / currentAnimation_->duration;
+	}
+
 private:
 	static Vector3 CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time);
 	static Quaternion CalculateValue(const std::vector<KeyframeQuaternion>& keyframes, float time);

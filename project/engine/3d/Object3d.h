@@ -63,6 +63,18 @@ public: // セッター&ゲッター
 		}
 		return 0.0f;
 	}
+	int GetAnimationTotalFrames() const {
+		if (!animationPlayer_) return 0;
+		return animationPlayer_->GetTotalFrames();
+	}
+	int GetAnimationCurrentFrame() const {
+		if (!animationPlayer_) return 0;
+		return animationPlayer_->GetCurrentFrame();
+	}
+	float GetAnimationProgress() const {
+		if (!animationPlayer_) return 0.0f;
+		return animationPlayer_->GetProgress();
+	}
 	// 指定したボーン名のワールド行列を取得（見つからなければnullopt）
 	std::optional<Matrix4x4> GetBoneWorldMatrix(const std::string& boneName) const;
 	// 位置だけ欲しい場合のショートカット
