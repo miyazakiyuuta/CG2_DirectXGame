@@ -115,13 +115,9 @@ void TextureManager::CreateDefaultTexture() {
 	textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, image);
-<<<<<<< Updated upstream
-	
-=======
 
 	dxCommon_->ExecuteCommandListAndWait();
 
->>>>>>> Stashed changes
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 
 }
