@@ -59,6 +59,7 @@ public:
 	void ClearRidingPlatformDelta();
 
 	Vector3 GetHeadbornPosition() const;
+	float GetColliderHalfHeight() const { return colliderHalfSize_.y; }
 
 	void SetGroundHeight(float groundHeight) { groundHeight_ = groundHeight; }
 	bool IsOnGround() const { return isOnGround_; }

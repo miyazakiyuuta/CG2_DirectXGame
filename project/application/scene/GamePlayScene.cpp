@@ -330,55 +330,93 @@ void GamePlayScene::Update()
 {
 
     // Advance stage runtime (moving platforms, etc.) with fixed timestep
-    if (stage_) {
-        stage_->Update(1.0f / 60.0f);
-        // Apply platform movement deltas to any player standing on them
-        auto deltas = stage_->ConsumePlatformDeltas();
-        if (player_) {
-            Vector3 ppos = player_->GetPosition();
-            bool applied = false;
-            // assume player's half-height ~1.0f (matches Player::colliderHalfSize_ default)
-            const float playerHalfY = 1.0f;
+	if (stage_) {
+		stage_->Update(1.0f / 60.0f);
 
-            for (const auto& o : stage_->GetStageData().objects) {
-                if (o.blockId != BlockID::MovingPlatform)
-                    continue;
-                auto it = deltas.find(o.id);
-                if (it == deltas.end())
-                    continue;
-                const Vector3 delta = it->second;
+		auto deltas = stage_->ConsumePlatformDeltas();
 
-                // compute platform top Y using half-height = o.scale.y
-                float topY = o.position.y + o.scale.y;
-                float playerBottom = ppos.y - playerHalfY;
+		if (player_) {
+			const Vector3 playerPos = player_->GetPosition();
+			const Vector3 playerVel = player_->GetVelocity();
+			const float playerHalfY = player_->GetColliderHalfHeight();
+			const float playerBottom = playerPos.y - playerHalfY;
 
-                const float kVertEps = 0.25f; // tolerance for standing on top
-                // horizontal extents (use o.scale as half extents)
-                float halfX = o.scale.x;
-                float halfZ = o.scale.z;
+			// 上昇中は足場へ吸い付かないようにする
+			const bool canSnapToPlatform =
+				player_->IsOnGround() || playerVel.y <= 0.05f;
 
-				if (std::fabs(playerBottom - topY) <= kVertEps && std::fabs(ppos.x - o.position.x) <= halfX + 0.5f && std::fabs(ppos.z - o.position.z) <= halfZ + 0.5f) {
-					// Apply full delta (or only horizontal components depending on direction)
-					Vector3 applyDelta = {0.0f, 0.0f, 0.0f};
-					if (o.moveDirection == 3 || o.moveDirection == 4) {
-						applyDelta.x = delta.x;
-						applyDelta.z = delta.z;
-					} else if (o.moveDirection == 1 || o.moveDirection == 2) {
-						applyDelta.y = delta.y;
-					} else {
-						applyDelta = delta;
-					}
-					player_->SetRidingPlatformDelta(applyDelta);
-					Logger::Log(
-					    std::string("Platform carry apply id:") + std::to_string(o.id) + " delta:" + std::to_string(delta.x) + "," + std::to_string(delta.y) + "," + std::to_string(delta.z) +
-					    " apply:" + std::to_string(applyDelta.x) + "," + std::to_string(applyDelta.y) + "," + std::to_string(applyDelta.z) + " playerPos:" + std::to_string(ppos.x) + "," +
-					    std::to_string(ppos.y) + "," + std::to_string(ppos.z) + "\n");
-					applied = true;
-					break;
+			bool foundRidePlatform = false;
+			Vector3 bestApplyDelta = { 0.0f, 0.0f, 0.0f };
+			float bestScore = std::numeric_limits<float>::infinity();
+
+			const float kRideCatchUpEps = 0.35f; // 上面より少し上にいても維持
+			const float kRideSinkEps = 0.12f;    // 少しめり込んでいても維持
+			const float kXZMargin = 0.45f;
+
+			for (const auto& o : stage_->GetStageData().objects) {
+				if (o.blockId != BlockID::MovingPlatform) {
+					continue;
+				}
+
+				auto it = deltas.find(o.id);
+				if (it == deltas.end()) {
+					continue;
+				}
+
+				const Vector3 delta = it->second;
+				const Vector3 prevPlatformPos = o.position - delta;
+
+				const float halfX = o.scale.x;
+				const float halfZ = o.scale.z;
+
+				const float prevTopY = prevPlatformPos.y + o.scale.y;
+				const float currTopY = o.position.y + o.scale.y;
+
+				const bool insidePrevXZ =
+					std::fabs(playerPos.x - prevPlatformPos.x) <= halfX + kXZMargin &&
+					std::fabs(playerPos.z - prevPlatformPos.z) <= halfZ + kXZMargin;
+
+				const bool insideCurrXZ =
+					std::fabs(playerPos.x - o.position.x) <= halfX + kXZMargin &&
+					std::fabs(playerPos.z - o.position.z) <= halfZ + kXZMargin;
+
+				const bool wasStandingLastFrame =
+					insidePrevXZ &&
+					playerBottom >= prevTopY - kRideSinkEps &&
+					playerBottom <= prevTopY + kRideCatchUpEps;
+
+				const bool isLandingThisFrame =
+					canSnapToPlatform &&
+					insideCurrXZ &&
+					playerBottom >= currTopY - kRideSinkEps &&
+					playerBottom <= currTopY + kRideCatchUpEps;
+
+				if (!wasStandingLastFrame && !isLandingThisFrame) {
+					continue;
+				}
+
+				Vector3 targetPos = playerPos;
+				targetPos.x += delta.x;
+				targetPos.z += delta.z;
+				targetPos.y = currTopY + playerHalfY;
+
+				Vector3 applyDelta = targetPos - playerPos;
+
+				// 一番近い足場を採用
+				float score = std::fabs(applyDelta.y);
+				if (score < bestScore) {
+					bestScore = score;
+					bestApplyDelta = applyDelta;
+					foundRidePlatform = true;
 				}
 			}
-			if (!applied)
+
+			if (foundRidePlatform) {
+				player_->SetRidingPlatformDelta(bestApplyDelta);
+			}
+			else {
 				player_->ClearRidingPlatformDelta();
+			}
 		}
 	}
 

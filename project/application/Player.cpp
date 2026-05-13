@@ -1413,24 +1413,24 @@ void Player::Update()
         }
     }
 
-    if (ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f) {
-        Vector3 pos = object_->GetTranslate();
-        pos.x += ridingPlatformDelta_.x;
-        pos.y += ridingPlatformDelta_.y;
-        pos.z += ridingPlatformDelta_.z;
-        object_->SetTranslate(pos);
+    //if (ridingPlatformDelta_.x != 0.0f || ridingPlatformDelta_.y != 0.0f || ridingPlatformDelta_.z != 0.0f) {
+    //    Vector3 pos = object_->GetTranslate();
+    //    pos.x += ridingPlatformDelta_.x;
+    //    pos.y += ridingPlatformDelta_.y;
+    //    pos.z += ridingPlatformDelta_.z;
+    //    object_->SetTranslate(pos);
 
-        const float kInvDt = 60.0f;
-        velocity_.x += ridingPlatformDelta_.x * kInvDt;
-        velocity_.z += ridingPlatformDelta_.z * kInvDt;
-        if (std::fabs(ridingPlatformDelta_.y) > 1e-6f)
-            velocity_.y = 0.0f;
+    //    const float kInvDt = 60.0f;
+    //    velocity_.x += ridingPlatformDelta_.x * kInvDt;
+    //    velocity_.z += ridingPlatformDelta_.z * kInvDt;
+    //    if (std::fabs(ridingPlatformDelta_.y) > 1e-6f)
+    //        velocity_.y = 0.0f;
 
-        Logger::Log(
-            std::string("Player applied riding delta early posAfter:") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + " delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
+    //    Logger::Log(
+    //        std::string("Player applied riding delta early posAfter:") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + " delta:" + std::to_string(ridingPlatformDelta_.x) + "," + std::to_string(ridingPlatformDelta_.y) + "," + std::to_string(ridingPlatformDelta_.z) + "\n");
 
-        ridingPlatformDelta_ = { 0.0f, 0.0f, 0.0f };
-    }
+    //    ridingPlatformDelta_ = { 0.0f, 0.0f, 0.0f };
+    //}
 
     // --- センチネル追従ロジック ---
     if (moveState_ == MovementState::TonguePulling) {
