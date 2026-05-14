@@ -32,6 +32,9 @@ public: // メンバ関数
 			animationPlayer_->SetPause(!animationPlayer_->GetIsPaused());
 		}
 	}
+	void RestartAnimation() {
+		if (animationPlayer_) animationPlayer_->Restart();
+	}
 
 public: // セッター&ゲッター
 	// setter
@@ -47,6 +50,9 @@ public: // セッター&ゲッター
 	void SetEnableLighting(bool enable) { materialData_->enableLighting = enable; }
 	void SetUseEnvironmentMap(bool use) { materialData_->useEnvironmentMap = use; }
 	void SetDissolve(float dissolve) { materialData_->dissolve = dissolve; }
+	void SetAnimationPause(bool pause) {
+		if (animationPlayer_) animationPlayer_->SetPause(pause);
+	}
 
 	// getter
 	const Vector3& GetScale() const { return transform_.scale; }
@@ -74,6 +80,14 @@ public: // セッター&ゲッター
 	float GetAnimationProgress() const {
 		if (!animationPlayer_) return 0.0f;
 		return animationPlayer_->GetProgress();
+	}
+	bool GetIsAnimationFinished() const {
+		if (!animationPlayer_) return false;
+		return animationPlayer_->IsFinished();
+	}
+	bool GetIsAnimationPaused() const {
+		if (!animationPlayer_) return false;
+		return animationPlayer_->GetIsPaused();
 	}
 	// 指定したボーン名のワールド行列を取得（見つからなければnullopt）
 	std::optional<Matrix4x4> GetBoneWorldMatrix(const std::string& boneName) const;
