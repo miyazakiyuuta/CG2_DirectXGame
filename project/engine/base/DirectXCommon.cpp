@@ -284,11 +284,17 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::CreateTextureResource(cons
 
 [[nodiscard]]
 Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::UpLoadTextureData(const Microsoft::WRL::ComPtr<ID3D12Resource>& texture, const DirectX::ScratchImage& mipImages) {
+
+	HRESULT hr = uploadCommandAllocator_->Reset();
+	assert(SUCCEEDED(hr));
+	hr = uploadCommandList_->Reset(uploadCommandAllocator_.Get(), nullptr);
+	assert(SUCCEEDED(hr));
+	
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 	DirectX::PrepareUpload(device_.Get(), mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
 	uint64_t intermediateSize = GetRequiredIntermediateSize(texture.Get(), 0, UINT(subresources.size()));
 	Microsoft::WRL::ComPtr<ID3D12Resource> intermediateResource = CreateBufferResource(intermediateSize);
-	UpdateSubresources(commandList_.Get(), texture.Get(), intermediateResource.Get(), 0, 0, UINT(subresources.size()), subresources.data());
+	UpdateSubresources(uploadCommandList_.Get(), texture.Get(), intermediateResource.Get(), 0, 0, UINT(subresources.size()), subresources.data());
 	// Textureへの転送後は利用できるよう、D3D12_RESOURCE_STATE_COPY_DESTからD3D12_RESOURCE_STATE_GENERIC_READへResourceStateを変更する
 	D3D12_RESOURCE_BARRIER barrier{};
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -297,8 +303,24 @@ Microsoft::WRL::ComPtr<ID3D12Resource> DirectXCommon::UpLoadTextureData(const Mi
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
-	commandList_->ResourceBarrier(1, &barrier);
-	ExecuteCommandListAndWait();
+
+	uploadCommandList_->ResourceBarrier(1, &barrier);
+
+	hr = uploadCommandList_->Close();
+	assert(SUCCEEDED(hr));
+
+	ID3D12CommandList* cmdLists[] = { uploadCommandList_.Get() };
+	commandQueue_->ExecuteCommandLists(1, cmdLists);
+
+	fenceValue_++;
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		fence_->SetEventOnCompletion(fenceValue_, eventHandle);
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+
 	return intermediateResource;
 }
 
@@ -453,6 +475,19 @@ void DirectXCommon::InitializeCommand() {
 	D3D12_COMMAND_QUEUE_DESC commandQueueDesc{};
 	hr_ = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
 	assert(SUCCEEDED(hr_)); // コマンドキューの生成がうまくいかなかった場合起動しない。
+
+	hr_ = device_->CreateCommandAllocator(
+		D3D12_COMMAND_LIST_TYPE_DIRECT,
+		IID_PPV_ARGS(&uploadCommandAllocator_));
+	assert(SUCCEEDED(hr_));
+
+	hr_ = device_->CreateCommandList(
+		0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+		uploadCommandAllocator_.Get(), nullptr,
+		IID_PPV_ARGS(&uploadCommandList_));
+	assert(SUCCEEDED(hr_));
+
+	uploadCommandList_->Close();
 }
 
 void DirectXCommon::CreateSwapChain() {
