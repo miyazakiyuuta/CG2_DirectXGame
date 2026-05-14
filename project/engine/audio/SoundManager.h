@@ -26,9 +26,17 @@ public:
 	void Finalize();
 	void Update();
 
+	enum class SoundCategory {
+		BGM,
+		SE
+	};
+
 	SoundData LoadFile(const std::string& filename); // wavファイル読み込み
 	void Unload(SoundData* soundData); // バッファ解放
-	void PlayWave(const SoundData& soundData); // 再生
+	void PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
+
+	void SetCategoryVolume(SoundCategory category, float volume); // 0.0f〜1.0f
+	float GetCategoryVolume(SoundCategory category) const;
 
 private:
 	SoundManager() = default;
@@ -59,5 +67,8 @@ private:
 	IXAudio2MasteringVoice* masterVoice_ = nullptr;
 	std::list<ActiveVoice> activeVoices_;
 	bool comInitialized_ = false;
+
+	IXAudio2SubmixVoice* bgmSubmixVoice_ = nullptr;
+	IXAudio2SubmixVoice* seSubmixVoice_ = nullptr;
 };
 
