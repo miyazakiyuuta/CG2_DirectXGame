@@ -30,6 +30,21 @@ void SoundManager::Initialize() {
 	assert(SUCCEEDED(result));
 	result = MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET);
 	assert(SUCCEEDED(result));
+
+	XAUDIO2_VOICE_DETAILS masterDetails{};
+	masterVoice_->GetVoiceDetails(&masterDetails);
+
+	result = xAudio2_->CreateSubmixVoice(
+		&bgmSubmixVoice_,
+		masterDetails.InputChannels,
+		masterDetails.InputSampleRate);
+	assert(SUCCEEDED(result));
+
+	result = xAudio2_->CreateSubmixVoice(
+		&seSubmixVoice_,
+		masterDetails.InputChannels,
+		masterDetails.InputSampleRate);
+	assert(SUCCEEDED(result));
 }
 
 void SoundManager::Finalize() {
@@ -41,6 +56,9 @@ void SoundManager::Finalize() {
 		}
 	}
 	activeVoices_.clear();
+
+	if (bgmSubmixVoice_) { bgmSubmixVoice_->DestroyVoice(); bgmSubmixVoice_ = nullptr; }
+	if (seSubmixVoice_) { seSubmixVoice_->DestroyVoice();  seSubmixVoice_ = nullptr; }
 
 	if (masterVoice_) {
 		masterVoice_->DestroyVoice();
@@ -145,7 +163,7 @@ void SoundManager::Unload(SoundData* soundData) {
 	soundData->wfex = {};
 }
 
-void SoundManager::PlayWave(const SoundData& soundData) {
+void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
 	if (soundData.buffer.empty()) return;
 
 	auto callbackPtr = std::make_unique<VoiceCallback>();
@@ -153,9 +171,18 @@ void SoundManager::PlayWave(const SoundData& soundData) {
 
 	// 波形フォーマットをもとにSourceVoiceの生成
 	IXAudio2SourceVoice* pSourceVoice = nullptr;
+
+	// 出力先をカテゴリに応じて切り替える
+	IXAudio2SubmixVoice* targetSubmix =
+		(category == SoundCategory::BGM) ? bgmSubmixVoice_ : seSubmixVoice_;
+
+	XAUDIO2_SEND_DESCRIPTOR sendDesc = { 0, targetSubmix };
+	XAUDIO2_VOICE_SENDS sendList = { 1, &sendDesc };
+
 	HRESULT result = xAudio2_->CreateSourceVoice(
 		&pSourceVoice, &soundData.wfex,
-		0, XAUDIO2_DEFAULT_FREQ_RATIO, rawCallback);
+		0, XAUDIO2_DEFAULT_FREQ_RATIO, rawCallback,
+		&sendList); // ← 出力先を指定
 	assert(SUCCEEDED(result));
 
 	// 再生する波形データの設定
@@ -163,6 +190,7 @@ void SoundManager::PlayWave(const SoundData& soundData) {
 	buf.pAudioData = soundData.buffer.data();
 	buf.AudioBytes = static_cast<UINT32>(soundData.buffer.size());
 	buf.Flags = XAUDIO2_END_OF_STREAM;
+	buf.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0;
 
 	// 波形データの再生
 	result = pSourceVoice->SubmitSourceBuffer(&buf);
@@ -171,4 +199,22 @@ void SoundManager::PlayWave(const SoundData& soundData) {
 	assert(SUCCEEDED(result) && "Start failed");
 
 	activeVoices_.push_back({ pSourceVoice, std::move(callbackPtr) });
+}
+
+void SoundManager::SetCategoryVolume(SoundCategory category, float volume) {
+	if (category == SoundCategory::BGM && bgmSubmixVoice_) {
+		bgmSubmixVoice_->SetVolume(volume);
+	} else if (category == SoundCategory::SE && seSubmixVoice_) {
+		seSubmixVoice_->SetVolume(volume);
+	}
+}
+
+float SoundManager::GetCategoryVolume(SoundCategory category) const {
+	float volume = 1.0f;
+	if (category == SoundCategory::BGM && bgmSubmixVoice_) {
+		bgmSubmixVoice_->GetVolume(&volume);
+	} else if (category == SoundCategory::SE && seSubmixVoice_) {
+		seSubmixVoice_->GetVolume(&volume);
+	}
+	return volume;
 }
