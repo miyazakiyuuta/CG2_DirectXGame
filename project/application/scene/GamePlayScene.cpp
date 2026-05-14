@@ -412,12 +412,12 @@ void GamePlayScene::Update()
 					continue;
 				}
 
-				Vector3 targetPos = playerPos;
-				targetPos.x += delta.x;
-				targetPos.z += delta.z;
-				targetPos.y = currTopY + playerHalfY;
+				Vector3 applyDelta = delta;
 
-				Vector3 applyDelta = targetPos - playerPos;
+				// 今フレーム新しく乗った時だけ、Y を足場上面へ吸着
+				if (!wasStandingLastFrame && isLandingThisFrame) {
+					applyDelta.y = (currTopY + playerHalfY) - playerPos.y;
+				}
 
 				// 一番近い足場を採用
 				float score = std::fabs(applyDelta.y);
@@ -519,8 +519,6 @@ void GamePlayScene::Update()
 
 	// 3. 【核心】ポーズ中でない場合のみゲームの時間を動かす
 	if (!pauseMenu_->IsPaused()) {
-		if (stage_)
-			stage_->Update(1.0f / 60.0f);
 
 		// エディタモード中でなければ移動や衝突を更新
 		if (!stageEditor_->IsEditMode()) {

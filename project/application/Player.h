@@ -336,7 +336,7 @@ public:
 	const std::vector<CollisionUtility::OBB>* breakableBlockColliders_ = nullptr;
 	const CollisionUtility::Cylinder* movementLimitCylinder_ = nullptr;
 
-	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.0f};
+	Vector3 colliderHalfSize_ = {1.0f, 1.5f, 1.7f};
 
 	// Pending teleport requested by external systems (applied inside Update)
 	bool pendingTeleport_ = false;

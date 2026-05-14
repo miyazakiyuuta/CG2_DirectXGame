@@ -295,17 +295,24 @@ void Tongue::UpdateExtending(float deltaTime){
 	}
 
 	// 通常の伸びる挙動
+	// 戻り開始判定は「現在の口元」ではなく、
+	// Shot() 時に保存した shotStartPosition_ からの伸長距離を基準にする
 	float move = currentExtendSpeed_ * deltaTime;
 	Vector3 dir = shotDirection_;
 
-	worldPosition_.x += dir.x * move;
-	worldPosition_.y += dir.y * move;
-	worldPosition_.z += dir.z * move;
+	float remain = maxDistance_ - currentDistance_;
+	float actual = std::min(move, std::max(0.0f, remain));
 
-	currentDistance_ += move;
+	currentDistance_ += actual;
+
+	worldPosition_ = {
+		shotStartPosition_.x + dir.x * currentDistance_,
+		shotStartPosition_.y + dir.y * currentDistance_,
+		shotStartPosition_.z + dir.z * currentDistance_
+	};
 
 	// 最大距離に達したら、フック失敗として戻る
-	if(currentDistance_ >= maxDistance_){
+	if (currentDistance_ >= maxDistance_ - 0.0001f) {
 		state_ = State::Returning;
 	}
 }

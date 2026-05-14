@@ -399,15 +399,9 @@ bool Player::TryUseBeam(const Vector3& direction)
 
 bool Player::StartBeamActive(const Vector3& beamDir)
 {
-    if (beamTimer_ > 0.0f)
+    if (!enemyManager_) {
         return false;
-    if (!enemyManager_)
-        return false;
-    if (!ConsumeWater(beamWaterCost_))
-        return false;
-
-    // trigger cooldown
-    beamTimer_ = beamCooldown_;
+    }
 
     // Initialize animated sweep state
     // If tongue is sweeping, sync beam duration to tongue sweep duration (frames)
@@ -1102,6 +1096,10 @@ void Player::CheckTongueBlockHook()
         return;
     }
 
+    if (tongue_->IsSweeping()) {
+        return;
+    }
+
     ResetTongueHitDebug();
 
     Vector3 start = tongue_->GetPrevPosition();
@@ -1529,6 +1527,8 @@ void Player::Update()
         pos.z += ridingPlatformDelta_.z;
         object_->SetTranslate(pos);
         ResolveMovementLimitCylinder();
+
+        ridingPlatformDelta_ = { 0.0f, 0.0f, 0.0f };
     }
     // エイム中はプレイヤーの正面をカメラへ合わせる
     if (isAimMode) {
@@ -1913,16 +1913,6 @@ void Player::UpdateJumpCharge() {
         int currentLevel = GetCurrentChargeLevel();
         int allowedLevel = GetAllowedChargeLevel();
 
-		if (currentLevel >= allowedLevel) {
-			chargeMaxHoldTimer_ += 1.0f;
-			if (chargeMaxHoldTimer_ >= chargeCancelHoldLimit_) {
-				CancelJumpCharge();
-				return;
-			}
-		}
-		else {
-			chargeMaxHoldTimer_ = 0.0f;
-		}
 	}
 
 	if (!jumpPress) {
