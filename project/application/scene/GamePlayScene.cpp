@@ -607,10 +607,10 @@ void GamePlayScene::Update()
 		object3d_->StopAnimation(0.5f);
 	}
 	if (Input::GetInstance()->IsPushKey(DIK_1)) {
-		object3d_->PlayAnimation("walk", false, 1.0f);
+		object3d_->PlayAnimation("walk", true, 0.1f);
 	}
 	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
-		object3d_->PlayAnimation("sneakWalk", true, 1.0f);
+		object3d_->PlayAnimation("sneakWalk", true, 0.1f);
 	}
 
 	object3d_->Update();

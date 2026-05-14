@@ -9,24 +9,6 @@
 
 #include "utility/StringUtility.h"
 
-// チャンクヘッダ
-struct ChunkHeader {
-	char id[4]; // チャンク毎のID
-	int32_t size; // チャンクサイズ
-};
-
-// RIFFヘッダチャンク
-struct RiffHeader {
-	ChunkHeader chunk; // "RIFF"
-	char type[4]; // "WAVE"
-};
-
-// FMTチャンク
-struct FormatChunk {
-	ChunkHeader chunk; // "fmt "
-	WAVEFORMATEX fmt; // 波形フォーマット
-};
-
 using namespace Microsoft::WRL;
 using namespace StringUtility;
 
@@ -38,20 +20,51 @@ SoundManager* SoundManager::GetInstance() {
 }
 
 void SoundManager::Initialize() {
-	// XAudioエンジンのインスタンス生成
-	HRESULT result = XAudio2Create(&xAudio2_, 0, XAUDIO2_DEFAULT_PROCESSOR);
+	HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	comInitialized_ = SUCCEEDED(result); // フラグを保存
+	assert(comInitialized_);
+
+	result = XAudio2Create(&xAudio2_, 0, XAUDIO2_DEFAULT_PROCESSOR);
 	assert(SUCCEEDED(result));
 	result = xAudio2_->CreateMasteringVoice(&masterVoice_);
 	assert(SUCCEEDED(result));
-
-	// Windows Media FoundDationの初期化(ローカルファイル版)
 	result = MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET);
 	assert(SUCCEEDED(result));
 
-	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	XAUDIO2_VOICE_DETAILS masterDetails{};
+	masterVoice_->GetVoiceDetails(&masterDetails);
+
+	result = xAudio2_->CreateSubmixVoice(
+		&bgmSubmixVoice_,
+		masterDetails.InputChannels,
+		masterDetails.InputSampleRate);
+	assert(SUCCEEDED(result));
+
+	result = xAudio2_->CreateSubmixVoice(
+		&seSubmixVoice_,
+		masterDetails.InputChannels,
+		masterDetails.InputSampleRate);
+	assert(SUCCEEDED(result));
 }
 
 void SoundManager::Finalize() {
+
+	for (auto& activeVoice : activeVoices_) {
+		if (activeVoice.pVoice) {
+			activeVoice.pVoice->Stop();
+			activeVoice.pVoice->DestroyVoice();
+		}
+	}
+	activeVoices_.clear();
+
+	if (bgmSubmixVoice_) { bgmSubmixVoice_->DestroyVoice(); bgmSubmixVoice_ = nullptr; }
+	if (seSubmixVoice_) { seSubmixVoice_->DestroyVoice();  seSubmixVoice_ = nullptr; }
+
+	if (masterVoice_) {
+		masterVoice_->DestroyVoice();
+		masterVoice_ = nullptr;
+	}
+
 	if (xAudio2_) {
 		xAudio2_->StopEngine();
 		xAudio2_.Reset();
@@ -60,9 +73,26 @@ void SoundManager::Finalize() {
 	HRESULT result;
 	// Windows Media Foundationの終了
 	result = MFShutdown();
-	assert(SUCCEEDED(result));
+	assert(SUCCEEDED(result) && "MFShutdown failed");
 
-	CoUninitialize();
+	if (comInitialized_) {
+		CoUninitialize();
+		comInitialized_ = false;
+	}
+
+	delete instance;
+	instance = nullptr;
+}
+
+void SoundManager::Update() {
+	for (auto it = activeVoices_.begin(); it != activeVoices_.end(); ) {
+		if (it->callback->isFinished) {
+			it->pVoice->DestroyVoice();
+			it = activeVoices_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 SoundData SoundManager::LoadFile(const std::string& filename) {
@@ -74,7 +104,7 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 	// SourceReader作成
 	ComPtr<IMFSourceReader> pReader;
 	result = MFCreateSourceReaderFromURL(filePathW.c_str(), nullptr, &pReader);
-	assert(SUCCEEDED(result));
+	assert(SUCCEEDED(result) && "MFCreateSourceReaderFromURL failed: ファイルが存在しないか形式が非対応");
 
 	// PCM形式にフォーマット指定する
 	ComPtr<IMFMediaType> pPCMType;
@@ -125,79 +155,6 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 	}
 
 	return soundData;
-
-	/*
-
-	// ファイル入力ストリームのインスタンス
-	std::ifstream file;
-	// .wavファイルをバイナリモードで開く
-	file.open(filename, std::ios_base::binary);
-	// ファイルオープン失敗を検出する
-	assert(file.is_open());
-
-	// RIFFヘッダーの読み込み
-	RiffHeader riff;
-	file.read((char*)&riff, sizeof(riff));
-	// ファイルがRIFFかチェック
-	if (strncmp(riff.chunk.id, "RIFF", 4) != 0) {
-		assert(0);
-	}
-	// タイプがWAVEかチェック
-	if (strncmp(riff.type, "WAVE", 4) != 0) {
-		assert(0);
-	}
-
-	// Formatチャンクの読み込み
-	FormatChunk format = {};
-	// チャンクヘッダーの確認
-	file.read((char*)&format, sizeof(ChunkHeader));
-	if (strncmp(format.chunk.id, "fmt ", 4) != 0) {
-		assert(0);
-	}
-
-	// チャンク本体の読み込み
-	assert(format.chunk.size <= sizeof(format.fmt));
-	file.read((char*)&format.fmt, format.chunk.size);
-
-	// Dataチャンクの読み込み
-	ChunkHeader data;
-	file.read((char*)&data, sizeof(data));
-
-	// JUNKチャンクを検出した場合
-	if (strncmp(data.id, "JUNK", 4) == 0) {
-		//読み取り位置をJUNKチャンクの終わりまで進める
-		file.seekg(data.size, std::ios_base::cur);
-		// 再読み込み
-		file.read((char*)&data, sizeof(data));
-	}
-
-	if (strncmp(data.id, "data", 4) != 0) {
-		assert(0);
-	}
-
-	while (strncmp(data.id, "data", 4) != 0) {
-		//読み取り位置をJUNKチャンクの終わりまで進める
-		file.seekg(data.size, std::ios_base::cur);
-		// 再読み込み
-		file.read((char*)&data, sizeof(data));
-	}
-
-	// Dataチャンクのデータ部(波形データ)の読み込み
-	char* pBuffer = new char[data.size];
-	file.read(pBuffer, data.size);
-
-	// Waveファイルを閉じる
-	file.close();
-
-	// returnする為の音声データ
-	SoundData soundData = {};
-
-	soundData.wfex = format.fmt;
-	soundData.pBufer = reinterpret_cast<BYTE*>(pBuffer);
-	soundData.bufferSize = data.size;
-
-	return soundData;
-	*/
 }
 
 // 音声データ解放
@@ -206,12 +163,26 @@ void SoundManager::Unload(SoundData* soundData) {
 	soundData->wfex = {};
 }
 
-void SoundManager::PlayerWave(const SoundData& soundData) {
+void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
+	if (soundData.buffer.empty()) return;
+
+	auto callbackPtr = std::make_unique<VoiceCallback>();
+	VoiceCallback* rawCallback = callbackPtr.get();
 
 	// 波形フォーマットをもとにSourceVoiceの生成
 	IXAudio2SourceVoice* pSourceVoice = nullptr;
-	//HRESULT result = xAudio2_->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
-	HRESULT result = xAudio2_.Get()->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
+
+	// 出力先をカテゴリに応じて切り替える
+	IXAudio2SubmixVoice* targetSubmix =
+		(category == SoundCategory::BGM) ? bgmSubmixVoice_ : seSubmixVoice_;
+
+	XAUDIO2_SEND_DESCRIPTOR sendDesc = { 0, targetSubmix };
+	XAUDIO2_VOICE_SENDS sendList = { 1, &sendDesc };
+
+	HRESULT result = xAudio2_->CreateSourceVoice(
+		&pSourceVoice, &soundData.wfex,
+		0, XAUDIO2_DEFAULT_FREQ_RATIO, rawCallback,
+		&sendList); // ← 出力先を指定
 	assert(SUCCEEDED(result));
 
 	// 再生する波形データの設定
@@ -219,10 +190,31 @@ void SoundManager::PlayerWave(const SoundData& soundData) {
 	buf.pAudioData = soundData.buffer.data();
 	buf.AudioBytes = static_cast<UINT32>(soundData.buffer.size());
 	buf.Flags = XAUDIO2_END_OF_STREAM;
+	buf.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0;
 
 	// 波形データの再生
 	result = pSourceVoice->SubmitSourceBuffer(&buf);
-	assert(SUCCEEDED(result));
+	assert(SUCCEEDED(result) && "SubmitSourceBuffer failed");
 	result = pSourceVoice->Start();
-	assert(SUCCEEDED(result));
+	assert(SUCCEEDED(result) && "Start failed");
+
+	activeVoices_.push_back({ pSourceVoice, std::move(callbackPtr) });
+}
+
+void SoundManager::SetCategoryVolume(SoundCategory category, float volume) {
+	if (category == SoundCategory::BGM && bgmSubmixVoice_) {
+		bgmSubmixVoice_->SetVolume(volume);
+	} else if (category == SoundCategory::SE && seSubmixVoice_) {
+		seSubmixVoice_->SetVolume(volume);
+	}
+}
+
+float SoundManager::GetCategoryVolume(SoundCategory category) const {
+	float volume = 1.0f;
+	if (category == SoundCategory::BGM && bgmSubmixVoice_) {
+		bgmSubmixVoice_->GetVolume(&volume);
+	} else if (category == SoundCategory::SE && seSubmixVoice_) {
+		seSubmixVoice_->GetVolume(&volume);
+	}
+	return volume;
 }
