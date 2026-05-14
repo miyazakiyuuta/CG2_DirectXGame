@@ -318,12 +318,29 @@ void GamePlayScene::Initialize() {
 	pauseMenu_ = std::make_unique<PauseMenu>();
 	// スプライト版の Initialize は SpriteCommon と CameraController を受け取る
 	pauseMenu_->Initialize(SpriteCommon::GetInstance(), cameraController_.get());
+
+#ifndef USE_IMGUI
+	// 起動時にプレイ状態のカーソル設定を適用
+	ShowCursor(FALSE);
+	HWND hwnd = WinApp::GetInstance()->GetHwnd();
+	RECT rect;
+	GetClientRect(hwnd, &rect);
+	ClientToScreen(hwnd, reinterpret_cast<POINT*>(&rect.left));
+	ClientToScreen(hwnd, reinterpret_cast<POINT*>(&rect.right));
+	ClipCursor(&rect);
+#endif
 }
 
 void GamePlayScene::Finalize() {
 	// シングルトンが保持するこのシーンのポインタをクリアして
 	// ダングリングポインタによるクラッシュを防止する
 	ParticleManager::GetInstance()->SetCamera(nullptr);
+
+#ifndef USE_IMGUI
+	// シーン終了時に必ず解除
+	ShowCursor(TRUE);
+	ClipCursor(nullptr);
+#endif
 }
 
 void GamePlayScene::Update()
@@ -465,6 +482,27 @@ void GamePlayScene::Update()
 
 	// 1. ポーズメニュー自体の更新（ESCキー判定など）
 	pauseMenu_->Update();
+
+#ifndef USE_IMGUI
+	bool isPaused = pauseMenu_->IsPaused();
+
+	// 状態が変わったときだけ切り替える
+	if (isPaused != wasPaused_) {
+		if (isPaused) {
+			ShowCursor(TRUE);
+			ClipCursor(nullptr);
+		} else {
+			ShowCursor(FALSE);
+			HWND hwnd = WinApp::GetInstance()->GetHwnd();
+			RECT rect;
+			GetClientRect(hwnd, &rect);
+			ClientToScreen(hwnd, reinterpret_cast<POINT*>(&rect.left));
+			ClientToScreen(hwnd, reinterpret_cast<POINT*>(&rect.right));
+			ClipCursor(&rect);
+		}
+		wasPaused_ = isPaused;
+	}
+#endif
 
 	// 2. ポーズメニューからの要求（リスタート・終了）を処理
 	// リスタート要求：SceneManager経由で新しいGamePlaySceneを生成する。

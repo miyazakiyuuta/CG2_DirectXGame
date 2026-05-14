@@ -72,6 +72,7 @@ private:
 	std::unique_ptr<EnemyManager> enemyManager_;
 	// ポーズメニュー
 	std::unique_ptr<PauseMenu> pauseMenu_;
+	bool wasPaused_ = false;
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
 	std::vector<CollisionUtility::OBB> breakableBlockColliders_;
