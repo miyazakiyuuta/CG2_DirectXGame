@@ -26,6 +26,9 @@ public:
 	void Finalize();
 	void Update();
 
+	using SoundHandle = uint32_t;
+	static constexpr SoundHandle InvalidHandle = 0;
+
 	enum class SoundCategory {
 		BGM,
 		SE
@@ -33,7 +36,11 @@ public:
 
 	SoundData LoadFile(const std::string& filename); // wavファイル読み込み
 	void Unload(SoundData* soundData); // バッファ解放
-	void PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
+	SoundHandle PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
+
+	void  StopWave(SoundHandle handle);
+	void  SetVolume(SoundHandle handle, float volume);
+	bool  IsPlaying(SoundHandle handle) const;
 
 	void SetCategoryVolume(SoundCategory category, float volume); // 0.0f〜1.0f
 	float GetCategoryVolume(SoundCategory category) const;
@@ -57,8 +64,9 @@ private:
 		void STDMETHODCALLTYPE OnLoopEnd(void*)              override {}
 		void STDMETHODCALLTYPE OnVoiceError(void*, HRESULT)  override {}
 	};
-
+	 
 	struct ActiveVoice {
+		SoundHandle handle = InvalidHandle;
 		IXAudio2SourceVoice* pVoice = nullptr;
 		std::unique_ptr<VoiceCallback> callback;
 	};
@@ -70,5 +78,7 @@ private:
 
 	IXAudio2SubmixVoice* bgmSubmixVoice_ = nullptr;
 	IXAudio2SubmixVoice* seSubmixVoice_ = nullptr;
+
+	uint32_t nextHandle_ = 1;
 };
 

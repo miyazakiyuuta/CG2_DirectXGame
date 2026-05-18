@@ -163,8 +163,8 @@ void SoundManager::Unload(SoundData* soundData) {
 	soundData->wfex = {};
 }
 
-void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
-	if (soundData.buffer.empty()) return;
+SoundManager::SoundHandle SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
+	if (soundData.buffer.empty()) return InvalidHandle;
 
 	auto callbackPtr = std::make_unique<VoiceCallback>();
 	VoiceCallback* rawCallback = callbackPtr.get();
@@ -198,7 +198,36 @@ void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory
 	result = pSourceVoice->Start();
 	assert(SUCCEEDED(result) && "Start failed");
 
-	activeVoices_.push_back({ pSourceVoice, std::move(callbackPtr) });
+	SoundHandle handle = nextHandle_++;
+	activeVoices_.push_back({ handle, pSourceVoice, std::move(callbackPtr) });
+	return handle;
+}
+
+void SoundManager::StopWave(SoundHandle handle) {
+	for (auto it = activeVoices_.begin(); it != activeVoices_.end(); ++it) {
+		if (it->handle == handle) {
+			it->pVoice->Stop();
+			it->pVoice->DestroyVoice();
+			activeVoices_.erase(it);
+			return;
+		}
+	}
+}
+
+void SoundManager::SetVolume(SoundHandle handle, float volume) {
+	for (auto& av : activeVoices_) {
+		if (av.handle == handle) {
+			av.pVoice->SetVolume(volume);
+			return;
+		}
+	}
+}
+
+bool SoundManager::IsPlaying(SoundHandle handle) const {
+	for (const auto& av : activeVoices_) {
+		if (av.handle == handle) return true;
+	}
+	return false;
 }
 
 void SoundManager::SetCategoryVolume(SoundCategory category, float volume) {
