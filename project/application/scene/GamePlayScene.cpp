@@ -347,7 +347,8 @@ void GamePlayScene::Update()
 {
 
     // Advance stage runtime (moving platforms, etc.) with fixed timestep
-	if (stage_) {
+	// ポーズ中ではない場合のみブロック（ステージ）を動かすように修正
+	if (stage_ && !pauseMenu_->IsPaused()) {
 		stage_->Update(1.0f / 60.0f);
 
 		auto deltas = stage_->ConsumePlatformDeltas();
@@ -519,9 +520,6 @@ void GamePlayScene::Update()
 
 	// 3. 【核心】ポーズ中でない場合のみゲームの時間を動かす
 	if (!pauseMenu_->IsPaused()) {
-		if (stage_)
-			stage_->Update(1.0f / 60.0f);
-
 		// エディタモード中でなければ移動や衝突を更新
 		if (!stageEditor_->IsEditMode()) {
 			cameraController_->Update(player_->GetPosition());

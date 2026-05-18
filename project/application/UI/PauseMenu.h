@@ -97,4 +97,12 @@ private:
 	const Vector4 kColorNormal = {1.0f, 1.0f, 1.0f, 1.0f};   // 白
 	const Vector4 kColorInactive = {0.4f, 0.4f, 0.4f, 1.0f}; // グレー
 	const Vector4 kColorBg = {0.01f, 0.02f, 0.05f, 0.85f};   // 深い紺
+
+
+	bool isControllerMode_ = false; // 現在コントローラー操作中かどうかのフラグ
+
+	// --- 操作説明用スプライト ---
+	// キーボード用とコントローラー用の2枚を用意
+	std::unique_ptr<Sprite> controlsKB_;
+	std::unique_ptr<Sprite> controlsPad_;
 };
