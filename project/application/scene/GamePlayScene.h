@@ -5,6 +5,7 @@
 
 #include "Enemy/Bug/Bug.h"
 #include "Slug.h"
+#include "audio/SoundManager.h"
 #include "Reticle.h"
 
 
@@ -88,4 +89,7 @@ private:
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
 	std::unique_ptr<Reticle> reticle_ = nullptr;
+
+	// BGM用音声データ
+	SoundData bgm_ = {};
 };
