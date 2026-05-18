@@ -3,8 +3,9 @@
 #include "2d/SpriteCommon.h"
 #include "2d/TextureManager.h"
 #include "CameraController.h"
-#include "base/WinApp.h" // 画面サイズ取得用
+#include "base/WinApp.h"
 #include "io/Input.h"
+#include "audio/SoundManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -204,6 +205,7 @@ void PauseMenu::HandleInput() {
 			ApplySettings();
 		} else if (selectIndex_ == 1) {
 			volume_ = (std::clamp)(volume_ + delta, 0.0f, 1.0f);
+			ApplySettings();
 		}
 	}
 }
@@ -222,6 +224,8 @@ void PauseMenu::ApplySettings() {
 		cameraController_->SetPadYawSpeed(cameraController_->GetBasePadYawSpeed() * mult);
 		cameraController_->SetPadPitchSpeed(cameraController_->GetBasePadPitchSpeed() * mult);
 	}
+	// 音量を反映
+	SoundManager::GetInstance()->SetCategoryVolume(SoundManager::SoundCategory::BGM, volume_);
 }
 
 void PauseMenu::Draw() {

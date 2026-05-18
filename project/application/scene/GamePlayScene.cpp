@@ -319,6 +319,11 @@ void GamePlayScene::Initialize() {
 	// スプライト版の Initialize は SpriteCommon と CameraController を受け取る
 	pauseMenu_->Initialize(SpriteCommon::GetInstance(), cameraController_.get());
 
+	// --- BGMの読み込みと再生 ---
+	bgm_ = SoundManager::GetInstance()->LoadFile("resources/BGM/thirdStage.wav");
+	SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
+
+
 #ifndef USE_IMGUI
 	// 起動時にプレイ状態のカーソル設定を適用
 	ShowCursor(FALSE);
@@ -337,6 +342,9 @@ void GamePlayScene::Finalize() {
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 
 #ifndef USE_IMGUI
+
+	// BGMのアンロード
+	SoundManager::GetInstance()->Unload(&bgm_);
 	// シーン終了時に必ず解除
 	ShowCursor(TRUE);
 	ClipCursor(nullptr);
