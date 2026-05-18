@@ -1484,26 +1484,30 @@ void Player::Update()
 		break;
 	}
 
-	case MovementState::Jumping: {
-		Vector3 previousPosition = object_->GetTranslate();
+    case MovementState::Jumping: {
+        Vector3 previousPosition = object_->GetTranslate();
 
         UpdateAirborneHorizontalMove(cameraYaw);
-		ResolveHorizontalCollisions(previousPosition);
-		ResolveMovementLimitCylinder();
+        ResolveHorizontalCollisions(previousPosition);
+        ResolveMovementLimitCylinder();
 
-		Vector3 beforeVertical = object_->GetTranslate();
-		ApplyGravity();
-		ResolveVerticalCollisions(beforeVertical);
-		ResolveMovementLimitCylinder();
+        Vector3 beforeVertical = object_->GetTranslate();
+        ApplyGravity();
+        ResolveVerticalCollisions(beforeVertical);
+        ResolveMovementLimitCylinder();
 
-		if (isOnGround_) {
-			TransitionTo(MovementState::Root);
-		}
-		else {
-			TransitionTo(MovementState::Jumping);
-		}
-		break;
-	}
+        if (!isOnGround_) {
+            UpdateJumpPoseAnimation();
+        }
+
+        if (isOnGround_) {
+            TransitionTo(MovementState::Root);
+        }
+        else {
+            TransitionTo(MovementState::Jumping);
+        }
+        break;
+    }
 
     case MovementState::WallClinging:
         UpdateWallClinging(cameraYaw);
@@ -1530,8 +1534,14 @@ void Player::Update()
 
         ridingPlatformDelta_ = { 0.0f, 0.0f, 0.0f };
     }
-    // エイム中はプレイヤーの正面をカメラへ合わせる
-    if (isAimMode) {
+    // エイム中はプレイヤーの正面をカメラへ合わせる。
+    // ただし、薙ぎ払い攻撃中は攻撃方向がブレないように向きを固定する。
+    const bool freezeFacing =
+        freezeFacingWhileTongueSweeping_ &&
+        tongue_ &&
+        tongue_->IsSweeping();
+
+    if (isAimMode && !freezeFacing) {
         SetYawFromCamera(cameraYaw);
     }
 
@@ -1738,7 +1748,7 @@ void Player::Update()
                 currentReach = beamActiveMaxRadius_ * (1.0f - returnT);
                 Vector3 segEnd = origin + sweepDir * currentReach;
                 dynamicRadius = beamOriginalCapsuleRadius_ * (1.0f - 0.8f * returnT);
-                DebugRenderer::GetInstance()->AddLine(origin, segEnd, { 0.0f, 0.6f, 0.0f, 1.0f });
+                //DebugRenderer::GetInstance()->AddLine(origin, segEnd, { 0.0f, 0.6f, 0.0f, 1.0f });
                 if (enemyManager_) {
                     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                         if (!e)
@@ -1753,7 +1763,7 @@ void Player::Update()
                         if (distSq <= hitRadius * hitRadius) {
                             beamActiveHitList_.push_back(e);
                             e->Kill();
-                            DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
+                            //DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
                         }
                     });
                 }
@@ -1828,34 +1838,75 @@ void Player::MoveHorizontal(float cameraYaw) {
 
 	Vector3 inputDir = GetMoveInputDirection(cameraYaw);
 
+    bool isAimMode = false;
+    if (cameraController_) {
+        isAimMode = cameraController_->IsAimMode();
+    }
+
 	float currentYaw = object_->GetRotate().y - modelYawOffset_;
 
-	if (LengthXZ(inputDir) > 0.0001f) {
-		float desiredYaw = std::atan2(inputDir.x, inputDir.z);
-		float yawDiff = WrapAnglePi(desiredYaw - currentYaw);
+    const bool freezeFacing =
+        freezeFacingWhileTongueSweeping_ &&
+        tongue_ &&
+        tongue_->IsSweeping();
 
-		float yawStep = std::clamp(yawDiff, -turnSpeedRad_, turnSpeedRad_);
-		currentYaw += yawStep;
+    if (LengthXZ(inputDir) > 0.0001f) {
+        if (isAimMode) {
+            // エイム中は正面をカメラへ固定したまま移動する。
+            // ただし、正面方向と移動入力方向がズレているほど速度を下げる。
+            Vector3 forward = {
+                std::sin(currentYaw),
+                0.0f,
+                std::cos(currentYaw)
+            };
 
-		object_->SetRotate({ 0.0f, currentYaw + modelYawOffset_, 0.0f });
+            float alignment = forward.x * inputDir.x + forward.z * inputDir.z;
+            alignment = std::clamp(alignment, 0.0f, 1.0f);
 
-		float remainYawDiff = std::abs(WrapAnglePi(desiredYaw - currentYaw));
-		float moveStartAngleThresholdRad = moveStartAngleThresholdDeg_ * (3.14159265f / 180.0f);
+            float aimMoveRate =
+                aimMoveMinSpeedRate_ +
+                (1.0f - aimMoveMinSpeedRate_) * alignment;
 
-		Vector3 targetVelocity = { 0.0f, 0.0f, 0.0f };
-		if (remainYawDiff <= moveStartAngleThresholdRad) {
-			float actualSpeed = moveSpeed_ * speedMultiplier_;
-			targetVelocity.x = inputDir.x * actualSpeed;
-			targetVelocity.z = inputDir.z * actualSpeed;
-		}
+            float actualSpeed = moveSpeed_ * speedMultiplier_ * aimMoveRate;
 
-		groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, targetVelocity.x, groundAcceleration_);
-		groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, targetVelocity.z, groundAcceleration_);
-	}
-	else {
-		groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, 0.0f, groundDeceleration_);
-		groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, 0.0f, groundDeceleration_);
-	}
+            Vector3 targetVelocity = {
+                inputDir.x * actualSpeed,
+                0.0f,
+                inputDir.z * actualSpeed
+            };
+
+            groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, targetVelocity.x, groundAcceleration_);
+            groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, targetVelocity.z, groundAcceleration_);
+        }
+        else {
+            float desiredYaw = std::atan2(inputDir.x, inputDir.z);
+            float yawDiff = WrapAnglePi(desiredYaw - currentYaw);
+
+            if (!freezeFacing) {
+                float yawStep = std::clamp(yawDiff, -turnSpeedRad_, turnSpeedRad_);
+                currentYaw += yawStep;
+
+                object_->SetRotate({ 0.0f, currentYaw + modelYawOffset_, 0.0f });
+            }
+
+            float remainYawDiff = std::abs(WrapAnglePi(desiredYaw - currentYaw));
+            float moveStartAngleThresholdRad = moveStartAngleThresholdDeg_ * (3.14159265f / 180.0f);
+
+            Vector3 targetVelocity = { 0.0f, 0.0f, 0.0f };
+            if (remainYawDiff <= moveStartAngleThresholdRad) {
+                float actualSpeed = moveSpeed_ * speedMultiplier_;
+                targetVelocity.x = inputDir.x * actualSpeed;
+                targetVelocity.z = inputDir.z * actualSpeed;
+            }
+
+            groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, targetVelocity.x, groundAcceleration_);
+            groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, targetVelocity.z, groundAcceleration_);
+        }
+    }
+    else {
+        groundMoveVelocity_.x = ApproachFloat(groundMoveVelocity_.x, 0.0f, groundDeceleration_);
+        groundMoveVelocity_.z = ApproachFloat(groundMoveVelocity_.z, 0.0f, groundDeceleration_);
+    }
 
 	position.x += groundMoveVelocity_.x;
 	position.z += groundMoveVelocity_.z;
@@ -2164,22 +2215,25 @@ void Player::TransitionTo(MovementState nextState) {
     moveState_ = nextState;
 
 	switch (moveState_) {
-	case MovementState::Root:
-		velocity_.y = 0.0f;
-		isOnGround_ = true;
-		groundMoveVelocity_.x = lockedJumpMoveVelocity_.x;
-		groundMoveVelocity_.z = lockedJumpMoveVelocity_.z;
-		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
-		wallClingGauge_ = maxWallClingGauge_;
-		ClearClingStageObjectTracking();
-		break;
+    case MovementState::Root:
+        velocity_.y = 0.0f;
+        isOnGround_ = true;
+        groundMoveVelocity_.x = lockedJumpMoveVelocity_.x;
+        groundMoveVelocity_.z = lockedJumpMoveVelocity_.z;
+        lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+        wallClingGauge_ = maxWallClingGauge_;
+        EndJumpPoseAnimation();
+        ClearClingStageObjectTracking();
+        break;
 
-	case MovementState::Jumping:
-		isOnGround_ = false;
-		lockedJumpMoveVelocity_.x = velocity_.x;
-		lockedJumpMoveVelocity_.z = velocity_.z;
-		ClearClingStageObjectTracking();
-		break;
+    case MovementState::Jumping:
+        isOnGround_ = false;
+        lockedJumpMoveVelocity_.x = velocity_.x;
+        lockedJumpMoveVelocity_.z = velocity_.z;
+        ClearClingStageObjectTracking();
+
+        StartJumpPoseAnimation();
+        break;
 
 	case MovementState::WallClinging:
 		velocity_ = { 0.0f, 0.0f, 0.0f };
@@ -2188,7 +2242,8 @@ void Player::TransitionTo(MovementState nextState) {
 		break;
 
 	case MovementState::TonguePulling:
-		break;
+        EndJumpPoseAnimation();
+        break;
 
 	case MovementState::CeilingCrawling:
 		velocity_ = { 0.0f, 0.0f, 0.0f };
@@ -3546,6 +3601,50 @@ void Player::ApplyClingSurfaceRotationFacing(const Vector3& desiredForwardWorld)
 	);
 
 	object_->SetRotate(rot);
+}
+
+void Player::StartJumpPoseAnimation()
+{
+    if (!object_ || !useWalkFrameAsJumpPose_) {
+        return;
+    }
+
+    // 歩き中からジャンプしても、ジャンプポーズ用に0フレームから取り直す
+    object_->SetAnimationPause(false);
+    object_->PlayAnimation(jumpPoseAnimationName_, false, 0.0f);
+    object_->RestartAnimation();
+
+    jumpPoseAnimationActive_ = true;
+}
+
+void Player::UpdateJumpPoseAnimation()
+{
+    if (!object_ || !jumpPoseAnimationActive_) {
+        return;
+    }
+
+    int holdFrame = jumpPoseHoldFrame_;
+
+    const int totalFrames = object_->GetAnimationTotalFrames();
+    if (totalFrames > 0) {
+        holdFrame = std::clamp(holdFrame, 0, totalFrames - 1);
+    }
+
+    if (object_->GetAnimationCurrentFrame() >= holdFrame) {
+        object_->SetAnimationPause(true);
+        jumpPoseAnimationActive_ = false;
+    }
+}
+
+void Player::EndJumpPoseAnimation()
+{
+    jumpPoseAnimationActive_ = false;
+
+    if (!object_) {
+        return;
+    }
+
+    object_->SetAnimationPause(false);
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint)
