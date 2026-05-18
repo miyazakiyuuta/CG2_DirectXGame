@@ -347,7 +347,8 @@ void GamePlayScene::Update()
 {
 
     // Advance stage runtime (moving platforms, etc.) with fixed timestep
-	if (stage_) {
+	// ポーズ中ではない場合のみブロック（ステージ）を動かすように修正
+	if (stage_ && !pauseMenu_->IsPaused()) {
 		stage_->Update(1.0f / 60.0f);
 
 		auto deltas = stage_->ConsumePlatformDeltas();
