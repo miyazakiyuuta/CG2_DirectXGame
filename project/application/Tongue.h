@@ -80,7 +80,7 @@ private:
 	State state_ = State::Idle;
 
 	// プレイヤー口元からのローカルオフセット
-	Vector3 localOffset_ = { 0.0f, 0.5f, 1.6f };
+	Vector3 localOffset_ = { 0.0f, 0.5f, 0.7f };
 
 	Vector3 worldPosition_ = {};
 	Vector3 prevWorldPosition_ = {};

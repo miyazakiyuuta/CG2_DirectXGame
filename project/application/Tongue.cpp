@@ -295,14 +295,21 @@ void Tongue::UpdateExtending(float deltaTime){
 	}
 
 	// 通常の伸びる挙動
-	// 戻り開始判定は「現在の口元」ではなく、
-	// Shot() 時に保存した shotStartPosition_ からの伸長距離を基準にする
+// 戻り開始判定は「現在の口元」ではなく、
+// Shot() 時に保存した shotStartPosition_ からの伸長距離を基準にする
 	float move = currentExtendSpeed_ * deltaTime;
 	Vector3 dir = shotDirection_;
 
 	float remain = maxDistance_ - currentDistance_;
-	float actual = std::min(move, std::max(0.0f, remain));
 
+	// すでに前フレームで最大距離まで到達していた場合だけ戻り始める。
+	// 到達したそのフレームは Extending のまま残して、Player 側の当たり判定に渡す。
+	if (remain <= 0.0f) {
+		state_ = State::Returning;
+		return;
+	}
+
+	float actual = std::min(move, remain);
 	currentDistance_ += actual;
 
 	worldPosition_ = {
@@ -311,10 +318,9 @@ void Tongue::UpdateExtending(float deltaTime){
 		shotStartPosition_.z + dir.z * currentDistance_
 	};
 
-	// 最大距離に達したら、フック失敗として戻る
-	if (currentDistance_ >= maxDistance_ - 0.0001f) {
-		state_ = State::Returning;
-	}
+	// ここでは Returning にしない。
+	// 最大距離に到達したフレームの start → end 区間を
+	// CheckTongueBlockHook() 側で判定させるため。
 }
 
 void Tongue::UpdateReturning(float deltaTime){

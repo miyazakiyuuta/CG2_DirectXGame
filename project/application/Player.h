@@ -234,6 +234,10 @@ public:
 	void ApplyClingSurfaceRotation();
 	void ApplyClingSurfaceRotationFacing(const Vector3& desiredForward);
 
+	void StartJumpPoseAnimation();
+	void UpdateJumpPoseAnimation();
+	void EndJumpPoseAnimation();
+
 private:
     // 経験値とレベルアップの保留キュー
 	std::vector<std::pair<AbilityId, float>> pendingAbilityXP_;
@@ -471,6 +475,13 @@ public:
 	float turnSpeedRad_ = 0.48f;                  // 1フレームで回る最大量
 	float moveStartAngleThresholdDeg_ = 12.0f;    // この角度以内になったら前進開始
 
+	// AimMode中、正面と移動方向がズレているときの最低移動速度倍率
+	// 1.0なら減速なし、0.55なら横移動・後退が約55%になる
+	float aimMoveMinSpeedRate_ = 0.55f;
+
+	// 薙ぎ払い攻撃中はプレイヤー本体の向きを固定する
+	bool freezeFacingWhileTongueSweeping_ = true;
+
 	// 今後の加速度寄り設計へ向けた設定
 	float groundAcceleration_ = 0.035f;
 	float groundDeceleration_ = 0.045f;
@@ -478,6 +489,11 @@ public:
 	// 最後に舌がヒットしたエネミーを保持
 	BaseEnemy* lastHitEnemy_ = nullptr;
 
+	// ジャンプ中は歩きアニメの途中フレームをポーズとして使う
+	bool useWalkFrameAsJumpPose_ = true;
+	bool jumpPoseAnimationActive_ = false;
+	std::string jumpPoseAnimationName_ = "walk";
+	int jumpPoseHoldFrame_ = 18;
 
 	std::unique_ptr<Sprite> jumpGaugeBackSprite_ = nullptr;
 	std::unique_ptr<Sprite> jumpGaugeFillSprite_ = nullptr;
