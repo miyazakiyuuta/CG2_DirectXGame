@@ -18,6 +18,27 @@ ParticleManager* ParticleManager::GetInstance()
     return instance;
 }
 
+// 外部からインスタンシング領域へ直接書き込むためのポインタを返す
+ParticleManager::InstanceData* ParticleManager::GetInstancingDataWritePtr(const std::string& groupName, uint32_t& outMaxInstances)
+{
+    auto it = particleGroups_.find(groupName);
+    if (it == particleGroups_.end()) {
+        outMaxInstances = 0;
+        return nullptr;
+    }
+    outMaxInstances = kNumMaxInstance;
+    return it->second.instancingData;
+}
+
+// 外部から書き込んだインスタンス数を設定する（Draw 時に使用される）
+void ParticleManager::SetExternalInstanceCount(const std::string& groupName, uint32_t instanceCount)
+{
+    auto it = particleGroups_.find(groupName);
+    if (it == particleGroups_.end())
+        return;
+    it->second.instanceCount = instanceCount;
+}
+
 void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager)
 {
     dxCommon_ = dxCommon;
@@ -142,6 +163,13 @@ void ParticleManager::CreateParticleGroup(const std::string name, const std::str
     Log(std::string("ParticleManager::CreateParticleGroup name=") + name + std::string(" tex=") + textureFilePath + std::string(" texSrv=") + std::to_string(group.material.srvIndex) + std::string(" instSrv=") + std::to_string(group.instancingSrvIndex) + "\n");
 
     particleGroups_.emplace(name, std::move(group));
+}
+
+void ParticleManager::EnsureParticleGroup(const std::string& name, const std::string& textureFilePath)
+{
+    if (particleGroups_.find(name) == particleGroups_.end()) {
+        CreateParticleGroup(name, textureFilePath);
+    }
 }
 
 void ParticleManager::Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count) {

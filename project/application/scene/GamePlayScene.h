@@ -7,6 +7,7 @@
 #include "Slug.h"
 #include "Reticle.h"
 
+#include "XPOrb.h"
 
 #include <cstdint>
 #include <d3d12.h>
@@ -88,4 +89,6 @@ private:
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
 	std::unique_ptr<Reticle> reticle_ = nullptr;
+    // XP orb pool
+	std::vector<XPOrb> xpOrbs_;
 };

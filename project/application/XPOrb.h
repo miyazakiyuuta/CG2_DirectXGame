@@ -2,6 +2,9 @@
 #include "math/Vector3.h"
 #include <cmath>
 
+#include "math/Matrix4x4.h"
+#include "effect/ParticleManager.h"
+
 enum class AbilityId : int;
 
 class XPOrb {
@@ -11,6 +14,9 @@ public:
     void SetAbility(AbilityId a) { ability_ = a; }
     AbilityId GetAbility() const { return ability_; }
     int Update(float dt, const Vector3& attractPos);
+
+    // Fill GPU instancing data for this orb (called by gameplay code)
+    void FillInstanceData(ParticleManager::InstanceData& out, const Matrix4x4& cameraMatrix, const Matrix4x4& viewProj) const;
 
     bool IsActive() const { return active; }
     const Vector3& GetPosition() const { return position; }
