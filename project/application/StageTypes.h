@@ -63,6 +63,14 @@ struct StageObject {
     // 初期位相（0.0 - 1.0）: サイン波の初期位相を正規化して指定
     float movePhase = 0.0f;
 
+    // 保存系メタデータ: 初回保存された位置を保持し、以降の上書きを抑止するために使用
+    // このフラグが true の場合、デフォルトでは savedPosition を優先してシリアライズされます。
+    Vector3 savedPosition {};
+    bool savedPositionPersisted = false;
+    // movementLocked: true の場合、移動床の移動パラメータ（位置・速度・範囲・位相など）は
+    // データ側で固定され、ランタイムではデータの値を読み取って動かすだけにする。
+    bool movementLocked = false;
+
     // 敵スポーン用
     int enemyType = 0; // EnemyType::Chasing 相当をデフォルト
 

@@ -490,7 +490,7 @@ void StageEditor::DrawImGui(){
 
     if(ImGui::Button("Save")){
         std::filesystem::create_directories("resources");
-        Save("resources/stage.json");
+        StageSerializer::SaveToFile(stage_->GetStageData(), "resources/stage.json");
     }
 
     ImGui::SameLine();
@@ -620,6 +620,8 @@ void StageEditor::DrawImGui(){
                     editMoveDirection_ = o.moveDirection;
                     editMoveSpeed_ = o.moveSpeed;
                     editMoveRange_ = o.moveRange;
+                    editSavedPositionPersisted_ = o.savedPositionPersisted;
+                    editMovementLocked_ = o.movementLocked;
                     editEnemyType_ = o.enemyType;
                     strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
 
@@ -1081,6 +1083,17 @@ void StageEditor::DrawImGui(){
                         if(editMovePhase_ > 1.0f) editMovePhase_ = 1.0f;
                         if(liveEdit_){ for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.movePhase = editMovePhase_; break; } } }
                     }
+                    // saved position persisted flag for this moving platform
+                    ImGui::Checkbox("Persist saved position for this object", &editSavedPositionPersisted_);
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("通常はOFF。ONにすると保存時に位置が固定されます。Apply Transform後に反映されます。");
+                    }
+                    ImGui::SameLine();
+                    // movement locked toggle: bind to editor state and apply on Save/Apply
+                    ImGui::Checkbox("Lock movement properties (data-driven)", &editMovementLocked_);
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("データ主導で固定します。ランタイムは表示のみ更新し、StageDataの位置は上書きされません。通常はOFFのままにしてください。");
+                    }
                 }
 
                 if(editBlockId_ == BlockID::EnemySpawn){
@@ -1153,7 +1166,14 @@ void StageEditor::DrawImGui(){
                                 obj.moveDirection = editMoveDirection_;
                                 obj.moveSpeed = editMoveSpeed_;
                                 obj.moveRange = editMoveRange_;
-                        obj.movePhase = editMovePhase_;
+                                obj.movePhase = editMovePhase_;
+                                // Set or clear savedPositionPersisted per-object checkbox
+                                obj.savedPositionPersisted = editSavedPositionPersisted_;
+                                if (editSavedPositionPersisted_) {
+                                    obj.savedPosition = obj.position;
+                                }
+                                // Apply movementLocked from editor state
+                                obj.movementLocked = editMovementLocked_;
                             }
                           if(obj.blockId == BlockID::EnemySpawn){
                                 obj.enemyType = editEnemyType_;
