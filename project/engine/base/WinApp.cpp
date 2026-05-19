@@ -1,5 +1,7 @@
 #include "WinApp.h"
+#ifdef USE_IMGUI
 #include "imgui.h"
+#endif
 
 #ifdef USE_IMGUI
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -12,6 +14,12 @@ WinApp* WinApp::instance = nullptr;
 bool WinApp::isResized_ = false;
 int WinApp::newWidth_ = 0;
 int WinApp::newHeight_ = 0;
+
+#ifndef USE_IMGUI
+bool  WinApp::isFullscreen_ = false;
+RECT  WinApp::windowedRect_ = {};
+DWORD WinApp::windowedStyle_ = 0;
+#endif
 
 WinApp* WinApp::GetInstance() {
 	if (!instance)instance = new WinApp();
@@ -40,6 +48,22 @@ LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 			}
 		}
 		return 0;
+#ifndef USE_IMGUI
+	case WM_KEYDOWN:
+		if (wparam == VK_F11) {
+			ToggleFullscreen(hwnd);
+			return 0;
+		}
+		break;
+
+		// Alt + Enter でもフルスクリーン切り替え
+	case WM_SYSKEYDOWN:
+		if (wparam == VK_RETURN && (lparam & (1 << 29))) {
+			ToggleFullscreen(hwnd);
+			return 0;
+		}
+		break;
+#endif
 	}
 
 	// 標準のメッセージ処理を行う
@@ -107,4 +131,48 @@ bool WinApp::ProcessMessage() {
 
 	return false;
 }
-;
+
+#ifndef USE_IMGUI
+void WinApp::ToggleFullscreen(HWND hwnd) {
+	if (!isFullscreen_) {
+		// --- ウィンドウ状態を保存 ---
+		windowedStyle_ = static_cast<DWORD>(GetWindowLong(hwnd, GWL_STYLE));
+		GetWindowRect(hwnd, &windowedRect_);
+
+		// --- モニター全体のサイズを取得 ---
+		MONITORINFO mi = { sizeof(mi) };
+		GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
+
+		// --- ボーダーレスで全画面に ---
+		SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+		SetWindowPos(hwnd, HWND_TOPMOST,
+			mi.rcMonitor.left,
+			mi.rcMonitor.top,
+			mi.rcMonitor.right - mi.rcMonitor.left,
+			mi.rcMonitor.bottom - mi.rcMonitor.top,
+			SWP_FRAMECHANGED | SWP_NOACTIVATE);
+
+		newWidth_ = mi.rcMonitor.right - mi.rcMonitor.left;
+		newHeight_ = mi.rcMonitor.bottom - mi.rcMonitor.top;
+		isResized_ = true;
+		isFullscreen_ = true;
+	} else {
+		// --- ウィンドウモードに戻す ---
+		SetWindowLong(hwnd, GWL_STYLE, static_cast<LONG>(windowedStyle_));
+		SetWindowPos(hwnd, HWND_NOTOPMOST,
+			windowedRect_.left,
+			windowedRect_.top,
+			windowedRect_.right - windowedRect_.left,
+			windowedRect_.bottom - windowedRect_.top,
+			SWP_FRAMECHANGED | SWP_NOACTIVATE);
+
+		// クライアント領域サイズをスワップチェーンに反映させる
+		RECT clientRect{};
+		GetClientRect(hwnd, &clientRect);
+		newWidth_ = clientRect.right - clientRect.left;
+		newHeight_ = clientRect.bottom - clientRect.top;
+		isResized_ = true;
+		isFullscreen_ = false;
+	}
+}
+#endif

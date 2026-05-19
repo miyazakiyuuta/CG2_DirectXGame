@@ -24,6 +24,11 @@ public: // メンバ関数
 	static int GetNewWidth() { return newWidth_; }
 	static int GetNewHeight() { return newHeight_; }
 
+#ifndef USE_IMGUI
+	static bool IsFullscreen() { return isFullscreen_; }
+	static void ToggleFullscreen(HWND hwnd);
+#endif
+
 
 public: // メンバ変数
 	// クライアント領域のサイズ
@@ -40,6 +45,12 @@ private:
 	static bool isResized_;
 	static int newWidth_;
 	static int newHeight_;
+
+#ifndef USE_IMGUI
+	static bool  isFullscreen_;
+	static RECT  windowedRect_;
+	static DWORD windowedStyle_;
+#endif
 
 	// ウィンドウハンドル
 	HWND hwnd_ = nullptr;
