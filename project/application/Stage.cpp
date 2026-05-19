@@ -104,15 +104,9 @@ void Stage::Update(float deltaTime){
             movePhase[o.id] = o.movePhase * 2.0f * 3.14159265f;
         }
 
-        // previous position
-        Vector3 prevPos = o.position;
-
-        // advance phase
-        movePhase[o.id] += deltaTime * o.moveSpeed;
-
-        // compute offset using sine wave
+        // compute previous position from base and current phase (don't rely on o.position when movementLocked)
         float halfRange = o.moveRange * 0.5f;
-        float offset = std::sinf(movePhase[o.id]) * halfRange;
+        float phaseBefore = movePhase[o.id];
 
         Vector3 axis{0.0f, 0.0f, 0.0f};
         if(o.moveDirection == 1 || o.moveDirection == 2){ // vertical
@@ -121,13 +115,23 @@ void Stage::Update(float deltaTime){
             axis = {1.0f, 0.0f, 0.0f};
         }
 
-        Vector3 newPos = basePos[o.id] + axis * offset;
+        float prevOffset = std::sinf(phaseBefore) * halfRange;
+        Vector3 prevPos = basePos[o.id] + axis * prevOffset;
+
+        // advance phase
+        movePhase[o.id] += deltaTime * o.moveSpeed;
+
+        // compute new position using updated phase
+        float newOffset = std::sinf(movePhase[o.id]) * halfRange;
+        Vector3 newPos = basePos[o.id] + axis * newOffset;
 
         // record delta
         platformMoveDeltas_[o.id] = newPos - prevPos;
 
-        // apply to data and instances
-        o.position = newPos;
+        // apply to instances; if movementLocked is false, also update data_.objects position
+        if (!o.movementLocked) {
+            o.position = newPos;
+        }
         loader_.UpdateInstanceTransform(o.id, newPos, o.rotation, o.scale);
     }
 }

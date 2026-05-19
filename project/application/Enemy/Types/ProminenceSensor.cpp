@@ -15,7 +15,7 @@ void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const 
 	// 3Dオブジェクトの基本設定
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("Cube.obj"); // 砲台の見た目は立方体
+	object_->SetModel("ProminenceSensor.obj");
 	object_->SetCamera(camera);
 
 	// 配置と大きさの設定

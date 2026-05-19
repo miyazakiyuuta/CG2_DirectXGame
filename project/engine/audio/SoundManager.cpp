@@ -57,6 +57,8 @@ void SoundManager::Finalize() {
 	}
 	activeVoices_.clear();
 
+	UnloadAll();
+
 	if (bgmSubmixVoice_) { bgmSubmixVoice_->DestroyVoice(); bgmSubmixVoice_ = nullptr; }
 	if (seSubmixVoice_) { seSubmixVoice_->DestroyVoice();  seSubmixVoice_ = nullptr; }
 
@@ -84,8 +86,35 @@ void SoundManager::Finalize() {
 	instance = nullptr;
 }
 
-void SoundManager::Update() {
+void SoundManager::Update(float deltaTime) {
 	for (auto it = activeVoices_.begin(); it != activeVoices_.end(); ) {
+		// フェード処理
+		if (it->fadeSpeed > 0.0f) {
+			float current = 0.0f;
+			it->pVoice->GetVolume(&current);
+
+			float diff = it->fadeTargetVolume - current;
+			float step = it->fadeSpeed * deltaTime;
+
+			if (std::abs(diff) <= step) {
+				// 目標音量に到達
+				it->pVoice->SetVolume(it->fadeTargetVolume);
+				it->fadeSpeed = 0.0f;
+
+				// フェードアウト完了 → 停止して削除
+				if (it->stopOnFadeOut) {
+					it->pVoice->Stop();
+					it->pVoice->DestroyVoice();
+					it = activeVoices_.erase(it);
+					continue;
+				}
+			} else {
+				// 目標に向けて少しずつ変化
+				it->pVoice->SetVolume(current + (diff > 0 ? step : -step));
+			}
+		}
+
+		// 再生完了チェック（従来のまま）
 		if (it->callback->isFinished) {
 			it->pVoice->DestroyVoice();
 			it = activeVoices_.erase(it);
@@ -96,6 +125,11 @@ void SoundManager::Update() {
 }
 
 SoundData SoundManager::LoadFile(const std::string& filename) {
+
+	auto it = soundCache_.find(filename);
+	if (it != soundCache_.end()) {
+		return it->second;
+	}
 
 	// フルパスをワイド文字列に変換
 	std::wstring filePathW = ConvertString(filename);
@@ -154,17 +188,20 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 		}
 	}
 
+	soundCache_[filename] = soundData;
 	return soundData;
 }
 
-// 音声データ解放
-void SoundManager::Unload(SoundData* soundData) {
-	soundData->buffer.clear();
-	soundData->wfex = {};
+void SoundManager::Unload(const std::string& filename) {
+	soundCache_.erase(filename);
 }
 
-void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
-	if (soundData.buffer.empty()) return;
+void SoundManager::UnloadAll() {
+	soundCache_.clear();
+}
+
+SoundManager::SoundHandle SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
+	if (soundData.buffer.empty()) return InvalidHandle;
 
 	auto callbackPtr = std::make_unique<VoiceCallback>();
 	VoiceCallback* rawCallback = callbackPtr.get();
@@ -198,7 +235,61 @@ void SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory
 	result = pSourceVoice->Start();
 	assert(SUCCEEDED(result) && "Start failed");
 
-	activeVoices_.push_back({ pSourceVoice, std::move(callbackPtr) });
+	SoundHandle handle = nextHandle_++;
+	activeVoices_.push_back({ handle, pSourceVoice, std::move(callbackPtr) });
+	return handle;
+}
+
+void SoundManager::StopWave(SoundHandle handle) {
+	for (auto it = activeVoices_.begin(); it != activeVoices_.end(); ++it) {
+		if (it->handle == handle) {
+			it->pVoice->Stop();
+			it->pVoice->DestroyVoice();
+			activeVoices_.erase(it);
+			return;
+		}
+	}
+}
+
+void SoundManager::FadeIn(SoundHandle handle, float duration) {
+	if (duration <= 0.0f) return;
+	for (auto& av : activeVoices_) {
+		if (av.handle == handle) {
+			av.pVoice->SetVolume(0.0f); // 無音からスタート
+			av.fadeTargetVolume = 1.0f;
+			av.fadeSpeed = 1.0f / duration;
+			av.stopOnFadeOut = false;
+			return;
+		}
+	}
+}
+
+void SoundManager::FadeOut(SoundHandle handle, float duration) {
+	if (duration <= 0.0f) return;
+	for (auto& av : activeVoices_) {
+		if (av.handle == handle) {
+			av.fadeTargetVolume = 0.0f;
+			av.fadeSpeed = 1.0f / duration;
+			av.stopOnFadeOut = true; // 完了後に自動停止
+			return;
+		}
+	}
+}
+
+void SoundManager::SetVolume(SoundHandle handle, float volume) {
+	for (auto& av : activeVoices_) {
+		if (av.handle == handle) {
+			av.pVoice->SetVolume(volume);
+			return;
+		}
+	}
+}
+
+bool SoundManager::IsPlaying(SoundHandle handle) const {
+	for (const auto& av : activeVoices_) {
+		if (av.handle == handle) return true;
+	}
+	return false;
 }
 
 void SoundManager::SetCategoryVolume(SoundCategory category, float volume) {

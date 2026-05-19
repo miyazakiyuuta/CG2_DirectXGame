@@ -246,6 +246,10 @@ private:
     float editMoveSpeed_ = 0.0f;
     float editMoveRange_ = 0.0f;
     float editMovePhase_ = 0.0f;
+    // 選択中オブジェクトの保存済み位置フラグ（移動床向け）
+    bool editSavedPositionPersisted_ = false;
+    // 選択中オブジェクトの movementLocked フラグ（移動プロパティをデータ固定にする）
+    bool editMovementLocked_ = false;
 
     // 複製オプション
     int duplicateCount_ = 1;

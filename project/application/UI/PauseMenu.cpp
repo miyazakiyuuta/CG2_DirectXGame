@@ -3,8 +3,9 @@
 #include "2d/SpriteCommon.h"
 #include "2d/TextureManager.h"
 #include "CameraController.h"
-#include "base/WinApp.h" // 画面サイズ取得用
+#include "base/WinApp.h"
 #include "io/Input.h"
+#include "audio/SoundManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -65,19 +66,70 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 
 		textSprites_[path] = std::move(sprite);
 	}
+
+	// --- 操作説明画像の読み込み ---
+	auto LoadControlSprite = [&](std::unique_ptr<Sprite>& sprite, const std::string& path) {
+		texManager->LoadTexture(path);
+		sprite = std::make_unique<Sprite>();
+		sprite->Initialize(spriteCommon_, path);
+		sprite->SetSize({800.0f, 450.0f}); // 画像サイズに合わせて調整してください
+		sprite->SetAnchorPoint({0.5f, 0.5f});
+		sprite->SetPos({640.0f, 360.0f});
+	};
+
+	LoadControlSprite(controlsKB_, "resources/ui/controls_kb.png");
+	LoadControlSprite(controlsPad_, "resources/ui/controls_pad.png");
 }
 
 void PauseMenu::Update() {
-	// ESCキー または STARTボタン でポーズ切り替え
-	if (input_->IsTriggerKey(DIK_ESCAPE) ||
-	    input_->IsTriggerPad(XINPUT_GAMEPAD_START)) {
+	if (input_->IsTriggerKey(DIK_ESCAPE) || input_->IsTriggerPad(XINPUT_GAMEPAD_START)) {
 		isPaused_ = !isPaused_;
-		if (isPaused_) {
+		if (isPaused_)
 			selectIndex_ = 0;
-		}
 	}
 
 	if (isPaused_) {
+		// --- 【修正】入力デバイスの動的検知ロジック ---
+
+		// 1. コントローラー入力を監視
+		bool padActive = false;
+		if (input_->IsControllerConnected(0)) {
+			// いずれかのボタンが押されているか
+			if (input_->IsPressPad(0xFFFF, 0))
+				padActive = true;
+			// スティックが一定以上動いているか（デッドゾーン考慮）
+			if (std::abs(input_->GetLeftStickX()) > 0.3f || std::abs(input_->GetLeftStickY()) > 0.3f)
+				padActive = true;
+			if (std::abs(input_->GetRightStickX()) > 0.3f || std::abs(input_->GetRightStickY()) > 0.3f)
+				padActive = true;
+			// トリガーが引かれているか
+			if (input_->GetLeftTrigger() > 0.2f || input_->GetRightTrigger() > 0.2f)
+				padActive = true;
+		}
+
+		// 2. キーボード・マウス入力を監視
+		bool kbActive = false;
+		// 0〜255の全キーを走査して、何かが押されているかチェック
+		for (int i = 0; i < 256; ++i) {
+			if (input_->IsPushKey(static_cast<BYTE>(i))) {
+				kbActive = true;
+				break;
+			}
+		}
+		// マウス移動またはクリック
+		auto mouseMove = input_->GetMouseMove();
+		if (mouseMove.x != 0 || mouseMove.y != 0)
+			kbActive = true;
+		if (input_->IsPressMouse(0) || input_->IsPressMouse(1))
+			kbActive = true;
+
+		// 判定の適用（コントローラー優先、何もなければ維持）
+		if (padActive) {
+			isControllerMode_ = true;
+		} else if (kbActive) {
+			isControllerMode_ = false;
+		}
+
 		menuAlpha_ = (std::min)(1.0f, menuAlpha_ + 0.1f);
 		pulseTimer_ += 0.05f;
 		HandleInput();
@@ -85,6 +137,7 @@ void PauseMenu::Update() {
 		menuAlpha_ = (std::max)(0.0f, menuAlpha_ - 0.1f);
 	}
 }
+
 
 void PauseMenu::HandleInput() {
 	// --- タブ切り替え ---
@@ -152,6 +205,7 @@ void PauseMenu::HandleInput() {
 			ApplySettings();
 		} else if (selectIndex_ == 1) {
 			volume_ = (std::clamp)(volume_ + delta, 0.0f, 1.0f);
+			ApplySettings();
 		}
 	}
 }
@@ -170,6 +224,8 @@ void PauseMenu::ApplySettings() {
 		cameraController_->SetPadYawSpeed(cameraController_->GetBasePadYawSpeed() * mult);
 		cameraController_->SetPadPitchSpeed(cameraController_->GetBasePadPitchSpeed() * mult);
 	}
+	// 音量を反映
+	SoundManager::GetInstance()->SetCategoryVolume(SoundManager::SoundCategory::BGM, volume_);
 }
 
 void PauseMenu::Draw() {
@@ -251,6 +307,16 @@ void PauseMenu::Draw() {
 			sliderFill_[i]->Update();
 			sliderFill_[i]->Draw();
 		}
+	} else if (activeTab_ == Tab::Controls) {
+			// 現在の入力モードに応じてスプライトを選択
+			Sprite* target = isControllerMode_ ? controlsPad_.get() : controlsKB_.get();
+
+			if (target) {
+				target->SetColor({1.0f, 1.0f, 1.0f, menuAlpha_});
+				target->Update();
+				target->Draw();
+			}
+		
 	}
 }
 

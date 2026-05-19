@@ -31,6 +31,21 @@ void XPOrb::Init(const Vector3& pos, int val)
     hasBounced = false;
 }
 
+void XPOrb::FillInstanceData(ParticleManager::InstanceData& out, const Matrix4x4& cameraMatrix, const Matrix4x4& viewProj) const
+{
+    Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(3.14159265f);
+    Matrix4x4 billboardMatrix = backToFrontMatrix * cameraMatrix;
+    billboardMatrix.m[3][0] = 0.0f;
+    billboardMatrix.m[3][1] = 0.0f;
+    billboardMatrix.m[3][2] = 0.0f;
+    Matrix4x4 scaleMat = Matrix4x4::Scale({ scale, scale, scale });
+    Matrix4x4 translateMat = Matrix4x4::Translate(position);
+    Matrix4x4 world = scaleMat * billboardMatrix * translateMat;
+    out.world = world;
+    out.wvp = world * viewProj;
+    out.color = {1.0f, 1.0f, 0.6f, alpha};
+}
+
 int XPOrb::Update(float dt, const Vector3& attractPos)
 {
     if (!active)

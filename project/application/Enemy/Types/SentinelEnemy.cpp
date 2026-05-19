@@ -14,7 +14,7 @@ SentinelEnemy::~SentinelEnemy() = default;
 void SentinelEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("Cube.obj");
+	object_->SetModel("SentinelHook.obj");
 	object_->SetCamera(camera);
 
 	position_ = pos;
@@ -130,6 +130,18 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 		ResolveCylinderCollision();
 	}
 
+	// 向きは状態に応じて設定
+	if (state_ == State::Returning) {
+		Vector3 toHome = homePosition_ - position_;
+		float yaw = std::atan2(toHome.x, toHome.z);
+		object_->SetRotate({0.0f, yaw, 0.0f});
+	} else {
+		float yaw = std::atan2(toPlayer.x, toPlayer.z);
+		object_->SetRotate({0.0f, yaw, 0.0f});
+	}
+	object_->SetTranslate(position_);
+	float yaw = std::atan2(toPlayer.x, toPlayer.z);
+	object_->SetRotate({0.0f, yaw, 0.0f});
 	object_->SetTranslate(position_);
 	object_->Update();
 }
