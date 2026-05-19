@@ -9,7 +9,7 @@ PhaseGhost::~PhaseGhost() = default;
 void PhaseGhost::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("sphere.obj"); // ひとまず球体
+	object_->SetModel("GhostFace.obj");
 	object_->SetCamera(camera);
 
 	position_ = pos;

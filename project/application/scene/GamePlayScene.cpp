@@ -181,6 +181,10 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("tongue/tongue.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
+	ModelManager::GetInstance()->LoadModel("Enemy/ClusterMinion", "ClusterMinion.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/GhostFace", "GhostFace.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
 
     // Load the single well model so it can be placed in the scene
     ModelManager::GetInstance()->LoadModel("well", "well.obj");
