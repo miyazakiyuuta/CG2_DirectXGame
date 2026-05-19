@@ -228,6 +228,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\Enemy\Types\PhaseGhost.cpp" />
     <ClCompile Include="engine\effect\GPUParticleEmitter.cpp" />
     <ClCompile Include="application\UI\PauseMenu.cpp" />
+    <ClCompile Include="application\UI\GameTimer.cpp" />
+    <ClCompile Include="application\UI\SpriteNumberText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -262,6 +264,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Easing.h" />
     <ClInclude Include="application\Enemy\Types\ClusterSlime.h" />
     <ClInclude Include="application\XPOrb.h" />
+    <ClInclude Include="engine\base\DpiUtil.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
@@ -331,6 +334,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\Enemy\Types\PhaseGhost.h" />
     <ClInclude Include="engine\effect\GPUParticleEmitter.h" />
     <ClInclude Include="application\UI\PauseMenu.h" />
+    <ClInclude Include="application\UI\GameTimer.h" />
+    <ClInclude Include="application\UI\SpriteNumberText.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
@@ -381,7 +386,6 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
-
     <None Include="resources\stage_enemies.json" />
   </ItemGroup>
   <ItemGroup>

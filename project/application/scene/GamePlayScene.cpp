@@ -169,6 +169,8 @@ void GamePlayScene::Initialize() {
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 	TextureManager::GetInstance()->LoadTexture("resources/circle.png");
+	TextureManager::GetInstance()->LoadTexture("resources/UI/KiwiMaruNumStrength.png");
+	TextureManager::GetInstance()->LoadTexture("resources/UI/KiwiMaruColon.png");
 
 	// .objファイルからモデルを読み込む
 	ModelManager::GetInstance()->LoadModel("plane.obj");
@@ -301,6 +303,58 @@ void GamePlayScene::Initialize() {
 		player_->SetEnemyManager(enemyManager_.get());
 	}
 
+	const float digitW = 32.0f;
+	const float digitH = 32.0f;
+	const float spacing = 2.0f;
+
+	// : 画像も 32x32 前提
+	const float colonW = 32.0f;
+	const float colonH = 32.0f;
+
+	// : と数字の左右の余白
+	const float colonSideGap = 8.0f;
+
+	const float centerX = static_cast<float>(WinApp::kClientWidth) * 0.5f;
+	const float timerY = 30.0f;
+
+	// : を画面中央に置く
+	const Vector2 colonPos = {
+		centerX * 14 / 8 - colonW * 0.5f,
+		timerY
+	};
+
+	// 左2桁の終端が「: の左余白」の位置に来るように、数字全体の開始位置を逆算
+	const Vector2 timerBasePos = {
+		colonPos.x - colonSideGap - (digitW * 2.0f + spacing),
+		timerY
+	};
+
+	// SpriteNumberText の middleGap_ は「3桁目以降に追加する余白」
+	// 通常 spacing ぶんは既にあるので、そのぶんを引いておく
+	const float middleGap = colonW + colonSideGap * 2.0f - spacing;
+
+	timerText_.Initialize(
+		SpriteCommon::GetInstance(),
+		"resources/UI/KiwiMaruNumStrength.png",
+		4
+	);
+
+	timerText_.SetPosition(timerBasePos);
+	timerText_.SetDigitSize({ digitW, digitH });
+	timerText_.SetSpacing(spacing);
+	timerText_.SetMiddleGap(middleGap);
+	timerText_.SetColor({ 0.25f, 0.75f, 1.0f, 1.0f });
+	timerText_.SetNumber(0, 4);
+
+	// : 用スプライト
+	timerColonSprite_ = std::make_unique<Sprite>();
+	timerColonSprite_->Initialize(SpriteCommon::GetInstance(), "resources/UI/KiwiMaruColon.png");
+	timerColonSprite_->SetAnchorPoint({ 0.0f, 0.0f });
+	timerColonSprite_->SetSize({ colonW, colonH });
+	timerColonSprite_->SetPos(colonPos);
+	timerColonSprite_->SetColor({ 0.25f, 0.75f, 1.0f, 1.0f });
+	timerColonSprite_->Update();
+
     debugGrid_ = std::make_unique<DebugGrid>();
     debugGrid_->Initialize(DirectXCommon::GetInstance());
 
@@ -321,7 +375,7 @@ void GamePlayScene::Initialize() {
 
 #ifndef USE_IMGUI
 	// 起動時にプレイ状態のカーソル設定を適用
-	ShowCursor(FALSE);
+	while (ShowCursor(FALSE) >= 0) {}
 	HWND hwnd = WinApp::GetInstance()->GetHwnd();
 	RECT rect;
 	GetClientRect(hwnd, &rect);
@@ -520,6 +574,24 @@ void GamePlayScene::Update()
 	// 3. 【核心】ポーズ中でない場合のみゲームの時間を動かす
 	if (!pauseMenu_->IsPaused()) {
 
+		gameTimer_.Update(1.0f / 60.0f);
+
+		int totalSeconds = gameTimer_.GetDisplaySeconds();
+
+		int minutes = totalSeconds / 60;
+		int seconds = totalSeconds % 60;
+
+		// 99:59 で止める
+		if (minutes > 99) {
+			minutes = 99;
+			seconds = 59;
+		}
+
+		int displayValue = minutes * 100 + seconds;
+
+		timerText_.SetNumber(displayValue, 4);
+		timerText_.Update();
+
 		// エディタモード中でなければ移動や衝突を更新
 		if (!stageEditor_->IsEditMode()) {
 			cameraController_->Update(player_->GetPosition());
@@ -646,6 +718,12 @@ void GamePlayScene::Draw() {
 		reticle_->Draw();
 	}
 	player_->DrawUI();
+
+	timerText_.Draw();
+
+	if (timerColonSprite_) {
+		timerColonSprite_->Draw();
+	}
 	// 3. 【重要】ポーズUIを最後に重ねる（一番手前に表示）
 	pauseMenu_->Draw();
 	DebugRenderer::GetInstance()->RenderAll(*camera_);

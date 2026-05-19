@@ -6,6 +6,8 @@
 #include "Enemy/Bug/Bug.h"
 #include "Slug.h"
 #include "Reticle.h"
+#include "UI/GameTimer.h"
+#include "UI/SpriteNumberText.h"
 
 
 #include <cstdint>
@@ -88,4 +90,8 @@ private:
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
 	std::unique_ptr<Reticle> reticle_ = nullptr;
+
+	GameTimer gameTimer_;
+	SpriteNumberText timerText_;
+	std::unique_ptr<Sprite> timerColonSprite_ = nullptr;
 };
