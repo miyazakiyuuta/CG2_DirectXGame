@@ -8,6 +8,7 @@
 #include <memory>
 #include <atomic>
 #include <cassert>
+#include <unordered_map>
 
 // 音声データ
 struct SoundData {
@@ -35,7 +36,8 @@ public:
 	};
 
 	SoundData LoadFile(const std::string& filename); // wavファイル読み込み
-	void Unload(SoundData* soundData); // バッファ解放
+	void Unload(const std::string& filename); // 特定ファイルをキャッシュから削除
+	void UnloadAll(); // 全キャッシュ削除
 	SoundHandle PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
 
 	void  StopWave(SoundHandle handle);
@@ -80,5 +82,7 @@ private:
 	IXAudio2SubmixVoice* seSubmixVoice_ = nullptr;
 
 	uint32_t nextHandle_ = 1;
+
+	std::unordered_map<std::string, SoundData> soundCache_;
 };
 

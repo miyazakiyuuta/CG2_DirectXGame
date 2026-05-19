@@ -57,6 +57,8 @@ void SoundManager::Finalize() {
 	}
 	activeVoices_.clear();
 
+	UnloadAll();
+
 	if (bgmSubmixVoice_) { bgmSubmixVoice_->DestroyVoice(); bgmSubmixVoice_ = nullptr; }
 	if (seSubmixVoice_) { seSubmixVoice_->DestroyVoice();  seSubmixVoice_ = nullptr; }
 
@@ -96,6 +98,11 @@ void SoundManager::Update() {
 }
 
 SoundData SoundManager::LoadFile(const std::string& filename) {
+
+	auto it = soundCache_.find(filename);
+	if (it != soundCache_.end()) {
+		return it->second;
+	}
 
 	// フルパスをワイド文字列に変換
 	std::wstring filePathW = ConvertString(filename);
@@ -157,10 +164,12 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 	return soundData;
 }
 
-// 音声データ解放
-void SoundManager::Unload(SoundData* soundData) {
-	soundData->buffer.clear();
-	soundData->wfex = {};
+void SoundManager::Unload(const std::string& filename) {
+	soundCache_.erase(filename);
+}
+
+void SoundManager::UnloadAll() {
+	soundCache_.clear();
 }
 
 SoundManager::SoundHandle SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
