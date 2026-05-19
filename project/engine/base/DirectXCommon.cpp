@@ -177,6 +177,38 @@ void DirectXCommon::ResizeSwapChain(int width, int height) {
 	viewport_.Height = static_cast<float>(height);
 	scissorRect_.right = width;
 	scissorRect_.bottom = height;
+
+	depthStencilResource_.Reset();
+
+	D3D12_RESOURCE_DESC depthDesc{};
+	depthDesc.Width = static_cast<UINT>(width);
+	depthDesc.Height = static_cast<UINT>(height);
+	depthDesc.MipLevels = 1;
+	depthDesc.DepthOrArraySize = 1;
+	depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthDesc.SampleDesc.Count = 1;
+	depthDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depthDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_HEAP_PROPERTIES heapProps{};
+	heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	D3D12_CLEAR_VALUE clearValue{};
+	clearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	clearValue.DepthStencil.Depth = 1.0f;
+
+	hr = device_->CreateCommittedResource(
+		&heapProps, D3D12_HEAP_FLAG_NONE, &depthDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue,
+		IID_PPV_ARGS(&depthStencilResource_));
+	assert(SUCCEEDED(hr));
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	device_->CreateDepthStencilView(
+		depthStencilResource_.Get(), &dsvDesc,
+		dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
 }
 
 IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
