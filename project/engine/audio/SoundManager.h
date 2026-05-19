@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cassert>
 #include <unordered_map>
+#include <cmath>
 
 // 音声データ
 struct SoundData {
@@ -25,7 +26,7 @@ public:
 
 	void Initialize();
 	void Finalize();
-	void Update();
+	void Update(float deltaTime);
 
 	using SoundHandle = uint32_t;
 	static constexpr SoundHandle InvalidHandle = 0;
@@ -40,9 +41,11 @@ public:
 	void UnloadAll(); // 全キャッシュ削除
 	SoundHandle PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
 
-	void  StopWave(SoundHandle handle);
-	void  SetVolume(SoundHandle handle, float volume);
-	bool  IsPlaying(SoundHandle handle) const;
+	void StopWave(SoundHandle handle);
+	void FadeIn(SoundHandle handle, float duration);  // durationは秒
+	void FadeOut(SoundHandle handle, float duration); // フェード完了後に自動停止
+	void SetVolume(SoundHandle handle, float volume);
+	bool IsPlaying(SoundHandle handle) const;
 
 	void SetCategoryVolume(SoundCategory category, float volume); // 0.0f〜1.0f
 	float GetCategoryVolume(SoundCategory category) const;
@@ -71,6 +74,9 @@ private:
 		SoundHandle handle = InvalidHandle;
 		IXAudio2SourceVoice* pVoice = nullptr;
 		std::unique_ptr<VoiceCallback> callback;
+		float fadeTargetVolume = 1.0f; // 目標音量
+		float fadeSpeed = 0.0f; // 1秒あたりの変化量（0.0fはフェードなし）
+		bool  stopOnFadeOut = false; // フェードアウト完了後に停止するか
 	};
 
 	Microsoft::WRL::ComPtr<IXAudio2> xAudio2_;
