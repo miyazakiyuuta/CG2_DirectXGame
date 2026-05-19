@@ -11,6 +11,7 @@
 #include "effect/ParticleManager.h"
 #include "effect/RingManager.h"
 #include "io/Input.h"
+#include "utility/Random.h"
 
 #include "2d/Sprite.h"
 #include "3d/Object3d.h"
@@ -37,6 +38,7 @@
 #include "utility/Logger.h"
 #include <numbers>
 #include <sstream>
+#include "effect/ParticleManager.h"
 
 namespace {
     EnemyType ClampEnemyTypeInt(int et)
@@ -275,6 +277,31 @@ void GamePlayScene::Initialize() {
 	// --- エネミーマネージャーの初期化 ---
 	enemyManager_ = std::make_unique<EnemyManager>();
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
+
+	// XP orb pool 初期化
+	xpOrbs_.resize(64); // 最大 64 個のオーブを同時管理
+
+	// XP オーブのスポーン処理を登録
+	enemyManager_->SetXPOrbSpawner([this](const Vector3& pos, AbilityId ability, int amount) {
+		// 単純に amount 個のオーブを 1 値ずつスポーンするか、amount を分割して配る
+		int remaining = amount;
+		for (auto& orb : xpOrbs_) {
+			if (remaining <= 0) break;
+			if (!orb.IsActive()) {
+				Vector3 spawnPos = pos;
+				// ランダムな小さなオフセットを与えて見た目をばらす
+				spawnPos.x += Random::GetFloat(-0.5f, 0.5f);
+				spawnPos.y += Random::GetFloat(0.0f, 0.6f);
+				spawnPos.z += Random::GetFloat(-0.5f, 0.5f);
+				orb.SetAbility(ability);
+				orb.Init(spawnPos, 1);
+                // Do not expire automatically; remain until collected by player
+				orb.SetFiniteLife(false);
+				orb.SetGroundY(0.0f); // 後で毎フレーム上書きしてもよい
+				--remaining;
+			}
+		}
+	});
 
 	// Stage から敵スポーン情報を取得して生成
 	for (const auto& spawn : stage_->GetEnemySpawnPoints()) {
@@ -540,6 +567,24 @@ void GamePlayScene::Update()
 			if (player_) {
 				player_->CheckEnemyContactDamage();
 			}
+
+			// XP オーブの更新とプレイヤーへの付与
+			if (player_) {
+				for (auto& orb : xpOrbs_) {
+					if (!orb.IsActive()) continue;
+                   // Update groundY from stage so orbs bounce and rest on floors/platforms
+					if (stage_) {
+						float gy = stage_->GetHeightAt(orb.GetPosition());
+						orb.SetGroundY(gy);
+					}
+					int collected = orb.Update(1.0f / 60.0f, player_->GetPosition());
+					if (collected > 0) {
+						player_->EnqueueAbilityXP(orb.GetAbility(), static_cast<float>(collected));
+					}
+				}
+			}
+
+            // (描画インスタンス書き込みは ParticleManager::Update 後に行う)
 		}
 
 		// Warp detection: run before player update so teleport is immediate in gameplay mode
@@ -609,6 +654,26 @@ void GamePlayScene::Update()
 	camera_->Update();
 	camera_->TransferToGPU();
 
+	// ParticleManager 更新（インスタンス書き込みの前に最新のカメラ行列を使うため）
+	ParticleManager::GetInstance()->Update(1.0f / 60.0f);
+
+	// XP オーブ用インスタンス書き込み（Update 後、Draw 前）
+	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");
+	uint32_t maxInst = 0;
+	auto* instPtr = ParticleManager::GetInstance()->GetInstancingDataWritePtr("xp_orb", maxInst);
+	if (instPtr && maxInst > 0) {
+		uint32_t numInst = 0;
+        const Matrix4x4 viewProj = camera_->GetViewMatrix() * camera_->GetProjectionMatrix();
+		Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
+        for (const auto& orb : xpOrbs_) {
+			if (!orb.IsActive()) continue;
+			if (numInst >= maxInst) break;
+			orb.FillInstanceData(instPtr[numInst], cameraMatrix, viewProj);
+			++numInst;
+		}
+		ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", numInst);
+	}
+
 	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
 		object3d_->StopAnimation();
 	}
@@ -647,6 +712,9 @@ void GamePlayScene::Draw() {
     if (enemyManager_) {
         enemyManager_->Draw();
     }
+
+	// パーティクル（XPオーブ等）を描画
+	ParticleManager::GetInstance()->Draw();
 
 	debugGrid_->Draw(*camera_);
 

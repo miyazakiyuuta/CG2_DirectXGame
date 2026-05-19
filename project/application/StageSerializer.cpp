@@ -59,9 +59,16 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
 
         // 位置を保存
         nlohmann::json pos;
-        pos["x"] = o.position.x;
-        pos["y"] = o.position.y;
-        pos["z"] = o.position.z;
+        // 移動床については savedPositionPersisted が true の場合 savedPosition を優先して保存する
+        if (o.blockId == BlockID::MovingPlatform && o.savedPositionPersisted) {
+            pos["x"] = o.savedPosition.x;
+            pos["y"] = o.savedPosition.y;
+            pos["z"] = o.savedPosition.z;
+        } else {
+            pos["x"] = o.position.x;
+            pos["y"] = o.position.y;
+            pos["z"] = o.position.z;
+        }
 
         // 回転を保存
         nlohmann::json rot;
@@ -94,6 +101,16 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
         jo["moveSpeed"] = o.moveSpeed;
         jo["moveRange"] = o.moveRange;
         jo["movePhase"] = o.movePhase;
+        // savedPosition / persisted は移動床専用のメタデータとしてのみ出力する
+        if (o.blockId == BlockID::MovingPlatform) {
+            nlohmann::json savedPos;
+            savedPos["x"] = o.savedPosition.x;
+            savedPos["y"] = o.savedPosition.y;
+            savedPos["z"] = o.savedPosition.z;
+            jo["savedPosition"] = savedPos;
+            jo["savedPositionPersisted"] = o.savedPositionPersisted;
+            jo["movementLocked"] = o.movementLocked;
+        }
         jo["enemyType"] = o.enemyType;
         jo["enemyRespawnInterval"] = o.enemyRespawnInterval;
 
@@ -247,6 +264,20 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                 }
                 if(jo.contains("movePhase")){
                     o.movePhase = jo["movePhase"].get<float>();
+                }
+                // savedPosition / persisted は移動床専用のメタデータとしてのみ読み込む
+                if (o.blockId == BlockID::MovingPlatform) {
+                    if (jo.contains("savedPosition")) {
+                        if (jo["savedPosition"].contains("x")) o.savedPosition.x = jo["savedPosition"]["x"].get<float>();
+                        if (jo["savedPosition"].contains("y")) o.savedPosition.y = jo["savedPosition"]["y"].get<float>();
+                        if (jo["savedPosition"].contains("z")) o.savedPosition.z = jo["savedPosition"]["z"].get<float>();
+                    }
+                    if (jo.contains("savedPositionPersisted")) {
+                        o.savedPositionPersisted = jo["savedPositionPersisted"].get<bool>();
+                    }
+                    if (jo.contains("movementLocked")) {
+                        o.movementLocked = jo["movementLocked"].get<bool>();
+                    }
                 }
                 if(jo.contains("enemyType")){
                     o.enemyType = jo["enemyType"].get<int>();
