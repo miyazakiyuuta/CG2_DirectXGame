@@ -10,7 +10,7 @@ ClusterSlime::~ClusterSlime() = default;
 void ClusterSlime::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("sphere.obj");
+	object_->SetModel("ClusterMinion.obj");
 	object_->SetCamera(camera);
 	object_->SetScale({0.1f, 0.1f, 0.1f});
 	object_->SetColor({1, 1, 1, 0});
@@ -23,7 +23,7 @@ void ClusterSlime::Initialize(Object3dCommon* common, Camera* camera, const Vect
 		Member m;
 		m.object = std::make_unique<Object3d>();
 		m.object->Initialize(common);
-		m.object->SetModel("sphere.obj");
+		m.object->SetModel("ClusterMinion.obj");
 		m.object->SetCamera(camera);
 		m.object->SetScale({0.4f, 0.4f, 0.4f});
 		m.object->SetColor({0.9f, 0.0f, 0.2f, 1.0f});
