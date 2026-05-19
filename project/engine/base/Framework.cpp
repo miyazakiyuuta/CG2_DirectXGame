@@ -123,6 +123,13 @@ void Framework::Run() {
 
 		DirectXCommon::GetInstance()->PostDraw();
 #else
+		if (WinApp::IsResized()) {
+			int w = WinApp::GetNewWidth();
+			int h = WinApp::GetNewHeight();
+			DirectXCommon::GetInstance()->ResizeSwapChain(w, h);
+			WinApp::ClearResizedFlag();
+		}
+
 		DirectXCommon::GetInstance()->PreDraw();
 		SrvManager::GetInstance()->PreDraw();
 		Draw();
