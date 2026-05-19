@@ -371,11 +371,11 @@ void GamePlayScene::Finalize() {
 	// シングルトンが保持するこのシーンのポインタをクリアして
 	// ダングリングポインタによるクラッシュを防止する
 	ParticleManager::GetInstance()->SetCamera(nullptr);
+	// BGMのアンロード
+	SoundManager::GetInstance()->Unload("resources/BGM/thirdStage.wav");
 
 #ifndef USE_IMGUI
 
-	// BGMのアンロード
-	SoundManager::GetInstance()->Unload(&bgm_);
 	// シーン終了時に必ず解除
 	ShowCursor(TRUE);
 	ClipCursor(nullptr);
