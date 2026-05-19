@@ -542,7 +542,7 @@
       "movementLocked": false,
       "position": {
         "x": -30.0,
-        "y": 270.0,
+        "y": 265.0,
         "z": -40.0
       },
       "rotation": {
@@ -552,7 +552,7 @@
       },
       "savedPosition": {
         "x": -30.0,
-        "y": 270.0,
+        "y": 265.0,
         "z": -40.0
       },
       "savedPositionPersisted": true,
@@ -588,7 +588,7 @@
       "movementLocked": false,
       "position": {
         "x": 30.0,
-        "y": 270.0,
+        "y": 265.0,
         "z": 40.0
       },
       "rotation": {
@@ -598,7 +598,7 @@
       },
       "savedPosition": {
         "x": 30.0,
-        "y": 270.0,
+        "y": 265.0,
         "z": 40.0
       },
       "savedPositionPersisted": true,
@@ -2261,7 +2261,7 @@
       "movementLocked": false,
       "position": {
         "x": -23.0,
-        "y": 310.0,
+        "y": 320.0,
         "z": 9.0
       },
       "rotation": {
@@ -2271,7 +2271,7 @@
       },
       "savedPosition": {
         "x": -23.0,
-        "y": 310.0,
+        "y": 320.0,
         "z": 9.0
       },
       "savedPositionPersisted": true,
@@ -2307,7 +2307,7 @@
       "movementLocked": false,
       "position": {
         "x": 23.0,
-        "y": 310.0,
+        "y": 320.0,
         "z": -9.0
       },
       "rotation": {
@@ -2317,7 +2317,7 @@
       },
       "savedPosition": {
         "x": 23.0,
-        "y": 310.0,
+        "y": 320.0,
         "z": -9.0
       },
       "savedPositionPersisted": true,
