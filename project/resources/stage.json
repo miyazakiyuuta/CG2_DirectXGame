@@ -3366,7 +3366,7 @@
       "enemyType": 0,
       "hp": 0,
       "id": 11,
-      "modelName": "Cube.obj",
+      "modelName": "",
       "moveDirection": 0,
       "movePhase": 0.0,
       "moveRange": 0.0,
@@ -3569,6 +3569,45 @@
       "position": {
         "x": -17.0,
         "y": 8.199999809265137,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 3,
+      "hp": 1,
+      "id": 91,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -35.79999923706055,
+        "y": 13.899999618530273,
         "z": 0.0
       },
       "rotation": {

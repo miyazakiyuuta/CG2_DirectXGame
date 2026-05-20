@@ -22,7 +22,16 @@ private:
 		Vector3 velocity;
 		float speed;
 		float timer;
-		bool onGround; // 【追加】接地フラグ
+		bool onGround; // 接地フラグ
+
+		// メンバーごとの着地ブロック XZ 範囲と上面 Y を記録する
+		// BaseEnemy の hasLandingBlock_ は共有されるため、メンバー切り替え時に退避・復元する
+		bool hasLandingBlock = false;
+		float landBlockMinX = 0.0f;
+		float landBlockMaxX = 0.0f;
+		float landBlockMinZ = 0.0f;
+		float landBlockMaxZ = 0.0f;
+		float landBlockTopY = 0.0f;  // ブロック上面 Y（プレイヤーが実際に乗っているか判定に使用）
 	};
 
 	std::vector<Member> members_;
