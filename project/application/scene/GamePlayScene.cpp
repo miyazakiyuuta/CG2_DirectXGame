@@ -406,7 +406,7 @@ void GamePlayScene::Initialize() {
 
 	// --- BGMの読み込みと再生 ---
 	bgm_ = SoundManager::GetInstance()->LoadFile("resources/BGM/thirdStage.wav");
-	SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
+	bgmHandle_ = SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
 
 
 #ifndef USE_IMGUI
@@ -422,11 +422,16 @@ void GamePlayScene::Initialize() {
 }
 
 void GamePlayScene::Finalize() {
-	// シングルトンが保持するこのシーンのポインタをクリアして
-	// ダングリングポインタによるクラッシュを防止する
-	ParticleManager::GetInstance()->SetCamera(nullptr);
+	// シーン終了時、再生中のBGMボイスを確実に停止させてバッファ解放後のアクセスを防ぐ
+	if (bgmHandle_ != SoundManager::InvalidHandle) {
+		SoundManager::GetInstance()->StopWave(bgmHandle_);
+		bgmHandle_ = SoundManager::InvalidHandle;
+	}
+
 	// BGMのアンロード
 	SoundManager::GetInstance()->Unload("resources/BGM/thirdStage.wav");
+
+	ParticleManager::GetInstance()->SetCamera(nullptr);
 
 #ifndef USE_IMGUI
 
@@ -784,7 +789,7 @@ void GamePlayScene::Draw() {
 	stageEditor_->Draw();
 	player_->Draw();
 
-    // 【追加】エネミーの描画
+    // エネミーの描画
     if (enemyManager_) {
         enemyManager_->Draw();
     }
@@ -805,7 +810,7 @@ void GamePlayScene::Draw() {
 	if (timerColonSprite_) {
 		timerColonSprite_->Draw();
 	}
-	// 3. 【重要】ポーズUIを最後に重ねる（一番手前に表示）
+	// 3. ポーズUIを最後に重ねる（一番手前に表示）
 	pauseMenu_->Draw();
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }

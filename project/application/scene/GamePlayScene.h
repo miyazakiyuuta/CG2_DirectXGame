@@ -95,10 +95,14 @@ private:
     // XP orb pool
 	std::vector<XPOrb> xpOrbs_;
 
-	// BGM用音声データ
-	SoundData bgm_ = {};
 
 	GameTimer gameTimer_;
 	SpriteNumberText timerText_;
 	std::unique_ptr<Sprite> timerColonSprite_ = nullptr;
+
+	// BGM用音声データ
+	SoundData bgm_ = {};
+
+	//BGMの安全な停止に用いるサウンドハンドル
+	SoundManager::SoundHandle bgmHandle_ = SoundManager::InvalidHandle;
 };
