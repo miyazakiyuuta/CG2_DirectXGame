@@ -7,6 +7,8 @@
 #include "Slug.h"
 #include "audio/SoundManager.h"
 #include "Reticle.h"
+#include "UI/GameTimer.h"
+#include "UI/SpriteNumberText.h"
 
 #include "XPOrb.h"
 
@@ -95,4 +97,8 @@ private:
 
 	// BGM用音声データ
 	SoundData bgm_ = {};
+
+	GameTimer gameTimer_;
+	SpriteNumberText timerText_;
+	std::unique_ptr<Sprite> timerColonSprite_ = nullptr;
 };
