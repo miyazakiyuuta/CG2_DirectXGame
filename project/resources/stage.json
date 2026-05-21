@@ -3335,7 +3335,7 @@
       "position": {
         "x": 0.0,
         "y": 500.0,
-        "z": 25.0
+        "z": 20.0
       },
       "rotation": {
         "x": 0.0,
@@ -3343,9 +3343,9 @@
         "z": 0.0
       },
       "scale": {
-        "x": 6.0,
+        "x": 10.0,
         "y": 1.0,
-        "z": 20.0
+        "z": 25.0
       },
       "warpTargetPosition": {
         "x": 0.0,
@@ -3366,7 +3366,7 @@
       "enemyType": 0,
       "hp": 0,
       "id": 11,
-      "modelName": "",
+      "modelName": "Cube.obj",
       "moveDirection": 0,
       "movePhase": 0.0,
       "moveRange": 0.0,
