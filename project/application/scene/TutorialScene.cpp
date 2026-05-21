@@ -12,6 +12,7 @@
 #include "Stage.h"
 #include "StageSerializer.h"
 #include "UI/PauseMenu.h"
+#include "UI/RuntimeTextTextureGenerator.h"
 #include "base/WinApp.h"
 #include "debug/DebugGrid.h"
 #include "debug/DebugRenderer.h"
@@ -23,6 +24,23 @@
 #endif
 
 #include <numbers>
+#include <string>
+
+namespace {
+
+	std::string ToUtf8String(const char* text)
+	{
+		return text ? std::string(text) : std::string();
+	}
+
+#if defined(__cpp_char8_t)
+	std::string ToUtf8String(const char8_t* text)
+	{
+		return text ? std::string(reinterpret_cast<const char*>(text)) : std::string();
+	}
+#endif
+
+} // namespace
 
 TutorialScene::TutorialScene() = default;
 TutorialScene::~TutorialScene() = default;
@@ -113,8 +131,16 @@ void TutorialScene::Initialize()
 		0.0f
 		});
 
-	SetupTutorialTasks();
+	// 1. チュートリアルで使うタスクと文字列をまとめて作る
+	// 2. 使う文字列を先に全部PNG化してSprite化する
+	// 3. そのあとタスク進行を開始する
+	BuildTutorialStepDefinitions();
+	GenerateTutorialMessageSprites();
+	SetupTutorialTasksFromDefinitions();
 	tutorialDirector_.Start();
+
+	InitializeTutorialScoreBar();
+	UpdateTutorialScoreBar();
 
 #ifndef USE_IMGUI
 	while (ShowCursor(FALSE) >= 0) {}
@@ -135,69 +161,172 @@ void TutorialScene::Finalize()
 #endif
 }
 
-void TutorialScene::SetupTutorialTasks()
+void TutorialScene::BuildTutorialStepDefinitions()
 {
-	tutorialDirector_.Clear();
+	tutorialStepDefinitions_.clear();
 
-	tutorialDirector_.AddTask({
+	tutorialStepDefinitions_.push_back({
 		"移動",
-		"WASD または左スティックで移動してみよう",
+		ToUtf8String(u8"WASDで1秒間移動してみよう"),
+		60,
 		[](const TutorialContext& ctx) {
 			if (!ctx.input) {
-				return false;
+				return 0;
 			}
 
-			return
+			const bool moving =
 				ctx.input->IsPushKey(DIK_W) ||
 				ctx.input->IsPushKey(DIK_A) ||
 				ctx.input->IsPushKey(DIK_S) ||
 				ctx.input->IsPushKey(DIK_D);
+
+			return moving ? 1 : 0;
 		},
-		nullptr,
 		0.5f
 		});
 
-	tutorialDirector_.AddTask({
+	tutorialStepDefinitions_.push_back({
 		"ジャンプ",
-		"Space でジャンプしてみよう",
+		ToUtf8String(u8"長押しでジャンプを溜めよう"),
+		45,
 		[](const TutorialContext& ctx) {
 			if (!ctx.input) {
-				return false;
+				return 0;
 			}
 
-			return ctx.input->IsTriggerKey(DIK_SPACE);
+			// Space を押している間だけゲージが進む。
+			// 45なら約0.75秒ぶん。
+			return ctx.input->IsPushKey(DIK_SPACE) ? 1 : 0;
 		},
-		nullptr,
 		0.5f
 		});
 
-	tutorialDirector_.AddTask({
+	tutorialStepDefinitions_.push_back({
 		"エイム",
-		"右クリックでエイムしてみよう",
+		ToUtf8String(u8"右クリックで1秒間エイムしてみよう"),
+		60,
 		[](const TutorialContext& ctx) {
 			if (!ctx.cameraController) {
-				return false;
+				return 0;
 			}
 
-			return ctx.cameraController->IsAimMode();
+			return ctx.cameraController->IsAimMode() ? 1 : 0;
 		},
-		nullptr,
 		0.5f
 		});
 
-	tutorialDirector_.AddTask({
+	tutorialStepDefinitions_.push_back({
 		"舌",
-		"左クリックで舌を伸ばしてみよう",
+		ToUtf8String(u8"左クリックで舌を3回伸ばしてみよう"),
+		3,
 		[](const TutorialContext& ctx) {
 			if (!ctx.input) {
-				return false;
+				return 0;
 			}
 
-			return ctx.input->IsTriggerMouse(0);
+			return ctx.input->IsTriggerMouse(0) ? 1 : 0;
 		},
-		nullptr,
 		0.5f
 		});
+}
+
+void TutorialScene::SetupTutorialTasksFromDefinitions()
+{
+	tutorialDirector_.Clear();
+
+	for (const auto& def : tutorialStepDefinitions_) {
+		TutorialTask task;
+		task.title = def.title;
+		task.message = def.message;
+		task.requiredScore = def.requiredScore;
+		task.scoreDelta = def.scoreDelta;
+		task.onEnter = nullptr;
+		task.completeWaitSeconds = def.completeWaitSeconds;
+
+		tutorialDirector_.AddTask(task);
+	}
+}
+
+void TutorialScene::GenerateTutorialMessageSprites()
+{
+	tutorialMessageSprites_.clear();
+	tutorialMessageSprites_.reserve(tutorialStepDefinitions_.size());
+
+	for (size_t i = 0; i < tutorialStepDefinitions_.size(); ++i) {
+		std::string outputPath =
+			"resources/generated_ui/tutorial_message_" + std::to_string(i) + ".png";
+
+		auto sprite = CreateTutorialMessageSprite(
+			tutorialStepDefinitions_[i].message,
+			outputPath
+		);
+
+		tutorialMessageSprites_.push_back(std::move(sprite));
+	}
+
+	tutorialFinishedMessageSprite_ = CreateTutorialMessageSprite(
+		ToUtf8String(u8"         チュートリアル完了！\n ESCメニューからタイトルに戻れます"),
+		"resources/generated_ui/tutorial_message_finished.png"
+	);
+}
+
+std::unique_ptr<Sprite> TutorialScene::CreateTutorialMessageSprite(
+	const std::string& textUtf8,
+	const std::string& outputPath
+) {
+	RuntimeTextTextureGenerator::GenerateDesc textDesc;
+	textDesc.textUtf8 = textUtf8;
+	textDesc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
+	textDesc.outputFilePath = outputPath;
+
+	// 高解像度で生成して、Sprite表示時に縮小する
+	textDesc.fontPixelSize = 120;
+	textDesc.paddingX = 48;
+	textDesc.paddingY = 28;
+	textDesc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	textDesc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.65f };
+	textDesc.shadowOffsetX = 6;
+	textDesc.shadowOffsetY = 6;
+
+	if (!RuntimeTextTextureGenerator::GeneratePng(textDesc)) {
+		return nullptr;
+	}
+
+	TextureManager::GetInstance()->LoadTexture(outputPath);
+
+	const DirectX::TexMetadata& meta =
+		TextureManager::GetInstance()->GetMetaData(outputPath);
+
+	auto sprite = std::make_unique<Sprite>();
+	sprite->Initialize(SpriteCommon::GetInstance(), outputPath);
+	sprite->SetAnchorPoint({ 0.5f, 0.0f });
+	sprite->SetPos({
+		static_cast<float>(WinApp::kClientWidth) * 0.5f,
+		48.0f
+		});
+	sprite->SetSize({
+		static_cast<float>(meta.width) * tutorialTextDrawScale_,
+		static_cast<float>(meta.height) * tutorialTextDrawScale_
+		});
+	sprite->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+	sprite->Update();
+
+	return sprite;
+}
+
+Sprite* TutorialScene::GetCurrentTutorialMessageSprite() const
+{
+	if (tutorialDirector_.IsFinished()) {
+		return tutorialFinishedMessageSprite_.get();
+	}
+
+	int index = tutorialDirector_.GetCurrentIndex();
+
+	if (index < 0 || index >= static_cast<int>(tutorialMessageSprites_.size())) {
+		return nullptr;
+	}
+
+	return tutorialMessageSprites_[index].get();
 }
 
 void TutorialScene::UpdateTutorial(float deltaTime)
@@ -209,6 +338,8 @@ void TutorialScene::UpdateTutorial(float deltaTime)
 	context.deltaTime = deltaTime;
 
 	tutorialDirector_.Update(context);
+
+	UpdateTutorialScoreBar();
 }
 
 void TutorialScene::UpdateStageColliders()
@@ -228,6 +359,81 @@ void TutorialScene::UpdateStageColliders()
 
 	if (cameraController_) {
 		cameraController_->SetObstacleColliders(&stageBlockColliders_);
+	}
+}
+
+void TutorialScene::InitializeTutorialScoreBar()
+{
+	const float centerX = static_cast<float>(WinApp::kClientWidth) * 0.5f;
+	const float y = static_cast<float>(WinApp::kClientHeight) - 72.0f;
+
+	tutorialScoreBarCenterPos_ = { centerX, y };
+	tutorialScoreBarSize_ = { 640.0f, 18.0f };
+
+	tutorialScoreBackSprite_ = std::make_unique<Sprite>();
+	tutorialScoreBackSprite_->Initialize(
+		SpriteCommon::GetInstance(),
+		TextureManager::kDefaultTextureName
+	);
+	tutorialScoreBackSprite_->SetAnchorPoint({ 0.5f, 0.5f });
+	tutorialScoreBackSprite_->SetPos(tutorialScoreBarCenterPos_);
+	tutorialScoreBackSprite_->SetSize(tutorialScoreBarSize_);
+	tutorialScoreBackSprite_->SetColor({ 0.05f, 0.10f, 0.15f, 0.75f });
+	tutorialScoreBackSprite_->Update();
+
+	tutorialScoreFillSprite_ = std::make_unique<Sprite>();
+	tutorialScoreFillSprite_->Initialize(
+		SpriteCommon::GetInstance(),
+		TextureManager::kDefaultTextureName
+	);
+	tutorialScoreFillSprite_->SetAnchorPoint({ 0.0f, 0.5f });
+	tutorialScoreFillSprite_->SetPos({
+		tutorialScoreBarCenterPos_.x - tutorialScoreBarSize_.x * 0.5f,
+		tutorialScoreBarCenterPos_.y
+		});
+	tutorialScoreFillSprite_->SetSize({ 0.0f, tutorialScoreBarSize_.y });
+	tutorialScoreFillSprite_->SetColor({ 0.25f, 0.75f, 1.0f, 0.95f });
+	tutorialScoreFillSprite_->Update();
+}
+
+void TutorialScene::UpdateTutorialScoreBar()
+{
+	if (!tutorialScoreBackSprite_ || !tutorialScoreFillSprite_) {
+		return;
+	}
+
+	float progress = tutorialDirector_.GetCurrentProgress();
+
+	if (progress < 0.0f) {
+		progress = 0.0f;
+	}
+	if (progress > 1.0f) {
+		progress = 1.0f;
+	}
+
+	tutorialScoreBackSprite_->SetPos(tutorialScoreBarCenterPos_);
+	tutorialScoreBackSprite_->SetSize(tutorialScoreBarSize_);
+	tutorialScoreBackSprite_->Update();
+
+	tutorialScoreFillSprite_->SetPos({
+		tutorialScoreBarCenterPos_.x - tutorialScoreBarSize_.x * 0.5f,
+		tutorialScoreBarCenterPos_.y
+		});
+	tutorialScoreFillSprite_->SetSize({
+		tutorialScoreBarSize_.x * progress,
+		tutorialScoreBarSize_.y
+		});
+	tutorialScoreFillSprite_->Update();
+}
+
+void TutorialScene::DrawTutorialScoreBar()
+{
+	if (tutorialScoreBackSprite_) {
+		tutorialScoreBackSprite_->Draw();
+	}
+
+	if (tutorialScoreFillSprite_) {
+		tutorialScoreFillSprite_->Draw();
 	}
 }
 
@@ -343,9 +549,15 @@ void TutorialScene::Draw()
 		player_->DrawUI();
 	}
 
+	if (Sprite* messageSprite = GetCurrentTutorialMessageSprite()) {
+		messageSprite->Draw();
+	}
+
 	if (pauseMenu_) {
 		pauseMenu_->Draw();
 	}
+
+	DrawTutorialScoreBar();
 
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
@@ -355,13 +567,16 @@ void TutorialScene::DrawImGui()
 #ifdef USE_IMGUI
 	ImGui::Begin("Tutorial");
 
-	ImGui::TextUnformatted(tutorialDirector_.GetCurrentTitle().c_str());
-	ImGui::Separator();
-	ImGui::TextWrapped("%s", tutorialDirector_.GetCurrentMessage().c_str());
-	ImGui::Text("Task Index: %d", tutorialDirector_.GetCurrentIndex());
-
 	if (tutorialDirector_.IsFinished()) {
 		ImGui::TextUnformatted("Tutorial Finished");
+		ImGui::Separator();
+		ImGui::TextUnformatted("ESCメニューからタイトルに戻れます");
+	}
+	else {
+		ImGui::TextUnformatted(tutorialDirector_.GetCurrentTitle().c_str());
+		ImGui::Separator();
+		ImGui::TextWrapped("%s", tutorialDirector_.GetCurrentMessage().c_str());
+		ImGui::Text("Task Index: %d", tutorialDirector_.GetCurrentIndex());
 	}
 
 	ImGui::End();
