@@ -38,7 +38,7 @@ void SceneManager::Update() {
 	}
 
 	if (scene_) { scene_->Update(); }
-}
+} 
 
 void SceneManager::Draw() {
 	if (scene_) { 
