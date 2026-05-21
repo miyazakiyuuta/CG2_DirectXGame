@@ -159,6 +159,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="application\transition\BlindTransition.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
@@ -227,6 +228,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="application\transition\BlindTransition.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
