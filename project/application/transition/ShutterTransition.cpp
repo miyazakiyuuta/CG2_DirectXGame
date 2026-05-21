@@ -2,24 +2,25 @@
 #include "2d/TextureManager.h"
 #include "2d/SpriteCommon.h"
 #include "2d/Sprite.h"
+#include "base/WinApp.h"
 
 ShutterTransition::ShutterTransition()
-	: shutterHeight_(-720.0f)
+	: shutterHeight_(-static_cast<float>(WinApp::kClientHeight))
 	, isClosed_(false)
 	, isOpened_(false) {
 }
 
 void ShutterTransition::Initialize() {
-	//TextureManager::GetInstance()->LoadTexture("resources/white1x1.png");
-	//std::string textureHandle = "resources/white1x1.png";
-	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
-	std::string textureHandle = "resources/uvChecker.png";
+	TextureManager::GetInstance()->LoadTexture("resources/white2x2.png");
+	std::string textureHandle = "resources/white2x2.png";
+	//TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+	//std::string textureHandle = "resources/uvChecker.png";
 	sprite_ = std::make_unique<Sprite>();
 	sprite_->Initialize(SpriteCommon::GetInstance(), textureHandle);
 	sprite_->SetPos({ 0.0f,shutterHeight_ });
-	sprite_->SetSize({ 1280.0f,720.0f });
+	sprite_->SetSize({ static_cast<float>(WinApp::kClientWidth), static_cast<float>(WinApp::kClientHeight) });
 	sprite_->SetAnchorPoint({ 0.0f,0.0f });
-	sprite_->SetTextureSize({ 512.0f,512.0f });
+	//sprite_->SetTextureSize({ 512.0f,512.0f });
 }
 
 void ShutterTransition::Update() {
