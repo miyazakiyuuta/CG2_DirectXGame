@@ -231,6 +231,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\UI\PauseMenu.cpp" />
     <ClCompile Include="application\UI\GameTimer.cpp" />
     <ClCompile Include="application\UI\SpriteNumberText.cpp" />
+    <ClCompile Include="application\Tutorial\TutorialDirector.cpp" />
+    <ClCompile Include="application\scene\TutorialScene.cpp" />
+    <ClCompile Include="application\UI\SpriteText.cpp" />
+    <ClCompile Include="application\UI\RuntimeTextTextureGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -338,6 +342,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\UI\PauseMenu.h" />
     <ClInclude Include="application\UI\GameTimer.h" />
     <ClInclude Include="application\UI\SpriteNumberText.h" />
+    <ClInclude Include="application\Tutorial\TutorialDirector.h" />
+    <ClInclude Include="application\scene\TutorialScene.h" />
+    <ClInclude Include="application\UI\SpriteText.h" />
+    <ClInclude Include="application\UI\RuntimeTextTextureGenerator.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
