@@ -1,6 +1,5 @@
 #pragma once
 
-// Windowsマクロとの衝突防止
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -17,6 +16,7 @@ class Sprite;
 class SpriteCommon;
 class Input;
 class CameraController;
+class SpriteNumberText;
 
 /// <summary>
 /// ゼルダBotW風 2Dポーズメニュー (提供されたSpriteクラスをフル活用)
@@ -92,12 +92,15 @@ private:
 	// --- テキスト画像用スプライト ---
 	std::map<std::string, std::unique_ptr<Sprite>> textSprites_;
 
+	// --- 数値表示用 ---
+	std::unique_ptr<SpriteNumberText> numTextSensitivity_;
+	std::unique_ptr<SpriteNumberText> numTextVolume_;
+
 	// 配色定数
 	const Vector4 kColorAccent = {0.0f, 0.9f, 1.0f, 1.0f};   // シアン
 	const Vector4 kColorNormal = {1.0f, 1.0f, 1.0f, 1.0f};   // 白
 	const Vector4 kColorInactive = {0.4f, 0.4f, 0.4f, 1.0f}; // グレー
 	const Vector4 kColorBg = {0.01f, 0.02f, 0.05f, 0.85f};   // 深い紺
-
 
 	bool isControllerMode_ = false; // 現在コントローラー操作中かどうかのフラグ
 
