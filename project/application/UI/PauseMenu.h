@@ -11,12 +11,13 @@
 #include <string>
 #include <vector>
 
+#include "UI/SpriteNumberText.h"
+
 // 前方宣言
 class Sprite;
 class SpriteCommon;
 class Input;
 class CameraController;
-class SpriteNumberText;
 
 /// <summary>
 /// ゼルダBotW風 2Dポーズメニュー (提供されたSpriteクラスをフル活用)
