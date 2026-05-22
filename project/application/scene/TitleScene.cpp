@@ -32,10 +32,9 @@ namespace {
 	}
 #endif
 
-	float SmoothStep(float t)
+	float Saturate(float v)
 	{
-		t = std::clamp(t, 0.0f, 1.0f);
-		return t * t * (3.0f - 2.0f * t);
+		return std::clamp(v, 0.0f, 1.0f);
 	}
 
 	Vector4 LerpColor(const Vector4& a, const Vector4& b, float t)
@@ -46,6 +45,12 @@ namespace {
 			a.z + (b.z - a.z) * t,
 			a.w + (b.w - a.w) * t
 		};
+	}
+
+	float SmoothStep(float t)
+	{
+		t = Saturate(t);
+		return t * t * (3.0f - 2.0f * t);
 	}
 
 	struct SkyKeyframe {
@@ -91,6 +96,30 @@ namespace {
 		return keys[std::size(keys) - 1].color;
 	}
 
+	float LerpFloat(float a, float b, float t)
+	{
+		return a + (b - a) * t;
+	}
+
+	Vector3 LerpVector3(const Vector3& a, const Vector3& b, float t)
+	{
+		return {
+			a.x + (b.x - a.x) * t,
+			a.y + (b.y - a.y) * t,
+			a.z + (b.z - a.z) * t
+		};
+	}
+
+	PointLight LerpPointLight(const PointLight& a, const PointLight& b, float t)
+	{
+		PointLight result{};
+		result.color = LerpColor(a.color, b.color, t);
+		result.position = LerpVector3(a.position, b.position, t);
+		result.intensity = LerpFloat(a.intensity, b.intensity, t);
+		result.radius = LerpFloat(a.radius, b.radius, t);
+		result.decay = LerpFloat(a.decay, b.decay, t);
+		return result;
+	}
 
 } // namespace
 
@@ -109,8 +138,8 @@ void TitleScene::Initialize()
 	camera_->SetTranslate({ 0.0f, 6.5f, -32.0f });
 	camera_->SetRotate({ 0.10f, 0.0f, 0.0f });
 
-	titleWallColorTimer_ = 0.0f;
 	titleWallColorCycleSeconds_ = 60.0f;
+	titleWallColorTimer_ = titleWallColorCycleSeconds_ * 0.42f;
 
 	const float wallStartX = -18.0f;
 	const float wallStepX = 12.0f;
@@ -141,6 +170,7 @@ void TitleScene::Initialize()
 	groundPlaneObject_->SetRotate({ 0.0f, 0.0f, 0.0f });
 	groundPlaneObject_->SetScale({ 40.0f, 5.0f, 14.0f });
 	groundPlaneObject_->SetColor({ 0.10f, 0.22f, 0.18f, 1.0f });
+	groundPlaneObject_->SetLightIntensity(0.0f);
 
 	//Object3dCommon::GetInstance()->SetPointLight({
 	//{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -160,6 +190,7 @@ void TitleScene::Initialize()
 	titleFrogObject_->SetScale({ 2.2f, 2.2f, 2.2f });
 	titleFrogObject_->SetColor({ 0.2f, 0.8f, 0.5f, 1.0f });
 	titleFrogObject_->PlayAnimation("walk", true, 0.15f);
+	titleFrogObject_->SetLightIntensity(0.0f);
 
 	CreatePrimitiveSprite(menuPanelSprite_, { 420.0f, 220.0f }, { 0.02f, 0.05f, 0.08f, 0.72f });
 	menuPanelSprite_->SetAnchorPoint({ 0.5f, 0.5f });
@@ -174,10 +205,31 @@ void TitleScene::Initialize()
 
 	selectItem_ = MenuItem::GamePlay;
 	pulseTimer_ = 0.0f;
+
+	// --- BGMの読み込みとループ再生 ---
+	titleBgm_ = SoundManager::GetInstance()->LoadFile(titleBgmPath_);
+
+	titleBgmHandle_ = SoundManager::GetInstance()->PlayWave(
+		titleBgm_,
+		true,
+		SoundManager::SoundCategory::BGM
+	);
+
+	// 必要なら音量をここで調整
+	SoundManager::GetInstance()->SetCategoryVolume(
+		SoundManager::SoundCategory::BGM,
+		0.5f
+	);
 }
 
 void TitleScene::Finalize()
 {
+	if (titleBgmHandle_ != SoundManager::InvalidHandle) {
+		SoundManager::GetInstance()->StopWave(titleBgmHandle_);
+		titleBgmHandle_ = SoundManager::InvalidHandle;
+	}
+
+	SoundManager::GetInstance()->Unload(titleBgmPath_);
 }
 
 void TitleScene::GenerateTitleTextTextures()
@@ -270,6 +322,7 @@ void TitleScene::Update()
 	HandleInput();
 	UpdateTitleFrog(deltaTime);
 	UpdateTitleWallColor(deltaTime);
+	UpdateTitleSunMoonPointLight(deltaTime);
 
 	if (camera_) {
 		camera_->Update();
@@ -369,6 +422,116 @@ void TitleScene::UpdateSceneObjects()
 	if (titleFrogObject_) {
 		titleFrogObject_->Update();
 	}
+}
+
+void TitleScene::UpdateTitleSunMoonPointLight(float deltaTime)
+{
+	(void)deltaTime;
+
+	if (titleWallColorCycleSeconds_ <= 0.001f) {
+		return;
+	}
+
+	float loopTime = std::fmod(titleWallColorTimer_, titleWallColorCycleSeconds_);
+	if (loopTime < 0.0f) {
+		loopTime += titleWallColorCycleSeconds_;
+	}
+
+	const float timeRate = loopTime / titleWallColorCycleSeconds_;
+
+	const float sunRiseT = 0.30f;
+	const float sunSetT = 0.80f;
+
+	const float moonRiseT = 0.78f;
+	const float moonSetT = 0.30f;
+
+	const float blendWidth = 0.06f;
+
+	// 太陽ライトを常に計算
+	PointLight sunLight{};
+	{
+		const float sunT = Saturate((timeRate - sunRiseT) / (sunSetT - sunRiseT));
+		const float arc = sunT * 3.14159265f;
+
+		const float x = -18.0f + 36.0f * sunT;
+		const float y = 2.5f + std::sin(arc) * 17.0f;
+		const float z = -4.0f;
+
+		sunLight.position = { x, y, z };
+
+		const Vector4 sunriseColor = { 1.00f, 0.62f, 0.38f, 1.0f };
+		const Vector4 noonColor = { 1.00f, 0.96f, 0.86f, 1.0f };
+		const Vector4 sunsetColor = { 1.00f, 0.48f, 0.32f, 1.0f };
+
+		if (sunT < 0.5f) {
+			sunLight.color = LerpColor(sunriseColor, noonColor, SmoothStep(sunT * 2.0f));
+		}
+		else {
+			sunLight.color = LerpColor(noonColor, sunsetColor, SmoothStep((sunT - 0.5f) * 2.0f));
+		}
+
+		const float noonBlend = std::sin(arc);
+
+		// 朝夕の急な立ち上がりを抑える
+		sunLight.intensity = 0.45f + noonBlend * 1.65f;
+		sunLight.radius = 115.0f;
+		sunLight.decay = 1.15f;
+	}
+
+	// 月ライトも常に計算
+	PointLight moonLight{};
+	{
+		float moonT = 0.0f;
+
+		if (timeRate >= moonRiseT) {
+			moonT = (timeRate - moonRiseT) / ((1.0f - moonRiseT) + moonSetT);
+		}
+		else {
+			moonT = (timeRate + (1.0f - moonRiseT)) / ((1.0f - moonRiseT) + moonSetT);
+		}
+
+		moonT = Saturate(moonT);
+
+		const float arc = moonT * 3.14159265f;
+
+		const float x = 18.0f - 36.0f * moonT;
+		const float y = 4.0f + std::sin(arc) * 13.0f;
+		const float z = -6.0f;
+
+		moonLight.position = { x, y, z };
+
+		const Vector4 moonLowColor = { 0.25f, 0.32f, 0.62f, 1.0f };
+		const Vector4 moonHighColor = { 0.55f, 0.65f, 1.00f, 1.0f };
+
+		const float highBlend = std::sin(arc);
+		moonLight.color = LerpColor(moonLowColor, moonHighColor, highBlend);
+
+		// timeRate が 0.0 / 1.0 に近いほど深夜扱い
+		float midnightDistance = (std::min)(timeRate, 1.0f - timeRate);
+		float midnightDarkRate = 1.0f - SmoothStep(midnightDistance / 0.18f);
+
+		// 深夜だけライトを弱くする
+		float nightLightScale = 1.0f - midnightDarkRate * 0.65f;
+
+		moonLight.intensity = (0.10f + highBlend * 0.45f) * nightLightScale;
+		moonLight.radius = 75.0f - midnightDarkRate * 20.0f;
+
+
+		moonLight.decay = 1.3f;
+	}
+
+	// 太陽の影響度。日の出前後と日没前後を滑らかにする
+	const float sunriseBlend =
+		SmoothStep((timeRate - (sunRiseT - blendWidth)) / (blendWidth * 2.0f));
+
+	const float sunsetBlend =
+		1.0f - SmoothStep((timeRate - (sunSetT - blendWidth)) / (blendWidth * 2.0f));
+
+	const float sunWeight = Saturate(sunriseBlend * sunsetBlend);
+
+	PointLight finalLight = LerpPointLight(moonLight, sunLight, sunWeight);
+
+	Object3dCommon::GetInstance()->SetPointLight(finalLight);
 }
 
 void TitleScene::Draw()
