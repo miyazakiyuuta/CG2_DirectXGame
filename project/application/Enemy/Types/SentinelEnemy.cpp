@@ -150,7 +150,7 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 		// 【調整】走る時間を短縮（1.5f -> 0.8f）
 		// ステージが狭いため、これくらいが丁度良い
 		if (panicTimer_ > 0.8f) {
-			isDead_ = true;
+			StopByObstacleCollision();
 		}
 		break;
 	}

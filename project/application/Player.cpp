@@ -1137,6 +1137,7 @@ void Player::CheckTongueBlockHook()
                 hitEnemy->OnTongueHit(shotDir);
 
                 lastHitEnemy_ = hitEnemy; // スリングショット用にこの敵を記憶
+                tonguePullingEnemy_ = true;
                 Vector3 hookPos = hitEnemy->GetPosition();
                 tongue_->SetHooked(hookPos);
                 tonguePullTarget_ = hookPos; // 敵の位置を目標にセット
@@ -1220,6 +1221,7 @@ void Player::CheckTongueBlockHook()
             CancelJumpCharge();
 
 			if (useTonguePull_) {
+                tonguePullingEnemy_ = false;
 				TransitionTo(MovementState::TonguePulling);
 			}
 			return;
@@ -1322,6 +1324,18 @@ void Player::UpdateTonguePulling() {
 		return;
 	}
 
+    if (tonguePullingEnemy_ && !lastHitEnemy_) {
+        tonguePullingEnemy_ = false;
+
+        if (tongue_) {
+            tongue_->StartReturn();
+        }
+
+        velocity_ = { 0.0f, 0.0f, 0.0f };
+        TransitionTo(MovementState::Jumping);
+        return;
+    }
+
     Vector3 position = object_->GetTranslate();
     Vector3 toTarget = tonguePullTarget_ - position;
     float distance = Length3(toTarget);
@@ -1336,6 +1350,7 @@ void Player::UpdateTonguePulling() {
             velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 2.0f; // 少し上に跳ね上げる (upgrade applied)
 
             // 重要なのは「遷移する前に情報をクリアする」こと
+            tonguePullingEnemy_ = false;
             lastHitEnemy_ = nullptr;
             tongue_->StartReturn();
             TransitionTo(MovementState::Jumping); // そのまま空中へ

@@ -327,7 +327,7 @@ void TutorialScene::BuildTutorialStepDefinitions()
 	"スタミナ",
 	ToUtf8String(u8"張り付き中はスタミナを消費します"),
 	ToUtf8String(u8"張り付き中はスタミナを消費します"),
-	100,
+	50,
 	[this](const TutorialContext& ctx) {
 		if (!ctx.player) {
 			return 0;

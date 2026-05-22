@@ -544,4 +544,6 @@ public:
 	int enemyContactDamage_ = 1;
 	float enemyContactInvincibilityFrames_ = 30.0f;
 	float enemyContactInvincibilityTimer_ = 0.0f;
+
+	bool tonguePullingEnemy_ = false;
 };
