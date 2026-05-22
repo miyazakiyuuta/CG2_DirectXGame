@@ -1714,7 +1714,6 @@ void Player::Update()
             
             float tnorm = tipDist / std::max(1.0f, beamActiveMaxRadius_);
             dynamicRadius = beamOriginalCapsuleRadius_ * (1.0f + 0.6f * tnorm);
-            DebugRenderer::GetInstance()->AddLine(mouth, segEnd, { 0.0f, 1.0f, 0.4f, 1.0f });
             if (enemyManager_) {
                 enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                     if (!e)
@@ -1729,7 +1728,6 @@ void Player::Update()
                     if (distSq <= hitRadius * hitRadius) {
                         beamActiveHitList_.push_back(e);
                         e->Kill();
-                        DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
                     }
                 });
             }
@@ -1740,7 +1738,6 @@ void Player::Update()
                 currentReach = beamActiveMaxRadius_ * reachT * reachMultiplier;
                 Vector3 segEnd = origin + sweepDir * currentReach;
                 dynamicRadius = beamOriginalCapsuleRadius_ * (1.0f + 0.5f * reachT);
-                DebugRenderer::GetInstance()->AddLine(origin, segEnd, { 0.0f, 1.0f, 0.0f, 1.0f });
                 if (enemyManager_) {
                     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                         if (!e)
@@ -1755,7 +1752,6 @@ void Player::Update()
                         if (distSq <= hitRadius * hitRadius) {
                             beamActiveHitList_.push_back(e);
                             e->Kill();
-                            DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
                         }
                     });
                 }
