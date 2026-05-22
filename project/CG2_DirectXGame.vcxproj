@@ -235,6 +235,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\scene\TutorialScene.cpp" />
     <ClCompile Include="application\UI\SpriteText.cpp" />
     <ClCompile Include="application\UI\RuntimeTextTextureGenerator.cpp" />
+    <ClCompile Include="application\UI\ResultUI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -346,6 +347,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\scene\TutorialScene.h" />
     <ClInclude Include="application\UI\SpriteText.h" />
     <ClInclude Include="application\UI\RuntimeTextTextureGenerator.h" />
+    <ClInclude Include="application\UI\ResultUI.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

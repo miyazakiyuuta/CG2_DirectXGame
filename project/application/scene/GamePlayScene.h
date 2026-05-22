@@ -4,19 +4,20 @@
 #include "utility/CollisionUtility.h"
 
 #include "Enemy/Bug/Bug.h"
-#include "Slug.h"
-#include "audio/SoundManager.h"
+#include "UI/ResultUI.h"
 #include "Reticle.h"
+#include "Slug.h"
 #include "UI/GameTimer.h"
 #include "UI/SpriteNumberText.h"
+#include "audio/SoundManager.h"
 
 #include "XPOrb.h"
 
 #include <cstdint>
 #include <d3d12.h>
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 class Camera;
 class DebugCamera;
@@ -43,9 +44,9 @@ public:
 	~GamePlayScene() override;
 
 private:
-  struct EnemySpawnRuntime {
+	struct EnemySpawnRuntime {
 		Vector3 basePosition{};
-        int enemyType = 0;
+		int enemyType = 0;
 		float respawnIntervalSec = 5.0f;
 		float cooldownSec = 0.0f;
 		class BaseEnemy* current = nullptr;
@@ -63,14 +64,14 @@ private:
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
 
-    std::unique_ptr<Object3d> object3d_;
-    // Single static well object placed in the scene
-    std::unique_ptr<Object3d> wellObject_;
-    std::unique_ptr<Player> player_;
-    std::unique_ptr<CameraController> cameraController_;
+	std::unique_ptr<Object3d> object3d_;
+	// Single static well object placed in the scene
+	std::unique_ptr<Object3d> wellObject_;
+	std::unique_ptr<Player> player_;
+	std::unique_ptr<CameraController> cameraController_;
 
-    std::unique_ptr<Stage> stage_;
-    std::unique_ptr<StageEditor> stageEditor_;
+	std::unique_ptr<Stage> stage_;
+	std::unique_ptr<StageEditor> stageEditor_;
 
 	// エネミーを一括管理するマネージャー
 	std::unique_ptr<EnemyManager> enemyManager_;
@@ -92,9 +93,8 @@ private:
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
 	std::unique_ptr<Reticle> reticle_ = nullptr;
-    // XP orb pool
+	// XP orb pool
 	std::vector<XPOrb> xpOrbs_;
-
 
 	GameTimer gameTimer_;
 	SpriteNumberText timerText_;
@@ -103,6 +103,9 @@ private:
 	// BGM用音声データ
 	SoundData bgm_ = {};
 
-	//BGMの安全な停止に用いるサウンドハンドル
+	// BGMの安全な停止に用いるサウンドハンドル
 	SoundManager::SoundHandle bgmHandle_ = SoundManager::InvalidHandle;
+
+	// --- リザルト演出用UI ---
+	std::unique_ptr<class ResultUI> resultUI_;
 };

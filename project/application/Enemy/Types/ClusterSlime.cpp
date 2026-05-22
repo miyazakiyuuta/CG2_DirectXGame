@@ -195,4 +195,4 @@ void ClusterSlime::Draw() {
     for (auto& m : members_) {
         m.object->Draw();
     }
-}
+}
