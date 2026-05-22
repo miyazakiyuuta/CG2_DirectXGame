@@ -73,6 +73,25 @@ public:
 
 	CollisionUtility::OBB GetPlayerOBB(const Vector3& position) const;
 
+	bool IsWallClinging() const { return moveState_ == MovementState::WallClinging; }
+	bool IsCeilingCrawling() const { return moveState_ == MovementState::CeilingCrawling; }
+	bool IsClinging() const { return IsWallClinging() || IsCeilingCrawling(); }
+
+	float GetWallClingGauge() const { return wallClingGauge_; }
+	float GetMaxWallClingGauge() const { return maxWallClingGauge_; }
+
+	float GetWallClingGaugeRate() const
+	{
+		if (maxWallClingGauge_ <= 0.0001f) {
+			return 0.0f;
+		}
+
+		return wallClingGauge_ / maxWallClingGauge_;
+	}
+
+	bool IsSonarActive() const { return sonarTimer_ > 0.0f; }
+	bool IsTonguePulling() const { return moveState_ == MovementState::TonguePulling; }
+
 	// 水分ゲージ
 	float GetWaterGauge() const { return waterGauge_; }
 	float GetMaxWaterGauge() const { return maxWaterGauge_; }

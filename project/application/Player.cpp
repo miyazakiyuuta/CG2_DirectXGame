@@ -1399,7 +1399,23 @@ void Player::Update()
 
     if (pendingTeleport_) {
         object_->SetTranslate(pendingTeleportPosition_);
+
         velocity_ = { 0.0f, 0.0f, 0.0f };
+        groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+        lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+        isOnGround_ = false;
+
+        // ワープ時は舌・張り付き状態を強制解除する
+        if (tongue_) {
+            tongue_->Reset();
+        }
+
+        hasClingSurface_ = false;
+        lastHitEnemy_ = nullptr;
+        ClearClingStageObjectTracking();
+        CancelJumpCharge();
+
         TransitionTo(MovementState::Jumping);
         pendingTeleport_ = false;
     }

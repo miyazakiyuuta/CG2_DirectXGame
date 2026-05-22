@@ -28,6 +28,7 @@ void SentinelEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
 
 // 舌がヒットした瞬間の通知
 void SentinelEnemy::OnTongueHit(const Vector3& direction) {
+	stoppedByBlock_ = false;
 	if (state_ != State::Panicking) {
 		state_ = State::Panicking;
 		if(direction.Length() > 0.0001f){
@@ -42,6 +43,42 @@ void SentinelEnemy::OnTongueHit(const Vector3& direction) {
 	}
 }
 
+void SentinelEnemy::SetTutorialHookMode(bool enabled)
+{
+	tutorialHookMode_ = enabled;
+
+	if (tutorialHookMode_) {
+		// チュートリアルでは、近づいただけで逃げないようにする
+		detectRange_ = 0.0f;
+		fleeSpeed_ = 0.0f;
+
+		// フック感は残すが、動きすぎない速度にする
+		panicSpeed_ = 45.0f;
+		loseRange_ = 999.0f;
+	}
+	else {
+		detectRange_ = 20.0f;
+		fleeSpeed_ = 12.0f;
+		panicSpeed_ = 45.0f;
+		loseRange_ = 40.0f;
+	}
+
+	stoppedByBlock_ = false;
+}
+
+void SentinelEnemy::StopByObstacleCollision()
+{
+	velocity_ = { 0.0f, 0.0f, 0.0f };
+	state_ = State::Idle;
+	homePosition_ = position_;
+	panicTimer_ = 0.0f;
+	stoppedByBlock_ = true;
+
+	if (object_) {
+		object_->SetColor({ 0.0f, 1.0f, 0.5f, 1.0f });
+	}
+}
+
 void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	if (!object_)
 		return;
@@ -52,16 +89,25 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 
 	switch (state_) {
 	case State::Idle:
-		object_->SetColor({0.0f, 1.0f, 0.5f, 1.0f});
-		if (player_ && !player_->IsMimicking()) {
-			if (distXZ < detectRange_)
-				state_ = State::Fleeing;
+		object_->SetColor({ 0.0f, 1.0f, 0.5f, 1.0f });
+
+		if (stoppedByBlock_) {
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+			break;
 		}
+
+		if (!tutorialHookMode_) {
+			if (player_ && !player_->IsMimicking()) {
+				if (distXZ < detectRange_) {
+					state_ = State::Fleeing;
+				}
+			}
+		}
+
 		floatTimer_ += deltaTime;
-		velocity_ = {0, 0, 0};
+		velocity_ = { 0, 0, 0 };
 		position_.y = homePosition_.y + std::sin(floatTimer_ * 3.0f) * 0.3f;
 		break;
-
 	case State::Fleeing:
 		object_->SetColor({1.0f, 0.5f, 0.0f, 1.0f});
 		if (player_ && player_->IsMimicking()) {
@@ -122,12 +168,25 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	int stepCount = (std::max)(1, static_cast<int>(std::ceil(maxAbs / kMaxStep)));
 	Vector3 stepMove = totalMove / static_cast<float>(stepCount);
 
-	for(int i = 0; i < stepCount; ++i){
+	bool hitObstacle = false;
+
+	for (int step = 0; step < stepCount; ++step) {
 		Vector3 previousPosition = position_;
 		position_ += stepMove;
 
-		ResolveBlockCollisions3D(previousPosition);
-		ResolveCylinderCollision();
+		if (ResolveBlockCollisions3D(previousPosition)) {
+			hitObstacle = true;
+			break;
+		}
+
+		if (ResolveCylinderCollision()) {
+			hitObstacle = true;
+			break;
+		}
+	}
+
+	if (hitObstacle) {
+		StopByObstacleCollision();
 	}
 
 	// 向きは状態に応じて設定
@@ -153,15 +212,18 @@ void SentinelEnemy::Draw() {
 
 // SentinelEnemy.cpp
 
-void SentinelEnemy::ResolveBlockCollisions3D(const Vector3& previousPosition){
-	if(!blockColliders_){
-		return;
+bool SentinelEnemy::ResolveBlockCollisions3D(const Vector3& previousPosition)
+{
+	if (!blockColliders_) {
+		return false;
 	}
 
-	auto intersectsAnyBlock = [&](const Vector3& testPos) -> bool{
+	bool collided = false;
+
+	auto intersectsAnyBlock = [&](const Vector3& testPos) -> bool {
 		const CollisionUtility::OBB testObb = GetOBB(testPos, kCollisionRadius_);
-		for(const auto& block : *blockColliders_){
-			if(CollisionUtility::IntersectOBB_OBB(testObb, block)){
+		for (const auto& block : *blockColliders_) {
+			if (CollisionUtility::IntersectOBB_OBB(testObb, block)) {
 				return true;
 			}
 		}
@@ -170,55 +232,60 @@ void SentinelEnemy::ResolveBlockCollisions3D(const Vector3& previousPosition){
 
 	Vector3 resolved = previousPosition;
 
-	// X 軸
 	resolved.x = position_.x;
-	if(intersectsAnyBlock(resolved)){
+	if (intersectsAnyBlock(resolved)) {
 		resolved.x = previousPosition.x;
 		velocity_.x = 0.0f;
+		collided = true;
 	}
 
-	// Y 軸
 	resolved.y = position_.y;
-	if(intersectsAnyBlock(resolved)){
+	if (intersectsAnyBlock(resolved)) {
 		resolved.y = previousPosition.y;
 		velocity_.y = 0.0f;
+		collided = true;
 	}
 
-	// Z 軸
 	resolved.z = position_.z;
-	if(intersectsAnyBlock(resolved)){
+	if (intersectsAnyBlock(resolved)) {
 		resolved.z = previousPosition.z;
 		velocity_.z = 0.0f;
+		collided = true;
 	}
 
 	position_ = resolved;
+	return collided;
 }
 
-void SentinelEnemy::ResolveCylinderCollision(){
-	if(!keepInsideCylinder_){
-		return;
+bool SentinelEnemy::ResolveCylinderCollision()
+{
+	if (!keepInsideCylinder_) {
+		return false;
 	}
+
+	bool collided = false;
 
 	const CollisionUtility::Cylinder& cylinder = *keepInsideCylinder_;
 	const float kEpsilon = 0.0001f;
 
-	// Y 方向も汎用的に閉じ込める
 	const float minY = cylinder.center.y - cylinder.halfHeight + kCollisionRadius_;
 	const float maxY = cylinder.center.y + cylinder.halfHeight - kCollisionRadius_;
 
-	if(position_.y < minY){
+	if (position_.y < minY) {
 		position_.y = minY;
-		if(velocity_.y < 0.0f){
+		if (velocity_.y < 0.0f) {
 			velocity_.y = 0.0f;
 		}
-	} else if(position_.y > maxY){
+		collided = true;
+	}
+	else if (position_.y > maxY) {
 		position_.y = maxY;
-		if(velocity_.y > 0.0f){
+		if (velocity_.y > 0.0f) {
 			velocity_.y = 0.0f;
 		}
+		collided = true;
 	}
 
-	// XZ 平面で円柱の内側へ押し戻す
 	const float dx = position_.x - cylinder.center.x;
 	const float dz = position_.z - cylinder.center.z;
 	const float distSq = dx * dx + dz * dz;
@@ -226,25 +293,22 @@ void SentinelEnemy::ResolveCylinderCollision(){
 	const float limitRadius = (std::max)(0.0f, cylinder.radius - kCollisionRadius_);
 	const float limitRadiusSq = limitRadius * limitRadius;
 
-	if(distSq > limitRadiusSq){
-		const float oldX = position_.x;
-		const float oldZ = position_.z;
-
+	if (distSq > limitRadiusSq) {
 		const float dist = std::sqrt(distSq);
-		if(dist > kEpsilon){
+		if (dist > kEpsilon) {
 			const float invDist = 1.0f / dist;
 			position_.x = cylinder.center.x + dx * invDist * limitRadius;
 			position_.z = cylinder.center.z + dz * invDist * limitRadius;
-		} else{
+		}
+		else {
 			position_.x = cylinder.center.x + limitRadius;
 			position_.z = cylinder.center.z;
 		}
 
-		if(std::fabs(position_.x - oldX) > kEpsilon){
-			velocity_.x = 0.0f;
-		}
-		if(std::fabs(position_.z - oldZ) > kEpsilon){
-			velocity_.z = 0.0f;
-		}
+		velocity_.x = 0.0f;
+		velocity_.z = 0.0f;
+		collided = true;
 	}
+
+	return collided;
 }

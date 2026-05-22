@@ -139,6 +139,10 @@ void TutorialDirector::Update(const TutorialContext& context)
 		completeWaitTimer_ -= context.deltaTime;
 
 		if (completeWaitTimer_ <= 0.0f) {
+			if (task.onExit) {
+				task.onExit(context);
+			}
+
 			++currentIndex_;
 			currentTaskEntered_ = false;
 			waitingComplete_ = false;
@@ -165,6 +169,10 @@ void TutorialDirector::Update(const TutorialContext& context)
 			completeWaitTimer_ = task.completeWaitSeconds;
 		}
 		else {
+			if (task.onExit) {
+				task.onExit(context);
+			}
+
 			++currentIndex_;
 			currentTaskEntered_ = false;
 		}
