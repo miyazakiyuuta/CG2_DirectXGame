@@ -483,17 +483,16 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		[this](const TutorialContext&) {
 			return tutorialXPCollectedCount_ > 0 ? 1 : 0;
 		},
-		[this]() {
-			tutorialXPCollectedCount_ = 0;
+[this]() {
+	tutorialXPCollectedCount_ = 0;
 
-			if (xpOrbs_.empty()) {
-				Vector3 pos = { 0.0f, 4.0f, 8.0f };
-				XPOrb orb;
-				orb.Init(pos, 1);
-				orb.SetGroundY(stage_ ? stage_->GetHeightAt(pos) : 0.0f);
-				xpOrbs_.push_back(orb);
-			}
-		},
+	// 直前の敵のXPをすでに拾っていても詰まないようにする。
+	// xpOrbs_ が空でなくても、拾われたXPは inactive のまま残るため、
+	// vector の空判定ではなく active なXPがあるかを見る。
+	if (!HasActiveTutorialXPOrb()) {
+		SpawnTutorialXPOrbForTask();
+	}
+},
 		[this]() {
 			ClearTutorialXP();
 		},
@@ -790,6 +789,38 @@ void TutorialScene::ClearTutorialXP()
 	xpOrbs_.clear();
 	tutorialXPCollectedCount_ = 0;
 	ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", 0);
+}
+
+bool TutorialScene::HasActiveTutorialXPOrb() const
+{
+	for (const auto& orb : xpOrbs_) {
+		if (orb.IsActive()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void TutorialScene::SpawnTutorialXPOrbForTask()
+{
+	if (!player_) {
+		return;
+	}
+
+	Vector3 pos = player_->GetPosition();
+
+	// プレイヤーの真上すぎると見えづらいので、少し前方にずらして上から落とす
+	pos.y += 8.0f;
+	pos.z += 3.0f;
+
+	XPOrb orb;
+	orb.Init(pos, 1);
+	orb.SetAbility(AbilityId::JumpPower);
+	orb.SetFiniteLife(false);
+	orb.SetGroundY(stage_ ? stage_->GetHeightAt(pos) : 0.0f);
+
+	xpOrbs_.push_back(orb);
 }
 
 void TutorialScene::ClearTutorialPhaseRuntime(bool clearXP)

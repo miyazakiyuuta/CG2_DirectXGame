@@ -744,7 +744,14 @@ Vector3 Player::ResolveHookSurfaceNormal(const CollisionUtility::OBB& block, con
     return Normalize3(resolved);
 }
 
-Vector3 Player::ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility::OBB& block, const Vector3& playerPos, const Vector3& hitPoint, const Vector3& tongueDelta) const
+void Player::ResolveHookSurfaceFromPlayerCapsule(
+    const CollisionUtility::OBB& block,
+    const Vector3& playerPos,
+    const Vector3& tongueHitPoint,
+    const Vector3& tongueDelta,
+    Vector3& outNormal,
+    Vector3& outHitPoint
+) const
 {
     Vector3 axis[3] = {
         Normalize3(block.axis[0]),
@@ -752,62 +759,126 @@ Vector3 Player::ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility
         Normalize3(block.axis[2]),
     };
 
-    Vector3 segmentDir = Normalize3(hitPoint - playerPos);
+    CollisionUtility::OBB playerObb = GetPlayerOBB(playerPos);
+
     Vector3 travelDir = Normalize3(tongueDelta);
+    Vector3 centerToPlayer = Normalize3(playerPos - block.center);
 
-    Vector3 bestNormal = { 0.0f, 1.0f, 0.0f };
-    float bestScore = -1.0e9f;
+    // 舌先ではなく、プレイヤー本体側のカプセル相当点を使う
+    // yだけは舌が当たった高さを参考にするが、プレイヤーの上下範囲内に制限する
+// 面を選ぶための基準点。
+// これはプレイヤー本体側を見るためのもの。
+    Vector3 playerReferencePoint = playerPos;
+    playerReferencePoint.y = ClampFloat(
+        tongueHitPoint.y,
+        playerPos.y - colliderHalfSize_.y,
+        playerPos.y + colliderHalfSize_.y
+    );
 
-    // 線分の中点も使って、どの面側に近いかを見る
-    Vector3 midPoint = { (playerPos.x + hitPoint.x) * 0.5f, (playerPos.y + hitPoint.y) * 0.5f, (playerPos.z + hitPoint.z) * 0.5f };
-
-    Vector3 localMidVec = midPoint - block.center;
-    float localMid[3] = {
-        Dot3(localMidVec, axis[0]),
-        Dot3(localMidVec, axis[1]),
-        Dot3(localMidVec, axis[2]),
+    Vector3 playerLocalVec = playerReferencePoint - block.center;
+    float playerLocal[3] = {
+        Dot3(playerLocalVec, axis[0]),
+        Dot3(playerLocalVec, axis[1]),
+        Dot3(playerLocalVec, axis[2]),
     };
 
+    // 舌が実際に当たった位置。
+    // 最終的なフック位置はこちらを基準にする。
+    Vector3 tongueLocalVec = tongueHitPoint - block.center;
+    float tongueLocal[3] = {
+        Dot3(tongueLocalVec, axis[0]),
+        Dot3(tongueLocalVec, axis[1]),
+        Dot3(tongueLocalVec, axis[2]),
+    };
+
+    int bestAxisIndex = 0;
+    float bestSign = 1.0f;
+    Vector3 bestNormal = axis[0];
+    float bestScore = -1.0e9f;
+
     for (int i = 0; i < 3; ++i) {
-        Vector3 candidates[2] = { axis[i], axis[i] * -1.0f };
+        for (int signIndex = 0; signIndex < 2; ++signIndex) {
+            float sign = signIndex == 0 ? 1.0f : -1.0f;
+            Vector3 n = axis[i] * sign;
 
-        for (int j = 0; j < 2; ++j) {
-            Vector3 n = candidates[j];
+            Vector3 faceCenter = block.center + n * block.halfLength[i];
 
-            // プレイヤー→hitPoint の進行に対して入口面らしいか
-            float frontScore = Dot3(n, segmentDir * -1.0f);
+            // この値が大きいほど、プレイヤー中心がその面の外側にいる
+            float centerSide = Dot3(playerPos - faceCenter, n);
 
-            // 舌の進行方向ともある程度整合しているか
-            float tongueScore = Dot3(n, travelDir * -1.0f);
+            // プレイヤーの当たり判定サイズぶんを考慮した距離
+            float playerRadiusAlongNormal = ComputeOBBSupportRadiusAlongNormal(playerObb, n);
+            float surfaceDistance = centerSide - playerRadiusAlongNormal;
 
-            // 線分中点がその面寄りにあるか
-            float sideScore = 0.0f;
-            if (i == 0) {
-                sideScore = (j == 0) ? localMid[0] : -localMid[0];
-            } else if (i == 1) {
-                sideScore = (j == 0) ? localMid[1] : -localMid[1];
-            } else {
-                sideScore = (j == 0) ? localMid[2] : -localMid[2];
+            // 面の範囲外に大きく外れている候補は弱くする
+            float tangentPenalty = 0.0f;
+            for (int k = 0; k < 3; ++k) {
+                if (k == i) {
+                    continue;
+                }
+
+                float over = std::abs(tongueLocal[k]) - block.halfLength[k];
+                if (over > 0.0f) {
+                    tangentPenalty += over;
+                }
             }
 
-            // 合成スコア
-            float score = tongueScore * 0.85f + frontScore * 0.15f;
+            // プレイヤー中心から見て自然な面を最優先
+            float playerSideScore = Dot3(n, centerToPlayer);
 
-            // 下方向ショットで壁面を選びにくくする
-            if (segmentDir.y < -0.4f && IsWallSurface(n)) {
-                score -= 0.5f;
+            // 舌方向は補助。主役にしすぎない
+            float tongueScore = Dot3(n, travelDir * -1.0f);
+
+            float score = 0.0f;
+            score += playerSideScore * 2.0f;
+            score += centerSide * 0.45f;
+            score += tongueScore * 0.20f;
+            score -= tangentPenalty * 0.50f;
+            score -= std::abs(surfaceDistance) * 0.05f;
+
+            // プレイヤーから見て明らかにブロックの反対側にある面は強く落とす
+            if (centerSide < -playerRadiusAlongNormal * 0.5f) {
+                score -= 5.0f;
             }
 
             if (score > bestScore) {
                 bestScore = score;
+                bestAxisIndex = i;
+                bestSign = sign;
                 bestNormal = n;
             }
         }
     }
 
-    return Normalize3(bestNormal);
-}
+    outNormal = Normalize3(bestNormal);
 
+    // 選ばれた面の表面上に、張り付き用の点を作る
+    float outLocal[3] = {
+        tongueLocal[0],
+        tongueLocal[1],
+        tongueLocal[2],
+    };
+
+    outLocal[bestAxisIndex] = bestSign * block.halfLength[bestAxisIndex];
+
+    for (int i = 0; i < 3; ++i) {
+        if (i == bestAxisIndex) {
+            continue;
+        }
+
+        outLocal[i] = ClampFloat(
+            outLocal[i],
+            -block.halfLength[i],
+            block.halfLength[i]
+        );
+    }
+
+    outHitPoint =
+        block.center
+        + axis[0] * outLocal[0]
+        + axis[1] * outLocal[1]
+        + axis[2] * outLocal[2];
+}
 void Player::SetCamera(Camera* camera)
 {
     camera_ = camera;
@@ -1157,24 +1228,40 @@ void Player::CheckTongueBlockHook()
             }
 
             Vector3 rawHitNormal = Normalize3(hit.normal);
-            Vector3 correctedHitNormal = ResolveHookSurfaceNormalFromPlayerCapsule(block, GetPosition(), hit.point, delta);
-            Vector3 usedHitNormal = debugIgnoreHookSurfaceCorrection_ ? rawHitNormal : correctedHitNormal;
+            Vector3 usedHitNormal = rawHitNormal;
+            Vector3 usedHitPoint = hit.point;
+
+            if (!debugIgnoreHookSurfaceCorrection_) {
+                ResolveHookSurfaceFromPlayerCapsule(
+                    block,
+                    GetPosition(),
+                    hit.point,
+                    delta,
+                    usedHitNormal,
+                    usedHitPoint
+                );
+            }
 
             if (IsGroundSurface(usedHitNormal)) {
                 tongue_->StartReturn();
                 return;
             }
 
-            SetupClingSurfaceFromHit(block, hit.point, usedHitNormal);
-            UpdateClingStageObjectFromHitPoint(hit.point);
+            SetupClingSurfaceFromHit(block, usedHitPoint, usedHitNormal);
+            UpdateClingStageObjectFromHitPoint(usedHitPoint);
 
-            Vector3 hookPos = hit.point + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
+            Vector3 hookAnchorPoint =
+                clingSurfaceCenter_
+                + clingSurfaceRight_ * clingHitRightOffset_
+                + clingSurfaceUp_ * clingHitUpOffset_;
+
+            Vector3 hookPos = hookAnchorPoint + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
             tongue_->SetHooked(hookPos);
 
             // 擬態処理 (Camouflage)
             if (abilityActive_ && currentAbility_ == Ability::Camouflage && stage_) {
                 CollisionUtility::Sphere stageProbe;
-                stageProbe.center = hit.point;
+                stageProbe.center = usedHitPoint;
                 stageProbe.radius = 0.05f;
 
                 for (const auto& o : stage_->GetStageData().objects) {

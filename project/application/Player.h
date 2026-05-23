@@ -240,7 +240,14 @@ public:
 
     Vector3 ResolveHookSurfaceNormal(const CollisionUtility::OBB& block, const Vector3& hitPoint, const Vector3& tongueDelta, const Vector3& playerPos) const;
 
-	Vector3 ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility::OBB& block, const Vector3& playerPos, const Vector3& hitPoint, const Vector3& tongueDelta) const;
+	void ResolveHookSurfaceFromPlayerCapsule(
+		const CollisionUtility::OBB& block,
+		const Vector3& playerPos,
+		const Vector3& tongueHitPoint,
+		const Vector3& tongueDelta,
+		Vector3& outNormal,
+		Vector3& outHitPoint
+	) const;
 
 	const char* DebugFaceNameFromNormal(const CollisionUtility::OBB& block, const Vector3& normal) const;
 
@@ -468,7 +475,7 @@ public:
 	bool suppressTongueShotThisFrame_ = false;
 
 	bool debugShowRawTongueHit_ = true;
-	bool debugIgnoreHookSurfaceCorrection_ = true;
+	bool debugIgnoreHookSurfaceCorrection_ = false;
 	bool debugIgnoreGroundRejectOnRawHit_ = true;
 
 	bool hasTongueHitDebug_ = false;

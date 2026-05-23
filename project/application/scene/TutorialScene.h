@@ -93,6 +93,8 @@ private:
 	void ClearTutorialPhaseObjects();
 	void ClearTutorialEnemies();
 	void ClearTutorialXP();
+	bool HasActiveTutorialXPOrb() const;
+	void SpawnTutorialXPOrbForTask();
 	void ClearTutorialPhaseRuntime(bool clearXP = true);
 
 	void SpawnTutorialClingBlocks();
