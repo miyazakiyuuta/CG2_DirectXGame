@@ -19,6 +19,9 @@
 #include <limits>
 #include <string>
 #include <unordered_map>
+#include "2d/TextureManager.h"
+#include "UI/RuntimeTextTextureGenerator.h"
+#include "base/WinApp.h"
 
 Player::~Player() = default;
 
@@ -575,6 +578,89 @@ void Player::InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTe
     wallClingGaugeFillSprite_->SetPos(wallClingGaugePos_);
     wallClingGaugeFillSprite_->SetSize(wallClingGaugeSize_);
     wallClingGaugeFillSprite_->SetColor({ 0.95f, 0.85f, 0.15f, 0.95f });
+
+    InitializeAbilityLevelUI(spriteCommon);
+}
+
+const char* Player::GetAbilityLevelIconTexturePath(AbilityId ability) const
+{
+    switch (ability) {
+    case AbilityId::JumpPower:
+        return "resources/UI/JumpingPower.png";
+    case AbilityId::SonarDuration:
+        return "resources/UI/SonarDuration.png";
+    case AbilityId::WallClingDuration:
+        return "resources/UI/Sticking.png";
+    case AbilityId::TongueRange:
+        return "resources/UI/BottomLength.png";
+    case AbilityId::CamouflageDuration:
+        return "resources/UI/Mimicry.png";
+    default:
+        return "white";
+    }
+}
+
+void Player::InitializeAbilityLevelUI(SpriteCommon* spriteCommon)
+{
+    if (!spriteCommon) {
+        return;
+    }
+
+    // "lv." の小さなテクスチャを1回だけ生成
+    if (!std::filesystem::exists(abilityLevelUILvPrefixTexturePath_)) {
+        RuntimeTextTextureGenerator::GenerateDesc desc;
+        desc.textUtf8 = "lv.";
+        desc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
+        desc.outputFilePath = abilityLevelUILvPrefixTexturePath_;
+        desc.fontPixelSize = 22;
+        desc.paddingX = 4;
+        desc.paddingY = 2;
+        desc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+        desc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.6f };
+        desc.shadowOffsetX = 2;
+        desc.shadowOffsetY = 2;
+        RuntimeTextTextureGenerator::GeneratePng(desc);
+    }
+
+    TextureManager::GetInstance()->LoadTexture(abilityLevelUILvPrefixTexturePath_);
+    TextureManager::GetInstance()->LoadTexture("resources/UI/KiwiMaruNumStrength.png");
+
+    abilityLevelUIEntries_.clear();
+    abilityLevelUIEntries_.reserve(abilityLevelUIOrder_.size());
+
+    for (AbilityId ability : abilityLevelUIOrder_) {
+        const char* iconPath = GetAbilityLevelIconTexturePath(ability);
+        TextureManager::GetInstance()->LoadTexture(iconPath);
+
+        AbilityLevelUIEntry entry;
+        entry.ability = ability;
+
+        entry.iconSprite = std::make_unique<Sprite>();
+        entry.iconSprite->Initialize(spriteCommon, iconPath);
+        entry.iconSprite->SetAnchorPoint({ 0.0f, 0.0f });
+        entry.iconSprite->SetSize(abilityLevelUIIconSize_);
+
+        entry.xpFillSprite = std::make_unique<Sprite>();
+        entry.xpFillSprite->Initialize(spriteCommon, "white");
+        entry.xpFillSprite->SetAnchorPoint({ 0.0f, 0.0f });
+        entry.xpFillSprite->SetColor(abilityLevelUIXPFillColor_);
+
+        entry.lvPrefixSprite = std::make_unique<Sprite>();
+        entry.lvPrefixSprite->Initialize(spriteCommon, abilityLevelUILvPrefixTexturePath_);
+        entry.lvPrefixSprite->SetAnchorPoint({ 0.0f, 0.0f });
+        entry.lvPrefixSprite->SetSize(abilityLevelUILvPrefixSize_);
+
+        entry.levelNumberText.Initialize(
+            spriteCommon,
+            "resources/UI/KiwiMaruNumStrength.png",
+            2
+        );
+        entry.levelNumberText.SetDigitSize(abilityLevelUINumberSize_);
+        entry.levelNumberText.SetSpacing(0.0f);
+        entry.levelNumberText.SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
+        abilityLevelUIEntries_.push_back(std::move(entry));
+    }
 }
 
 void Player::ResolveMovementLimitCylinder()
@@ -1928,6 +2014,7 @@ void Player::Update()
     UpdateHPGaugeSprite();
     UpdateJumpGaugeSprite();
     UpdateWallClingGaugeUISprite();
+    UpdateAbilityLevelUI();
 
     speedMultiplier_ = 1.0f;
 }
@@ -3560,6 +3647,122 @@ void Player::UpdateJumpGaugeSprite()
     jumpGaugeFillSprite_->Update();
 }
 
+void Player::UpdateAbilityLevelUI()
+{
+    if (!showAbilityLevelUI_) {
+        return;
+    }
+
+    if (abilityLevelUIEntries_.empty()) {
+        return;
+    }
+
+    const float screenW = static_cast<float>(WinApp::kClientWidth);
+    const float screenH = static_cast<float>(WinApp::kClientHeight);
+
+    const float blockHeight =
+        abilityLevelUIIconSize_.y +
+        abilityLevelUILevelTextOffset_.y +
+        abilityLevelUINumberSize_.y;
+
+    const float totalHeight =
+        blockHeight * static_cast<float>(abilityLevelUIEntries_.size()) +
+        abilityLevelUIVerticalGap_ * static_cast<float>(abilityLevelUIEntries_.size() - 1);
+
+    const float startX = screenW - abilityLevelUIRightMargin_ - abilityLevelUIIconSize_.x;
+    const float startY = screenH - abilityLevelUIBottomMargin_ - totalHeight;
+
+    for (size_t i = 0; i < abilityLevelUIEntries_.size(); ++i) {
+        auto& entry = abilityLevelUIEntries_[i];
+
+        float x = startX;
+        float y = startY + static_cast<float>(i) * (blockHeight + abilityLevelUIVerticalGap_);
+
+        int level = 1;
+        int maxLevel = 10;
+        float xp = 0.0f;
+
+        auto it = abilityStates_.find(entry.ability);
+        if (it != abilityStates_.end()) {
+            level = it->second.level;
+            maxLevel = it->second.maxLevel;
+            xp = it->second.xp;
+        }
+
+        float xpRate = 0.0f;
+        if (level >= maxLevel) {
+            xpRate = 1.0f;
+        }
+        else {
+            float need = XPToNextLevel(level);
+            if (need > 0.0001f) {
+                xpRate = ClampFloat(xp / need, 0.0f, 1.0f);
+            }
+        }
+
+        // アイコン
+        if (entry.iconSprite) {
+            entry.iconSprite->SetPos({ x, y });
+            entry.iconSprite->SetSize(abilityLevelUIIconSize_);
+            entry.iconSprite->Update();
+        }
+
+        // XP進捗の半透明矩形
+        if (entry.xpFillSprite) {
+            float fillHeight = abilityLevelUIIconSize_.y * xpRate;
+
+            entry.xpFillSprite->SetPos({
+                x,
+                y + (abilityLevelUIIconSize_.y - fillHeight)
+                });
+            entry.xpFillSprite->SetSize({
+                abilityLevelUIIconSize_.x,
+                fillHeight
+                });
+            entry.xpFillSprite->SetColor(abilityLevelUIXPFillColor_);
+            entry.xpFillSprite->Update();
+        }
+
+        // "lv."
+        if (entry.lvPrefixSprite) {
+            entry.lvPrefixSprite->SetPos({
+                x,
+                y + abilityLevelUILevelTextOffset_.y
+                });
+            entry.lvPrefixSprite->SetSize(abilityLevelUILvPrefixSize_);
+            entry.lvPrefixSprite->Update();
+        }
+
+        // 数字
+        entry.levelNumberText.SetPosition({
+            x + abilityLevelUILvPrefixSize_.x + 2.0f,
+            y + abilityLevelUILevelTextOffset_.y - 1.0f
+            });
+        entry.levelNumberText.SetNumber(level, 1);
+        entry.levelNumberText.Update();
+    }
+}
+
+void Player::DrawAbilityLevelUI()
+{
+    if (!showAbilityLevelUI_) {
+        return;
+    }
+
+    for (auto& entry : abilityLevelUIEntries_) {
+        if (entry.iconSprite) {
+            entry.iconSprite->Draw();
+        }
+        if (entry.xpFillSprite) {
+            entry.xpFillSprite->Draw();
+        }
+        if (entry.lvPrefixSprite) {
+            entry.lvPrefixSprite->Draw();
+        }
+        entry.levelNumberText.Draw();
+    }
+}
+
 void Player::UpdateHPGaugeSprite()
 {
     if (!hpGaugeBackSprite_ || !hpGaugeFillSprite_ || !hpGaugeFrameSprite_) {
@@ -3658,17 +3861,17 @@ void Player::DrawUI()
         }
     }
 
-    if (!showJumpGauge_) {
-        return;
+    // ジャンプゲージは表示時だけ
+    if (showJumpGauge_) {
+        if (jumpGaugeBackSprite_) {
+            jumpGaugeBackSprite_->Draw();
+        }
+        if (jumpGaugeFillSprite_) {
+            jumpGaugeFillSprite_->Draw();
+        }
     }
 
-    if (jumpGaugeBackSprite_) {
-        jumpGaugeBackSprite_->Draw();
-    }
-
-    if (jumpGaugeFillSprite_) {
-        jumpGaugeFillSprite_->Draw();
-    }
+    DrawAbilityLevelUI();
 }
 
 void Player::ApplyClingSurfaceRotation() {

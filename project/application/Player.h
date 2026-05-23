@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <array>
 
 #include "3d/Object3d.h"
 #include "Tongue.h"
@@ -14,6 +15,7 @@
 #include "utility/CollisionUtility.h"
 #include "2d/Sprite.h"
 #include "math/Vector2.h"
+#include "UI/SpriteNumberText.h"
 
 class Camera;
 class Object3dCommon;
@@ -32,6 +34,11 @@ public:
 	void Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition = {0.0f, 0.0f, 0.0f});
 
 	void InitializeUI(SpriteCommon* spriteCommon, const std::string& gaugeTextureFilePath = "white.png");
+
+	void InitializeAbilityLevelUI(SpriteCommon* spriteCommon);
+	void UpdateAbilityLevelUI();
+	void DrawAbilityLevelUI();
+	const char* GetAbilityLevelIconTexturePath(AbilityId ability) const;
 
 	void Update();
 	void Draw();
@@ -556,6 +563,45 @@ public:
 	Vector2 wallClingGaugePos_ = { 40.0f, 60.0f };   // HPバーの下に置く
 	Vector2 wallClingGaugeSize_ = { 320.0f, 14.0f };
 	bool showWallClingGaugeUI_ = true;
+
+	struct AbilityLevelUIEntry {
+		AbilityId ability = AbilityId::Unknown;
+		std::unique_ptr<Sprite> iconSprite = nullptr;
+		std::unique_ptr<Sprite> xpFillSprite = nullptr;
+		std::unique_ptr<Sprite> lvPrefixSprite = nullptr;
+		SpriteNumberText levelNumberText;
+	};
+
+	std::vector<AbilityLevelUIEntry> abilityLevelUIEntries_;
+
+	std::array<AbilityId, 5> abilityLevelUIOrder_ = {
+		AbilityId::JumpPower,
+		AbilityId::SonarDuration,
+		AbilityId::WallClingDuration,
+		AbilityId::TongueRange,
+		AbilityId::CamouflageDuration
+	};
+
+	bool showAbilityLevelUI_ = true;
+
+	// 右下寄せ用
+	float abilityLevelUIRightMargin_ = 24.0f;
+	float abilityLevelUIBottomMargin_ = -10.0f;
+
+	// 1項目あたり
+	Vector2 abilityLevelUIIconSize_ = { 56.0f, 56.0f };
+	float abilityLevelUIVerticalGap_ = -36.0f;
+
+	// アイコンの下の "lv." 表示
+	Vector2 abilityLevelUILevelTextOffset_ = { 0.0f, 60.0f };
+	Vector2 abilityLevelUILvPrefixSize_ = { 26.0f, 14.0f };
+	Vector2 abilityLevelUINumberSize_ = { 16.0f, 16.0f };
+
+	// XP進捗の色
+	Vector4 abilityLevelUIXPFillColor_ = { 0.2f, 0.8f, 1.0f, 0.30f };
+
+	// "lv." の生成先
+	std::string abilityLevelUILvPrefixTexturePath_ = "resources/UI/generated/ability_lv_prefix.png";
 
 	// 接触ダメージ設定
 	int enemyContactDamage_ = 1;
