@@ -659,6 +659,12 @@ void Player::InitializeAbilityLevelUI(SpriteCommon* spriteCommon)
         entry.levelNumberText.SetSpacing(0.0f);
         entry.levelNumberText.SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
 
+        entry.stateOverlaySprite = std::make_unique<Sprite>();
+        entry.stateOverlaySprite->Initialize(spriteCommon, "white");
+        entry.stateOverlaySprite->SetAnchorPoint({ 0.0f, 0.0f });
+        entry.stateOverlaySprite->SetSize(abilityLevelUIIconSize_);
+        entry.stateOverlaySprite->SetColor({ 1.0f, 1.0f, 1.0f, 0.0f });
+
         abilityLevelUIEntries_.push_back(std::move(entry));
     }
 }
@@ -1834,7 +1840,7 @@ void Player::Update()
 		if (isMimicking_) {
 			EndMimic();
 		} else {
-			abilityActive_ = true;
+            abilityActive_ = !abilityActive_;
 		}
 	}
 
@@ -3649,6 +3655,9 @@ void Player::UpdateJumpGaugeSprite()
 
 void Player::UpdateAbilityLevelUI()
 {
+
+    abilityLevelUIBlinkTimer_ += 1.0f / 60.0f;
+
     if (!showAbilityLevelUI_) {
         return;
     }
@@ -3707,6 +3716,36 @@ void Player::UpdateAbilityLevelUI()
             entry.iconSprite->Update();
         }
 
+        if (entry.stateOverlaySprite) {
+            Vector4 overlayColor = { 1.0f, 1.0f, 1.0f, 0.0f };
+
+            const bool isMimicAbilityOn =
+                entry.ability == AbilityId::CamouflageDuration &&
+                currentAbility_ == Ability::Camouflage &&
+                abilityActive_ &&
+                !isMimicking_;
+
+            if (isMimicAbilityOn) {
+                float blink = 0.5f + 0.5f * std::sin(abilityLevelUIBlinkTimer_ * 8.0f);
+
+                overlayColor = mimicAbilityOnColor_;
+                overlayColor.w *= 0.55f + 0.45f * blink;
+            }
+
+            const float expand = mimicAbilityOnOverlayExpand_;
+
+            entry.stateOverlaySprite->SetPos({
+                x - expand * 0.5f,
+                y - expand * 0.5f
+                });
+            entry.stateOverlaySprite->SetSize({
+                abilityLevelUIIconSize_.x + expand,
+                abilityLevelUIIconSize_.y + expand
+                });
+            entry.stateOverlaySprite->SetColor(overlayColor);
+            entry.stateOverlaySprite->Update();
+        }
+
         // XP進捗の半透明矩形
         if (entry.xpFillSprite) {
             float fillHeight = abilityLevelUIIconSize_.y * xpRate;
@@ -3750,6 +3789,9 @@ void Player::DrawAbilityLevelUI()
     }
 
     for (auto& entry : abilityLevelUIEntries_) {
+        if (entry.stateOverlaySprite) {
+            entry.stateOverlaySprite->Draw();
+        }
         if (entry.iconSprite) {
             entry.iconSprite->Draw();
         }

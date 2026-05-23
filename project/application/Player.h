@@ -569,6 +569,7 @@ public:
 		std::unique_ptr<Sprite> iconSprite = nullptr;
 		std::unique_ptr<Sprite> xpFillSprite = nullptr;
 		std::unique_ptr<Sprite> lvPrefixSprite = nullptr;
+		std::unique_ptr<Sprite> stateOverlaySprite = nullptr;
 		SpriteNumberText levelNumberText;
 	};
 
@@ -602,6 +603,10 @@ public:
 
 	// "lv." の生成先
 	std::string abilityLevelUILvPrefixTexturePath_ = "resources/UI/generated/ability_lv_prefix.png";
+
+	float abilityLevelUIBlinkTimer_ = 0.0f;
+	Vector4 mimicAbilityOnColor_ = { 1.0f, 1.0f, 0.0f, 0.78f };
+	float mimicAbilityOnOverlayExpand_ = 8.0f;
 
 	// 接触ダメージ設定
 	int enemyContactDamage_ = 1;
