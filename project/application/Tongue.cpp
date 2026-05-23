@@ -363,26 +363,7 @@ Vector3 Tongue::GetMouthWorldPosition() const {
 		return { 0.0f, 0.0f, 0.0f };
 	}
 
-	// まずはプレイヤー側で計算している口元ボーン位置を使う
-	Vector3 mouth = owner_->GetHeadbornPosition();
-
-	// Tongue 側の追加オフセットを、プレイヤーのYaw回転に合わせて回す
-	float yaw = owner_->GetYaw();
-
-	float s = std::sin(yaw);
-	float c = std::cos(yaw);
-
-	Vector3 rotatedOffset = {
-		localOffset_.x * c - localOffset_.z * s,
-		localOffset_.y,
-		localOffset_.x * s + localOffset_.z * c
-	};
-
-	return {
-		mouth.x + rotatedOffset.x,
-		mouth.y + rotatedOffset.y,
-		mouth.z + rotatedOffset.z
-	};
+	return owner_->GetHeadbornPosition();
 }
 
 CollisionUtility::Sphere Tongue::GetHitSphere() const{

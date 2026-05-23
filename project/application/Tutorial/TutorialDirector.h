@@ -13,6 +13,8 @@ struct TutorialContext {
 	CameraController* cameraController = nullptr;
 	Input* input = nullptr;
 	float deltaTime = 1.0f / 60.0f;
+
+	bool tongueShotStartedThisFrame = false;
 };
 
 struct TutorialTask {
@@ -33,6 +35,8 @@ struct TutorialTask {
 	float completeWaitSeconds = 0.0f;
 
 	int currentScore = 0;
+
+	std::function<void(const TutorialContext&)> onExit;
 };
 
 class TutorialDirector {

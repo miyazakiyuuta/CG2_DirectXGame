@@ -1137,6 +1137,7 @@ void Player::CheckTongueBlockHook()
                 hitEnemy->OnTongueHit(shotDir);
 
                 lastHitEnemy_ = hitEnemy; // スリングショット用にこの敵を記憶
+                tonguePullingEnemy_ = true;
                 Vector3 hookPos = hitEnemy->GetPosition();
                 tongue_->SetHooked(hookPos);
                 tonguePullTarget_ = hookPos; // 敵の位置を目標にセット
@@ -1220,6 +1221,7 @@ void Player::CheckTongueBlockHook()
             CancelJumpCharge();
 
 			if (useTonguePull_) {
+                tonguePullingEnemy_ = false;
 				TransitionTo(MovementState::TonguePulling);
 			}
 			return;
@@ -1322,6 +1324,18 @@ void Player::UpdateTonguePulling() {
 		return;
 	}
 
+    if (tonguePullingEnemy_ && !lastHitEnemy_) {
+        tonguePullingEnemy_ = false;
+
+        if (tongue_) {
+            tongue_->StartReturn();
+        }
+
+        velocity_ = { 0.0f, 0.0f, 0.0f };
+        TransitionTo(MovementState::Jumping);
+        return;
+    }
+
     Vector3 position = object_->GetTranslate();
     Vector3 toTarget = tonguePullTarget_ - position;
     float distance = Length3(toTarget);
@@ -1336,6 +1350,7 @@ void Player::UpdateTonguePulling() {
             velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 2.0f; // 少し上に跳ね上げる (upgrade applied)
 
             // 重要なのは「遷移する前に情報をクリアする」こと
+            tonguePullingEnemy_ = false;
             lastHitEnemy_ = nullptr;
             tongue_->StartReturn();
             TransitionTo(MovementState::Jumping); // そのまま空中へ
@@ -1399,7 +1414,23 @@ void Player::Update()
 
     if (pendingTeleport_) {
         object_->SetTranslate(pendingTeleportPosition_);
+
         velocity_ = { 0.0f, 0.0f, 0.0f };
+        groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+        lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+
+        isOnGround_ = false;
+
+        // ワープ時は舌・張り付き状態を強制解除する
+        if (tongue_) {
+            tongue_->Reset();
+        }
+
+        hasClingSurface_ = false;
+        lastHitEnemy_ = nullptr;
+        ClearClingStageObjectTracking();
+        CancelJumpCharge();
+
         TransitionTo(MovementState::Jumping);
         pendingTeleport_ = false;
     }
@@ -1698,7 +1729,6 @@ void Player::Update()
             
             float tnorm = tipDist / std::max(1.0f, beamActiveMaxRadius_);
             dynamicRadius = beamOriginalCapsuleRadius_ * (1.0f + 0.6f * tnorm);
-            DebugRenderer::GetInstance()->AddLine(mouth, segEnd, { 0.0f, 1.0f, 0.4f, 1.0f });
             if (enemyManager_) {
                 enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                     if (!e)
@@ -1713,7 +1743,6 @@ void Player::Update()
                     if (distSq <= hitRadius * hitRadius) {
                         beamActiveHitList_.push_back(e);
                         e->Kill();
-                        DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
                     }
                 });
             }
@@ -1724,7 +1753,6 @@ void Player::Update()
                 currentReach = beamActiveMaxRadius_ * reachT * reachMultiplier;
                 Vector3 segEnd = origin + sweepDir * currentReach;
                 dynamicRadius = beamOriginalCapsuleRadius_ * (1.0f + 0.5f * reachT);
-                DebugRenderer::GetInstance()->AddLine(origin, segEnd, { 0.0f, 1.0f, 0.0f, 1.0f });
                 if (enemyManager_) {
                     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                         if (!e)
@@ -1739,7 +1767,6 @@ void Player::Update()
                         if (distSq <= hitRadius * hitRadius) {
                             beamActiveHitList_.push_back(e);
                             e->Kill();
-                            DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
                         }
                     });
                 }

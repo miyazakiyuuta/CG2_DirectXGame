@@ -5,6 +5,8 @@
 #include "Tutorial/TutorialDirector.h"
 #include "2d/Sprite.h"
 #include "math/Vector2.h"
+#include "XPOrb.h"
+#include "StageTypes.h"
 
 #include <functional>
 #include <memory>
@@ -19,6 +21,7 @@ class Stage;
 class Reticle;
 class DebugGrid;
 class PauseMenu;
+class EnemyManager;
 
 class TutorialScene : public BaseScene {
 public:
@@ -34,10 +37,22 @@ public:
 private:
 	struct TutorialStepDefinition {
 		std::string title;
-		std::string message;
+
+		std::string keyboardMessage;
+		std::string gamepadMessage;
+
 		int requiredScore = 1;
 		std::function<int(const TutorialContext&)> scoreDelta;
+
+		std::function<void()> onEnter;
+		std::function<void()> onExit;
+
 		float completeWaitSeconds = 0.5f;
+	};
+
+	enum class TutorialInputDevice {
+		KeyboardMouse,
+		Gamepad,
 	};
 
 private:
@@ -53,11 +68,46 @@ private:
 	Sprite* GetCurrentTutorialMessageSprite() const;
 
 	void UpdateTutorial(float deltaTime);
+	void UpdateTutorialFrameEvents();
 	void UpdateStageColliders();
 
 	void InitializeTutorialScoreBar();
 	void UpdateTutorialScoreBar();
 	void DrawTutorialScoreBar();
+
+	void UpdateLastInputDevice();
+	bool HasKeyboardMouseTutorialInput() const;
+	bool HasGamepadTutorialInput() const;
+
+	// フェーズ専用 StageObject
+	StageObject MakeTutorialBlock(
+		BlockID blockId,
+		const Vector3& position,
+		const Vector3& scale,
+		const Vector4& color,
+		int hp = 0
+	) const;
+
+	int AddTutorialStageObject(const StageObject& object);
+	void ClearTutorialPhaseObjects();
+	void ClearTutorialEnemies();
+	void ClearTutorialXP();
+	void ClearTutorialPhaseRuntime(bool clearXP = true);
+
+	void SpawnTutorialClingBlocks();
+	void SpawnTutorialBreakableBlocks();
+	void SpawnTutorialWarpBlock();
+	void SpawnTutorialWeakEnemy();
+	void SpawnTutorialSentinelHook();
+
+	bool IsTutorialStageObjectAlive(int id) const;
+	int CountAliveTutorialObjects(BlockID blockId) const;
+
+	// チュートリアル専用ランタイム
+	void UpdateTutorialEnemies(float deltaTime);
+	void UpdateTutorialXPOrbs(float deltaTime);
+	void WriteTutorialXPOrbInstances();
+	void UpdateTutorialWarp();
 
 private:
 	std::unique_ptr<Camera> camera_ = nullptr;
@@ -70,6 +120,9 @@ private:
 	std::unique_ptr<DebugGrid> debugGrid_ = nullptr;
 	std::unique_ptr<PauseMenu> pauseMenu_ = nullptr;
 
+	std::unique_ptr<EnemyManager> enemyManager_ = nullptr;
+	std::vector<XPOrb> xpOrbs_;
+
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
 	std::vector<CollisionUtility::OBB> stageBlockColliders_;
@@ -78,8 +131,13 @@ private:
 	TutorialDirector tutorialDirector_;
 	std::vector<TutorialStepDefinition> tutorialStepDefinitions_;
 
-	std::vector<std::unique_ptr<Sprite>> tutorialMessageSprites_;
-	std::unique_ptr<Sprite> tutorialFinishedMessageSprite_ = nullptr;
+	TutorialInputDevice lastInputDevice_ = TutorialInputDevice::KeyboardMouse;
+
+	std::vector<std::unique_ptr<Sprite>> tutorialKeyboardMessageSprites_;
+	std::vector<std::unique_ptr<Sprite>> tutorialGamepadMessageSprites_;
+
+	std::unique_ptr<Sprite> tutorialKeyboardFinishedMessageSprite_ = nullptr;
+	std::unique_ptr<Sprite> tutorialGamepadFinishedMessageSprite_ = nullptr;
 
 	float tutorialTextDrawScale_ = 0.5f;
 
@@ -90,4 +148,25 @@ private:
 
 	Vector2 tutorialScoreBarCenterPos_ = { 0.0f, 0.0f };
 	Vector2 tutorialScoreBarSize_ = { 640.0f, 18.0f };
+
+	bool tutorialPrevTongueWasIdle_ = true;
+	bool tutorialTongueShotStartedThisFrame_ = false;
+
+	std::vector<int> tutorialPhaseObjectIds_;
+	int tutorialNextObjectId_ = 900000;
+
+	int tutorialEnemyKilledCount_ = 0;
+	int tutorialXPCollectedCount_ = 0;
+	int tutorialWarpUsedCount_ = 0;
+
+	int warpCooldownCounter_ = 0;
+	int lastWarpId_ = -1;
+
+	float tutorialWallClingPrevGauge_ = 0.0f;
+	float tutorialWallClingConsumedTotal_ = 0.0f;
+	float tutorialWallClingConsumeRequired_ = 10.0f;
+	float tutorialWallClingConsumeRemainder_ = 0.0f;
+
+	// 0.1 スタミナ消費 = 1 スコアにする
+	float tutorialWallClingScoreScale_ = 1.0f;
 };

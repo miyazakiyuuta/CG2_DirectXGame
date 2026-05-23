@@ -20,11 +20,17 @@ public:
 	// 舌が当たった瞬間に呼ばれる（飛んできた方向を受け取る）
 	void OnTongueHit(const Vector3& direction) override;
 
+	//チュートリアルように挙動を制限
+	void SetTutorialHookMode(bool enabled);
+
 private:
-	void ResolveBlockCollisions3D(const Vector3& previousPosition);
-	void ResolveCylinderCollision();
+	bool ResolveCylinderCollision();
 
 	static constexpr float kCollisionRadius_ = 0.7f;
+
+	bool ResolveBlockCollisions3D(const Vector3& previousPosition);
+
+	void StopByObstacleCollision();
 
 private:
 	State state_ = State::Idle;
@@ -38,4 +44,7 @@ private:
 	float panicSpeed_ = 45.0f; // パニック時の猛烈な加速（プレイヤーのブースターになる）
 	float detectRange_ = 20.0f;
 	float loseRange_ = 40.0f;
+
+	bool tutorialHookMode_ = false;
+	bool stoppedByBlock_ = false;
 };

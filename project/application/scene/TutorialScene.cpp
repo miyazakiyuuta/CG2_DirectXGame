@@ -13,16 +13,25 @@
 #include "StageSerializer.h"
 #include "UI/PauseMenu.h"
 #include "UI/RuntimeTextTextureGenerator.h"
+#include "base/DirectXCommon.h"
+#include "base/SrvManager.h"
 #include "base/WinApp.h"
 #include "debug/DebugGrid.h"
 #include "debug/DebugRenderer.h"
+#include "effect/ParticleManager.h"
 #include "io/Input.h"
+#include "math/Transform.h"
 #include "scene/SceneManager.h"
+#include "Tongue.h"
+#include "Enemy/Types/SentinelEnemy.h"
+
+#include "Enemy/Manager/EnemyManager.h"
 
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
 
+#include <algorithm>
 #include <numbers>
 #include <string>
 
@@ -52,6 +61,14 @@ void TutorialScene::Initialize()
 	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f, 0.0f, 0.0f });
 	camera_->SetTranslate({ 0.0f, 7.5f, -20.0f });
 
+	ParticleManager::GetInstance()->Initialize(
+		DirectXCommon::GetInstance(),
+		SrvManager::GetInstance()
+	);
+	ParticleManager::GetInstance()->SetCamera(camera_.get());
+	ParticleManager::GetInstance()->EnsureParticleGroup("break", "resources/uvChecker.png");
+	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");
+
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 	TextureManager::GetInstance()->LoadTexture("resources/circle.png");
@@ -61,7 +78,11 @@ void TutorialScene::Initialize()
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
 
-	// 井戸の見た目と移動制限円柱
+	ModelManager::GetInstance()->LoadModel("Enemy/ClusterMinion", "ClusterMinion.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/GhostFace", "GhostFace.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
+
 	if (ModelManager::GetInstance()->FindModel("well.obj")) {
 		wellObject_ = std::make_unique<Object3d>();
 		wellObject_->Initialize(Object3dCommon::GetInstance());
@@ -115,6 +136,25 @@ void TutorialScene::Initialize()
 		&stageBlockColliders_
 	);
 
+	enemyManager_ = std::make_unique<EnemyManager>();
+	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
+	enemyManager_->SetBlockColliders(&stageBlockColliders_);
+	enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
+	enemyManager_->SetOnEnemyDeadCallback([this](BaseEnemy*) {
+		++tutorialEnemyKilledCount_;
+		});
+	enemyManager_->SetXPOrbSpawner(
+		[this](const Vector3& pos, AbilityId ability, int amount) {
+			XPOrb orb;
+			orb.Init(pos, amount);
+			orb.SetAbility(ability);
+			orb.SetGroundY(stage_ ? stage_->GetHeightAt(pos) : 0.0f);
+			xpOrbs_.push_back(orb);
+		}
+	);
+
+	player_->SetEnemyManager(enemyManager_.get());
+
 	pauseMenu_ = std::make_unique<PauseMenu>();
 	pauseMenu_->Initialize(SpriteCommon::GetInstance(), cameraController_.get());
 
@@ -131,9 +171,8 @@ void TutorialScene::Initialize()
 		0.0f
 		});
 
-	// 1. チュートリアルで使うタスクと文字列をまとめて作る
-	// 2. 使う文字列を先に全部PNG化してSprite化する
-	// 3. そのあとタスク進行を開始する
+	UpdateStageColliders();
+
 	BuildTutorialStepDefinitions();
 	GenerateTutorialMessageSprites();
 	SetupTutorialTasksFromDefinitions();
@@ -155,6 +194,10 @@ void TutorialScene::Initialize()
 
 void TutorialScene::Finalize()
 {
+	ClearTutorialPhaseRuntime(true);
+
+	ParticleManager::GetInstance()->SetCamera(nullptr);
+
 #ifndef USE_IMGUI
 	ShowCursor(TRUE);
 	ClipCursor(nullptr);
@@ -167,43 +210,49 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 	tutorialStepDefinitions_.push_back({
 		"移動",
-		ToUtf8String(u8"WASDで1秒間移動してみよう"),
+		ToUtf8String(u8"WASDで移動してみよう"),
+		ToUtf8String(u8"左スティックで移動してみよう"),
 		60,
 		[](const TutorialContext& ctx) {
-			if (!ctx.input) {
+			if (!ctx.player) {
 				return 0;
 			}
 
-			const bool moving =
-				ctx.input->IsPushKey(DIK_W) ||
-				ctx.input->IsPushKey(DIK_A) ||
-				ctx.input->IsPushKey(DIK_S) ||
-				ctx.input->IsPushKey(DIK_D);
+			Vector3 v = ctx.player->GetVelocity();
+			const float speedSq = v.x * v.x + v.z * v.z;
+			const float threshold = 0.01f;
 
-			return moving ? 1 : 0;
+			return speedSq > threshold ? 1 : 0;
 		},
+		nullptr,
+		nullptr,
 		0.5f
 		});
 
 	tutorialStepDefinitions_.push_back({
 		"ジャンプ",
-		ToUtf8String(u8"長押しでジャンプを溜めよう"),
-		45,
+		ToUtf8String(u8"Space長押しでジャンプを溜めよう"),
+		ToUtf8String(u8"Aボタン長押しでジャンプを溜めよう"),
+		90,
 		[](const TutorialContext& ctx) {
 			if (!ctx.input) {
 				return 0;
 			}
 
-			// Space を押している間だけゲージが進む。
-			// 45なら約0.75秒ぶん。
-			return ctx.input->IsPushKey(DIK_SPACE) ? 1 : 0;
+			const bool keyboard = ctx.input->IsPushKey(DIK_SPACE);
+			const bool gamepad = ctx.input->IsPressPad(XINPUT_GAMEPAD_A);
+
+			return (keyboard || gamepad) ? 1 : 0;
 		},
+		nullptr,
+		nullptr,
 		0.5f
 		});
 
 	tutorialStepDefinitions_.push_back({
 		"エイム",
 		ToUtf8String(u8"右クリックで1秒間エイムしてみよう"),
+		ToUtf8String(u8"左トリガーで1秒間エイムしてみよう"),
 		60,
 		[](const TutorialContext& ctx) {
 			if (!ctx.cameraController) {
@@ -212,19 +261,277 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return ctx.cameraController->IsAimMode() ? 1 : 0;
 		},
+		nullptr,
+		nullptr,
 		0.5f
 		});
 
 	tutorialStepDefinitions_.push_back({
 		"舌",
 		ToUtf8String(u8"左クリックで舌を3回伸ばしてみよう"),
+		ToUtf8String(u8"右トリガーで舌を3回伸ばしてみよう"),
 		3,
 		[](const TutorialContext& ctx) {
-			if (!ctx.input) {
+			return ctx.tongueShotStartedThisFrame ? 1 : 0;
+		},
+		nullptr,
+		nullptr,
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"側面張り付き",
+		ToUtf8String(u8"舌を伸ばして壁の側面に張り付いてみよう"),
+		ToUtf8String(u8"舌を伸ばして壁の側面に張り付いてみよう"),
+		30,
+		[](const TutorialContext& ctx) {
+			if (!ctx.player) {
 				return 0;
 			}
 
-			return ctx.input->IsTriggerMouse(0) ? 1 : 0;
+			return ctx.player->IsWallClinging() ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		nullptr,
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"側面登り",
+		ToUtf8String(u8"張り付いたままWで上へ登ってみよう"),
+		ToUtf8String(u8"張り付いたまま\n左スティックを上に倒して登ってみよう"),
+		60,
+		[](const TutorialContext& ctx) {
+			if (!ctx.player || !ctx.input) {
+				return 0;
+			}
+
+			if (!ctx.player->IsWallClinging()) {
+				return 0;
+			}
+
+			const bool keyboardUp = ctx.input->IsPushKey(DIK_W);
+			const float stickY = ctx.input->GetLeftStickY();
+			const bool gamepadUp = stickY > 0.5f;
+
+			return (keyboardUp || gamepadUp) ? 1 : 0;
+		},
+		nullptr,
+		nullptr,
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+	"スタミナ",
+	ToUtf8String(u8"張り付き中はスタミナを消費します"),
+	ToUtf8String(u8"張り付き中はスタミナを消費します"),
+	50,
+	[this](const TutorialContext& ctx) {
+		if (!ctx.player) {
+			return 0;
+		}
+
+		const float currentGauge = ctx.player->GetWallClingGauge();
+		const float consumedThisFrame =
+			tutorialWallClingPrevGauge_ - currentGauge;
+
+		tutorialWallClingPrevGauge_ = currentGauge;
+
+		if (!ctx.player->IsClinging()) {
+			return 0;
+		}
+
+		if (consumedThisFrame <= 0.0f) {
+			return 0;
+		}
+
+		float scaledScore =
+			consumedThisFrame * tutorialWallClingScoreScale_ +
+			tutorialWallClingConsumeRemainder_;
+
+		int addScore = static_cast<int>(scaledScore);
+		tutorialWallClingConsumeRemainder_ =
+			scaledScore - static_cast<float>(addScore);
+
+		return addScore;
+	},
+	[this]() {
+		tutorialWallClingConsumeRemainder_ = 0.0f;
+
+		if (player_) {
+			tutorialWallClingPrevGauge_ = player_->GetWallClingGauge();
+		}
+		else {
+			tutorialWallClingPrevGauge_ = 0.0f;
+		}
+	},
+	nullptr,
+	0.8f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"下面張り付き",
+		ToUtf8String(u8"天井の下面はSpaceで走れる"),
+		ToUtf8String(u8"天井の下面はAボタンで走れる"),
+		30,
+		[](const TutorialContext& ctx) {
+			if (!ctx.player) {
+				return 0;
+			}
+
+			return ctx.player->IsCeilingCrawling() ? 1 : 0;
+		},
+		nullptr,
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"ソナー",
+		ToUtf8String(u8"Fキーでソナーを使ってみよう"),
+		ToUtf8String(u8"Yボタンでソナーを使ってみよう"),
+		30,
+		[](const TutorialContext& ctx) {
+			if (!ctx.player) {
+				return 0;
+			}
+
+			return ctx.player->IsSonarActive() ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+			SpawnTutorialWeakEnemy();
+			SpawnTutorialClingBlocks();
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"擬態",
+		ToUtf8String(u8"     Qキーの後にブロックに張り付いて\n擬態を使ってみよう"),
+		ToUtf8String(u8"     Xボタンの後にブロックに張り付いて\n擬態を使ってみよう"),
+		1,
+		[](const TutorialContext& ctx) {
+			if (!ctx.input || !ctx.player) {
+				return 0;
+			}
+
+			return (ctx.player->IsMimicking()) ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"敵を倒す",
+		ToUtf8String(u8"Eキーで敵を倒してみよう"),
+		ToUtf8String(u8"Bボタンで敵を倒してみよう"),
+		1,
+		[this](const TutorialContext&) {
+			return tutorialEnemyKilledCount_ > 0 ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+			SpawnTutorialWeakEnemy();
+		},
+		[this]() {
+			ClearTutorialEnemies();
+			ClearTutorialPhaseObjects();
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"XP",
+		ToUtf8String(u8"敵が落としたXPを拾ってみよう"),
+		ToUtf8String(u8"敵が落としたXPを拾ってみよう"),
+		1,
+		[this](const TutorialContext&) {
+			return tutorialXPCollectedCount_ > 0 ? 1 : 0;
+		},
+		[this]() {
+			tutorialXPCollectedCount_ = 0;
+
+			if (xpOrbs_.empty()) {
+				Vector3 pos = { 0.0f, 4.0f, 8.0f };
+				XPOrb orb;
+				orb.Init(pos, 1);
+				orb.SetGroundY(stage_ ? stage_->GetHeightAt(pos) : 0.0f);
+				xpOrbs_.push_back(orb);
+			}
+		},
+		[this]() {
+			ClearTutorialXP();
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"壊れるブロック",
+		ToUtf8String(u8"舌攻撃で壊れるブロックを壊そう"),
+		ToUtf8String(u8"Bボタン攻撃で壊れるブロックを壊そう"),
+		1,
+		[this](const TutorialContext&) {
+			return CountAliveTutorialObjects(BlockID::Breakable) == 0 ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+			SpawnTutorialBreakableBlocks();
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"ワープブロック",
+		ToUtf8String(u8"ワープブロックに入ってみよう"),
+		ToUtf8String(u8"ワープブロックに入ってみよう"),
+		1,
+		[this](const TutorialContext&) {
+			return tutorialWarpUsedCount_ > 0 ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+			SpawnTutorialWarpBlock();
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+		},
+		0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
+		"センチネルフック",
+		ToUtf8String(u8"センチネルに舌を当ててフック移動しよう"),
+		ToUtf8String(u8"センチネルに舌を当ててフック移動しよう"),
+		60,
+		[](const TutorialContext& ctx) {
+			if (!ctx.player) {
+				return 0;
+			}
+
+			return ctx.player->IsTonguePulling() ? 1 : 0;
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
+			SpawnTutorialSentinelHook();
+		},
+		[this]() {
+			ClearTutorialPhaseRuntime(true);
 		},
 		0.5f
 		});
@@ -237,10 +544,22 @@ void TutorialScene::SetupTutorialTasksFromDefinitions()
 	for (const auto& def : tutorialStepDefinitions_) {
 		TutorialTask task;
 		task.title = def.title;
-		task.message = def.message;
+		task.message = def.keyboardMessage;
 		task.requiredScore = def.requiredScore;
 		task.scoreDelta = def.scoreDelta;
-		task.onEnter = nullptr;
+
+		task.onEnter = [onEnter = def.onEnter](const TutorialContext&) {
+			if (onEnter) {
+				onEnter();
+			}
+			};
+
+		task.onExit = [onExit = def.onExit](const TutorialContext&) {
+			if (onExit) {
+				onExit();
+			}
+			};
+
 		task.completeWaitSeconds = def.completeWaitSeconds;
 
 		tutorialDirector_.AddTask(task);
@@ -249,24 +568,49 @@ void TutorialScene::SetupTutorialTasksFromDefinitions()
 
 void TutorialScene::GenerateTutorialMessageSprites()
 {
-	tutorialMessageSprites_.clear();
-	tutorialMessageSprites_.reserve(tutorialStepDefinitions_.size());
+	tutorialKeyboardMessageSprites_.clear();
+	tutorialGamepadMessageSprites_.clear();
+
+	tutorialKeyboardMessageSprites_.reserve(tutorialStepDefinitions_.size());
+	tutorialGamepadMessageSprites_.reserve(tutorialStepDefinitions_.size());
+
+	static int generationId = 0;
+	++generationId;
+
+	const std::string prefix =
+		"resources/generated_ui/tutorial_" +
+		std::to_string(generationId) + "_";
 
 	for (size_t i = 0; i < tutorialStepDefinitions_.size(); ++i) {
-		std::string outputPath =
-			"resources/generated_ui/tutorial_message_" + std::to_string(i) + ".png";
+		const std::string keyboardPath =
+			prefix + "keyboard_message_" + std::to_string(i) + ".png";
 
-		auto sprite = CreateTutorialMessageSprite(
-			tutorialStepDefinitions_[i].message,
-			outputPath
+		const std::string gamepadPath =
+			prefix + "gamepad_message_" + std::to_string(i) + ".png";
+
+		tutorialKeyboardMessageSprites_.push_back(
+			CreateTutorialMessageSprite(
+				tutorialStepDefinitions_[i].keyboardMessage,
+				keyboardPath
+			)
 		);
 
-		tutorialMessageSprites_.push_back(std::move(sprite));
+		tutorialGamepadMessageSprites_.push_back(
+			CreateTutorialMessageSprite(
+				tutorialStepDefinitions_[i].gamepadMessage,
+				gamepadPath
+			)
+		);
 	}
 
-	tutorialFinishedMessageSprite_ = CreateTutorialMessageSprite(
-		ToUtf8String(u8"         チュートリアル完了！\n ESCメニューからタイトルに戻れます"),
-		"resources/generated_ui/tutorial_message_finished.png"
+	tutorialKeyboardFinishedMessageSprite_ = CreateTutorialMessageSprite(
+		ToUtf8String(u8"チュートリアル完了！\nESCメニューからタイトルに戻れます"),
+		prefix + "keyboard_message_finished.png"
+	);
+
+	tutorialGamepadFinishedMessageSprite_ = CreateTutorialMessageSprite(
+		ToUtf8String(u8"チュートリアル完了！\nSTARTメニューからタイトルに戻れます"),
+		prefix + "gamepad_message_finished.png"
 	);
 }
 
@@ -279,7 +623,6 @@ std::unique_ptr<Sprite> TutorialScene::CreateTutorialMessageSprite(
 	textDesc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
 	textDesc.outputFilePath = outputPath;
 
-	// 高解像度で生成して、Sprite表示時に縮小する
 	textDesc.fontPixelSize = 120;
 	textDesc.paddingX = 48;
 	textDesc.paddingY = 28;
@@ -316,17 +659,270 @@ std::unique_ptr<Sprite> TutorialScene::CreateTutorialMessageSprite(
 
 Sprite* TutorialScene::GetCurrentTutorialMessageSprite() const
 {
+	const bool useGamepad =
+		lastInputDevice_ == TutorialInputDevice::Gamepad;
+
 	if (tutorialDirector_.IsFinished()) {
-		return tutorialFinishedMessageSprite_.get();
+		return useGamepad
+			? tutorialGamepadFinishedMessageSprite_.get()
+			: tutorialKeyboardFinishedMessageSprite_.get();
 	}
 
-	int index = tutorialDirector_.GetCurrentIndex();
+	const int index = tutorialDirector_.GetCurrentIndex();
 
-	if (index < 0 || index >= static_cast<int>(tutorialMessageSprites_.size())) {
+	if (index < 0 || index >= static_cast<int>(tutorialStepDefinitions_.size())) {
 		return nullptr;
 	}
 
-	return tutorialMessageSprites_[index].get();
+	if (useGamepad) {
+		if (index >= static_cast<int>(tutorialGamepadMessageSprites_.size())) {
+			return nullptr;
+		}
+		return tutorialGamepadMessageSprites_[index].get();
+	}
+
+	if (index >= static_cast<int>(tutorialKeyboardMessageSprites_.size())) {
+		return nullptr;
+	}
+	return tutorialKeyboardMessageSprites_[index].get();
+}
+
+StageObject TutorialScene::MakeTutorialBlock(
+	BlockID blockId,
+	const Vector3& position,
+	const Vector3& scale,
+	const Vector4& color,
+	int hp
+) const {
+	StageObject object;
+	object.id = -1;
+	object.modelName = "Cube.obj";
+	object.blockId = blockId;
+	object.position = position;
+	object.rotation = { 0.0f, 0.0f, 0.0f };
+	object.scale = scale;
+	object.color = color;
+	object.hp = hp;
+	object.warpTargetPosition = { 0.0f, 4.0f, 0.0f };
+	object.warpTargetSceneId = -1;
+	return object;
+}
+
+int TutorialScene::AddTutorialStageObject(const StageObject& source)
+{
+	if (!stage_) {
+		return -1;
+	}
+
+	StageObject object = source;
+	object.id = tutorialNextObjectId_++;
+
+	stage_->GetStageData().objects.push_back(object);
+	stage_->UpdateOrCreateInstance(object);
+
+	tutorialPhaseObjectIds_.push_back(object.id);
+
+	UpdateStageColliders();
+
+	return object.id;
+}
+
+void TutorialScene::ClearTutorialPhaseObjects()
+{
+	if (!stage_) {
+		tutorialPhaseObjectIds_.clear();
+		return;
+	}
+
+	auto& objects = stage_->GetStageData().objects;
+
+	for (int id : tutorialPhaseObjectIds_) {
+		stage_->RemoveInstanceById(id);
+
+		objects.erase(
+			std::remove_if(
+				objects.begin(),
+				objects.end(),
+				[id](const StageObject& object) {
+					return object.id == id;
+				}
+			),
+			objects.end()
+		);
+	}
+
+	tutorialPhaseObjectIds_.clear();
+
+	UpdateStageColliders();
+}
+
+void TutorialScene::ClearTutorialEnemies()
+{
+	if (enemyManager_) {
+		enemyManager_->Clear();
+	}
+}
+
+void TutorialScene::ClearTutorialXP()
+{
+	xpOrbs_.clear();
+	tutorialXPCollectedCount_ = 0;
+	ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", 0);
+}
+
+void TutorialScene::ClearTutorialPhaseRuntime(bool clearXP)
+{
+	ClearTutorialPhaseObjects();
+	ClearTutorialEnemies();
+
+	tutorialEnemyKilledCount_ = 0;
+	tutorialWarpUsedCount_ = 0;
+	warpCooldownCounter_ = 0;
+	lastWarpId_ = -1;
+
+	if (clearXP) {
+		ClearTutorialXP();
+	}
+}
+
+void TutorialScene::SpawnTutorialClingBlocks()
+{
+	ClearTutorialPhaseObjects();
+
+	AddTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 4.0f, 12.0f },
+		{ 4.0f, 4.0f, 1.0f },
+		{ 0.25f, 0.85f, 0.65f, 1.0f }
+	));
+
+	AddTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 8.0f, 18.0f },
+		{ 5.0f, 0.8f, 5.0f },
+		{ 0.20f, 0.55f, 0.95f, 1.0f }
+	));
+}
+
+void TutorialScene::SpawnTutorialBreakableBlocks()
+{
+	ClearTutorialPhaseObjects();
+
+
+	AddTutorialStageObject(MakeTutorialBlock(
+		BlockID::Breakable,
+		{ 0.0f, 2.5f, 10.0f },
+		{ 1.5f, 1.5f, 1.5f },
+		{ 0.95f, 0.45f, 0.25f, 1.0f },
+		2
+	));
+
+	AddTutorialStageObject(MakeTutorialBlock(
+		BlockID::Breakable,
+		{ 5.0f, 3.0f, 10.0f },
+		{ 2.0f, 2.0f, 2.0f },
+		{ 0.95f, 0.35f, 0.20f, 1.0f },
+		3
+	));
+}
+
+void TutorialScene::SpawnTutorialWarpBlock()
+{
+	ClearTutorialPhaseObjects();
+
+	StageObject warp = MakeTutorialBlock(
+		BlockID::Warp,
+		{ 0.0f, 10.2f, 14.0f },
+		{ 1.5f, 1.2f, 1.5f },
+		{ 0.35f, 0.45f, 1.0f, 0.85f }
+	);
+
+	warp.warpTargetPosition = { -6.0f, 4.0f, -8.0f };
+	warp.warpTargetSceneId = -1;
+
+	AddTutorialStageObject(warp);
+}
+
+void TutorialScene::SpawnTutorialWeakEnemy()
+{
+	if (!enemyManager_) {
+		return;
+	}
+
+	enemyManager_->Clear();
+	tutorialEnemyKilledCount_ = 0;
+
+	enemyManager_->CreateEnemy(EnemyType::Chasing, { 0.0f, 5.0f, 16.0f });
+}
+
+void TutorialScene::SpawnTutorialSentinelHook()
+{
+	if (!enemyManager_) {
+		return;
+	}
+
+	enemyManager_->Clear();
+
+	BaseEnemy* enemy =
+		enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 16.0f });
+
+	if (auto* sentinel = dynamic_cast<SentinelEnemy*>(enemy)) {
+		sentinel->SetTutorialHookMode(true);
+	}
+}
+
+bool TutorialScene::IsTutorialStageObjectAlive(int id) const
+{
+	if (!stage_) {
+		return false;
+	}
+
+	for (const auto& object : stage_->GetStageData().objects) {
+		if (object.id == id) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+int TutorialScene::CountAliveTutorialObjects(BlockID blockId) const
+{
+	if (!stage_) {
+		return 0;
+	}
+
+	int count = 0;
+
+	for (int id : tutorialPhaseObjectIds_) {
+		for (const auto& object : stage_->GetStageData().objects) {
+			if (object.id == id && object.blockId == blockId) {
+				++count;
+				break;
+			}
+		}
+	}
+
+	return count;
+}
+
+void TutorialScene::UpdateTutorialFrameEvents()
+{
+	tutorialTongueShotStartedThisFrame_ = false;
+
+	if (!player_ || !player_->GetTongue()) {
+		tutorialPrevTongueWasIdle_ = true;
+		return;
+	}
+
+	const Tongue::State currentTongueState = player_->GetTongue()->GetState();
+
+	tutorialTongueShotStartedThisFrame_ =
+		tutorialPrevTongueWasIdle_ &&
+		(currentTongueState == Tongue::State::Extending);
+
+	tutorialPrevTongueWasIdle_ =
+		(currentTongueState == Tongue::State::Idle);
 }
 
 void TutorialScene::UpdateTutorial(float deltaTime)
@@ -336,6 +932,7 @@ void TutorialScene::UpdateTutorial(float deltaTime)
 	context.cameraController = cameraController_.get();
 	context.input = Input::GetInstance();
 	context.deltaTime = deltaTime;
+	context.tongueShotStartedThisFrame = tutorialTongueShotStartedThisFrame_;
 
 	tutorialDirector_.Update(context);
 
@@ -359,6 +956,11 @@ void TutorialScene::UpdateStageColliders()
 
 	if (cameraController_) {
 		cameraController_->SetObstacleColliders(&stageBlockColliders_);
+	}
+
+	if (enemyManager_) {
+		enemyManager_->SetBlockColliders(&stageBlockColliders_);
+		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
 	}
 }
 
@@ -428,12 +1030,188 @@ void TutorialScene::UpdateTutorialScoreBar()
 
 void TutorialScene::DrawTutorialScoreBar()
 {
+	if (tutorialDirector_.IsFinished()) {
+		return;
+	}
+
 	if (tutorialScoreBackSprite_) {
 		tutorialScoreBackSprite_->Draw();
 	}
 
 	if (tutorialScoreFillSprite_) {
 		tutorialScoreFillSprite_->Draw();
+	}
+}
+
+bool TutorialScene::HasKeyboardMouseTutorialInput() const
+{
+	Input* input = Input::GetInstance();
+	if (!input) {
+		return false;
+	}
+
+	return
+		input->IsPushKey(DIK_W) ||
+		input->IsPushKey(DIK_A) ||
+		input->IsPushKey(DIK_S) ||
+		input->IsPushKey(DIK_D) ||
+		input->IsPushKey(DIK_SPACE) ||
+		input->IsTriggerKey(DIK_E) ||
+		input->IsTriggerKey(DIK_Q) ||
+		input->IsTriggerKey(DIK_F) ||
+		input->IsTriggerMouse(0) ||
+		input->IsTriggerMouse(1);
+}
+
+bool TutorialScene::HasGamepadTutorialInput() const
+{
+	Input* input = Input::GetInstance();
+	if (!input) {
+		return false;
+	}
+
+	const float stickX = input->GetLeftStickX();
+	const float stickY = input->GetLeftStickY();
+
+	const bool stickMoved =
+		(stickX * stickX + stickY * stickY) > 0.15f * 0.15f;
+
+	return
+		stickMoved ||
+		input->IsPressPad(XINPUT_GAMEPAD_A) ||
+		input->IsPressPad(XINPUT_GAMEPAD_B) ||
+		input->IsPressPad(XINPUT_GAMEPAD_X) ||
+		input->IsPressPad(XINPUT_GAMEPAD_Y) ||
+		input->GetRightTrigger() >= 0.5f;
+}
+
+void TutorialScene::UpdateLastInputDevice()
+{
+	if (HasGamepadTutorialInput()) {
+		lastInputDevice_ = TutorialInputDevice::Gamepad;
+		return;
+	}
+
+	if (HasKeyboardMouseTutorialInput()) {
+		lastInputDevice_ = TutorialInputDevice::KeyboardMouse;
+	}
+}
+
+void TutorialScene::UpdateTutorialEnemies(float deltaTime)
+{
+	if (!enemyManager_) {
+		return;
+	}
+
+	enemyManager_->SetBlockColliders(&stageBlockColliders_);
+	enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
+	enemyManager_->Update(deltaTime, player_.get());
+}
+
+void TutorialScene::UpdateTutorialXPOrbs(float deltaTime)
+{
+	if (!player_) {
+		return;
+	}
+
+	for (auto& orb : xpOrbs_) {
+		if (!orb.IsActive()) {
+			continue;
+		}
+
+		if (stage_) {
+			orb.SetGroundY(stage_->GetHeightAt(orb.GetPosition()));
+		}
+
+		int collected = orb.Update(deltaTime, player_->GetPosition());
+		if (collected > 0) {
+			tutorialXPCollectedCount_ += collected;
+			player_->EnqueueAbilityXP(orb.GetAbility(), static_cast<float>(collected));
+		}
+	}
+}
+
+void TutorialScene::WriteTutorialXPOrbInstances()
+{
+	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");
+
+	uint32_t maxInst = 0;
+	auto* instPtr = ParticleManager::GetInstance()->GetInstancingDataWritePtr("xp_orb", maxInst);
+
+	if (!instPtr || maxInst == 0 || !camera_) {
+		ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", 0);
+		return;
+	}
+
+	uint32_t numInst = 0;
+	const Matrix4x4 viewProj = camera_->GetViewMatrix() * camera_->GetProjectionMatrix();
+	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
+
+	for (const auto& orb : xpOrbs_) {
+		if (!orb.IsActive()) {
+			continue;
+		}
+
+		if (numInst >= maxInst) {
+			break;
+		}
+
+		orb.FillInstanceData(instPtr[numInst], cameraMatrix, viewProj);
+		++numInst;
+	}
+
+	ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", numInst);
+}
+
+void TutorialScene::UpdateTutorialWarp()
+{
+	if (!player_ || !stage_) {
+		return;
+	}
+
+	const CollisionUtility::OBB playerObb =
+		player_->GetPlayerOBB(player_->GetPosition());
+
+	for (const auto& object : stage_->GetStageData().objects) {
+		if (object.blockId != BlockID::Warp) {
+			continue;
+		}
+
+		Transform t;
+		t.translate = object.position;
+		t.rotate = object.rotation;
+		t.scale = object.scale;
+
+		const float warpInflation = 1.5f;
+		CollisionUtility::OBB warpObb =
+			CollisionUtility::MakeOBBFromTransform(
+				t,
+				{
+					object.scale.x * warpInflation,
+					object.scale.y * warpInflation,
+					object.scale.z * warpInflation
+				}
+			);
+
+		if (!CollisionUtility::IntersectOBB_OBB(playerObb, warpObb)) {
+			continue;
+		}
+
+		if (warpCooldownCounter_ == 0 || lastWarpId_ != object.id) {
+			player_->SetPendingTeleport(object.warpTargetPosition);
+			lastWarpId_ = object.id;
+			warpCooldownCounter_ = 90;
+			++tutorialWarpUsedCount_;
+		}
+
+		break;
+	}
+
+	if (warpCooldownCounter_ > 0) {
+		--warpCooldownCounter_;
+	}
+	else {
+		lastWarpId_ = -1;
 	}
 }
 
@@ -446,6 +1224,11 @@ void TutorialScene::Update()
 
 		if (pauseMenu_->IsTitleRequested()) {
 			SceneManager::GetInstance()->ChangeScene("TITLE");
+			return;
+		}
+
+		if (pauseMenu_->IsRestartRequested()) {
+			SceneManager::GetInstance()->ChangeScene("TUTORIAL");
 			return;
 		}
 	}
@@ -501,6 +1284,12 @@ void TutorialScene::Update()
 			player_->UpdateTransparencyByCamera(camera_->GetTranslate());
 		}
 
+		UpdateTutorialFrameEvents();
+		UpdateTutorialWarp();
+		UpdateTutorialEnemies(deltaTime);
+		UpdateTutorialXPOrbs(deltaTime);
+
+		UpdateLastInputDevice();
 		UpdateTutorial(deltaTime);
 	}
 
@@ -512,6 +1301,9 @@ void TutorialScene::Update()
 	if (wellObject_) {
 		wellObject_->Update();
 	}
+
+	ParticleManager::GetInstance()->Update(deltaTime);
+	WriteTutorialXPOrbInstances();
 
 	DebugRenderer::GetInstance()->AddGrid(
 		{ 0.0f, 0.0f, 0.0f },
@@ -527,13 +1319,19 @@ void TutorialScene::Draw()
 		wellObject_->Draw();
 	}
 
+	if (player_) {
+		player_->Draw();
+	}
+
+	if (enemyManager_) {
+		enemyManager_->Draw();
+	}
+
 	if (stage_) {
 		stage_->Draw();
 	}
 
-	if (player_) {
-		player_->Draw();
-	}
+	ParticleManager::GetInstance()->Draw();
 
 	if (debugGrid_) {
 		debugGrid_->Draw(*camera_);
@@ -553,11 +1351,11 @@ void TutorialScene::Draw()
 		messageSprite->Draw();
 	}
 
+	DrawTutorialScoreBar();
+
 	if (pauseMenu_) {
 		pauseMenu_->Draw();
 	}
-
-	DrawTutorialScoreBar();
 
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
@@ -577,7 +1375,17 @@ void TutorialScene::DrawImGui()
 		ImGui::Separator();
 		ImGui::TextWrapped("%s", tutorialDirector_.GetCurrentMessage().c_str());
 		ImGui::Text("Task Index: %d", tutorialDirector_.GetCurrentIndex());
+		ImGui::Text("Score: %d / %d",
+			tutorialDirector_.GetCurrentScore(),
+			tutorialDirector_.GetCurrentRequiredScore()
+		);
 	}
+
+	ImGui::Separator();
+	ImGui::Text("EnemyKilled: %d", tutorialEnemyKilledCount_);
+	ImGui::Text("XPCollected: %d", tutorialXPCollectedCount_);
+	ImGui::Text("WarpUsed: %d", tutorialWarpUsedCount_);
+	ImGui::Text("PhaseObjects: %d", static_cast<int>(tutorialPhaseObjectIds_.size()));
 
 	ImGui::End();
 
@@ -587,6 +1395,10 @@ void TutorialScene::DrawImGui()
 
 	if (cameraController_) {
 		cameraController_->DrawImGui();
+	}
+
+	if (enemyManager_) {
+		enemyManager_->DrawImGui();
 	}
 #endif
 }
