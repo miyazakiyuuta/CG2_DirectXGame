@@ -7,6 +7,7 @@
 #include "math/Vector2.h"
 #include "XPOrb.h"
 #include "StageTypes.h"
+#include "audio/SoundManager.h"
 
 #include <functional>
 #include <memory>
@@ -169,4 +170,9 @@ private:
 
 	// 0.1 スタミナ消費 = 1 スコアにする
 	float tutorialWallClingScoreScale_ = 1.0f;
+
+	// BGM
+	SoundData tutorialBgm_ = {};
+	SoundManager::SoundHandle tutorialBgmHandle_ = SoundManager::InvalidHandle;
+	std::string tutorialBgmPath_ = "resources/BGM/tutorial.wav";
 };

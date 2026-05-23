@@ -163,6 +163,16 @@ public:
 	void NotifyEnemyDead(BaseEnemy* deadEnemy) {
 		if (lastHitEnemy_ == deadEnemy) {
 			lastHitEnemy_ = nullptr;
+			tonguePullingEnemy_ = false;
+			velocity_ = { 0.0f, 0.0f, 0.0f };
+
+			if (tongue_) {
+				tongue_->StartReturn();
+			}
+
+			if (moveState_ == MovementState::TonguePulling) {
+				TransitionTo(MovementState::Jumping);
+			}
 		}
 	}
 

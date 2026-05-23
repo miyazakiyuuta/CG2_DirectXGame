@@ -213,6 +213,21 @@ void EnemyManager::ForEachEnemy(const std::function<void(BaseEnemy*)>& cb)
             cb(e.get());
 }
 
+bool EnemyManager::ContainsAliveEnemy(const BaseEnemy* enemy) const
+{
+    if (!enemy) {
+        return false;
+    }
+
+    for (const auto& e : enemies_) {
+        if (e && !e->IsDead() && e.get() == enemy) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void EnemyManager::DrawImGui()
 {
 #ifdef USE_IMGUI

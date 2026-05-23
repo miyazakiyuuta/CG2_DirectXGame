@@ -181,6 +181,21 @@ void TutorialScene::Initialize()
 	InitializeTutorialScoreBar();
 	UpdateTutorialScoreBar();
 
+	// --- BGMの読み込みとループ再生 ---
+	tutorialBgm_ = SoundManager::GetInstance()->LoadFile(tutorialBgmPath_);
+
+	tutorialBgmHandle_ = SoundManager::GetInstance()->PlayWave(
+		tutorialBgm_,
+		true,
+		SoundManager::SoundCategory::BGM
+	);
+
+	// 必要なら音量をここで調整
+	SoundManager::GetInstance()->SetCategoryVolume(
+		SoundManager::SoundCategory::BGM,
+		0.5f
+	);
+
 #ifndef USE_IMGUI
 	while (ShowCursor(FALSE) >= 0) {}
 	HWND hwnd = WinApp::GetInstance()->GetHwnd();
@@ -197,6 +212,13 @@ void TutorialScene::Finalize()
 	ClearTutorialPhaseRuntime(true);
 
 	ParticleManager::GetInstance()->SetCamera(nullptr);
+
+	if (tutorialBgmHandle_ != SoundManager::InvalidHandle) {
+		SoundManager::GetInstance()->StopWave(tutorialBgmHandle_);
+		tutorialBgmHandle_ = SoundManager::InvalidHandle;
+	}
+
+	SoundManager::GetInstance()->Unload(tutorialBgmPath_);
 
 #ifndef USE_IMGUI
 	ShowCursor(TRUE);

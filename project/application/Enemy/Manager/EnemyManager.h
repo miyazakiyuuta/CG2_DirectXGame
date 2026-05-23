@@ -32,6 +32,8 @@ public:
 	void Clear();
 	void ForEachEnemy(const std::function<void(class BaseEnemy*)>& cb);
 
+	bool ContainsAliveEnemy(const BaseEnemy* enemy) const;
+
 	void SetOnEnemyDeadCallback(const std::function<void(BaseEnemy*)>& cb) { onEnemyDead_ = cb; }
 	void SetXPOrbSpawner(const std::function<void(const Vector3&, AbilityId, int)>& spawner) { xpOrbSpawner_ = spawner; }
 

@@ -791,7 +791,7 @@ Vector3 Player::ResolveHookSurfaceNormalFromPlayerCapsule(const CollisionUtility
             }
 
             // 合成スコア
-            float score = frontScore * 0.60f + tongueScore * 0.25f + sideScore * 0.15f;
+            float score = tongueScore * 0.85f + frontScore * 0.15f;
 
             // 下方向ショットで壁面を選びにくくする
             if (segmentDir.y < -0.4f && IsWallSurface(n)) {
@@ -1324,6 +1324,14 @@ void Player::UpdateTonguePulling() {
 		return;
 	}
 
+    if (tonguePullingEnemy_ &&
+        lastHitEnemy_ &&
+        enemyManager_ &&
+        !enemyManager_->ContainsAliveEnemy(lastHitEnemy_)) {
+
+        lastHitEnemy_ = nullptr;
+    }
+
     if (tonguePullingEnemy_ && !lastHitEnemy_) {
         tonguePullingEnemy_ = false;
 
@@ -1463,27 +1471,51 @@ void Player::Update()
 
     // --- センチネル追従ロジック ---
     if (moveState_ == MovementState::TonguePulling) {
-        // 【安全性強化】lastHitEnemy_ が有効な間だけ処理する
-        if (lastHitEnemy_) {
-            // 敵が逃げているので、毎フレーム最新の位置にフックを吸着させる
-            tonguePullTarget_ = lastHitEnemy_->GetPosition();
-            if (tongue_) {
-                tongue_->SetHooked(tonguePullTarget_);
-            }
+
+        if (tonguePullingEnemy_ &&
+            lastHitEnemy_ &&
+            enemyManager_ &&
+            !enemyManager_->ContainsAliveEnemy(lastHitEnemy_)) {
+
+            lastHitEnemy_ = nullptr;
         }
 
-		// 【任意リリース】Spaceキーで加速を受け継いでジャンプ
-		if (input_->IsTriggerKey(DIK_SPACE) ||
-			input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
-			if (lastHitEnemy_) {
-				// 敵の逃走速度を自分の速度として奪う（スリングショット）
-				velocity_ = lastHitEnemy_->GetVelocity();
-                velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_; // 少し上に跳ねる
-                lastHitEnemy_ = nullptr;
-            }
-            if (tongue_)
+        if (tonguePullingEnemy_ && !lastHitEnemy_) {
+            tonguePullingEnemy_ = false;
+            velocity_ = { 0.0f, 0.0f, 0.0f };
+
+            if (tongue_) {
                 tongue_->StartReturn();
+            }
+
             TransitionTo(MovementState::Jumping);
+        }
+        else {
+            // 【安全性強化】lastHitEnemy_ が有効な間だけ処理する
+            if (lastHitEnemy_) {
+                // 敵が逃げているので、毎フレーム最新の位置にフックを吸着させる
+                tonguePullTarget_ = lastHitEnemy_->GetPosition();
+                if (tongue_) {
+                    tongue_->SetHooked(tonguePullTarget_);
+                }
+            }
+
+            // 【任意リリース】Spaceキーで加速を受け継いでジャンプ
+            if (input_->IsTriggerKey(DIK_SPACE) ||
+                input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
+                if (lastHitEnemy_) {
+                    velocity_ = lastHitEnemy_->GetVelocity();
+                    velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_;
+                    lastHitEnemy_ = nullptr;
+                    tonguePullingEnemy_ = false;
+                }
+
+                if (tongue_) {
+                    tongue_->StartReturn();
+                }
+
+                TransitionTo(MovementState::Jumping);
+            }
         }
     }
 
