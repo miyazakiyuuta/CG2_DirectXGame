@@ -2022,7 +2022,11 @@ void Player::Update()
     UpdateWallClingGaugeUISprite();
     UpdateAbilityLevelUI();
 
-    speedMultiplier_ = 1.0f;
+    if (enemyManager_) {
+        speedMultiplier_ = enemyManager_->GetTotalPlayerSpeedMultiplier();
+    } else {
+        speedMultiplier_ = 1.0f;
+    }
 }
 
 void Player::Draw()
