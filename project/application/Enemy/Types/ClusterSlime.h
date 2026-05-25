@@ -15,6 +15,9 @@ public:
 	void Update(float deltaTime, const Vector3& playerPos) override;
 	void Draw() override;
 
+	std::vector<TargetPart> GetTargetParts(float radius) const override;
+	void KillPart(int partId) override;
+
 private:
 	struct Member {
 		std::unique_ptr<Object3d> object;
@@ -23,6 +26,7 @@ private:
 		float speed;
 		float timer;
 		bool onGround; // 接地フラグ
+		bool isDead = false; // 個別死亡フラグ
 
 		// メンバーごとの着地ブロック XZ 範囲と上面 Y を記録する
 		// BaseEnemy の hasLandingBlock_ は共有されるため、メンバー切り替え時に退避・復元する

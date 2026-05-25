@@ -52,6 +52,8 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
     for (size_t i = 0; i < members_.size(); ++i) {
         auto& m = members_[i];
+        if (m.isDead) continue; // 死亡した個体は処理しない
+
         Vector3 previousPos = m.position;
 
         Vector3 toPlayer = playerPos - m.position;
@@ -124,7 +126,7 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
         // 群れの分離（はびこる挙動）
         for (size_t j = 0; j < members_.size(); ++j) {
-            if (i == j)
+            if (i == j || members_[j].isDead)
                 continue;
             Vector3 diff = m.position - members_[j].position;
             diff.y = 0;
@@ -184,9 +186,16 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
     if (object_ && !members_.empty()) {
         Vector3 avg = {0, 0, 0};
-        for (auto& mem : members_)
-            avg += mem.position;
-        position_ = avg * (1.0f / static_cast<float>(members_.size()));
+        int aliveCount = 0;
+        for (auto& mem : members_) {
+            if (!mem.isDead) {
+                avg += mem.position;
+                aliveCount++;
+            }
+        }
+        if (aliveCount > 0) {
+            position_ = avg * (1.0f / static_cast<float>(aliveCount));
+        }
         object_->SetTranslate(position_);
         object_->Update();
     }
@@ -194,6 +203,37 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
 void ClusterSlime::Draw() {
     for (auto& m : members_) {
-        m.object->Draw();
+        if (!m.isDead) {
+            m.object->Draw();
+        }
+    }
+}
+
+std::vector<BaseEnemy::TargetPart> ClusterSlime::GetTargetParts(float radius) const {
+    std::vector<TargetPart> parts;
+    for (size_t i = 0; i < members_.size(); ++i) {
+        if (!members_[i].isDead) {
+            CollisionUtility::OBB obb = GetOBB(members_[i].position, radius);
+            parts.push_back({ members_[i].position, obb, static_cast<int>(i) });
+        }
+    }
+    return parts;
+}
+
+void ClusterSlime::KillPart(int partId) {
+    if (partId >= 0 && partId < static_cast<int>(members_.size())) {
+        members_[partId].isDead = true;
+    }
+
+    bool allDead = true;
+    for (auto& m : members_) {
+        if (!m.isDead) {
+            allDead = false;
+            break;
+        }
+    }
+
+    if (allDead) {
+        Kill(); // 全て死んだら本体も死亡
     }
 }

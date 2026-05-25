@@ -29,7 +29,25 @@ public:
 
     const Vector3& GetPosition() const { return position_; }
     bool IsDead() const { return isDead_; }
-    void Kill() { isDead_ = true; }
+    virtual void Kill() { isDead_ = true; } // 仮想関数に変更
+
+    // 当たり判定の部位（パーツ）情報を表す構造体
+    struct TargetPart {
+        Vector3 position;
+        CollisionUtility::OBB obb;
+        int partId;
+    };
+
+    // この敵が持つ当たり判定のリストを取得する（デフォルトは自身全体の1つのみ）
+    virtual std::vector<TargetPart> GetTargetParts(float radius) const {
+        return { { position_, GetOBB(position_, radius), 0 } };
+    }
+
+    // 指定した部位を破壊（撃破）する（デフォルトは敵全体を撃破）
+    virtual void KillPart(int partId) {
+        (void)partId;
+        Kill();
+    }
 
     // 色設定ヘルパー：派生クラスは Initialize 内で SetColor を呼ぶこと
     void SetColor(const Vector4& color);

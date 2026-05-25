@@ -356,7 +356,7 @@ bool Player::TryUseBeam(const Vector3& direction)
     float halfAngleRad = beamHalfAngleDeg_ * (3.14159265f / 180.0f);
     int samples = std::max(1, beamSamples_);
 
-    std::vector<BaseEnemy*> hitList;
+    std::vector<std::pair<BaseEnemy*, int>> hitList;
 
     for (int i = 0; i < samples; ++i) {
         float t = (samples == 1) ? 0.0f : (static_cast<float>(i) / static_cast<float>(samples - 1));
@@ -371,25 +371,34 @@ bool Player::TryUseBeam(const Vector3& direction)
         enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
             if (!e)
                 return;
-            // avoid double-hitting
-            for (auto h : hitList)
-                if (h == e)
-                    return;
 
-            Vector3 ep = e->GetPosition();
-            float distSq = PointToSegmentDistSq(ep, origin, segEnd);
-            const float enemyRadius = 0.7f; // approximate
-            float hitRadius = beamCapsuleRadius_ + enemyRadius;
-            if (distSq <= hitRadius * hitRadius) {
-                hitList.push_back(e);
+            for (const auto& part : e->GetTargetParts(0.7f)) {
+                // avoid double-hitting
+                bool alreadyHit = false;
+                for (auto h : hitList) {
+                    if (h.first == e && h.second == part.partId) {
+                        alreadyHit = true;
+                        break;
+                    }
+                }
+                if (alreadyHit)
+                    continue;
+
+                Vector3 ep = part.position;
+                float distSq = PointToSegmentDistSq(ep, origin, segEnd);
+                const float enemyRadius = 0.7f; // approximate
+                float hitRadius = beamCapsuleRadius_ + enemyRadius;
+                if (distSq <= hitRadius * hitRadius) {
+                    hitList.push_back({e, part.partId});
+                }
             }
         });
     }
 
     // Apply effect immediately for instant hit (keep behavior) THEN start animated sweep for visuals
-    for (auto e : hitList) {
-        if (e)
-            e->Kill();
+    for (auto h : hitList) {
+        if (h.first)
+            h.first->KillPart(h.second);
     }
 
     // Start animated beam sweep in parallel for visuals and extended hit processing
@@ -1281,6 +1290,8 @@ void Player::CheckTongueBlockHook()
         // 【重要】壁判定の前に、エネミー判定を行う
         if (enemyManager_) {
             BaseEnemy* hitEnemy = nullptr;
+            int hitEnemyPartId = 0;
+            Vector3 hookPos = { 0, 0, 0 };
             enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                 if (hitEnemy || !e)
                     return;
@@ -1288,20 +1299,25 @@ void Player::CheckTongueBlockHook()
                 if (!e->IsGrappable())
                     return;
 
-                CollisionUtility::OBB enemyObb = e->GetOBB(e->GetPosition(), 0.8f);
-                auto hitE = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, enemyObb);
-                if (hitE.hit)
-                    hitEnemy = e;
+                for (const auto& part : e->GetTargetParts(0.8f)) {
+                    auto hitE = CollisionUtility::IntersectSphere_OBB_Detailed(testSphere, part.obb);
+                    if (hitE.hit) {
+                        hitEnemy = e;
+                        hitEnemyPartId = part.partId;
+                        hookPos = part.position;
+                        break;
+                    }
+                }
             });
 
             if (hitEnemy) {
-                // 敵に「刺さった方向」を伝える（これで敵が逃げ出す）
+                // 敵に「刺さった方向」を伝える（これで敵が吹き飛ぶ！等）
                 Vector3 shotDir = Normalize3(delta);
                 hitEnemy->OnTongueHit(shotDir);
 
                 lastHitEnemy_ = hitEnemy; // スリングショット用にこの敵を記憶
+                lastHitEnemyPartId_ = hitEnemyPartId;
                 tonguePullingEnemy_ = true;
-                Vector3 hookPos = hitEnemy->GetPosition();
                 tongue_->SetHooked(hookPos);
                 tonguePullTarget_ = hookPos; // 敵の位置を目標にセット
 
@@ -1427,10 +1443,11 @@ void Player::CheckEnemyContactDamage()
             return;
         }
 
-        CollisionUtility::OBB enemyObb = e->GetOBB(e->GetPosition(), 0.8f);
-
-        if (CollisionUtility::IntersectOBB_OBB(playerObb, enemyObb)) {
-            hitEnemy = true;
+        for (const auto& part : e->GetTargetParts(0.8f)) {
+            if (CollisionUtility::IntersectOBB_OBB(playerObb, part.obb)) {
+                hitEnemy = true;
+                break;
+            }
         }
         });
 
@@ -1944,16 +1961,26 @@ void Player::Update()
                 enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                     if (!e)
                         return;
-                    for (auto h : beamActiveHitList_)
-                        if (h == e)
-                            return;
-                    Vector3 ep = e->GetPosition();
-                    float distSq = PointToSegmentDistSq(ep, mouth, segEnd);
-                    const float enemyRadius = 0.7f;
-                    float hitRadius = dynamicRadius + enemyRadius;
-                    if (distSq <= hitRadius * hitRadius) {
-                        beamActiveHitList_.push_back(e);
-                        e->Kill();
+
+                    for (const auto& part : e->GetTargetParts(0.7f)) {
+                        bool alreadyHit = false;
+                        for (auto h : beamActiveHitList_) {
+                            if (h.first == e && h.second == part.partId) {
+                                alreadyHit = true;
+                                break;
+                            }
+                        }
+                        if (alreadyHit)
+                            continue;
+
+                        Vector3 ep = part.position;
+                        float distSq = PointToSegmentDistSq(ep, mouth, segEnd);
+                        const float enemyRadius = 0.7f;
+                        float hitRadius = dynamicRadius + enemyRadius;
+                        if (distSq <= hitRadius * hitRadius) {
+                            beamActiveHitList_.push_back({e, part.partId});
+                            e->KillPart(part.partId);
+                        }
                     }
                 });
             }
@@ -1968,16 +1995,26 @@ void Player::Update()
                     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                         if (!e)
                             return;
-                        for (auto h : beamActiveHitList_)
-                            if (h == e)
-                                return;
-                        Vector3 ep = e->GetPosition();
-                        float distSq = PointToSegmentDistSq(ep, origin, segEnd);
-                        const float enemyRadius = 0.7f;
-                        float hitRadius = dynamicRadius + enemyRadius;
-                        if (distSq <= hitRadius * hitRadius) {
-                            beamActiveHitList_.push_back(e);
-                            e->Kill();
+
+                        for (const auto& part : e->GetTargetParts(0.7f)) {
+                            bool alreadyHit = false;
+                            for (auto h : beamActiveHitList_) {
+                                if (h.first == e && h.second == part.partId) {
+                                    alreadyHit = true;
+                                    break;
+                                }
+                            }
+                            if (alreadyHit)
+                                continue;
+
+                            Vector3 ep = part.position;
+                            float distSq = PointToSegmentDistSq(ep, origin, segEnd);
+                            const float enemyRadius = 0.7f;
+                            float hitRadius = dynamicRadius + enemyRadius;
+                            if (distSq <= hitRadius * hitRadius) {
+                                beamActiveHitList_.push_back({e, part.partId});
+                                e->KillPart(part.partId);
+                            }
                         }
                     });
                 }
@@ -1991,17 +2028,26 @@ void Player::Update()
                     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
                         if (!e)
                             return;
-                        for (auto h : beamActiveHitList_)
-                            if (h == e)
-                                return;
-                        Vector3 ep = e->GetPosition();
-                        float distSq = PointToSegmentDistSq(ep, origin, segEnd);
-                        const float enemyRadius = 0.7f;
-                        float hitRadius = dynamicRadius + enemyRadius;
-                        if (distSq <= hitRadius * hitRadius) {
-                            beamActiveHitList_.push_back(e);
-                            e->Kill();
-                            //DebugRenderer::GetInstance()->AddSphere(ep, 0.6f, { 1.0f, 0.3f, 0.3f, 0.9f });
+
+                        for (const auto& part : e->GetTargetParts(0.7f)) {
+                            bool alreadyHit = false;
+                            for (auto h : beamActiveHitList_) {
+                                if (h.first == e && h.second == part.partId) {
+                                    alreadyHit = true;
+                                    break;
+                                }
+                            }
+                            if (alreadyHit)
+                                continue;
+
+                            Vector3 ep = part.position;
+                            float distSq = PointToSegmentDistSq(ep, origin, segEnd);
+                            const float enemyRadius = 0.7f;
+                            float hitRadius = dynamicRadius + enemyRadius;
+                            if (distSq <= hitRadius * hitRadius) {
+                                beamActiveHitList_.push_back({e, part.partId});
+                                e->KillPart(part.partId);
+                            }
                         }
                     });
                 }

@@ -446,8 +446,8 @@ public:
 	Vector3 beamActiveDir_ = {0.0f,0.0f,1.0f};
 	float beamActiveHalfAngleDeg_ = 0.0f;
 	float beamActiveMaxRadius_ = 0.0f;
-	std::vector<BaseEnemy*> beamActiveHitList_;
-    // Beam attack の判定に使うカプセルの半径は、プレイヤーの当たり判定より少し大きめにして、ヒットさせやすくする
+	std::vector<std::pair<BaseEnemy*, int>> beamActiveHitList_;
+    // Beam attack の際に使うカプセルの半径は、プレイヤーの当たり判定より少し大きめにして、ヒットさせやすくする
 	float beamOriginalCapsuleRadius_ = 0.8f;
 
 	// Per-frame delta applied when standing on a moving platform
@@ -529,10 +529,11 @@ public:
 	float groundAcceleration_ = 0.035f;
 	float groundDeceleration_ = 0.045f;
 
-	// 最後に舌がヒットしたエネミーを保持
+	// 最後に舌が当たった敵とその部位ID
 	BaseEnemy* lastHitEnemy_ = nullptr;
+	int lastHitEnemyPartId_ = 0;
 
-	// ジャンプ中は歩きアニメの途中フレームをポーズとして使う
+	// ジャンプ関連中は歩きアニメの途中フレームをポーズとして使う
 	bool useWalkFrameAsJumpPose_ = true;
 	bool jumpPoseAnimationActive_ = false;
 	std::string jumpPoseAnimationName_ = "walk";
