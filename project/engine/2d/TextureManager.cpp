@@ -75,6 +75,13 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 	// srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
 
+void TextureManager::ReloadTexture(const std::string& filePath) {
+	// キャッシュからエントリを削除して、LoadTexture で再読み込みさせる
+	// ※SRV スロットは再利用せず新たに確保する（頻繁には呼ばれない前提）
+	textureDatas_.erase(filePath);
+	LoadTexture(filePath);
+}
+
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {
 	auto it = textureDatas_.find(filePath);
 	assert(it != textureDatas_.end());

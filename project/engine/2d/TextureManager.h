@@ -26,6 +26,12 @@ public:
 	/// <returns>画像イメージデータ</returns>
 	void LoadTexture(const std::string& filePath);
 
+	/// <summary>
+	/// 既に読み込み済みのテクスチャをキャッシュから削除し、ディスクから再読み込みする。
+	/// 同じファイルパスで中身が変わった場合（ランタイム生成テクスチャ等）に使う。
+	/// </summary>
+	void ReloadTexture(const std::string& filePath);
+
 	// メタデータの取得
 	const DirectX::TexMetadata& GetMetaData(const std::string& filePath);
 	// SRVインデックスの取得

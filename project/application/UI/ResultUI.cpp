@@ -134,12 +134,14 @@ std::unique_ptr<Sprite> ResultUI::CreateTextSprite(const std::string& textUtf8, 
 	desc.shadowColor = {0.1f, 0.1f, 0.1f, 0.8f};
 	desc.shadowOffsetX = 4;
 	desc.shadowOffsetY = 4;
+	desc.overwriteIfExists = true;
 
 	if (!RuntimeTextTextureGenerator::GeneratePng(desc)) {
 		return nullptr;
 	}
 
-	TextureManager::GetInstance()->LoadTexture(outputPath);
+	// ランタイム生成テクスチャは毎回中身が変わるので、キャッシュを破棄して再読み込みする
+	TextureManager::GetInstance()->ReloadTexture(outputPath);
 	const DirectX::TexMetadata& meta = TextureManager::GetInstance()->GetMetaData(outputPath);
 
 	auto sprite = std::make_unique<Sprite>();
