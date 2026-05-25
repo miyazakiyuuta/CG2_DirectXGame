@@ -1,5 +1,6 @@
 #include "ChasingEnemy.h"
 #include "../../../engine/3d/Object3d.h"
+#include "../../Player.h"
 #include <algorithm>
 #include <cmath>
 
@@ -37,7 +38,7 @@ void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	// 水平移動速度を 60FPS 基準に補正。
 	float actualSpeed = (speed_ > 1.0f) ? (speed_ / 60.0f) : speed_;
 
-	if (distXZ > 1.0f) {
+	if (distXZ > 1.0f && (!player_ || !player_->IsMimicking())) {
 		Vector3 moveDir = Vector3::Normalized(toPlayer);
 		position_.x += moveDir.x * actualSpeed;
 		position_.z += moveDir.z * actualSpeed;
@@ -47,7 +48,7 @@ void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	ResolveHorizontalCollisions(prevPos);
 
 	// 2. ジャンプAI
-	if (distXZ < jumpRange_ && playerPos.y > position_.y + 0.5f && isOnGround_) {
+	if (distXZ < jumpRange_ && playerPos.y > position_.y + 0.5f && isOnGround_ && (!player_ || !player_->IsMimicking())) {
 		float heightDiff = playerPos.y - position_.y;
 		float requiredV = std::sqrt(2.0f * std::abs(gravity_) * heightDiff * 1.4f);
 		velocity_.y = (std::clamp)(requiredV, 0.6f, 1.4f);

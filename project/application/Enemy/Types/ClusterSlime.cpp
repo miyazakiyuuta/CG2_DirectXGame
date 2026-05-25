@@ -1,5 +1,6 @@
 #include "ClusterSlime.h"
 #include "../../../engine/3d/Object3d.h"
+#include "../../Player.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -58,7 +59,7 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
         float heightDiff = std::abs(playerPos.y - m.position.y);
 
         // --- 1. デバフ判定 ---
-        if (distToPlayerXZ < kSlowDetectionRadiusXZ && heightDiff < kSlowDetectionRadiusY) {
+        if (distToPlayerXZ < kSlowDetectionRadiusXZ && heightDiff < kSlowDetectionRadiusY && (!player_ || !player_->IsMimicking())) {
             surroundCount++;
         }
 
@@ -77,7 +78,7 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
         if (m.onGround) {
             float jumpHeightDiff = playerPos.y - m.position.y;
             // プレイヤーが自分より高い位置（0.3m以上）にいて、届く範囲（6.0m以内）ならジャンプを検討
-            if (jumpHeightDiff > 0.3f && jumpHeightDiff < 6.0f && distToPlayerXZ < 5.0f) {
+            if (jumpHeightDiff > 0.3f && jumpHeightDiff < 6.0f && distToPlayerXZ < 5.0f && (!player_ || !player_->IsMimicking())) {
                 // 垂直速度の計算: v = sqrt(2gh) に余裕を持たせる
                 float requiredV = std::sqrt(2.0f * std::abs(gravity_) * jumpHeightDiff * 1.6f);
                 m.velocity.y = (std::clamp)(requiredV, 0.3f, 0.75f);
@@ -107,7 +108,7 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
         // --- 3. 移動計算 ---
         Vector3 accel = {0, 0, 0};
-        if (distToPlayerXZ < detectRadius_) {
+        if (distToPlayerXZ < detectRadius_ && (!player_ || !player_->IsMimicking())) {
             Vector3 dir = {toPlayer.x, 0.0f, toPlayer.z};
             float len = std::sqrt(dir.x * dir.x + dir.z * dir.z);
             if (len > 0.001f) {

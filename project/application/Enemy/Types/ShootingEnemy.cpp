@@ -1,5 +1,6 @@
 #include "ShootingEnemy.h"
 #include "../../../engine/3d/Object3d.h"
+#include "../../Player.h"
 
 ShootingEnemy::ShootingEnemy() = default;
 ShootingEnemy::~ShootingEnemy() = default;
@@ -25,10 +26,12 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	Vector3 previousPosition = position_;
 
 	// 射撃タイマー
-	shotTimer_ += deltaTime;
-	if (shotTimer_ >= kShotInterval) {
-		Shoot(playerPos);
-		shotTimer_ = 0.0f;
+	if (!player_ || !player_->IsMimicking()) {
+		shotTimer_ += deltaTime;
+		if (shotTimer_ >= kShotInterval) {
+			Shoot(playerPos);
+			shotTimer_ = 0.0f;
+		}
 	}
 
 	// 弾の更新
