@@ -114,6 +114,18 @@ unsigned char RuntimeTextTextureGenerator::ToColorByte(float value)
 
 bool RuntimeTextTextureGenerator::GeneratePng(const GenerateDesc& desc)
 {
+
+	if (desc.outputFilePath.empty()) {
+		return false;
+	}
+
+	// 既に生成済みなら、同じPNGを作り直さない
+	if (!desc.overwriteIfExists &&
+		std::filesystem::exists(desc.outputFilePath)) {
+		return true;
+	}
+
+
 	if (!EnsureGdiplusInitialized()) {
 		return false;
 	}

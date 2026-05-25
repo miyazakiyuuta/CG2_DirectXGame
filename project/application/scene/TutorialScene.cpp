@@ -595,12 +595,7 @@ void TutorialScene::GenerateTutorialMessageSprites()
 	tutorialKeyboardMessageSprites_.reserve(tutorialStepDefinitions_.size());
 	tutorialGamepadMessageSprites_.reserve(tutorialStepDefinitions_.size());
 
-	static int generationId = 0;
-	++generationId;
-
-	const std::string prefix =
-		"resources/generated_ui/tutorial_" +
-		std::to_string(generationId) + "_";
+	const std::string prefix = "resources/generated_ui/tutorial_";
 
 	for (size_t i = 0; i < tutorialStepDefinitions_.size(); ++i) {
 		const std::string keyboardPath =

@@ -11,6 +11,8 @@ public:
 		std::string fontFilePath;
 		std::string outputFilePath;
 
+		bool overwriteIfExists = false;
+
 		int fontPixelSize = 40;
 		int paddingX = 24;
 		int paddingY = 16;

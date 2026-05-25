@@ -599,12 +599,6 @@ void TitleScene::Draw()
 		tutorialPos,
 		selectItem_ == MenuItem::Tutorial ? kColorAccent_ : kColorNormal_
 	);
-
-	DrawTextSprite(
-		textSprites_["guide"].get(),
-		{ 700.0f, 620.0f },
-		kColorInactive_
-	);
 }
 
 void TitleScene::DrawTextSprite(Sprite* sprite, const Vector2& pos, const Vector4& color)

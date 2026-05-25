@@ -186,15 +186,6 @@ void GamePlayScene::Initialize() {
 	// Load the single well model so it can be placed in the scene
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
 
-	object3d_ = std::make_unique<Object3d>();
-	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("human_re.gltf");
-	object3d_->SetCamera(camera_.get());
-	object3d_->SetTranslate({0.0f, 0.0f, 5.0f});
-	object3d_->SetRotate({0.0f, std::numbers::pi_v<float>, 0.0f});
-	object3d_->SetColor({0.5f, 0.5f, 0.5f, 1.0f});
-	object3d_->SetUseEnvironmentMap(true); // 環境マップ
-
 	// Create the well object and place it at a fixed position only if model is loaded
 	if (Object3dCommon::GetInstance() && camera_) {
 		// Ensure model was actually loaded
@@ -755,20 +746,6 @@ void GamePlayScene::Update() {
 		ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", numInst);
 	}
 
-	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
-		object3d_->StopAnimation();
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
-		object3d_->StopAnimation(0.5f);
-	}
-	if (Input::GetInstance()->IsPushKey(DIK_1)) {
-		object3d_->PlayAnimation("walk", true, 0.1f);
-	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
-		object3d_->PlayAnimation("sneakWalk", true, 0.1f);
-	}
-
-	object3d_->Update();
 	if (wellObject_) {
 		wellObject_->Update();
 	}
@@ -783,7 +760,6 @@ void GamePlayScene::Draw() {
 		wellObject_->Draw();
 	}
 
-	object3d_->Draw();
 	// --- 不透明オブジェクトの描画 ---
 	stage_->Draw();
 	stageEditor_->Draw();
