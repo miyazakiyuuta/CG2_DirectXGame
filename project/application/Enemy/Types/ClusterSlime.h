@@ -27,6 +27,9 @@ private:
 		float timer;
 		bool onGround; // 接地フラグ
 		bool isDead = false; // 個別死亡フラグ
+		bool isDestroyed = false; // 演出終了フラグ
+		float deathTimer = 0.0f;  // 演出タイマー
+		std::unique_ptr<Object3d> soulObject; // 魂エフェクト用オブジェクト
 
 		// メンバーごとの着地ブロック XZ 範囲と上面 Y を記録する
 		// BaseEnemy の hasLandingBlock_ は共有されるため、メンバー切り替え時に退避・復元する

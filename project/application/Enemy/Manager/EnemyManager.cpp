@@ -97,17 +97,14 @@ void EnemyManager::Update(float deltaTime, Player* player)
             enemy->SetBlockColliders(blockColliders_);
             enemy->SetPlayer(player); // 【追加】情報を渡す
             enemy->SetKeepInsideCylinder(keepInsideCylinder_);
-            // すでに死亡フラグが立っている敵は更新しない。
-            // （死亡後にもう1フレーム移動してしまい、ドロップ位置がズレるのを防ぐ）
-            if (!enemy->IsDead()) {
-                enemy->Update(deltaTime, playerPos);
-            }
+            // 死亡演出のために常にUpdateを呼ぶ（死んだ敵のUpdate内で演出処理や早期リターンを行う）
+            enemy->Update(deltaTime, playerPos);
         }
     }
-    // 死亡した敵を収集し、メインリストから切り離してからドロップを処理する
+    // 死亡演出が終了した（IsDestroyed）敵を収集し、メインリストから切り離してからドロップを処理する
     std::vector<std::unique_ptr<BaseEnemy>> deadEnemies;
     for (auto it = enemies_.begin(); it != enemies_.end();) {
-        if (*it && (*it)->IsDead()) {
+        if (*it && (*it)->IsDestroyed()) {
             // 切り出す
             deadEnemies.push_back(std::move(*it));
             it = enemies_.erase(it);

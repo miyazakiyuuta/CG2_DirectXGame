@@ -10,7 +10,7 @@ void ShootingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
 	camera_ = camera;
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("Cube.obj");
+	LoadModel("Cube.obj");
 	object_->SetCamera(camera);
 	position_ = pos;
 
@@ -22,6 +22,20 @@ void ShootingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
 }
 
 void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
+	// 弾の更新（死亡後も飛ばし続ける）
+	for (auto it = bullets_.begin(); it != bullets_.end();) {
+		(*it)->Update(deltaTime);
+		if ((*it)->IsDead())
+			it = bullets_.erase(it);
+		else
+			++it;
+	}
+
+	if (isDead_) {
+		UpdateDeathAnimation(deltaTime);
+		return;
+	}
+
 	// 1. 水平移動前の座標を保持
 	Vector3 previousPosition = position_;
 
@@ -32,15 +46,6 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 			Shoot(playerPos);
 			shotTimer_ = 0.0f;
 		}
-	}
-
-	// 弾の更新
-	for (auto it = bullets_.begin(); it != bullets_.end();) {
-		(*it)->Update(deltaTime);
-		if ((*it)->IsDead())
-			it = bullets_.erase(it);
-		else
-			++it;
 	}
 
 	// 2. 水平移動の解決（移動がなくても壁判定のために呼ぶ）
@@ -66,8 +71,12 @@ void ShootingEnemy::Shoot(const Vector3& target) {
 }
 
 void ShootingEnemy::Draw() {
-	if (object_)
+	if (isDead_) {
+		DrawDeathAnimation();
+	} else if (object_) {
 		object_->Draw();
+	}
+
 	for (auto& b : bullets_)
 		b->Draw();
 }

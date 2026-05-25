@@ -9,6 +9,12 @@ ClusterSlime::ClusterSlime() = default;
 ClusterSlime::~ClusterSlime() = default;
 
 void ClusterSlime::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
+    common_ = common;
+    camera_ = camera;
+    LoadModel("ClusterMinion.obj");
+    position_ = pos;
+    velocity_ = {0, 0, 0};
+    originalColor_ = {0.2f, 0.8f, 0.2f, 1.0f}; // スライムの色
     object_ = std::make_unique<Object3d>();
     object_->Initialize(common);
     object_->SetModel("ClusterMinion.obj");
@@ -52,7 +58,51 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
 
     for (size_t i = 0; i < members_.size(); ++i) {
         auto& m = members_[i];
-        if (m.isDead) continue; // 死亡した個体は処理しない
+        if (m.isDead) {
+            if (m.isDestroyed) continue;
+            
+            if (!m.soulObject && common_ && camera_) {
+                m.soulObject = std::make_unique<Object3d>();
+                m.soulObject->Initialize(common_);
+                m.soulObject->SetModel("ClusterMinion.obj");
+                m.soulObject->SetCamera(camera_);
+                m.soulObject->SetScale(m.object->GetScale());
+                m.soulObject->SetTranslate(m.object->GetTranslate());
+                m.soulObject->SetRotate(m.object->GetRotate());
+                m.soulObject->SetColor(originalColor_);
+
+                Vector3 rot = m.object->GetRotate();
+                rot.x += 1.57f;
+                m.object->SetRotate(rot);
+                m.object->Update();
+            }
+
+            m.deathTimer += deltaTime;
+
+            if (m.soulObject) {
+                Vector3 soulPos = m.soulObject->GetTranslate();
+                soulPos.y += deltaTime * 2.0f;
+                m.soulObject->SetTranslate(soulPos);
+
+                float alpha = std::clamp(1.0f - (m.deathTimer / 1.5f), 0.0f, 1.0f);
+                m.soulObject->SetColor({originalColor_.x, originalColor_.y, originalColor_.z, alpha});
+
+                Vector3 rot = m.soulObject->GetRotate();
+                rot.y += deltaTime * 2.0f;
+                m.soulObject->SetRotate(rot);
+                m.soulObject->Update();
+            }
+
+            // 死体（本体オブジェクト）も毎フレームUpdateしないと画面にくっついてしまうため呼ぶ
+            if (m.object) {
+                m.object->Update();
+            }
+
+            if (m.deathTimer >= 1.5f) {
+                m.isDestroyed = true;
+            }
+            continue;
+        }
 
         Vector3 previousPos = m.position;
 
@@ -184,27 +234,39 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
     // 4. 累積減速倍率を計算
     playerSpeedMultiplier_ = (std::clamp)(1.0f - (surroundCount * kSlowEffectPerMember), 0.2f, 1.0f);
 
-    if (object_ && !members_.empty()) {
-        Vector3 avg = {0, 0, 0};
-        int aliveCount = 0;
-        for (auto& mem : members_) {
-            if (!mem.isDead) {
-                avg += mem.position;
-                aliveCount++;
-            }
+    // 全滅判定（演出終了まで確認）
+    bool allDestroyed = true;
+    for (auto& m : members_) {
+        if (!m.isDestroyed) {
+            allDestroyed = false;
+            break;
         }
-        if (aliveCount > 0) {
-            position_ = avg * (1.0f / static_cast<float>(aliveCount));
-        }
-        object_->SetTranslate(position_);
-        object_->Update();
     }
+    if (isDead_ && allDestroyed) {
+        isDestroyed_ = true;
+    }
+
+    // 中心座標を生存メンバーの平均にする
+    Vector3 center = {0, 0, 0};
+    int aliveCount = 0;
+    for (auto& mem : members_) {
+        if (!mem.isDestroyed) {
+            center += mem.position;
+            aliveCount++;
+        }
+    }
+    if (aliveCount > 0) {
+        position_ = center * (1.0f / static_cast<float>(aliveCount));
+    }
+    object_->SetTranslate(position_);
+    object_->Update();
 }
 
 void ClusterSlime::Draw() {
     for (auto& m : members_) {
-        if (!m.isDead) {
-            m.object->Draw();
+        if (!m.isDestroyed) {
+            if (m.object) m.object->Draw();
+            if (m.isDead && m.soulObject) m.soulObject->Draw();
         }
     }
 }

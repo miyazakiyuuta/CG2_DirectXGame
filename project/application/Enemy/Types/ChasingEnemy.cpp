@@ -8,9 +8,11 @@ ChasingEnemy::ChasingEnemy() = default;
 ChasingEnemy::~ChasingEnemy() = default;
 
 void ChasingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
+	common_ = common;
+	camera_ = camera;
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("Cube.obj");
+	LoadModel("Cube.obj");
 	object_->SetCamera(camera);
 	position_ = pos;
 
@@ -27,6 +29,11 @@ void ChasingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vect
 }
 
 void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
+	if (isDead_) {
+		UpdateDeathAnimation(deltaTime);
+		return;
+	}
+
 	if (!object_)
 		return;
 
@@ -67,6 +74,11 @@ void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 }
 
 void ChasingEnemy::Draw() {
+	if (isDead_) {
+		DrawDeathAnimation();
+		return;
+	}
+
 	if (object_)
 		object_->Draw();
 }

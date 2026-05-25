@@ -166,6 +166,71 @@ CollisionUtility::OBB BaseEnemy::GetOBB(const Vector3& pos, float radius) const 
 	return CollisionUtility::MakeOBBFromTransform(t, {radius, radius, radius});
 }
 
+void BaseEnemy::LoadModel(const std::string& filePath) {
+    modelPath_ = filePath;
+    if (object_) {
+        object_->SetModel(filePath);
+    }
+}
+
+void BaseEnemy::UpdateDeathAnimation(float deltaTime) {
+    if (!soulObject_ && object_ && common_ && camera_) {
+        // 魂オブジェクトを本体と同じ状態で初期化
+        soulObject_ = std::make_unique<Object3d>();
+        soulObject_->Initialize(common_);
+        soulObject_->SetModel(modelPath_.empty() ? "Cube.obj" : modelPath_);
+        soulObject_->SetCamera(camera_);
+        soulObject_->SetTranslate(object_->GetTranslate());
+        soulObject_->SetScale(object_->GetScale());
+        soulObject_->SetRotate(object_->GetRotate());
+        soulObject_->SetColor({originalColor_.x, originalColor_.y, originalColor_.z, 1.0f});
+
+        // 本体（死体）を倒す（X軸かZ軸に90度）
+        Vector3 rot = object_->GetRotate();
+        rot.x += 1.57f;
+        object_->SetRotate(rot);
+        object_->Update();
+    }
+
+    deathTimer_ += deltaTime;
+
+    if (soulObject_) {
+        // 魂を上に昇らせる
+        Vector3 soulPos = soulObject_->GetTranslate();
+        soulPos.y += deltaTime * 2.0f;
+        soulObject_->SetTranslate(soulPos);
+
+        // アルファ値を下げて透明にする（1.5秒かけて0にする）
+        float alpha = std::clamp(1.0f - (deathTimer_ / 1.5f), 0.0f, 1.0f);
+        soulObject_->SetColor({originalColor_.x, originalColor_.y, originalColor_.z, alpha});
+
+        // スピニングなど少し回転させると魂っぽい
+        Vector3 rot = soulObject_->GetRotate();
+        rot.y += deltaTime * 2.0f;
+        soulObject_->SetRotate(rot);
+
+        soulObject_->Update();
+    }
+
+    // 死体（本体オブジェクト）も毎フレームUpdateしないと画面にくっついてしまうため呼ぶ
+    if (object_) {
+        object_->Update();
+    }
+
+    if (deathTimer_ >= 1.5f) {
+        isDestroyed_ = true; // 完全に透明になったら削除許可
+    }
+}
+
+void BaseEnemy::DrawDeathAnimation() {
+    if (object_) {
+        object_->Draw();
+    }
+    if (soulObject_) {
+        soulObject_->Draw();
+    }
+}
+
 int BaseEnemy::DistributeDrops() {
 	if (dropTable_.empty() || !player_)
 		return 0;

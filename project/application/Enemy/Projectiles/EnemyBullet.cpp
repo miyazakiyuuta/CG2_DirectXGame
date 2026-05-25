@@ -18,6 +18,9 @@ void EnemyBullet::Initialize(Object3dCommon* common, Camera* camera, const Vecto
 	Vector3 dir = target - pos;
 	if (dir.Length() > 0)
 		velocity_ = Vector3::Normalized(dir) * speed_ * (1.0f / 60.0f);
+
+	object_->SetTranslate(position_);
+	object_->Update();
 }
 
 void EnemyBullet::Update(float deltaTime) {

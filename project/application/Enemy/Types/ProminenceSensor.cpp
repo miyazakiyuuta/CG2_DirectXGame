@@ -12,10 +12,12 @@ ProminenceSensor::~ProminenceSensor() = default;
 
 // --- 初期化：見た目や物理挙動のセットアップ ---
 void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
+	common_ = common;
+	camera_ = camera;
 	// 3Dオブジェクトの基本設定
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("ProminenceSensor.obj");
+	LoadModel("ProminenceSensor.obj");
 	object_->SetCamera(camera);
 
 	// 配置と大きさの設定
@@ -34,6 +36,11 @@ void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const 
 
 // --- 更新処理：ステートマシンと索敵AI ---
 void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
+	if (isDead_) {
+		UpdateDeathAnimation(deltaTime);
+		return;
+	}
+
 	stateTimer_ += deltaTime; // 状態が変化してからの経過時間をカウント
 
 	// 1. 物理計算（重力と当たり判定）
@@ -185,6 +192,11 @@ Vector3 ProminenceSensor::GetBeamOrigin() const {
 }
 
 void ProminenceSensor::Draw() {
+	if (isDead_) {
+		DrawDeathAnimation();
+		return;
+	}
+
 	if (object_)
 		object_->Draw();
 }

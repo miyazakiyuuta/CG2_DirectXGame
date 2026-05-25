@@ -7,9 +7,11 @@ PhaseGhost::PhaseGhost() = default;
 PhaseGhost::~PhaseGhost() = default;
 
 void PhaseGhost::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
+	common_ = common;
+	camera_ = camera;
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("GhostFace.obj");
+	LoadModel("GhostFace.obj");
 	object_->SetCamera(camera);
 
 	position_ = pos;
@@ -31,6 +33,11 @@ void PhaseGhost::OnSonarHit() {
 }
 
 void PhaseGhost::Update(float deltaTime, const Vector3& playerPos) {
+	if (isDead_) {
+		UpdateDeathAnimation(deltaTime);
+		return;
+	}
+
 	(void)playerPos;
 
 	// 1. 実体化タイマーの更新
@@ -67,6 +74,11 @@ void PhaseGhost::Update(float deltaTime, const Vector3& playerPos) {
 }
 
 void PhaseGhost::Draw() {
+	if (isDead_) {
+		DrawDeathAnimation();
+		return;
+	}
+
 	if (object_)
 		object_->Draw();
 }

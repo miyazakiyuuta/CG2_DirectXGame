@@ -29,6 +29,7 @@ public:
 
     const Vector3& GetPosition() const { return position_; }
     bool IsDead() const { return isDead_; }
+    bool IsDestroyed() const { return isDestroyed_; } // 追加: EnemyManagerの削除判定用
     virtual void Kill() { isDead_ = true; } // 仮想関数に変更
 
     // 当たり判定の部位（パーツ）情報を表す構造体
@@ -133,12 +134,26 @@ protected:
     // 着地ブロックをクリアする
     void ClearLandingBlock() { hasLandingBlock_ = false; }
 
+    // 派生クラスからモデルを読み込み、魂エフェクト用にもパスを保存する
+    void LoadModel(const std::string& filePath);
+
+    // 死亡演出の更新と描画
+    void UpdateDeathAnimation(float deltaTime);
+    void DrawDeathAnimation();
+
 protected:
+    Object3dCommon* common_ = nullptr;
+    Camera* camera_ = nullptr;
+
+    std::string modelPath_;
     std::unique_ptr<Object3d> object_ = nullptr;
+    std::unique_ptr<Object3d> soulObject_ = nullptr; // 魂エフェクト用オブジェクト
     Vector4 originalColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
     Vector3 position_ = {0.0f, 0.0f, 0.0f};
     Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
     bool isDead_ = false;
+    bool isDestroyed_ = false; // 死亡演出が完了し、削除可能かどうか
+    float deathTimer_ = 0.0f;  // 死亡演出のタイマー
     bool isOnGround_ = false;
 
     const std::vector<CollisionUtility::OBB>* blockColliders_ = nullptr;

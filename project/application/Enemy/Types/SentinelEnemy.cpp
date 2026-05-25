@@ -12,9 +12,11 @@ SentinelEnemy::SentinelEnemy()
 SentinelEnemy::~SentinelEnemy() = default;
 
 void SentinelEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
+	common_ = common;
+	camera_ = camera;
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("SentinelHook.obj");
+	LoadModel("SentinelHook.obj");
 	object_->SetCamera(camera);
 
 	position_ = pos;
@@ -80,6 +82,11 @@ void SentinelEnemy::StopByObstacleCollision()
 }
 
 void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
+	if (isDead_) {
+		UpdateDeathAnimation(deltaTime);
+		return;
+	}
+
 	if (!object_)
 		return;
 
@@ -206,6 +213,11 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 }
 
 void SentinelEnemy::Draw() {
+	if (isDead_) {
+		DrawDeathAnimation();
+		return;
+	}
+
 	if (object_)
 		object_->Draw();
 }
