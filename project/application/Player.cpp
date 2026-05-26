@@ -458,6 +458,89 @@ Vector3 Cross3(const Vector3& a, const Vector3& b) { return { a.y * b.z - a.z * 
 
 float ClampFloat(float v, float minV, float maxV) { return std::max(minV, std::min(v, maxV)); }
 
+bool IsPointInsideShrunkOBBForTongue(
+    const Vector3& point,
+    const CollisionUtility::OBB& block,
+    float shrink
+)
+{
+    Vector3 axis[3] = {
+        Normalize3(block.axis[0]),
+        Normalize3(block.axis[1]),
+        Normalize3(block.axis[2]),
+    };
+
+    Vector3 localVec = point - block.center;
+
+    for (int i = 0; i < 3; ++i) {
+        float half = std::max(0.0f, block.halfLength[i] - shrink);
+        float local = Dot3(localVec, axis[i]);
+
+        if (std::abs(local) > half) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool DoesSegmentEnterShrunkOBBForTongue(
+    const Vector3& start,
+    const Vector3& end,
+    const CollisionUtility::OBB& block,
+    float shrink
+)
+{
+    if (IsPointInsideShrunkOBBForTongue(start, block, shrink) ||
+        IsPointInsideShrunkOBBForTongue(end, block, shrink)) {
+        return true;
+    }
+
+    Vector3 axis[3] = {
+        Normalize3(block.axis[0]),
+        Normalize3(block.axis[1]),
+        Normalize3(block.axis[2]),
+    };
+
+    Vector3 localStartVec = start - block.center;
+    Vector3 segment = end - start;
+
+    float tMin = 0.0f;
+    float tMax = 1.0f;
+
+    for (int i = 0; i < 3; ++i) {
+        float half = std::max(0.0f, block.halfLength[i] - shrink);
+        float origin = Dot3(localStartVec, axis[i]);
+        float dir = Dot3(segment, axis[i]);
+
+        float minV = -half;
+        float maxV = half;
+
+        if (std::abs(dir) <= 0.000001f) {
+            if (origin < minV || origin > maxV) {
+                return false;
+            }
+            continue;
+        }
+
+        float t1 = (minV - origin) / dir;
+        float t2 = (maxV - origin) / dir;
+
+        if (t1 > t2) {
+            std::swap(t1, t2);
+        }
+
+        tMin = std::max(tMin, t1);
+        tMax = std::min(tMax, t2);
+
+        if (tMin > tMax) {
+            return false;
+        }
+    }
+
+    return tMax >= 0.0f && tMin <= 1.0f;
+}
+
 static Vector3 ExtractEulerXYZFromBasis(
 	const Vector3& right,
 	const Vector3& up,
@@ -494,6 +577,8 @@ static Vector3 ExtractEulerXYZFromBasis(
 	}
 
 	return { rotX, rotY, rotZ };
+
+
 }
 
 void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const std::string& modelName, const Vector3& startPosition) {
@@ -1339,7 +1424,19 @@ void Player::CheckTongueBlockHook()
             Vector3 usedHitNormal = rawHitNormal;
             Vector3 usedHitPoint = hit.point;
 
-            if (!debugIgnoreHookSurfaceCorrection_) {
+            const float kTonguePenetrationShrink = 0.02f;
+
+            // 舌先中心がブロック本体に入った時だけ「貫通」とみなす。
+            // Sphere が表面に触れただけなら、中心はまだ外側なので false になる。
+            bool tonguePenetratedBlock =
+                DoesSegmentEnterShrunkOBBForTongue(
+                    start,
+                    testSphere.center,
+                    block,
+                    kTonguePenetrationShrink
+                );
+
+            if (!debugIgnoreHookSurfaceCorrection_ && tonguePenetratedBlock) {
                 ResolveHookSurfaceFromPlayerCapsule(
                     block,
                     GetPosition(),
@@ -1358,12 +1455,22 @@ void Player::CheckTongueBlockHook()
             SetupClingSurfaceFromHit(block, usedHitPoint, usedHitNormal);
             UpdateClingStageObjectFromHitPoint(usedHitPoint);
 
-            Vector3 hookAnchorPoint =
-                clingSurfaceCenter_
-                + clingSurfaceRight_ * clingHitRightOffset_
-                + clingSurfaceUp_ * clingHitUpOffset_;
+            Vector3 hookPos = {};
 
-            Vector3 hookPos = hookAnchorPoint + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
+            if (tonguePenetratedBlock) {
+                // 貫通時だけ、補正後の面上アンカーを使う
+                Vector3 hookAnchorPoint =
+                    clingSurfaceCenter_
+                    + clingSurfaceRight_ * clingHitRightOffset_
+                    + clingSurfaceUp_ * clingHitUpOffset_;
+
+                hookPos = hookAnchorPoint + clingSurfaceNormal_ * tongueHookSurfaceOffset_;
+            }
+            else {
+                // 通常ヒット時は、元の舌ヒット位置をなるべくそのまま使う
+                hookPos = usedHitPoint + usedHitNormal * tongueHookSurfaceOffset_;
+            }
+
             tongue_->SetHooked(hookPos);
 
             // 擬態処理 (Camouflage)

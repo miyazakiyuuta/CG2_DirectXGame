@@ -776,16 +776,15 @@ void GamePlayScene::Draw() {
 	debugGrid_->Draw(*camera_);
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
-	if (reticle_) {
-		reticle_->Draw();
-	}
-	player_->DrawUI();
-
-	timerText_.Draw();
-
-	if (timerColonSprite_) {
+	if (!resultUI_->IsActive()) {
+		if (reticle_) {
+			reticle_->Draw();
+		}
+		player_->DrawUI();
+		timerText_.Draw();
 		timerColonSprite_->Draw();
 	}
+
 	// 3. ポーズUIを最後に重ねる（一番手前に表示）
 	pauseMenu_->Draw();
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
