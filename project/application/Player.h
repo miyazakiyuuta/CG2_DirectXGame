@@ -458,7 +458,7 @@ public:
 	bool abilityActive_ = false; // for Camouflage: next tongue hit will attempt mimic
 
 	// Sonar parameters
-	float sonarRange_ = 10.0f;
+	float sonarRange_ = 60.0f;
 	float sonarDuration_ = 3.0f; // seconds (Update uses frames, so will convert)
 	float sonarTimer_ = 0.0f;
 	float sonarAlpha_ = 0.3f; // alpha applied to revealed objects/enemies

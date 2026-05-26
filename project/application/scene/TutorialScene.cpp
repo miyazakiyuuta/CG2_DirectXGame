@@ -140,7 +140,19 @@ void TutorialScene::Initialize()
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
 	enemyManager_->SetBlockColliders(&stageBlockColliders_);
 	enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
-	enemyManager_->SetOnEnemyDeadCallback([this](BaseEnemy*) {
+	enemyManager_->SetOnEnemyDeadCallback([this](BaseEnemy* deadEnemy) {
+		// チュートリアル用センチネルは「敵を倒す」カウントに入れない。
+		// センチネルフックタスク中なら、少し待って再生成する。
+		if (deadEnemy == tutorialSentinelEnemy_) {
+			tutorialSentinelEnemy_ = nullptr;
+
+			if (IsSentinelHookTutorialActive()) {
+				tutorialSentinelRespawnRequested_ = true;
+				tutorialSentinelRespawnTimer_ = tutorialSentinelRespawnDelay_;
+			}
+			return;
+		}
+
 		++tutorialEnemyKilledCount_;
 		});
 	enemyManager_->SetXPOrbSpawner(
@@ -413,6 +425,48 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		});
 
 	tutorialStepDefinitions_.push_back({
+	"下面から側面へ",
+	ToUtf8String(u8"下面を走って側面へ移動してみよう"),
+	ToUtf8String(u8"下面を走って側面へ移動してみよう"),
+	1,
+	[this](const TutorialContext& ctx) {
+		if (!ctx.player || !ctx.input) {
+			return 0;
+		}
+
+		const bool keyboardRun =
+			ctx.input->IsPushKey(DIK_SPACE);
+
+		const bool gamepadRun =
+			ctx.input->IsPressPad(XINPUT_GAMEPAD_A);
+
+		const bool runningInput =
+			keyboardRun || gamepadRun;
+
+		// 下面にいる間に走る入力をしたことを覚える
+		if (ctx.player->IsCeilingCrawling() && runningInput) {
+			tutorialCeilingToWallSawCeilingRun_ = true;
+		}
+
+		// その後、側面張り付きへ移ったら達成
+		if (tutorialCeilingToWallSawCeilingRun_ &&
+			ctx.player->IsWallClinging()) {
+			return 1;
+		}
+
+		return 0;
+	},
+	[this]() {
+		tutorialCeilingToWallSawCeilingRun_ = false;
+	},
+	[this]() {
+		tutorialCeilingToWallSawCeilingRun_ = false;
+		ClearTutorialPhaseRuntime(true);
+	},
+	0.5f
+		});
+
+	tutorialStepDefinitions_.push_back({
 		"ソナー",
 		ToUtf8String(u8"Fキーでソナーを使ってみよう"),
 		ToUtf8String(u8"Yボタンでソナーを使ってみよう"),
@@ -554,7 +608,7 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
-		0.5f
+		3.0f
 		});
 }
 
@@ -777,6 +831,10 @@ void TutorialScene::ClearTutorialEnemies()
 	if (enemyManager_) {
 		enemyManager_->Clear();
 	}
+
+	tutorialSentinelEnemy_ = nullptr;
+	tutorialSentinelRespawnRequested_ = false;
+	tutorialSentinelRespawnTimer_ = 0.0f;
 }
 
 void TutorialScene::ClearTutorialXP()
@@ -911,12 +969,44 @@ void TutorialScene::SpawnTutorialSentinelHook()
 
 	enemyManager_->Clear();
 
-	BaseEnemy* enemy =
+	tutorialSentinelEnemy_ =
 		enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 16.0f });
 
-	if (auto* sentinel = dynamic_cast<SentinelEnemy*>(enemy)) {
+	tutorialSentinelRespawnRequested_ = false;
+	tutorialSentinelRespawnTimer_ = 0.0f;
+
+	if (auto* sentinel = dynamic_cast<SentinelEnemy*>(tutorialSentinelEnemy_)) {
 		sentinel->SetTutorialHookMode(true);
 	}
+}
+
+bool TutorialScene::IsSentinelHookTutorialActive() const
+{
+	if (tutorialDirector_.IsFinished()) {
+		return false;
+	}
+
+	return tutorialDirector_.GetCurrentTitle() == "センチネルフック";
+}
+
+void TutorialScene::UpdateTutorialSentinelRespawn(float deltaTime)
+{
+	if (!tutorialSentinelRespawnRequested_) {
+		return;
+	}
+
+	if (!IsSentinelHookTutorialActive()) {
+		tutorialSentinelRespawnRequested_ = false;
+		tutorialSentinelRespawnTimer_ = 0.0f;
+		return;
+	}
+
+	tutorialSentinelRespawnTimer_ -= deltaTime;
+	if (tutorialSentinelRespawnTimer_ > 0.0f) {
+		return;
+	}
+
+	SpawnTutorialSentinelHook();
 }
 
 bool TutorialScene::IsTutorialStageObjectAlive(int id) const
@@ -1339,6 +1429,7 @@ void TutorialScene::Update()
 
 		UpdateLastInputDevice();
 		UpdateTutorial(deltaTime);
+		UpdateTutorialSentinelRespawn(deltaTime);
 	}
 
 	if (camera_) {

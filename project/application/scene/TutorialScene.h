@@ -23,6 +23,7 @@ class Reticle;
 class DebugGrid;
 class PauseMenu;
 class EnemyManager;
+class BaseEnemy;
 
 class TutorialScene : public BaseScene {
 public:
@@ -102,6 +103,8 @@ private:
 	void SpawnTutorialWarpBlock();
 	void SpawnTutorialWeakEnemy();
 	void SpawnTutorialSentinelHook();
+	bool IsSentinelHookTutorialActive() const;
+	void UpdateTutorialSentinelRespawn(float deltaTime);
 
 	bool IsTutorialStageObjectAlive(int id) const;
 	int CountAliveTutorialObjects(BlockID blockId) const;
@@ -169,6 +172,13 @@ private:
 	float tutorialWallClingConsumedTotal_ = 0.0f;
 	float tutorialWallClingConsumeRequired_ = 10.0f;
 	float tutorialWallClingConsumeRemainder_ = 0.0f;
+
+	BaseEnemy* tutorialSentinelEnemy_ = nullptr;
+	bool tutorialSentinelRespawnRequested_ = false;
+	float tutorialSentinelRespawnTimer_ = 0.0f;
+	float tutorialSentinelRespawnDelay_ = 0.25f;
+
+	bool tutorialCeilingToWallSawCeilingRun_ = false;
 
 	// 0.1 スタミナ消費 = 1 スコアにする
 	float tutorialWallClingScoreScale_ = 1.0f;

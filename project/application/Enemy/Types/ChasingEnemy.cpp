@@ -70,10 +70,10 @@ void ChasingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	ResolveVerticalCollisions();
 
 	object_->SetTranslate(position_);
-	object_->Update();
 }
 
 void ChasingEnemy::Draw() {
+	object_->Update();
 	if (isDead_) {
 		DrawDeathAnimation();
 		return;

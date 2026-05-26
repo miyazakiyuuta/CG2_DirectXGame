@@ -290,7 +290,7 @@ void TitleScene::CreateTextSprite(
 	auto sprite = std::make_unique<Sprite>();
 	sprite->Initialize(spriteCommon_, outputPath);
 
-	const float drawScale = 0.5f;
+	const float drawScale = (key == "title") ? 1.00f : 0.5f;
 	sprite->SetAnchorPoint({ 0.5f, 0.5f });
 	sprite->SetSize({
 		static_cast<float>(meta.width) * drawScale,

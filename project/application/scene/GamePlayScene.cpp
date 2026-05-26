@@ -369,7 +369,7 @@ void GamePlayScene::Initialize() {
 	Object3dCommon::GetInstance()->SetPointLight({
 	    {1.0f, 1.0f, 1.0f, 1.0f}, // color
 	    {0.0f, -0.1f, 0.0f}, // position
-	    1.0f, // intensity
+	    0.12f, // intensity
 	    20000.0f, // radius
 	    0.0f  // decay
 	});
@@ -798,15 +798,6 @@ void GamePlayScene::Draw() {
 
 void GamePlayScene::DrawImGui() {
 #ifdef USE_IMGUI
-
-	Vector3 object3dPos = object3d_->GetTranslate();
-
-	ImGui::Begin("GamePlayScene_Object");
-	camera_->DrawImGui();
-	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
-		object3d_->SetTranslate(object3dPos);
-	}
-	ImGui::End();
 
 	ImGui::Begin("a");
 	// Well object debug / info
