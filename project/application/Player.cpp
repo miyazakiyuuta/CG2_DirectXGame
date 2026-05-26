@@ -1724,7 +1724,10 @@ void Player::Update()
     }
 
     if (pendingTeleport_) {
-        object_->SetTranslate(pendingTeleportPosition_);
+        // ワープ開始位置と目標位置を記録
+        warpStartPosition_ = object_->GetTranslate();
+        warpTargetPosition_ = pendingTeleportPosition_;
+        warpTimer_ = 0.0f;
 
         velocity_ = { 0.0f, 0.0f, 0.0f };
         groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
@@ -1742,7 +1745,7 @@ void Player::Update()
         ClearClingStageObjectTracking();
         CancelJumpCharge();
 
-        TransitionTo(MovementState::Jumping);
+        TransitionTo(MovementState::Warping);
         pendingTeleport_ = false;
     }
 
@@ -1886,6 +1889,10 @@ void Player::Update()
     case MovementState::TonguePulling:
         UpdateTonguePulling();
         break;
+
+    case MovementState::Warping:
+        UpdateWarping();
+        break;
     }
 
     // Apply riding platform delta after physics and collision resolution so it is
@@ -1914,6 +1921,7 @@ void Player::Update()
 	if(!suppressTongueShotThisFrame_ &&
 	   moveState_ != MovementState::CeilingCrawling &&
 	   moveState_ != MovementState::WallClinging &&
+	   moveState_ != MovementState::Warping &&
 	   (input_->IsTriggerMouse(0) || input_->GetRightTrigger() >= 0.5f)) {
 		Vector3 shotDirection = cameraForward;
 
@@ -1960,7 +1968,7 @@ void Player::Update()
 
 	// Q key: cycle selected ability
 	// E key: activate camouflage (next tongue hit will mimic)
-	if (input_->IsTriggerKey(DIK_Q) || input_->IsPressPad(XINPUT_GAMEPAD_X)) {
+	if ((input_->IsTriggerKey(DIK_Q) || input_->IsPressPad(XINPUT_GAMEPAD_X)) && moveState_ != MovementState::Warping) {
 		if (isMimicking_) {
 			EndMimic();
 		} else {
@@ -1969,7 +1977,7 @@ void Player::Update()
 	}
 
 	// F key: activate sonar immediately
-	if (input_->IsTriggerKey(DIK_F) || input_->IsPressPad(XINPUT_GAMEPAD_Y)) {
+	if ((input_->IsTriggerKey(DIK_F) || input_->IsPressPad(XINPUT_GAMEPAD_Y)) && moveState_ != MovementState::Warping) {
 		sonarTimer_ = sonarDuration_ * 60.0f;
 	}
 
@@ -2567,6 +2575,8 @@ const char* Player::GetMovementStateName() const
         return "TonguePulling";
     case MovementState::CeilingCrawling:
         return "CeilingCrawling";
+    case MovementState::Warping:
+        return "Warping";
     }
     return "Unknown";
 }
@@ -2642,6 +2652,12 @@ void Player::TransitionTo(MovementState nextState) {
         break;
 
 	case MovementState::CeilingCrawling:
+		velocity_ = { 0.0f, 0.0f, 0.0f };
+		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
+		break;
+
+	case MovementState::Warping:
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
 		lockedJumpMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
@@ -3117,6 +3133,28 @@ float Player::GetYaw() const
         return 0.0f;
     }
     return object_->GetRotate().y;
+}
+
+void Player::UpdateWarping()
+{
+    if (!object_) return;
+
+    warpTimer_ += 1.0f;
+    float t = warpTimer_ / warpDuration_;
+
+    if (t >= 1.0f) {
+        t = 1.0f;
+        object_->SetTranslate(warpTargetPosition_);
+        TransitionTo(MovementState::Jumping);
+    }
+    else {
+        // 線形補間
+        Vector3 currentPos;
+        currentPos.x = warpStartPosition_.x + (warpTargetPosition_.x - warpStartPosition_.x) * t;
+        currentPos.y = warpStartPosition_.y + (warpTargetPosition_.y - warpStartPosition_.y) * t;
+        currentPos.z = warpStartPosition_.z + (warpTargetPosition_.z - warpStartPosition_.z) * t;
+        object_->SetTranslate(currentPos);
+    }
 }
 
 void Player::UpdateWallClinging(float cameraYaw)

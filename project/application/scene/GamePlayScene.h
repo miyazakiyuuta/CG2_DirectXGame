@@ -12,6 +12,7 @@
 #include "audio/SoundManager.h"
 
 #include "XPOrb.h"
+#include "WarpExit.h"
 
 #include <cstdint>
 #include <d3d12.h>
@@ -85,6 +86,9 @@ private:
 	// warp cooldown to avoid immediate re-triggering
 	int warpCooldownCounter_ = 0;
 	int lastWarpId_ = -1;
+
+	// Dynamically spawned warp exit actors
+	std::vector<std::unique_ptr<WarpExit>> activeWarpExits_;
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<DebugGrid> debugGrid_;

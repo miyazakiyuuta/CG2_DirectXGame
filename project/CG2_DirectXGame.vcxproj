@@ -220,6 +220,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\Tongue.cpp" />
     <ClCompile Include="engine\3d\Skybox.cpp" />
     <ClCompile Include="application\Slug.cpp" />
+    <ClCompile Include="application\WarpExit.cpp" />
     <ClCompile Include="application\Stage.cpp" />
     <ClCompile Include="application\Enemy\Types\ShootingEnemy.cpp" />
     <ClCompile Include="application\Enemy\Types\SentinelEnemy.cpp" />
@@ -332,6 +333,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="externals\nlohmann\json.hpp" />
     <ClInclude Include="engine\3d\Skybox.h" />
     <ClInclude Include="application\Slug.h" />
+    <ClInclude Include="application\WarpExit.h" />
     <ClInclude Include="application\Stage.h" />
     <ClInclude Include="application\Reticle.h" />
     <ClInclude Include="application\Enemy\Types\ShootingEnemy.h" />

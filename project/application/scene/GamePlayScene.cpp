@@ -37,6 +37,7 @@
 #include "utility/Logger.h"
 #include <numbers>
 #include <sstream>
+#include <algorithm>
 
 namespace {
 EnemyType ClampEnemyTypeInt(int et) {
@@ -643,10 +644,14 @@ void GamePlayScene::Update() {
 			// (描画インスタンス書き込みは ParticleManager::Update 後に行う)
 		}
 
-		// Warp detection: run before player update so teleport is immediate in gameplay mode
+		// ワープ判定と処理：プレイヤーの更新前に行うことで、ゲームプレイ中に滑らかな移行やテレポートを正しくトリガーする
+		// 1. プレイヤーがワープ入り口ブロックに接触したか判定
+		// 2. 接触していれば、出口アクター（ポータル）を生成
+		// 3. プレイヤーにワープ開始を通知（Player::SetPendingTeleport 経由で Warping ステートへ移行）
 		if (player_) {
 			const CollisionUtility::OBB playerObb = player_->GetPlayerOBB(player_->GetPosition());
 			for (const auto& o : stage_->GetStageData().objects) {
+				// ワープブロック以外は無視
 				if (o.blockId != BlockID::Warp)
 					continue;
 
@@ -655,36 +660,59 @@ void GamePlayScene::Update() {
 				t.rotate = o.rotation;
 				t.scale = o.scale;
 
-				// Inflate warp OBB a bit to make triggering more forgiving
+				// 判定を少し大きめにして、プレイヤーがワープに入りやすくする（当たり判定の膨張）
 				const float warpInflation = 1.5f;
 				CollisionUtility::OBB obb = CollisionUtility::MakeOBBFromTransform(t, {1.0f * o.scale.x * warpInflation, 1.0f * o.scale.y * warpInflation, 1.0f * o.scale.z * warpInflation});
-				std::string msg = "Checking warp id:" + std::to_string(o.id) + " pos:" + std::to_string(o.position.x) + "," + std::to_string(o.position.y) + "," + std::to_string(o.position.z) + "\n";
-				Logger::Log(msg);
 
+				// プレイヤーとワープ入り口の衝突判定
 				if (CollisionUtility::IntersectOBB_OBB(playerObb, obb)) {
-					std::string hitmsg = "Player intersects warp id:" + std::to_string(o.id) + "\n";
-					Logger::Log(hitmsg);
-
+					// クールダウンがゼロ、または直前に入ったワープとは違うワープに入った場合のみ処理する
 					if (warpCooldownCounter_ == 0 || lastWarpId_ != o.id) {
-						// Request teleport to be applied inside the player's
-						// own Update to avoid being overwritten by other systems.
+
+						// --- Step 1: 出口アクターの動的生成 ---
+						// 指定された目標座標（o.warpTargetPosition）に出口ポータルとしてCubeを配置する
+						auto warpExit = std::make_unique<WarpExit>();
+						warpExit->Initialize(
+							Object3dCommon::GetInstance(),
+							camera_.get(),
+							o.warpTargetPosition,
+							"Cube.obj"
+						);
+						activeWarpExits_.push_back(std::move(warpExit));
+
+						// --- Step 2: プレイヤーのワープ移動を開始 ---
+						// Player 内部で Warping ステートに移行し、線形補間で滑らかに目標座標まで移動する
 						player_->SetPendingTeleport(o.warpTargetPosition);
 						lastWarpId_ = o.id;
-						// set a cooldown to avoid immediate re-trigger loops
-						warpCooldownCounter_ = 90; // frames (~1.5 seconds at 60fps)
+
+						// --- Step 3: ワープの連続発生を防ぐクールダウンの設定 ---
+						warpCooldownCounter_ = 90; // 約1.5秒（60fps）の間、同じワープには入れなくする
+
 						Logger::Log(
 						    std::string("Warped to ") + std::to_string(o.warpTargetPosition.x) + "," + std::to_string(o.warpTargetPosition.y) + "," + std::to_string(o.warpTargetPosition.z) + "\n");
-					} else {
-						Logger::Log(std::string("Warp ignored due to cooldown. id:") + std::to_string(o.id) + " counter:" + std::to_string(warpCooldownCounter_) + "\n");
 					}
 					break;
 				}
 			}
 
+			// クールダウンのカウントダウン処理
 			if (warpCooldownCounter_ > 0)
 				--warpCooldownCounter_;
 			else
-				lastWarpId_ = -1;
+				lastWarpId_ = -1; // クールダウンが終わったらIDをリセット
+
+			// --- 生成された出口アクター（WarpExit）の更新と破棄処理 ---
+			// プレイヤーが出口範囲から出たか、設定された寿命（デフォルト3秒）が尽きたら破棄する
+			for (auto& exit : activeWarpExits_) {
+				exit->Update(player_->GetPosition());
+			}
+			
+			// 寿命切れ、またはプレイヤーが離脱した（IsExpired() == true）ポータルをリストから削除
+			activeWarpExits_.erase(
+				std::remove_if(activeWarpExits_.begin(), activeWarpExits_.end(),
+					[](const std::unique_ptr<WarpExit>& e) { return e->IsExpired(); }),
+				activeWarpExits_.end()
+			);
 		}
 
 		player_->UpdateTransparencyByCamera(camera_->GetTranslate());
@@ -767,6 +795,11 @@ void GamePlayScene::Draw() {
 	stage_->Draw();
 	stageEditor_->Draw();
 	player_->Draw();
+
+	// --- ワープ出口アクターの描画 ---
+	for (const auto& exit : activeWarpExits_) {
+		exit->Draw();
+	}
 
 	// エネミーの描画
 	if (enemyManager_) {

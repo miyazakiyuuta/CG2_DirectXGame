@@ -25,7 +25,7 @@ class BaseEnemy; // 【追加】前方宣言
 
 class Player {
 
-	enum class MovementState { Root, Jumping, WallClinging, TonguePulling, CeilingCrawling };
+	enum class MovementState { Root, Jumping, WallClinging, TonguePulling, CeilingCrawling, Warping };
 
 public:
 	Player() = default;
@@ -219,6 +219,7 @@ public:
 	void UpdateWallClinging(float cameraYaw);
 	void UpdateCeilingCrawling();
 	void UpdateTonguePulling();
+	void UpdateWarping();
 	void CheckTongueBlockHook();
 	bool CheckTongueBlockDamage();
 
@@ -388,6 +389,12 @@ public:
 	// Pending teleport requested by external systems (applied inside Update)
 	bool pendingTeleport_ = false;
 	Vector3 pendingTeleportPosition_ = {0.0f, 0.0f, 0.0f};
+
+	// ワープ移動用
+	Vector3 warpStartPosition_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 warpTargetPosition_ = { 0.0f, 0.0f, 0.0f };
+	float warpTimer_ = 0.0f;
+	float warpDuration_ = 45.0f; // 45フレーム（0.75秒）かけて移動
 
 	// 舌で引っ張られる処理
 	Vector3 tonguePullTarget_ = {0.0f, 0.0f, 0.0f};
