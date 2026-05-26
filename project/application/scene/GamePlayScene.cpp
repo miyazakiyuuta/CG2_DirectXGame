@@ -709,6 +709,8 @@ void GamePlayScene::Update() {
 	// ----------------------------------------------------
 	// トリガーチェック (Yキーでクリア、Uキーでゲームオーバー)
 	// ----------------------------------------------------
+#ifdef _DEBUG
+
 	if (Input::GetInstance()->IsTriggerKey(DIK_Y)) {
 		resultUI_->TriggerClear(gameTimer_.GetTimeSeconds());
 		return;
@@ -719,6 +721,7 @@ void GamePlayScene::Update() {
 		return;
 	}
 
+#endif // DEBUG
 	// (Warp detection handled earlier before player update.)
 
 	camera_->Update();
