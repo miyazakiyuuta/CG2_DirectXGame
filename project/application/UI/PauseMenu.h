@@ -106,7 +106,12 @@ private:
 	bool isControllerMode_ = false; // 現在コントローラー操作中かどうかのフラグ
 
 	// --- 操作説明用スプライト ---
-	// キーボード用とコントローラー用の2枚を用意
 	std::unique_ptr<Sprite> controlsKB_;
 	std::unique_ptr<Sprite> controlsPad_;
+
+	// --- タブ切り替え操作表示用スプライト ---
+	std::unique_ptr<Sprite> navLeftKB_;
+	std::unique_ptr<Sprite> navRightKB_;
+	std::unique_ptr<Sprite> navLeftPad_;
+	std::unique_ptr<Sprite> navRightPad_;
 };

@@ -7,6 +7,7 @@
 #include "audio/SoundManager.h"
 #include "base/WinApp.h"
 #include "io/Input.h"
+#include "UI/RuntimeTextTextureGenerator.h"
 #include <algorithm>
 #include <cmath>
 
@@ -94,6 +95,36 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 
 	LoadControlSprite(controlsKB_, "resources/ui/controls_kb.png");
 	LoadControlSprite(controlsPad_, "resources/ui/controls_pad.png");
+
+	// --- タブ切り替えUIスプライトの生成 ---
+	auto GenAndLoadNavSprite = [&](std::unique_ptr<Sprite>& sprite, const std::string& text, const std::string& path) {
+		RuntimeTextTextureGenerator::GenerateDesc textDesc;
+		textDesc.textUtf8 = text;
+		textDesc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
+		textDesc.outputFilePath = path;
+		textDesc.fontPixelSize = 22;
+		textDesc.paddingX = 8;
+		textDesc.paddingY = 4;
+		textDesc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		textDesc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.65f };
+		textDesc.shadowOffsetX = 4;
+		textDesc.shadowOffsetY = 4;
+
+		RuntimeTextTextureGenerator::GeneratePng(textDesc);
+		texManager->LoadTexture(path);
+		sprite = std::make_unique<Sprite>();
+		sprite->Initialize(spriteCommon_, path);
+		const auto& meta = texManager->GetMetaData(path);
+		Vector2 size = { static_cast<float>(meta.width), static_cast<float>(meta.height) };
+		sprite->SetTextureSize(size);
+		sprite->SetSize(size);
+		sprite->SetAnchorPoint({ 0.5f, 0.5f });
+	};
+
+	GenAndLoadNavSprite(navLeftKB_, "Q", "resources/ui/txt_nav_q.png");
+	GenAndLoadNavSprite(navRightKB_, "E", "resources/ui/txt_nav_e.png");
+	GenAndLoadNavSprite(navLeftPad_, "LB", "resources/ui/txt_nav_lb.png");
+	GenAndLoadNavSprite(navRightPad_, "RB", "resources/ui/txt_nav_rb.png");
 }
 
 void PauseMenu::Update() {
@@ -124,7 +155,7 @@ void PauseMenu::Update() {
 			}
 		}
 		auto mouseMove = input_->GetMouseMove();
-		if (mouseMove.x != 0 || mouseMove.y != 0)
+		if (std::abs(mouseMove.x) > 5 || std::abs(mouseMove.y) > 5)
 			kbActive = true;
 		if (input_->IsPressMouse(0) || input_->IsPressMouse(1))
 			kbActive = true;
@@ -248,6 +279,17 @@ void PauseMenu::Draw() {
 		tabUnderline_->SetColor({kColorAccent.x, kColorAccent.y, kColorAccent.z, menuAlpha_});
 		tabUnderline_->Update();
 		tabUnderline_->Draw();
+	}
+
+	// 3.5 タブ操作用ナビゲーションUIの描画
+	Sprite* navL = isControllerMode_ ? navLeftPad_.get() : navLeftKB_.get();
+	Sprite* navR = isControllerMode_ ? navRightPad_.get() : navRightKB_.get();
+
+	if (navL) {
+		DrawTextSprite(navL, { tabCenterX - tabSpacing - 160.0f, tabY }, kColorAccent);
+	}
+	if (navR) {
+		DrawTextSprite(navR, { tabCenterX + tabSpacing + 160.0f, tabY }, kColorAccent);
 	}
 
 	// 4. コンテンツ描画
