@@ -151,7 +151,6 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 
 	// 座標と行列の最終更新
 	object_->SetTranslate(position_);
-	object_->Update();
 }
 
 // --- 視界の判定ロジック（初めて発見する際のみ使用） ---
@@ -185,6 +184,7 @@ Vector3 ProminenceSensor::GetBeamOrigin() const {
 }
 
 void ProminenceSensor::Draw() {
+	object_->Update();
 	if (object_)
 		object_->Draw();
 }

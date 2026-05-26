@@ -187,11 +187,11 @@ void ClusterSlime::Update(float deltaTime, const Vector3& playerPos) {
             avg += mem.position;
         position_ = avg * (1.0f / static_cast<float>(members_.size()));
         object_->SetTranslate(position_);
-        object_->Update();
     }
 }
 
 void ClusterSlime::Draw() {
+    object_->Update();
     for (auto& m : members_) {
         m.object->Draw();
     }

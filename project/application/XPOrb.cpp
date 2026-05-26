@@ -18,7 +18,7 @@ void XPOrb::Init(const Vector3& pos, int val)
     velocity.y = Random::GetFloat(0.5f, 1.5f);
     velocity.z = Random::GetFloat(-0.5f, 0.5f);
 
-    const float kVisualScaleMultiplier = 2.0f;
+    const float kVisualScaleMultiplier = 5.0f;
     scale = (0.1f + (std::min)(1.0f, float(value) / 10.0f) * 0.25f) * kVisualScaleMultiplier;
 
     // ランダムで初期時間をずらして、オーブの動きにバラつきを出す

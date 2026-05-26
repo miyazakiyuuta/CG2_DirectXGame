@@ -202,10 +202,10 @@ void SentinelEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	float yaw = std::atan2(toPlayer.x, toPlayer.z);
 	object_->SetRotate({0.0f, yaw, 0.0f});
 	object_->SetTranslate(position_);
-	object_->Update();
 }
 
 void SentinelEnemy::Draw() {
+	object_->Update();
 	if (object_)
 		object_->Draw();
 }

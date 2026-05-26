@@ -62,11 +62,11 @@ void PhaseGhost::Update(float deltaTime, const Vector3& playerPos) {
 	if (object_) {
 		object_->SetTranslate(position_);
 		object_->SetRotate({0, floatTimer_ * 0.3f, 0});
-		object_->Update();
 	}
 }
 
 void PhaseGhost::Draw() {
+	object_->Update();
 	if (object_)
 		object_->Draw();
 }

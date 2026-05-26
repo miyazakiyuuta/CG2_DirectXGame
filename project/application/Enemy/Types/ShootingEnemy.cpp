@@ -52,7 +52,6 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 
 	if (object_) {
 		object_->SetTranslate(position_);
-		object_->Update();
 	}
 }
 
@@ -63,6 +62,7 @@ void ShootingEnemy::Shoot(const Vector3& target) {
 }
 
 void ShootingEnemy::Draw() {
+	object_->Update();
 	if (object_)
 		object_->Draw();
 	for (auto& b : bullets_)
