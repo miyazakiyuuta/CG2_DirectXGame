@@ -24,6 +24,7 @@
 #include "scene/SceneManager.h"
 #include "Tongue.h"
 #include "Enemy/Types/SentinelEnemy.h"
+#include "utility/Logger.h"
 
 #include "Enemy/Manager/EnemyManager.h"
 
@@ -1311,6 +1312,7 @@ void TutorialScene::UpdateTutorialWarp()
 		player_->GetPlayerOBB(player_->GetPosition());
 
 	for (const auto& object : stage_->GetStageData().objects) {
+		// ワープブロック以外は無視
 		if (object.blockId != BlockID::Warp) {
 			continue;
 		}
@@ -1320,6 +1322,7 @@ void TutorialScene::UpdateTutorialWarp()
 		t.rotate = object.rotation;
 		t.scale = object.scale;
 
+		// 判定を少し大きめにして、プレイヤーがワープに入りやすくする
 		const float warpInflation = 1.5f;
 		CollisionUtility::OBB warpObb =
 			CollisionUtility::MakeOBBFromTransform(
@@ -1335,13 +1338,28 @@ void TutorialScene::UpdateTutorialWarp()
 			continue;
 		}
 
+		// クールダウンがゼロ、または直前に入ったワープとは違う場合
 		if (warpCooldownCounter_ == 0 || lastWarpId_ != object.id) {
+
+			// --- Step 1: 出口アクターの動的生成 ---
+			auto warpExit = std::make_unique<WarpExit>();
+			warpExit->Initialize(
+				Object3dCommon::GetInstance(),
+				camera_.get(),
+				object.warpTargetPosition,
+				"Cube.obj"
+			);
+			activeWarpExits_.push_back(std::move(warpExit));
+
+			// --- Step 2: プレイヤーのワープ移動を開始 ---
 			player_->SetPendingTeleport(object.warpTargetPosition);
 			lastWarpId_ = object.id;
 			warpCooldownCounter_ = 90;
 			++tutorialWarpUsedCount_;
-		}
 
+			Logger::Log(
+				std::string("Tutorial Warped to ") + std::to_string(object.warpTargetPosition.x) + "," + std::to_string(object.warpTargetPosition.y) + "," + std::to_string(object.warpTargetPosition.z) + "\n");
+		}
 		break;
 	}
 
@@ -1351,6 +1369,17 @@ void TutorialScene::UpdateTutorialWarp()
 	else {
 		lastWarpId_ = -1;
 	}
+
+	// --- 生成された出口アクターの更新と破棄処理 ---
+	for (auto& exit : activeWarpExits_) {
+		exit->Update(player_->GetPosition());
+	}
+	
+	activeWarpExits_.erase(
+		std::remove_if(activeWarpExits_.begin(), activeWarpExits_.end(),
+			[](const std::unique_ptr<WarpExit>& e) { return e->IsExpired(); }),
+		activeWarpExits_.end()
+	);
 }
 
 void TutorialScene::Update()
@@ -1468,6 +1497,10 @@ void TutorialScene::Draw()
 
 	if (stage_) {
 		stage_->Draw();
+	}
+
+	for (const auto& exit : activeWarpExits_) {
+		exit->Draw();
 	}
 
 	ParticleManager::GetInstance()->Draw();

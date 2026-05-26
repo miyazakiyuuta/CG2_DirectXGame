@@ -8,6 +8,7 @@
 #include "XPOrb.h"
 #include "StageTypes.h"
 #include "audio/SoundManager.h"
+#include "WarpExit.h"
 
 #include <functional>
 #include <memory>
@@ -167,6 +168,8 @@ private:
 
 	int warpCooldownCounter_ = 0;
 	int lastWarpId_ = -1;
+
+	std::vector<std::unique_ptr<WarpExit>> activeWarpExits_;
 
 	float tutorialWallClingPrevGauge_ = 0.0f;
 	float tutorialWallClingConsumedTotal_ = 0.0f;
