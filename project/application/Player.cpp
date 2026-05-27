@@ -1661,6 +1661,8 @@ void Player::UpdateTonguePulling() {
            velocity_ = lastHitEnemy_->GetVelocity();
             velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 2.0f; // 少し上に跳ね上げる (upgrade applied)
 
+            lastHitEnemy_->KillPart(lastHitEnemyPartId_);
+
             // 重要なのは「遷移する前に情報をクリアする」こと
             tonguePullingEnemy_ = false;
             lastHitEnemy_ = nullptr;
@@ -1705,6 +1707,10 @@ void Player::Update()
     }
 
     suppressTongueShotThisFrame_ = false;
+
+    if (hp_ <= 0) {
+		isDead_ = true;
+    }
 
     if (!abilityConfigLoaded_) {
         LoadAbilityConfig();
@@ -1815,6 +1821,7 @@ void Player::Update()
                     velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_;
                     lastHitEnemy_ = nullptr;
                     tonguePullingEnemy_ = false;
+                    lastHitEnemy_->KillPart(lastHitEnemyPartId_);
                 }
 
                 if (tongue_) {

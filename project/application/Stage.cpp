@@ -193,6 +193,16 @@ void Stage::Draw(){
     loader_.DrawAndUpdate();
 }
 
+void Stage::DrawOpaque()
+{
+    loader_.DrawOpaqueAndUpdate();
+}
+
+void Stage::DrawTransparentSorted(const Vector3& cameraPos)
+{
+    loader_.DrawTransparentSortedAndUpdate(cameraPos);
+}
+
 void Stage::Clear(){
     data_.objects.clear();
     loader_.Clear();

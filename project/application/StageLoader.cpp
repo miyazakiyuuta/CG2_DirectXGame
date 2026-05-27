@@ -254,6 +254,77 @@ void StageLoader::DrawAndUpdate()
     }
 }
 
+void StageLoader::DrawOpaqueAndUpdate()
+{
+    for (auto& i : instances_) {
+        if (!i.object) {
+            continue;
+        }
+
+        const Vector4 color = i.object->GetColor();
+
+        // 透過しているものは後で描く
+        if (color.w < 0.999f) {
+            continue;
+        }
+
+        i.object->Update();
+        i.object->Draw();
+    }
+}
+
+void StageLoader::DrawTransparentSortedAndUpdate(const Vector3& cameraPos)
+{
+    struct DrawItem {
+        Instance* instance = nullptr;
+        float distanceSq = 0.0f;
+    };
+
+    std::vector<DrawItem> drawItems;
+    drawItems.reserve(instances_.size());
+
+    for (auto& i : instances_) {
+        if (!i.object) {
+            continue;
+        }
+
+        const Vector4 color = i.object->GetColor();
+
+        // 不透明は先に描いているのでここでは描かない
+        if (color.w >= 0.999f) {
+            continue;
+        }
+
+        const Vector3 pos = i.object->GetTranslate();
+        const float dx = pos.x - cameraPos.x;
+        const float dy = pos.y - cameraPos.y;
+        const float dz = pos.z - cameraPos.z;
+
+        drawItems.push_back({
+            &i,
+            dx * dx + dy * dy + dz * dz
+            });
+    }
+
+    // 透過はカメラから遠い順
+    std::sort(
+        drawItems.begin(),
+        drawItems.end(),
+        [](const DrawItem& a, const DrawItem& b) {
+            return a.distanceSq > b.distanceSq;
+        }
+    );
+
+    for (auto& item : drawItems) {
+        if (!item.instance || !item.instance->object) {
+            continue;
+        }
+
+        item.instance->object->Update();
+        item.instance->object->Draw();
+    }
+}
+
 /// <summary>
 /// Debug: インスタンス数を返す
 /// </summary>

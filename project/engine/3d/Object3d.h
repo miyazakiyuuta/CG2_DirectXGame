@@ -63,6 +63,7 @@ public: // セッター&ゲッター
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }
 	Vector4 GetLightColor() const { return directionalLightData_->color; }
+	Vector4 GetColor() const { return materialData_->color; }
 	Vector3 GetLightDirection() const { return directionalLightData_->direction; }
 	float GetLightIntensity() const { return directionalLightData_->intensity; }
 	float GetAnimationDuration(const std::string& name) {

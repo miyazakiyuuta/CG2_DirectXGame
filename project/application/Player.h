@@ -107,7 +107,7 @@ public:
 
 	int GetHP() const { return hp_; }
 	int GetMaxHP() const { return maxHp_; }
-	bool IsDead() const { return hp_ <= 0; }
+	bool IsDead() const { return isDead_; }
 
 	void ApplyDamage(int damage);
 	void CheckEnemyContactDamage();
