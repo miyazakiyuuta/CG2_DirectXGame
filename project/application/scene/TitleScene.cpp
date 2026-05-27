@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "scene/TitleScene.h"
 
 #include "2d/Sprite.h"
@@ -17,6 +18,15 @@
 #include <cmath>
 #include <memory>
 #include <algorithm>
+#include <fstream>
+#include <filesystem>
+#include <random>
+#include <../externals/nlohmann/json.hpp>
+#include "effect/ParticleManager.h"
+#include "base/SrvManager.h"
+#include "math/Matrix4x4.h"
+
+#include <numbers>
 
 namespace {
 
@@ -121,6 +131,13 @@ namespace {
 		return result;
 	}
 
+	float RandomRange(float minV, float maxV)
+	{
+		static std::mt19937 engine{ std::random_device{}() };
+		std::uniform_real_distribution<float> dist(minV, maxV);
+		return dist(engine);
+	}
+
 } // namespace
 
 void TitleScene::Initialize()
@@ -137,6 +154,13 @@ void TitleScene::Initialize()
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
 	camera_->SetTranslate({ 0.0f, 6.5f, -32.0f });
 	camera_->SetRotate({ 0.10f, 0.0f, 0.0f });
+
+	ParticleManager::GetInstance()->Initialize(
+		DirectXCommon::GetInstance(),
+		SrvManager::GetInstance()
+	);
+
+	ParticleManager::GetInstance()->SetCamera(camera_.get());
 
 	titleWallColorCycleSeconds_ = 60.0f;
 	titleWallColorTimer_ = titleWallColorCycleSeconds_ * 0.42f;
@@ -202,6 +226,7 @@ void TitleScene::Initialize()
 	selectorSprite_->SetAnchorPoint({ 0.5f, 0.5f });
 
 	GenerateTitleTextTextures();
+	GenerateCreditSprites();
 
 	selectItem_ = MenuItem::GamePlay;
 	pulseTimer_ = 0.0f;
@@ -323,6 +348,7 @@ void TitleScene::Update()
 	UpdateTitleFrog(deltaTime);
 	UpdateTitleWallColor(deltaTime);
 	UpdateTitleSunMoonPointLight(deltaTime);
+	UpdateCreditFlow(deltaTime);
 
 	if (camera_) {
 		camera_->Update();
@@ -534,6 +560,282 @@ void TitleScene::UpdateTitleSunMoonPointLight(float deltaTime)
 	Object3dCommon::GetInstance()->SetPointLight(finalLight);
 }
 
+void TitleScene::GenerateCreditSprites()
+{
+
+	creditFlowItems_.clear();
+
+	struct LoadedCredit {
+		std::string text;
+	};
+
+	std::vector<LoadedCredit> credits;
+
+	try {
+		if (std::filesystem::exists(creditJsonPath_)) {
+			std::ifstream ifs(creditJsonPath_);
+			if (ifs.is_open()) {
+				nlohmann::json j;
+				ifs >> j;
+
+				if (j.contains("credits") && j["credits"].is_array()) {
+					for (const auto& item : j["credits"]) {
+						std::string text;
+
+						if (item.contains("text") && item["text"].is_string()) {
+							text = item["text"].get<std::string>();
+						}
+						else {
+							std::string role;
+							std::string name;
+
+							// separator を指定していない場合は「:」を付けない
+							std::string separator = "  ";
+							bool hasSeparator = false;
+
+							if (item.contains("role") && item["role"].is_string()) {
+								role = item["role"].get<std::string>();
+							}
+							if (item.contains("name") && item["name"].is_string()) {
+								name = item["name"].get<std::string>();
+							}
+							if (item.contains("separator") && item["separator"].is_string()) {
+								separator = item["separator"].get<std::string>();
+								hasSeparator = true;
+							}
+
+							if (!role.empty() && !name.empty()) {
+								text = role + separator + name;
+							}
+							else if (!role.empty()) {
+								// role だけの時は、separator指定がある場合だけ後ろに付ける
+								text = hasSeparator ? role + separator : role;
+							}
+							else if (!name.empty()) {
+								text = name;
+							}
+						}
+
+						if (!text.empty()) {
+							credits.push_back({ text });
+						}
+					}
+				}
+			}
+		}
+	}
+	catch (...) {
+		credits.clear();
+	}
+
+	if (credits.empty()) {
+		credits.push_back({ "Director: Zokusei" });
+		credits.push_back({ "Program: Zokusei" });
+		credits.push_back({ "Special Thanks: ChatGPT" });
+	}
+
+	for (size_t i = 0; i < credits.size(); ++i) {
+		const std::string outputPath =
+			"resources/generated_ui/title_credit_" + std::to_string(i) + ".png";
+
+		RuntimeTextTextureGenerator::GenerateDesc desc;
+		desc.textUtf8 = credits[i].text;
+		desc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
+		desc.outputFilePath = outputPath;
+		desc.overwriteIfExists = true;
+		desc.fontPixelSize = creditFontSize_;
+		desc.paddingX = 32;
+		desc.paddingY = 18;
+		desc.textColor = { 0.8f, 0.8f, 0.8f, 1.0f };
+		desc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.35f };
+		desc.shadowOffsetX = 4;
+		desc.shadowOffsetY = 4;
+
+		if (!RuntimeTextTextureGenerator::GeneratePng(desc)) {
+			continue;
+		}
+
+		TextureManager::GetInstance()->ReloadTexture(outputPath);
+
+		const DirectX::TexMetadata& meta =
+			TextureManager::GetInstance()->GetMetaData(outputPath);
+
+		const float imageW = static_cast<float>(meta.width);
+		const float imageH = static_cast<float>(meta.height);
+		const float aspect = imageH > 0.001f ? imageW / imageH : 1.0f;
+
+		CreditFlowItem flowItem;
+		flowItem.groupName = "TitleCredit_" + std::to_string(i);
+		flowItem.texturePath = outputPath;
+
+		// 1クレジットにつき1ParticleGroup。
+		// 文字ごとにPNGが違うため、グループを分ける。
+		ParticleManager::GetInstance()->EnsureParticleGroup(
+			flowItem.groupName,
+			flowItem.texturePath
+		);
+		ParticleManager::GetInstance()->SetExternalInstanceCount(flowItem.groupName, 0);
+
+		flowItem.scale = {
+			creditWorldHeight_ * aspect,
+			creditWorldHeight_,
+			1.0f
+		};
+
+		flowItem.width = flowItem.scale.x;
+		flowItem.color = { 1.0f, 1.0f, 1.0f, creditAlpha_ };
+
+		flowItem.position = {
+			creditStartX_ + static_cast<float>(i) * creditSpawnGapX_ +
+				RandomRange(0.0f, creditInitialJitterX_),
+			PickCreditRandomY(),
+			creditZ_
+		};
+
+		creditFlowItems_.push_back(std::move(flowItem));
+	}
+
+	UpdateCreditFlow(0.0f);
+}
+
+float TitleScene::GetCreditRespawnX() const
+{
+	float rightMostCenter = creditStartX_;
+
+	for (const auto& item : creditFlowItems_) {
+		rightMostCenter = std::max(rightMostCenter, item.position.x);
+	}
+
+	// 初回配置と同じく「中心座標同士の間隔」を creditSpawnGapX_ にする
+	return rightMostCenter + creditSpawnGapX_;
+}
+
+float TitleScene::PickCreditRandomY()
+{
+	const float minY = std::min(creditMinY_, creditMaxY_);
+	const float maxY = std::max(creditMinY_, creditMaxY_);
+	const float range = maxY - minY;
+
+	if (range <= 0.0001f) {
+		recentCreditYs_.push_back(minY);
+		if (recentCreditYs_.size() > creditRememberYCount_) {
+			recentCreditYs_.erase(recentCreditYs_.begin());
+		}
+		return minY;
+	}
+
+	const float minGap =
+		range * std::clamp(creditMinHeightGapRate_, 0.0f, 0.45f);
+
+	auto isFarEnough = [&](float y) {
+		for (float recentY : recentCreditYs_) {
+			if (std::abs(y - recentY) < minGap) {
+				return false;
+			}
+		}
+		return true;
+		};
+
+	auto rememberY = [&](float y) {
+		recentCreditYs_.push_back(y);
+
+		while (recentCreditYs_.size() > creditRememberYCount_) {
+			recentCreditYs_.erase(recentCreditYs_.begin());
+		}
+		};
+
+	// まずは普通にランダム再抽選
+	for (int i = 0; i < creditHeightPickRetryCount_; ++i) {
+		float y = RandomRange(minY, maxY);
+
+		if (isFarEnough(y)) {
+			rememberY(y);
+			return y;
+		}
+	}
+
+	// どうしても条件を満たせない場合は、
+	// 直近2個から一番遠い候補を採用する
+	float bestY = RandomRange(minY, maxY);
+	float bestScore = -1.0f;
+
+	const int fallbackTryCount = std::max(creditHeightPickRetryCount_ * 2, 16);
+
+	for (int i = 0; i < fallbackTryCount; ++i) {
+		float y = RandomRange(minY, maxY);
+
+		float nearestDistance = range;
+
+		for (float recentY : recentCreditYs_) {
+			nearestDistance = std::min(nearestDistance, std::abs(y - recentY));
+		}
+
+		if (nearestDistance > bestScore) {
+			bestScore = nearestDistance;
+			bestY = y;
+		}
+	}
+
+	rememberY(bestY);
+	return bestY;
+}
+
+void TitleScene::UpdateCreditFlow(float deltaTime)
+{
+	if (!camera_) {
+		return;
+	}
+
+	const Matrix4x4& view = camera_->GetViewMatrix();
+	const Matrix4x4& projection = camera_->GetProjectionMatrix();
+	Matrix4x4 viewProjectionMatrix = view * projection;
+
+	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
+
+	Matrix4x4 billboardMatrix = cameraMatrix;
+	billboardMatrix.m[3][0] = 0.0f;
+	billboardMatrix.m[3][1] = 0.0f;
+	billboardMatrix.m[3][2] = 0.0f;
+
+	for (auto& item : creditFlowItems_) {
+		item.position.x -= creditFlowSpeed_ * deltaTime;
+
+		if (item.position.x < -item.width * 0.5f - creditEndMargin_) {
+			item.position.x = GetCreditRespawnX();
+			item.position.y = PickCreditRandomY();
+			item.position.z = creditZ_;
+		}
+
+		uint32_t maxInstances = 0;
+		auto* instancingData =
+			ParticleManager::GetInstance()->GetInstancingDataWritePtr(
+				item.groupName,
+				maxInstances
+			);
+
+		if (!instancingData || maxInstances == 0) {
+			ParticleManager::GetInstance()->SetExternalInstanceCount(item.groupName, 0);
+			continue;
+		}
+
+		Matrix4x4 worldMatrix =
+			Matrix4x4::Scale(item.scale) *
+			billboardMatrix *
+			Matrix4x4::Translate(item.position);
+
+		instancingData[0].world = worldMatrix;
+		instancingData[0].wvp = worldMatrix * viewProjectionMatrix;
+		instancingData[0].color = item.color;
+
+		ParticleManager::GetInstance()->SetExternalInstanceCount(item.groupName, 1);
+	}
+}
+
+void TitleScene::DrawCreditFlow()
+{
+	ParticleManager::GetInstance()->Draw();
+}
+
 void TitleScene::Draw()
 {
 	// 3D 背景
@@ -548,6 +850,8 @@ void TitleScene::Draw()
 	if (titleFrogObject_) {
 		titleFrogObject_->Draw();
 	}
+
+	DrawCreditFlow();
 
 	// 2D メニュー
 	spriteCommon_->CommonDrawSetting();
