@@ -2,6 +2,7 @@
 
 #include "scene/BaseScene.h"
 #include "math/Vector2.h"
+#include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "audio/SoundManager.h"
 
@@ -9,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 class Sprite;
 class SpriteCommon;
@@ -30,6 +32,17 @@ private:
 		Count,
 	};
 
+	struct CreditFlowItem {
+		std::string groupName;
+		std::string texturePath;
+
+		Vector3 position = { 0.0f, 0.0f, 0.0f };
+		Vector3 scale = { 1.0f, 1.0f, 1.0f };
+
+		float width = 1.0f;
+		Vector4 color = { 1.0f, 1.0f, 1.0f, 0.32f };
+	};
+
 private:
 	void GenerateTitleTextTextures();
 	void CreateTextSprite(const std::string& key, const std::string& textUtf8, const std::string& outputPath);
@@ -43,6 +56,12 @@ private:
 	void UpdateTitleWallColor(float deltaTime);
 	void UpdateSceneObjects();
 	void UpdateTitleSunMoonPointLight(float deltaTime);
+
+	void GenerateCreditSprites();
+	void UpdateCreditFlow(float deltaTime);
+	void DrawCreditFlow();
+	float GetCreditRespawnX() const;
+	float PickCreditRandomY();
 
 private:
 	Input* input_ = nullptr;
@@ -79,5 +98,49 @@ private:
 	SoundData titleBgm_ = {};
 	SoundManager::SoundHandle titleBgmHandle_ = SoundManager::InvalidHandle;
 	std::string titleBgmPath_ = "resources/BGM/st005.wav";
+
+	std::vector<CreditFlowItem> creditFlowItems_;
+
+	std::string creditJsonPath_ = "resources/ui/title_credits.json";
+
+	// クレジットの流れる速度は全員共通、ワールド単位/秒
+	float creditFlowSpeed_ = 3.8f;
+
+	// 右端外から流し始める位置、ワールドX
+	float creditStartX_ = 30.0f;
+
+	// 左に抜けた判定の余白、ワールド単位
+	float creditEndMargin_ = 25.0f;
+
+	// 各クレジットの初期X間隔、ワールド単位
+	float creditSpawnGapX_ = 17.0f;
+
+	// 初期位置のランダム揺らぎ。速度差ではなく、出現位置差だけ
+	float creditInitialJitterX_ = 5.0f;
+
+	// ランダムな高さ範囲、ワールドY
+	float creditMinY_ = 0.5f;
+	float creditMaxY_ = 13.0f;
+
+	// 文字を置く奥行き
+	float creditZ_ = 9.0f;
+
+	// 文字板ポリの高さ、ワールド単位
+	float creditWorldHeight_ = 3.45f;
+
+	float creditAlpha_ = 0.32f;
+	int creditFontSize_ = 96;
+
+	// 直近のクレジット高さからどのくらい離すか
+	float creditMinHeightGapRate_ = 0.18f;
+
+	// ランダム再抽選回数
+	int creditHeightPickRetryCount_ = 12;
+
+	// 直近何個分の高さを避けるか
+	size_t creditRememberYCount_ = 2;
+
+	// 直近のクレジットY座標
+	std::vector<float> recentCreditYs_;
 
 };

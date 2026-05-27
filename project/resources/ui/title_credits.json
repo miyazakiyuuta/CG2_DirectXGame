@@ -1,0 +1,17 @@
+{
+  "credits": [
+    { "role": "ステージ制作", "name": "Takahashi Yukito", "separator": ": " },
+    { "role": "エンジン", "name": "Miyazaki Yuuta", "separator": ": " },
+    { "role": "演出", "name": "Yoshino gento", "separator": ": " },
+    { "role": "プログラム", "name": "Takahashi Shinnosuke", "separator": ": " },
+    { "role": "スペシャルサンクス", "name": "Tihara Shigou", "separator": ": " },
+    { "role": "スペシャルサンクス", "name": "Okazaki Takuma", "separator": ": " },
+    { "role": "プレイヤー", "name": "あなた", "separator": ": " },
+    { "role": "BGM:創作堂さくら紅葉", "name": "「Minutes To Daydream」" },
+    { "role": "BGM:創作堂さくら紅葉", "name": "「reliqua」" },
+    { "role": "BGM:瀬川透", "name": "「under the rain」" },
+    { "role": "BGM:瀬川透", "name": "「のら猫のワルツ」" },
+    { "role": "BGM:彼方サーバー", "name": "「闇夜」" },
+    { "role": "BGM:Heitaro Ashibe", "name": "「星空」" }
+  ]
+}
