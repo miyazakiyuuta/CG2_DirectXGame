@@ -241,7 +241,7 @@ void Player::ApplyPendingLevelUps()
                 wallClingDurationMultiplier_ = newGauge / baseWallClingGauge_;
             }
             maxWallClingGauge_ = newGauge;
-            if (wallClingGauge_ > maxWallClingGauge_)
+            if (wallClingGauge_ < maxWallClingGauge_)
                 wallClingGauge_ = maxWallClingGauge_;
         } else if (ability == AbilityId::CamouflageDuration) {
             camouflageDurationMultiplier_ = 1.0f + camouflagePerLevel_ * static_cast<float>(newLevel - 1);
