@@ -6,6 +6,13 @@ enum class ParticleMoveType {
 	Normal,
 };
 
+enum class BlendMode {
+	Alpha,
+	Add,
+	None,
+	Multiply,
+};
+
 struct ParticleConfig {
 	ParticleMoveType moveType = ParticleMoveType::Normal;
 	Vector3 minScale = { 1.0f,1.0f,1.0f };
@@ -16,5 +23,6 @@ struct ParticleConfig {
 	Vector3 maxVelocity = { 1.0f,1.0f,1.0f };
 	float lifeTime = 1.0f; // 寿命
 	Vector4 startColor = { 1.0,1.0f,1.0f,1.0f };
+	BlendMode blendMode = BlendMode::Alpha;
 	// 重力などの設定要素を増やしたければ以下に追加
 };
