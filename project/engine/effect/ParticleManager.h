@@ -35,7 +35,7 @@ public:
 
     void Draw();
 
-    void CreateParticleGroup(const std::string name, const std::string textureFilePath);
+	void CreateParticleGroup(const std::string name, const std::string textureFilePath, BlendMode blendMode = BlendMode::Alpha);
 
     void EnsureParticleGroup(const std::string& name, const std::string& textureFilePath);
 
@@ -63,14 +63,21 @@ private:
         ParticleMoveType moveType;
     };
 
-    struct ParticleGroup {
-        MaterialData material;
-        std::list<Particle> particles;
-        uint32_t instancingSrvIndex = 0;
-        Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
-        uint32_t instanceCount = 0;
-        InstanceData* instancingData = nullptr; // 書き込み先
-    };
+	struct InstanceData {
+		Matrix4x4 wvp;
+		Matrix4x4 world;
+		Vector4 color;
+	};
+
+	struct ParticleGroup {
+		MaterialData material;
+		std::list<Particle> particles;
+		uint32_t instancingSrvIndex = 0;
+		Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
+		uint32_t instanceCount = 0;
+		InstanceData* instancingData = nullptr; // 書き込み先
+		BlendMode blendMode = BlendMode::Alpha;
+	};
 
     // 頂点データ
     struct VertexData {
@@ -91,7 +98,7 @@ private:
 
     void CreateRootSignature();
 
-    void CreateGraphicsPipelineState();
+	void CreateGraphicsPipelineState(BlendMode blendMode);
 
     void CreateVertexResource();
 
@@ -104,7 +111,7 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
+	std::unordered_map<BlendMode, Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStates_;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 
