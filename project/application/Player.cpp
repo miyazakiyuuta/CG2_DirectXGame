@@ -613,6 +613,7 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
     isJumpChargeCanceled_ = false;
     chargeTimer_ = 0.0f;
     chargeMaxHoldTimer_ = 0.0f;
+    jumpChargeAirCancelGraceTimer_ = 0;
     moveState_ = MovementState::Root;
     wallClingGauge_ = maxWallClingGauge_;
     prevAimMode_ = false;
@@ -1844,12 +1845,22 @@ void Player::Update()
         ResolveVerticalCollisions(beforeVertical);
         ResolveMovementLimitCylinder();
 
-		if (isOnGround_) {
-			TransitionTo(MovementState::Root);
-		}
-		else {
-			TransitionTo(MovementState::Jumping);
-		}
+        if (isOnGround_) {
+            jumpChargeAirCancelGraceTimer_ = 0;
+            TransitionTo(MovementState::Root);
+        }
+        else {
+            // 地面から離れた瞬間。
+            // 溜め中なら、即キャンセルせず3Fだけ猶予を持たせる。
+            if (isChargingJump_) {
+                jumpChargeAirCancelGraceTimer_ = jumpChargeAirCancelGraceFrames_;
+            }
+            else {
+                jumpChargeAirCancelGraceTimer_ = 0;
+            }
+
+            TransitionTo(MovementState::Jumping);
+        }
 		break;
 	}
 
@@ -1864,6 +1875,20 @@ void Player::Update()
         ApplyGravity();
         ResolveVerticalCollisions(beforeVertical);
         ResolveMovementLimitCylinder();
+
+        if (!isOnGround_ && isChargingJump_) {
+            if (jumpChargeAirCancelGraceTimer_ > 0) {
+                --jumpChargeAirCancelGraceTimer_;
+            }
+            else {
+                // 空中に出てから猶予を超えたので溜めをキャンセル
+                CancelJumpCharge();
+            }
+        }
+
+        if (isOnGround_) {
+            jumpChargeAirCancelGraceTimer_ = 0;
+        }
 
         if (!isOnGround_) {
             UpdateJumpPoseAnimation();
@@ -2363,7 +2388,7 @@ void Player::UpdateJumpCharge() {
     }
 
 	if (jumpPress) {
-		chargeTimer_ += 1.0f;
+		chargeTimer_ += 2.5f;
 
         int currentLevel = GetCurrentChargeLevel();
         int allowedLevel = GetAllowedChargeLevel();
@@ -2414,6 +2439,7 @@ void Player::ExecuteChargedJump(int chargeLevel)
 
 	velocity_.y = baseJump * jumpPowerMultiplier_ * verticalMultiplier;
 	isOnGround_ = false;
+    jumpChargeAirCancelGraceTimer_ = 0;
 
     if (chargeLevel > 0) {
         // chargeStock_ -= chargeLevel;
@@ -2429,6 +2455,7 @@ void Player::CancelJumpCharge()
     isChargingJump_ = false;
     chargeTimer_ = 0.0f;
     chargeMaxHoldTimer_ = 0.0f;
+    jumpChargeAirCancelGraceTimer_ = 0;
 }
 
 void Player::ApplyGravity()

@@ -336,6 +336,9 @@ public:
 	float chargeTimer_ = 0.0f;
 	float chargeMaxHoldTimer_ = 0.0f;
 
+	int jumpChargeAirCancelGraceFrames_ = 5;
+	int jumpChargeAirCancelGraceTimer_ = 0;
+
 	int chargeStock_ = 3;
 	static constexpr int kMaxChargeLevel_ = 3;
 
@@ -564,6 +567,8 @@ public:
 
 	int maxHp_ = 30;
 	int hp_ = 30;
+
+	bool isDead_ = false;
 
 	std::unique_ptr<Sprite> wallClingGaugeBackSprite_ = nullptr;
 	std::unique_ptr<Sprite> wallClingGaugeFillSprite_ = nullptr;
