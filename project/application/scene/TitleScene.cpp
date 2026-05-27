@@ -646,7 +646,7 @@ void TitleScene::GenerateCreditSprites()
 		desc.fontPixelSize = creditFontSize_;
 		desc.paddingX = 32;
 		desc.paddingY = 18;
-		desc.textColor = { 0.8f, 0.8f, 0.8f, 1.0f };
+		desc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		desc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.35f };
 		desc.shadowOffsetX = 4;
 		desc.shadowOffsetY = 4;
@@ -670,9 +670,10 @@ void TitleScene::GenerateCreditSprites()
 
 		// 1クレジットにつき1ParticleGroup。
 		// 文字ごとにPNGが違うため、グループを分ける。
-		ParticleManager::GetInstance()->EnsureParticleGroup(
+		ParticleManager::GetInstance()->CreateParticleGroup(
 			flowItem.groupName,
-			flowItem.texturePath
+			flowItem.texturePath,
+			BlendMode::None
 		);
 		ParticleManager::GetInstance()->SetExternalInstanceCount(flowItem.groupName, 0);
 

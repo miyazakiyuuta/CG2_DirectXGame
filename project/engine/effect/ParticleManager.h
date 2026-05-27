@@ -63,12 +63,6 @@ private:
         ParticleMoveType moveType;
     };
 
-	struct InstanceData {
-		Matrix4x4 wvp;
-		Matrix4x4 world;
-		Vector4 color;
-	};
-
 	struct ParticleGroup {
 		MaterialData material;
 		std::list<Particle> particles;

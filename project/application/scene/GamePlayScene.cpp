@@ -158,6 +158,7 @@ void GamePlayScene::Initialize() {
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
 	// パーティクルグループの作成。第一引数はグループ名、第二引数はテクスチャファイルパス
 	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
+	ParticleManager::GetInstance()->CreateParticleGroup("xp_orb", "resources/circle.png", BlendMode::Add);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
