@@ -96,15 +96,15 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	LoadControlSprite(controlsKB_, "resources/ui/controls_kb.png");
 	LoadControlSprite(controlsPad_, "resources/ui/controls_pad.png");
 
-	// --- タブ切り替えUIスプライトの生成 ---
-	auto GenAndLoadNavSprite = [&](std::unique_ptr<Sprite>& sprite, const std::string& text, const std::string& path) {
+	// --- テキスト自動生成関数の一般化 ---
+	auto GenAndLoadTextSprite = [&](std::unique_ptr<Sprite>& sprite, const std::string& text, const std::string& path, int fontSize, int padX, int padY) {
 		RuntimeTextTextureGenerator::GenerateDesc textDesc;
 		textDesc.textUtf8 = text;
 		textDesc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
 		textDesc.outputFilePath = path;
-		textDesc.fontPixelSize = 22;
-		textDesc.paddingX = 8;
-		textDesc.paddingY = 4;
+		textDesc.fontPixelSize = fontSize;
+		textDesc.paddingX = padX;
+		textDesc.paddingY = padY;
 		textDesc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		textDesc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.65f };
 		textDesc.shadowOffsetX = 4;
@@ -121,10 +121,31 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 		sprite->SetAnchorPoint({ 0.5f, 0.5f });
 	};
 
-	GenAndLoadNavSprite(navLeftKB_, "Q", "resources/ui/txt_nav_q.png");
-	GenAndLoadNavSprite(navRightKB_, "E", "resources/ui/txt_nav_e.png");
-	GenAndLoadNavSprite(navLeftPad_, "LB", "resources/ui/txt_nav_lb.png");
-	GenAndLoadNavSprite(navRightPad_, "RB", "resources/ui/txt_nav_rb.png");
+	GenAndLoadTextSprite(navLeftKB_, "Q", "resources/ui/txt_nav_q.png", 22, 8, 4);
+	GenAndLoadTextSprite(navRightKB_, "E", "resources/ui/txt_nav_e.png", 22, 8, 4);
+	GenAndLoadTextSprite(navLeftPad_, "LB", "resources/ui/txt_nav_lb.png", 22, 8, 4);
+	GenAndLoadTextSprite(navRightPad_, "RB", "resources/ui/txt_nav_rb.png", 22, 8, 4);
+
+	// --- BGMリストの生成 ---
+	std::vector<std::pair<std::string, std::string>> bgms = {
+		{"Dear Childhood Friend", "resources/BGM/Dear Childhood Friend.mp3"},
+		{"k012", "resources/BGM/k012.wav"},
+		{"ks004", "resources/BGM/ks004.wav"},
+		{"thirdStage", "resources/BGM/thirdStage.wav"},
+		{"未知の旅へ", "resources/BGM/未知の旅へ.mp3"},
+		{"tutorial", "resources/BGM/tutorial.wav"}
+	};
+
+	for (size_t i = 0; i < bgms.size(); ++i) {
+		std::unique_ptr<Sprite> bgmSprite;
+		GenAndLoadTextSprite(bgmSprite, bgms[i].first, "resources/ui/txt_bgm_" + std::to_string(i) + ".png", 32, 10, 5);
+		bgmTextSprites_.push_back(std::move(bgmSprite));
+		bgmFilePaths_.push_back(bgms[i].second);
+	}
+
+	std::unique_ptr<Sprite> bgmTitleSprite;
+	GenAndLoadTextSprite(bgmTitleSprite, reinterpret_cast<const char*>(u8"BGM選択"), "resources/ui/txt_bgm_title.png", 32, 10, 5);
+	textSprites_["resources/ui/txt_bgm_title.png"] = std::move(bgmTitleSprite);
 }
 
 void PauseMenu::Update() {
@@ -169,6 +190,8 @@ void PauseMenu::Update() {
 		menuAlpha_ = (std::min)(1.0f, menuAlpha_ + 0.1f);
 		pulseTimer_ += 0.05f;
 		HandleInput();
+
+		optionsScrollY_ += (targetOptionsScrollY_ - optionsScrollY_) * 0.2f;
 	} else {
 		menuAlpha_ = (std::max)(0.0f, menuAlpha_ - 0.1f);
 	}
@@ -184,7 +207,7 @@ void PauseMenu::HandleInput() {
 		selectIndex_ = 0;
 	}
 
-	int maxItems = (activeTab_ == Tab::System) ? 3 : (activeTab_ == Tab::Options) ? 2 : 0;
+	int maxItems = (activeTab_ == Tab::System) ? 3 : (activeTab_ == Tab::Options) ? (2 + static_cast<int>(bgmFilePaths_.size())) : 0;
 	if (maxItems > 0) {
 		if (input_->IsTriggerKey(DIK_W) || input_->IsTriggerPad(XINPUT_GAMEPAD_DPAD_UP))
 			selectIndex_ = (selectIndex_ + maxItems - 1) % maxItems;
@@ -192,6 +215,65 @@ void PauseMenu::HandleInput() {
 			selectIndex_ = (selectIndex_ + 1) % maxItems;
 	}
 
+	// --- マウスによる選択・決定処理 ---
+	POINT p;
+	GetCursorPos(&p);
+	ScreenToClient(WinApp::GetInstance()->GetHwnd(), &p);
+	Vector2 mousePos = { static_cast<float>(p.x), static_cast<float>(p.y) };
+	
+	bool isMouseLeftTriggered = input_->IsTriggerMouse(0);
+
+	if (activeTab_ == Tab::System) {
+		for (int i = 0; i < 3; ++i) {
+			float y = 250.0f + (i * 90.0f);
+			if (mousePos.x > 640.0f - 150.0f && mousePos.x < 640.0f + 150.0f &&
+				mousePos.y > y - 40.0f && mousePos.y < y + 40.0f) {
+				if (isMouseLeftTriggered) {
+					selectIndex_ = i;
+					if (i == 0) isPaused_ = false;
+					if (i == 1) isRestartRequested_ = true;
+					if (i == 2) isTitleRequested_ = true;
+				}
+			}
+		}
+	} else if (activeTab_ == Tab::Options) {
+		// ホイールによるスクロール（選択カーソルの移動）
+		long wheel = input_->GetMouseWheel();
+		if (wheel != 0) {
+			if (wheel < 0) {
+				selectIndex_ = (std::min)(selectIndex_ + 1, maxItems - 1);
+			} else {
+				selectIndex_ = (std::max)(selectIndex_ - 1, 0);
+			}
+		}
+
+		// スライダー判定
+		for (int i = 0; i < 2; ++i) {
+			float y = 250.0f + (i * 100.0f) - optionsScrollY_;
+			if (input_->IsPressMouse(0) && mousePos.x >= 650.0f && mousePos.x <= 1050.0f &&
+				mousePos.y > y - 40.0f && mousePos.y < y + 40.0f) {
+				selectIndex_ = i;
+				float rate = (mousePos.x - 650.0f) / 400.0f;
+				if (i == 0) { mouseSensitivity_ = (std::clamp)(rate * 5.0f, 0.1f, 5.0f); }
+				if (i == 1) { volume_ = (std::clamp)(rate, 0.0f, 1.0f); }
+				ApplySettings();
+			}
+		}
+		// BGMリスト判定
+		for (int i = 0; i < static_cast<int>(bgmFilePaths_.size()); ++i) {
+			float y = 540.0f + (i * 70.0f) - optionsScrollY_;
+			int itemIndex = 2 + i;
+			if (mousePos.x > 300.0f && mousePos.x < 1000.0f &&
+				mousePos.y > y - 35.0f && mousePos.y < y + 35.0f) {
+				if (isMouseLeftTriggered) {
+					selectIndex_ = itemIndex;
+					if (onBgmChanged_) onBgmChanged_(bgmFilePaths_[i]);
+				}
+			}
+		}
+	}
+
+	// --- キーボード/パッドによる決定操作 ---
 	if (input_->IsTriggerKey(DIK_SPACE) || input_->IsTriggerKey(DIK_RETURN) || input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 		if (activeTab_ == Tab::System) {
 			if (selectIndex_ == 0)
@@ -200,6 +282,11 @@ void PauseMenu::HandleInput() {
 				isRestartRequested_ = true;
 			if (selectIndex_ == 2)
 				isTitleRequested_ = true;
+		} else if (activeTab_ == Tab::Options) {
+			if (selectIndex_ >= 2) {
+				int bgmIndex = selectIndex_ - 2;
+				if (onBgmChanged_) onBgmChanged_(bgmFilePaths_[bgmIndex]);
+			}
 		}
 	}
 
@@ -220,6 +307,13 @@ void PauseMenu::HandleInput() {
 		} else if (selectIndex_ == 1) {
 			volume_ = (std::clamp)(volume_ + delta, 0.0f, 1.0f);
 			ApplySettings();
+		}
+
+		// スクロール計算
+		if (selectIndex_ < 2) {
+			targetOptionsScrollY_ = 0.0f;
+		} else {
+			targetOptionsScrollY_ = (selectIndex_ - 1) * 70.0f;
 		}
 	}
 }
@@ -308,18 +402,22 @@ void PauseMenu::Draw() {
 				}
 
 				selectorSprite_->SetPos({itemCenterX, y});
-				selectorSprite_->SetColor({kColorAccent.x, kColorAccent.y, kColorAccent.z, (0.2f + pulse) * menuAlpha_});
+				selectorSprite_->SetColor({0.0f, 0.4f, 0.9f, (0.4f + pulse) * menuAlpha_});
 				selectorSprite_->Update();
 				selectorSprite_->Draw();
 			}
 			DrawTextSprite(textSprites_[items[i]].get(), {itemCenterX, y}, (selectIndex_ == i ? kColorAccent : kColorNormal));
 		}
 	} else if (activeTab_ == Tab::Options) {
-		DrawTextSprite(textSprites_["resources/ui/txt_sensitivity.png"].get(), {350.0f, 265.0f}, (selectIndex_ == 0 ? kColorAccent : kColorNormal));
-		DrawTextSprite(textSprites_["resources/ui/txt_volume.png"].get(), {350.0f, 365.0f}, (selectIndex_ == 1 ? kColorAccent : kColorNormal));
+		auto dxCommon = DirectXCommon::GetInstance();
+		D3D12_RECT scissorRect = { 0, 110, 1280, 610 };
+		dxCommon->GetCommandList()->RSSetScissorRects(1, &scissorRect);
+
+		DrawTextSprite(textSprites_["resources/ui/txt_sensitivity.png"].get(), {350.0f, 265.0f - optionsScrollY_}, (selectIndex_ == 0 ? kColorAccent : kColorNormal));
+		DrawTextSprite(textSprites_["resources/ui/txt_volume.png"].get(), {350.0f, 365.0f - optionsScrollY_}, (selectIndex_ == 1 ? kColorAccent : kColorNormal));
 
 		for (int i = 0; i < 2; ++i) {
-			float y = 250.0f + (i * 100.0f);
+			float y = 250.0f + (i * 100.0f) - optionsScrollY_;
 			sliderBg_[i]->SetPos({650.0f, y + 15.0f});
 			sliderBg_[i]->SetColor({0.1f, 0.1f, 0.15f, menuAlpha_});
 			sliderBg_[i]->Update();
@@ -337,13 +435,38 @@ void PauseMenu::Draw() {
 			if (numText) {
 				int displayValue = static_cast<int>(rate * 100.0f);
 				numText->SetNumber(displayValue, 1);
-				// X座標を 1080.0f から 580.0f (メーターの左側) に変更
 				numText->SetPosition({580.0f, y});
 				numText->SetColor({1.0f, 1.0f, 1.0f, menuAlpha_});
 				numText->Update();
 				numText->Draw();
 			}
 		}
+
+		float bgmTitleY = 490.0f - optionsScrollY_;
+		DrawTextSprite(textSprites_["resources/ui/txt_bgm_title.png"].get(), {640.0f, bgmTitleY}, kColorNormal);
+
+		// --- BGMリスト描画 ---
+		for (size_t i = 0; i < bgmTextSprites_.size(); ++i) {
+			float y = 580.0f + (i * 70.0f) - optionsScrollY_;
+			int itemIndex = 2 + static_cast<int>(i);
+
+			if (selectIndex_ == itemIndex) {
+				float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.2f;
+				if (bgmTextSprites_[i]) {
+					float currentWidth = bgmTextSprites_[i]->GetSize().x;
+					selectorSprite_->SetSize({currentWidth + 60.0f, 40.0f});
+				}
+				selectorSprite_->SetPos({640.0f, y});
+				selectorSprite_->SetColor({0.0f, 0.4f, 0.9f, (0.4f + pulse) * menuAlpha_});
+				selectorSprite_->Update();
+				selectorSprite_->Draw();
+			}
+
+			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, (selectIndex_ == itemIndex ? kColorAccent : kColorNormal));
+		}
+
+		D3D12_RECT resetRect = { 0, 0, 1280, 720 };
+		dxCommon->GetCommandList()->RSSetScissorRects(1, &resetRect);
 	} else if (activeTab_ == Tab::Controls) {
 		Sprite* target = isControllerMode_ ? controlsPad_.get() : controlsKB_.get();
 		if (target) {

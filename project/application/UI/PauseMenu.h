@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include "UI/SpriteNumberText.h"
 
@@ -55,6 +56,9 @@ public:
 		isTitleRequested_ = false;
 	}
 	void SetPaused(bool paused) { isPaused_ = paused; }
+	
+	// BGM変更時のコールバック登録
+	void SetOnBgmChanged(std::function<void(const std::string&)> callback) { onBgmChanged_ = callback; }
 
 private:
 	// テキスト画像描画の補助
@@ -92,6 +96,12 @@ private:
 
 	// --- テキスト画像用スプライト ---
 	std::map<std::string, std::unique_ptr<Sprite>> textSprites_;
+	
+	// --- BGMリスト用 ---
+	std::vector<std::unique_ptr<Sprite>> bgmTextSprites_;
+	std::vector<std::string> bgmFilePaths_; // 再生するファイルパスのリスト
+	float optionsScrollY_ = 0.0f;
+	float targetOptionsScrollY_ = 0.0f;
 
 	// --- 数値表示用 ---
 	std::unique_ptr<SpriteNumberText> numTextSensitivity_;
@@ -114,4 +124,6 @@ private:
 	std::unique_ptr<Sprite> navRightKB_;
 	std::unique_ptr<Sprite> navLeftPad_;
 	std::unique_ptr<Sprite> navRightPad_;
+	
+	std::function<void(const std::string&)> onBgmChanged_;
 };
