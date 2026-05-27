@@ -22,7 +22,7 @@ public:
 
 	void Draw();
 
-	void CreateParticleGroup(const std::string name, const std::string textureFilePath, BlendMode blendMode = BlendMode::Alpha);
+	void CreateParticleGroup(const std::string name, const std::string textureFilePath);
 
 	void Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count);
 
@@ -56,7 +56,6 @@ private:
 		Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
 		uint32_t instanceCount = 0;
 		InstanceData* instancingData = nullptr; // 書き込み先
-		BlendMode blendMode = BlendMode::Alpha;
 	};
 
 	// 頂点データ
@@ -78,7 +77,7 @@ private:
 
 	void CreateRootSignature();
 
-	void CreateGraphicsPipelineState(BlendMode blendMode);
+	void CreateGraphicsPipelineState();
 
 	void CreateVertexResource();
 
@@ -92,7 +91,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 
-	std::unordered_map<BlendMode, Microsoft::WRL::ComPtr<ID3D12PipelineState>> pipelineStates_;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 

@@ -30,11 +30,7 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 	materialData_->uvTransform = Matrix4x4::Identity();
 
 	CreateVertexResource();
-	CreateRootSignature();
-	CreateGraphicsPipelineState(BlendMode::Alpha);
-	CreateGraphicsPipelineState(BlendMode::Add);
-	CreateGraphicsPipelineState(BlendMode::None);
-	CreateGraphicsPipelineState(BlendMode::Multiply);
+	CreateGraphicsPipelineState();
 }
 
 void ParticleManager::Update(float deltaTime) {
@@ -98,7 +94,8 @@ void ParticleManager::Draw() {
 
 	// ルートシグネチャをセットするコマンド
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());
-	
+	// グラフィックスパイプラインステートをセットするコマンド
+	commandList->SetPipelineState(pipelineState_.Get());
 	// プリミティブトポロジーをセットするコマンド
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// Vertex Buffer Viewをセットするコマンド
@@ -109,9 +106,6 @@ void ParticleManager::Draw() {
 	for (auto& [_, group] : particleGroups_) {
 		if (group.instanceCount == 0) { continue; }
 
-		// グラフィックスパイプラインステートをセットするコマンド
-		commandList->SetPipelineState(pipelineStates_[group.blendMode].Get());
-
 		D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU = srvManager_->GetGPUDescriptorHandle(group.instancingSrvIndex);
 		commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
 		D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = srvManager_->GetGPUDescriptorHandle(group.material.srvIndex);
@@ -120,7 +114,7 @@ void ParticleManager::Draw() {
 	}
 }
 
-void ParticleManager::CreateParticleGroup(const std::string name, const std::string textureFilePath, BlendMode blendMode) {
+void ParticleManager::CreateParticleGroup(const std::string name, const std::string textureFilePath) {
 	assert(particleGroups_.find(name) == particleGroups_.end() && "ParticleGroup already exists");
 
 	TextureManager::GetInstance()->LoadTexture(textureFilePath);
@@ -128,7 +122,6 @@ void ParticleManager::CreateParticleGroup(const std::string name, const std::str
 	ParticleGroup group{};
 	group.material.textureFilePath = textureFilePath;
 	group.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(textureFilePath);
-	group.blendMode = blendMode;
 
 	CreateInstancingResource(group);
 
@@ -248,8 +241,8 @@ void ParticleManager::CreateRootSignature() {
 	assert(SUCCEEDED(hr));
 }
 
-void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
-	
+void ParticleManager::CreateGraphicsPipelineState() {
+	CreateRootSignature();
 
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
 	inputElementDescs[0].SemanticName = "POSITION";
@@ -271,6 +264,9 @@ void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
 	inputLayoutDesc.pInputElementDescs = inputElementDescs;
 	inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
+	//int particleBlendMode = kBlendModeAdd;
+	//int particleBlendMode = kBlendModeNormal;
+	//int particlePrevBlendMode = -1;
 	// BlendStateの設定
 	D3D12_BLEND_DESC blendDesc{};
 	// すべての色要素を書き込む
@@ -282,26 +278,14 @@ void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
 	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
 
 	// ブレンドモード
-	switch (blendMode) {
-	case BlendMode::Alpha:
-		blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
-		blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-		blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-		break;
-	case BlendMode::Add:
-		blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
-		blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-		blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
-		break;
-	case BlendMode::None:
-		blendDesc.RenderTarget[0].BlendEnable = FALSE;
-		break;
-	case BlendMode::Multiply:
-		blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_DEST_COLOR;
-		blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-		blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ZERO;
-		break;
-	}
+	/* ノーマル
+	particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	*/
+	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 
 	// RasiterzerStateの設定
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
@@ -352,8 +336,53 @@ void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
 
 	// 実際に生成
 	ID3D12Device* device = dxCommon_->GetDevice();
-	HRESULT hr = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(&pipelineStates_[blendMode]));
+	HRESULT hr = device->CreateGraphicsPipelineState(&pipelineStateDesc, IID_PPV_ARGS(&pipelineState_));
 	assert(SUCCEEDED(hr));
+
+	/*
+
+	if (particleBlendMode != particlePrevBlendMode) {
+		particlePrevBlendMode = particleBlendMode;
+		if (particleBlendMode == kBlendModeNone) {
+			particleBlendDesc.RenderTarget[0].BlendEnable = FALSE;
+		} else {
+			particleBlendDesc.RenderTarget[0].BlendEnable = TRUE;
+			particleBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+			particleBlendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+			particleBlendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+
+			if (particleBlendMode == kBlendModeNormal) {
+				particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+				particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+				particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+			}
+			if (particleBlendMode == kBlendModeAdd) {
+				particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+				particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+				particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+			}
+			if (particleBlendMode == kBlendModeSubtract) {
+				particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+				particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+				particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+			}
+			if (particleBlendMode == kBlendModeMultiply) {
+				particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_ZERO;
+				particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+				particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_SRC_COLOR;
+			}
+			if (particleBlendMode == kBlendModeScreen) {
+				particleBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_INV_DEST_COLOR;
+				particleBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+				particleBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+			}
+			particlePipelineStateDesc.BlendState = particleBlendDesc;
+			hr = device->CreateGraphicsPipelineState(
+				&particlePipelineStateDesc, IID_PPV_ARGS(&particlePipelineState));
+			assert(SUCCEEDED(hr));
+		}
+	}
+	*/
 
 }
 
