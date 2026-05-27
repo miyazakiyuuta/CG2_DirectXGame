@@ -752,6 +752,15 @@ void GamePlayScene::Update() {
 #endif // DEBUG
 	// (Warp detection handled earlier before player update.)
 
+	if(player_->isDead_) {
+		resultUI_->TriggerGameOver();
+		return;
+	}
+	if (player_->GetPosition().y >= gameClearHeightY_) {
+		resultUI_->TriggerClear(gameTimer_.GetTimeSeconds());
+		return;
+	}
+
 	camera_->Update();
 	camera_->TransferToGPU();
 
@@ -792,9 +801,26 @@ void GamePlayScene::Draw() {
 	}
 
 	// --- 不透明オブジェクトの描画 ---
-	stage_->Draw();
+// --- 不透明ステージ ---
+	if (stage_) {
+		stage_->DrawOpaque();
+	}
+
 	stageEditor_->Draw();
-	player_->Draw();
+
+	if (player_) {
+		player_->Draw();
+	}
+
+	if (enemyManager_) {
+		enemyManager_->Draw();
+	}
+
+	// --- 透過ステージ ---
+	// ソナーで alpha が下がったブロックだけ、カメラから遠い順に描く
+	if (stage_ && camera_) {
+		stage_->DrawTransparentSorted(camera_->GetTranslate());
+	}
 
 	// --- ワープ出口アクターの描画 ---
 	for (const auto& exit : activeWarpExits_) {

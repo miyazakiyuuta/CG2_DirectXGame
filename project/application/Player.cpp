@@ -241,7 +241,7 @@ void Player::ApplyPendingLevelUps()
                 wallClingDurationMultiplier_ = newGauge / baseWallClingGauge_;
             }
             maxWallClingGauge_ = newGauge;
-            if (wallClingGauge_ > maxWallClingGauge_)
+            if (wallClingGauge_ < maxWallClingGauge_)
                 wallClingGauge_ = maxWallClingGauge_;
         } else if (ability == AbilityId::CamouflageDuration) {
             camouflageDurationMultiplier_ = 1.0f + camouflagePerLevel_ * static_cast<float>(newLevel - 1);
@@ -613,6 +613,7 @@ void Player::Initialize(Object3dCommon* object3dCommon, Camera* camera, const st
     isJumpChargeCanceled_ = false;
     chargeTimer_ = 0.0f;
     chargeMaxHoldTimer_ = 0.0f;
+    jumpChargeAirCancelGraceTimer_ = 0;
     moveState_ = MovementState::Root;
     wallClingGauge_ = maxWallClingGauge_;
     prevAimMode_ = false;
@@ -1660,6 +1661,8 @@ void Player::UpdateTonguePulling() {
            velocity_ = lastHitEnemy_->GetVelocity();
             velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_ * 2.0f; // 少し上に跳ね上げる (upgrade applied)
 
+            lastHitEnemy_->KillPart(lastHitEnemyPartId_);
+
             // 重要なのは「遷移する前に情報をクリアする」こと
             tonguePullingEnemy_ = false;
             lastHitEnemy_ = nullptr;
@@ -1704,6 +1707,10 @@ void Player::Update()
     }
 
     suppressTongueShotThisFrame_ = false;
+
+    if (hp_ <= 0) {
+		isDead_ = true;
+    }
 
     if (!abilityConfigLoaded_) {
         LoadAbilityConfig();
@@ -1814,6 +1821,7 @@ void Player::Update()
                     velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_;
                     lastHitEnemy_ = nullptr;
                     tonguePullingEnemy_ = false;
+                    lastHitEnemy_->KillPart(lastHitEnemyPartId_);
                 }
 
                 if (tongue_) {
@@ -1844,12 +1852,22 @@ void Player::Update()
         ResolveVerticalCollisions(beforeVertical);
         ResolveMovementLimitCylinder();
 
-		if (isOnGround_) {
-			TransitionTo(MovementState::Root);
-		}
-		else {
-			TransitionTo(MovementState::Jumping);
-		}
+        if (isOnGround_) {
+            jumpChargeAirCancelGraceTimer_ = 0;
+            TransitionTo(MovementState::Root);
+        }
+        else {
+            // 地面から離れた瞬間。
+            // 溜め中なら、即キャンセルせず3Fだけ猶予を持たせる。
+            if (isChargingJump_) {
+                jumpChargeAirCancelGraceTimer_ = jumpChargeAirCancelGraceFrames_;
+            }
+            else {
+                jumpChargeAirCancelGraceTimer_ = 0;
+            }
+
+            TransitionTo(MovementState::Jumping);
+        }
 		break;
 	}
 
@@ -1864,6 +1882,20 @@ void Player::Update()
         ApplyGravity();
         ResolveVerticalCollisions(beforeVertical);
         ResolveMovementLimitCylinder();
+
+        if (!isOnGround_ && isChargingJump_) {
+            if (jumpChargeAirCancelGraceTimer_ > 0) {
+                --jumpChargeAirCancelGraceTimer_;
+            }
+            else {
+                // 空中に出てから猶予を超えたので溜めをキャンセル
+                CancelJumpCharge();
+            }
+        }
+
+        if (isOnGround_) {
+            jumpChargeAirCancelGraceTimer_ = 0;
+        }
 
         if (!isOnGround_) {
             UpdateJumpPoseAnimation();
@@ -2363,7 +2395,7 @@ void Player::UpdateJumpCharge() {
     }
 
 	if (jumpPress) {
-		chargeTimer_ += 1.0f;
+		chargeTimer_ += 2.5f;
 
         int currentLevel = GetCurrentChargeLevel();
         int allowedLevel = GetAllowedChargeLevel();
@@ -2414,6 +2446,7 @@ void Player::ExecuteChargedJump(int chargeLevel)
 
 	velocity_.y = baseJump * jumpPowerMultiplier_ * verticalMultiplier;
 	isOnGround_ = false;
+    jumpChargeAirCancelGraceTimer_ = 0;
 
     if (chargeLevel > 0) {
         // chargeStock_ -= chargeLevel;
@@ -2429,6 +2462,7 @@ void Player::CancelJumpCharge()
     isChargingJump_ = false;
     chargeTimer_ = 0.0f;
     chargeMaxHoldTimer_ = 0.0f;
+    jumpChargeAirCancelGraceTimer_ = 0;
 }
 
 void Player::ApplyGravity()

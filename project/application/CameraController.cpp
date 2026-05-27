@@ -194,8 +194,14 @@ void CameraController::Update(const Vector3& target){
 	distance_ = std::clamp(distance_, clampMin, clampMax);
 
 	// 行き過ぎ防止
-	const float kMinPitch = -3.14f / 2.0f;
-	const float kMaxPitch = 3.14f / 2.0f;
+	// ±90度ちょうどまで行くと、カメラ方向とworldUpが平行になり、
+	// 衝突判定用のright/up生成が不安定になるので少しだけ余白を残す。
+	constexpr float kPi = 3.14159265358979323846f;
+	constexpr float kPitchLimitMargin = 0.08f; // 約4.6度
+
+	const float kMinPitch = -kPi * 0.5f + kPitchLimitMargin;
+	const float kMaxPitch = kPi * 0.5f - kPitchLimitMargin;
+
 	pitch_ = std::clamp(pitch_, kMinPitch, kMaxPitch);
 
 	Vector3 focus = target;
@@ -286,8 +292,15 @@ void CameraController::Update(const Vector3& target){
 		if(desiredLength > 0.0001f){
 			Vector3 dir = NormalizeVecSafe(rayDir);
 
-			Vector3 worldUp = { 0.0f, 1.0f, 0.0f };
-			Vector3 right = NormalizeVecSafe(CrossVec(worldUp, dir));
+			// dir が真上・真下に近いと Cross(worldUp, dir) がほぼゼロになって不安定になる。
+			// yaw から水平rightを作ることで、真上・真下付近でも補助レイの向きを固定する。
+			Vector3 right = {
+				std::cos(yaw_),
+				0.0f,
+				-std::sin(yaw_)
+			};
+			right = NormalizeVecSafe(right);
+
 			Vector3 up = NormalizeVecSafe(CrossVec(dir, right));
 
 			// 上下方向を少し強めに見る

@@ -25,6 +25,8 @@ public:
 
     void RefreshInstances();
     void Draw();
+    void DrawOpaque();
+    void DrawTransparentSorted(const Vector3& cameraPos);
     // Update runtime behaviors (moving platforms, etc.)
     void Update(float deltaTime);
     // Consume and return platform movement deltas computed during Update

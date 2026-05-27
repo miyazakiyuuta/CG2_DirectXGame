@@ -107,7 +107,7 @@ public:
 
 	int GetHP() const { return hp_; }
 	int GetMaxHP() const { return maxHp_; }
-	bool IsDead() const { return hp_ <= 0; }
+	bool IsDead() const { return isDead_; }
 
 	void ApplyDamage(int damage);
 	void CheckEnemyContactDamage();
@@ -335,6 +335,9 @@ public:
 	bool isJumpChargeCanceled_ = false;
 	float chargeTimer_ = 0.0f;
 	float chargeMaxHoldTimer_ = 0.0f;
+
+	int jumpChargeAirCancelGraceFrames_ = 5;
+	int jumpChargeAirCancelGraceTimer_ = 0;
 
 	int chargeStock_ = 3;
 	static constexpr int kMaxChargeLevel_ = 3;
@@ -564,6 +567,8 @@ public:
 
 	int maxHp_ = 30;
 	int hp_ = 30;
+
+	bool isDead_ = false;
 
 	std::unique_ptr<Sprite> wallClingGaugeBackSprite_ = nullptr;
 	std::unique_ptr<Sprite> wallClingGaugeFillSprite_ = nullptr;

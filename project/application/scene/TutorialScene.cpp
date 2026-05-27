@@ -487,7 +487,7 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
-		0.5f
+		3.0f
 		});
 
 	tutorialStepDefinitions_.push_back({

@@ -54,6 +54,17 @@ public:
     /// </summary>
     void DrawAndUpdate();
 
+    /// <summary>
+    /// 不透明なオブジェクトを描画し、レンダリングに関する状態を更新する。
+    /// </summary>
+    void DrawOpaqueAndUpdate();
+
+    /// <summary>
+    /// カメラ位置に基づいて透明オブジェクトをソートして描画し、関連するレンダリング状態を更新する。
+    /// </summary>
+    /// <param name="cameraPos">カメラのワールド座標。透明オブジェクトの描画順序決定（ソート）と描画状態の更新に使用される。</param>
+    void DrawTransparentSortedAndUpdate(const Vector3& cameraPos);
+
     // Debug: インスタンス数を返す
     size_t GetInstanceCount() const;
 
