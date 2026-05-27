@@ -377,8 +377,16 @@ void GamePlayScene::Initialize() {
 
 	// ポーズメニューの初期化
 	pauseMenu_ = std::make_unique<PauseMenu>();
-	// スプライト版の Initialize は SpriteCommon と CameraController を受け取る
 	pauseMenu_->Initialize(SpriteCommon::GetInstance(), cameraController_.get());
+
+	pauseMenu_->SetOnBgmChanged([this](const std::string& newBgmPath) {
+		SoundManager* sm = SoundManager::GetInstance();
+		if (bgmHandle_ != SoundManager::InvalidHandle) {
+			sm->StopWave(bgmHandle_);
+		}
+		bgm_ = sm->LoadFile(newBgmPath);
+		bgmHandle_ = sm->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
+	});
 
 	// リザルトUIの初期化
 	resultUI_ = std::make_unique<ResultUI>();
