@@ -108,12 +108,12 @@ int XPOrb::Update(float dt, const Vector3& attractPos)
     float dist = std::sqrt(distSq);
 
     // プレイヤーに引き寄せられる処理
-    const float attractRadius = 6.0f;
+    const float attractRadius = 25.0f;
     if (dist < attractRadius) {
         float inv = (dist > 0.0001f) ? 1.0f / dist : 0.0f;
         Vector3 dir = { dx * inv, dy * inv, dz * inv };
 
-        const float maxAttractSpeed = 8.0f;
+        const float maxAttractSpeed = 10.0f;
         const float slowRadius = 1.2f;
         float desiredSpeed = maxAttractSpeed * (1.0f - (dist / attractRadius));
 
