@@ -82,6 +82,7 @@ void TutorialScene::Initialize()
 	ModelManager::GetInstance()->LoadModel("Enemy/ClusterMinion", "ClusterMinion.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/GhostFace", "GhostFace.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
 
 	if (ModelManager::GetInstance()->FindModel("well.obj")) {

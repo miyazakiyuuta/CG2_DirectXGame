@@ -1,7 +1,7 @@
 #include "ProminenceSensor.h"
 #include "../../../application/Player.h"
 #include "../../../engine/3d/Object3d.h"
-#include "../../../engine/debug/DebugRenderer.h"
+#include "../../../engine/3d/ModelManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -14,7 +14,7 @@ ProminenceSensor::~ProminenceSensor() = default;
 void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) {
 	common_ = common;
 	camera_ = camera;
-	// 3Dオブジェクトの基本設定
+	// 3Dオブジェクトの基本設定（センサー本体）
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
 	LoadModel("ProminenceSensor.obj");
@@ -32,12 +32,49 @@ void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const 
 	// 重力・接地判定の初期化（BaseEnemyのメンバを使用）
 	gravity_ = -0.02f;
 	groundY_ = 0.0f;
+
+	// --- ビーム用Object3dの生成 ---
+	// beam.objはY軸方向に伸びる円柱（原点が底面中心）
+	beamObject_ = std::make_unique<Object3d>();
+	beamObject_->Initialize(common);
+	beamObject_->SetModel("beam.obj");
+	beamObject_->SetCamera(camera);
+	// ライティングを無効化して自己発光風にする
+	beamObject_->SetEnableLighting(false);
+	// 初期状態では非表示
+	beamVisible_ = false;
+}
+
+// --- ビームObject3dの座標・回転・スケールを計算して適用する ---
+// origin: ビームの射出位置（センサーの目の位置）
+// direction: ビームの方向（正規化済みベクトル）
+// length: ビームの長さ
+void ProminenceSensor::UpdateBeamTransform(const Vector3& origin, const Vector3& direction, float length, float thickness) {
+	// OBJモデルはY軸方向（y=0→y=1）に伸びる円柱なので
+	// ビーム方向ベクトルに向けるための回転を計算する
+
+	// Y軸回転（yaw）：XZ平面での方向
+	float yaw = std::atan2(direction.x, direction.z);
+
+	// X軸回転（pitch）：仰角/俯角
+	// 左手系でY軸(上)をZ軸+(奥)へ倒すには、X軸周りに+90度(π/2)回転させる。
+	// 仰角/俯角はそこから引くことで調整する。
+	float horizontalDist = std::sqrt(direction.x * direction.x + direction.z * direction.z);
+	float pitch = (3.14159265f / 2.0f) - std::atan2(direction.y, horizontalDist);
+
+	// Object3dに適用
+	beamObject_->SetTranslate(origin);
+	beamObject_->SetRotate({pitch, yaw, 0.0f});
+	// X,Z = ビームの太さ
+	// Y = ビームの長さ
+	beamObject_->SetScale({thickness, length, thickness});
 }
 
 // --- 更新処理：ステートマシンと索敵AI ---
 void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 	if (isDead_) {
 		UpdateDeathAnimation(deltaTime);
+		beamVisible_ = false; // 死亡時はビームを消す
 		return;
 	}
 
@@ -71,8 +108,10 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 			forwardDir_.z = baseForwardDir_.x * std::sin(searchAngle) + baseForwardDir_.z * std::cos(searchAngle);
 		}
 
-		// 青い視線（デバッグライン）を表示して索敵中であることをアピール
-		DebugRenderer::GetInstance()->AddLine(eyePos, eyePos + forwardDir_ * kDetectRange, {0.2f, 0.6f, 1.0f, 0.4f});
+		// 索敵中のビームを表示（青色・半透明）
+		beamVisible_ = true;
+		beamColor_ = {0.2f, 0.6f, 1.0f, 0.4f};
+		UpdateBeamTransform(eyePos, forwardDir_, kDetectRange, 0.15f);
 
 		// プレイヤーが視界内に入り、かつ擬態していなければ発見！
 		if (CanSeePlayer(playerPos)) {
@@ -85,7 +124,11 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 	case SensorState::LockOn:
 		// 【追尾状態】首振りをやめて、赤いサイトでプレイヤーを執拗に追い続ける
 		lockOnDir_ = Vector3::Normalized(playerPos - eyePos);
-		DebugRenderer::GetInstance()->AddLine(eyePos, eyePos + lockOnDir_ * kDetectRange, {1.0f, 0.0f, 0.0f, 0.6f});
+
+		// 追尾中のビームを表示（赤色）
+		beamVisible_ = true;
+		beamColor_ = {1.0f, 0.0f, 0.0f, 0.6f};
+		UpdateBeamTransform(eyePos, lockOnDir_, kDetectRange, 0.15f);
 
 		{
 			// ロック解除判定：一度見つかったら「隠れる（擬態）」か「遠くへ逃げる」まで離さない
@@ -121,7 +164,9 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 		{
 			// sin波を使って高速点滅を表現
 			float blink = std::sin(stateTimer_ * 50.0f) * 0.5f + 0.5f;
-			DebugRenderer::GetInstance()->AddLine(eyePos, eyePos + lockOnDir_ * kDetectRange, {1.0f, 0.0f, 0.0f, blink});
+			beamVisible_ = true;
+			beamColor_ = {1.0f, 0.0f, 0.0f, blink};
+			UpdateBeamTransform(eyePos, lockOnDir_, kDetectRange, 0.15f);
 			object_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 攻撃色：赤
 		}
 		if (stateTimer_ >= kChargeTime) {
@@ -131,10 +176,12 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 		break;
 
 	case SensorState::Firing:
-		// 【発射中】太いビーム（複数のデバッグラインの重なり）で描画
-		for (int i = 0; i < 3; ++i) {
-			DebugRenderer::GetInstance()->AddLine(eyePos, eyePos + lockOnDir_ * kDetectRange, {1.0f, 0.6f, 0.6f, 1.0f});
-		}
+		// 【発射中】太いビームをOBJモデルで描画
+		beamVisible_ = true;
+		beamColor_ = {1.0f, 0.6f, 0.6f, 1.0f};
+		// 発射中はビームを太くする
+		UpdateBeamTransform(eyePos, lockOnDir_, kDetectRange, kBeamRadius * 2.5f);
+
 		if (stateTimer_ >= kFireDuration) {
 			state_ = SensorState::Cooldown;
 			stateTimer_ = 0;
@@ -143,7 +190,8 @@ void ProminenceSensor::Update(float deltaTime, const Vector3& playerPos) {
 		break;
 
 	case SensorState::Cooldown:
-		// 【再装填】しばらく待機してから、再び「Idle」に戻って首振りを再開
+		// 【再装填】ビームを消して待機、再びIdleへ
+		beamVisible_ = false;
 		if (stateTimer_ >= kCooldownTime) {
 			state_ = SensorState::Idle;
 			object_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
@@ -196,7 +244,15 @@ void ProminenceSensor::Draw() {
 		return;
 	}
 
+	// センサー本体の描画
 	object_->Update();
 	if (object_)
 		object_->Draw();
+
+	// ビームOBJモデルの描画
+	if (beamVisible_ && beamObject_) {
+		beamObject_->SetColor(beamColor_);
+		beamObject_->Update();
+		beamObject_->Draw();
+	}
 }
