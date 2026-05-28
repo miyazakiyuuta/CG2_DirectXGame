@@ -282,6 +282,8 @@ public:
 	void UpdateJumpPoseAnimation();
 	void EndJumpPoseAnimation();
 
+	void SetWallDetachJumpBoost(float boostY);
+
 private:
     // 経験値とレベルアップの保留キュー
 	std::vector<std::pair<AbilityId, float>> pendingAbilityXP_;
@@ -627,4 +629,13 @@ public:
 	float enemyContactInvincibilityTimer_ = 0.0f;
 
 	bool tonguePullingEnemy_ = false;
+
+	// 移動床が上昇している時、壁張り付き離脱ジャンプだけに乗せる上昇分
+	float wallDetachJumpBoostY_ = 0.0f;
+
+	// delta.y は1フレームあたりの移動量なので、そのまま足す
+	float wallDetachJumpBoostScale_ = 1.0f;
+
+	// 強くなりすぎ防止
+	float wallDetachJumpBoostMax_ = 20.0f;
 };

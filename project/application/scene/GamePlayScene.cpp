@@ -464,6 +464,29 @@ void GamePlayScene::Update() {
 				const float halfX = o.scale.x;
 				const float halfZ = o.scale.z;
 
+				// 上昇中の移動床の側面に張り付いている時だけ、
+// 離脱ジャンプへ上昇分を乗せる
+				if (delta.y > 0.0f && player_ && player_->IsWallClinging()) {
+					const float sideBoostXZMargin = 1.20f;
+					const float sideBoostYMargin = 0.90f;
+
+					const float platformBottomY = o.position.y - o.scale.y;
+					const float platformTopY = o.position.y + o.scale.y;
+					const float playerTop = playerPos.y + playerHalfY;
+
+					const bool nearPlatformXZ =
+						std::fabs(playerPos.x - o.position.x) <= halfX + sideBoostXZMargin &&
+						std::fabs(playerPos.z - o.position.z) <= halfZ + sideBoostXZMargin;
+
+					const bool nearPlatformHeight =
+						playerTop >= platformBottomY - sideBoostYMargin &&
+						playerBottom <= platformTopY + sideBoostYMargin;
+
+					if (nearPlatformXZ && nearPlatformHeight) {
+						player_->SetWallDetachJumpBoost(delta.y);
+					}
+				}
+
 				const float prevTopY = prevPlatformPos.y + o.scale.y;
 				const float currTopY = o.position.y + o.scale.y;
 

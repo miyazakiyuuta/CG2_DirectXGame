@@ -2220,6 +2220,7 @@ void Player::Update()
     } else {
         speedMultiplier_ = 1.0f;
     }
+    wallDetachJumpBoostY_ = 0.0f;
 }
 
 void Player::Draw()
@@ -3276,9 +3277,27 @@ void Player::UpdateWallClinging(float cameraYaw)
             return;
         }
 
-		// 壁のときは従来どおり離脱ジャンプ
-		velocity_ = clingSurfaceNormal_ * -0.15f;
-        velocity_.y = baseJumpPowers_[0] * jumpPowerMultiplier_;
+        // 壁のときは従来どおり離脱ジャンプ
+        velocity_ = clingSurfaceNormal_ * -0.15f;
+
+        float detachJumpPower = baseJumpPowers_[0] * jumpPowerMultiplier_;
+
+        // 上昇中の移動床側面から離脱する場合だけ、床の上昇分を乗せる
+        if (wallDetachJumpBoostY_ > 0.0f) {
+            const float boost =
+                std::min(
+                    wallDetachJumpBoostY_ * wallDetachJumpBoostScale_,
+                    wallDetachJumpBoostMax_
+                );
+
+            detachJumpPower += boost;
+        }
+
+        velocity_.y = detachJumpPower;
+
+        // この離脱ジャンプ専用なので、使ったら必ず消す
+        wallDetachJumpBoostY_ = 0.0f;
+
         hasClingSurface_ = false;
         TransitionTo(MovementState::Jumping);
         return;
@@ -4265,6 +4284,16 @@ void Player::EndJumpPoseAnimation()
     }
 
     object_->SetAnimationPause(false);
+}
+
+void Player::SetWallDetachJumpBoost(float boostY)
+{
+    if (boostY <= 0.0f) {
+        return;
+    }
+
+    // 複数候補がある場合は一番強い上昇分だけ使う
+    wallDetachJumpBoostY_ = std::max(wallDetachJumpBoostY_, boostY);
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint)
