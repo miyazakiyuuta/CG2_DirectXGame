@@ -95,7 +95,7 @@ void TutorialScene::Initialize()
 // 見た目はCylinderSkybox、当たり判定や移動制限はwellCylinder_を使う
 	{
 		wellCylinder_.center = { 0.0f, 0.0f, 0.0f };
-		wellCylinder_.radius = 60.0f;
+		wellCylinder_.radius = 58.5f;
 		wellCylinder_.halfHeight = 1520.0f;
 
 		const std::string wellCylinderTexturePath = "resources/well/well.png";
@@ -124,9 +124,9 @@ void TutorialScene::Initialize()
 		wellTransform.rotate = { 0.0f, 0.0f, 0.0f };
 
 		wellTransform.scale = {
-			wellCylinder_.radius,
+			60.0f,
 			(wellCylinder_.halfHeight * 2.0f) / 3.0f,
-			wellCylinder_.radius
+			60.0f
 		};
 
 		skyCylinder_->Update();
