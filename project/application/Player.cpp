@@ -106,6 +106,34 @@ static float ApproachFloat(float current, float target, float delta) {
 
 } // namespace
 
+void Player::SetAllAbilitiesToMax()
+{
+    // Ensure config loaded so maxLevel and base values are valid
+    LoadAbilityConfig();
+
+    // Iterate through all known abilities and set them to their max
+    AbilityId allAbilities[] = {
+        AbilityId::JumpPower,
+        AbilityId::TongueRange,
+        AbilityId::SonarDuration,
+        AbilityId::WallClingDuration,
+        AbilityId::CamouflageDuration
+    };
+
+    for (AbilityId a : allAbilities) {
+        auto& s = abilityStates_[a];
+        // If maxLevel not set, default to 10
+        if (s.maxLevel <= 0) s.maxLevel = 10;
+        s.level = s.maxLevel;
+        s.xp = 0.0f;
+        // enqueue a fake pending level up so ApplyPendingLevelUps will apply the multipliers
+        pendingLevelUps_.push_back({a, s.level});
+    }
+
+    // Apply the level-up effects immediately
+    ApplyPendingLevelUps();
+}
+
 // 次のレベルまでの必要経験値を計算する関数。レベルが上がるごとに必要経験値が増えるように、二次関数的な成長をさせています。
 float Player::XPToNextLevel(int level) const
 {
@@ -2220,6 +2248,7 @@ void Player::Update()
     } else {
         speedMultiplier_ = 1.0f;
     }
+    wallDetachJumpBoostY_ = 0.0f;
 }
 
 void Player::Draw()
@@ -3234,17 +3263,62 @@ void Player::UpdateWallClinging(float cameraYaw)
 		moveY *= invLen;
 	}
 
-	moveVec += clingSurfaceUp_ * moveY;
-	moveVec += wallRightVec_ * (-moveX);
+    if (IsCeilingSurface(clingSurfaceNormal_)) {
+        // 下面に張り付いている時だけ、地面移動と同じくカメラYaw基準で移動する
+        Vector3 cameraForward = {
+            std::sin(cameraYaw),
+            0.0f,
+            std::cos(cameraYaw)
+        };
 
-	float len = Length3(moveVec);
-	if (len > 0.0001f) {
-		moveVec *= (1.0f / len);
-		position += moveVec * wallMoveSpeed_;
-	}
+        Vector3 cameraRight = {
+            std::cos(cameraYaw),
+            0.0f,
+            -std::sin(cameraYaw)
+        };
 
-	// 先に張り付いた面へ向きをそろえる
-	ApplyClingSurfaceRotation();
+        // 念のため、現在の張り付き面へ射影する
+        cameraForward =
+            cameraForward - clingSurfaceNormal_ * Dot3(cameraForward, clingSurfaceNormal_);
+        cameraRight =
+            cameraRight - clingSurfaceNormal_ * Dot3(cameraRight, clingSurfaceNormal_);
+
+        if (Length3(cameraForward) > 0.0001f) {
+            cameraForward = Normalize3(cameraForward);
+        }
+        else {
+            cameraForward = clingSurfaceUp_;
+        }
+
+        if (Length3(cameraRight) > 0.0001f) {
+            cameraRight = Normalize3(cameraRight);
+        }
+        else {
+            cameraRight = wallRightVec_ * -1.0f;
+        }
+
+        moveVec += cameraForward * moveY;
+        moveVec += cameraRight * moveX;
+    }
+    else {
+        // 壁面は従来通り、面の上下左右に沿って移動
+        moveVec += clingSurfaceUp_ * moveY;
+        moveVec += wallRightVec_ * (-moveX);
+    }
+
+    float len = Length3(moveVec);
+    if (len > 0.0001f) {
+        moveVec *= (1.0f / len);
+        position += moveVec * wallMoveSpeed_;
+    }
+
+    // 先に張り付いた面へ向きをそろえる
+    if (IsCeilingSurface(clingSurfaceNormal_) && len > 0.0001f) {
+        ApplyClingSurfaceRotationFacing(moveVec);
+    }
+    else {
+        ApplyClingSurfaceRotation();
+    }
 
     // まず張り付き面の範囲に拘束
     position = ClampPositionToCurrentClingSurface(position);
@@ -3276,9 +3350,27 @@ void Player::UpdateWallClinging(float cameraYaw)
             return;
         }
 
-		// 壁のときは従来どおり離脱ジャンプ
-		velocity_ = clingSurfaceNormal_ * -0.15f;
-        velocity_.y = baseJumpPowers_[0] * jumpPowerMultiplier_;
+        // 壁のときは従来どおり離脱ジャンプ
+        velocity_ = clingSurfaceNormal_ * -0.15f;
+
+        float detachJumpPower = baseJumpPowers_[0] * jumpPowerMultiplier_;
+
+        // 上昇中の移動床側面から離脱する場合だけ、床の上昇分を乗せる
+        if (wallDetachJumpBoostY_ > 0.0f) {
+            const float boost =
+                std::min(
+                    wallDetachJumpBoostY_ * wallDetachJumpBoostScale_,
+                    wallDetachJumpBoostMax_
+                );
+
+            detachJumpPower += boost;
+        }
+
+        velocity_.y = detachJumpPower;
+
+        // この離脱ジャンプ専用なので、使ったら必ず消す
+        wallDetachJumpBoostY_ = 0.0f;
+
         hasClingSurface_ = false;
         TransitionTo(MovementState::Jumping);
         return;
@@ -4265,6 +4357,16 @@ void Player::EndJumpPoseAnimation()
     }
 
     object_->SetAnimationPause(false);
+}
+
+void Player::SetWallDetachJumpBoost(float boostY)
+{
+    if (boostY <= 0.0f) {
+        return;
+    }
+
+    // 複数候補がある場合は一番強い上昇分だけ使う
+    wallDetachJumpBoostY_ = std::max(wallDetachJumpBoostY_, boostY);
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint)
