@@ -19,6 +19,7 @@ class Camera;
 class Object3d;
 class Player;
 class CameraController;
+class SkyCylinder;
 class Stage;
 class Reticle;
 class DebugGrid;
@@ -190,4 +191,5 @@ private:
 	SoundData tutorialBgm_ = {};
 	SoundManager::SoundHandle tutorialBgmHandle_ = SoundManager::InvalidHandle;
 	std::string tutorialBgmPath_ = "resources/BGM/tutorial.wav";
+	std::unique_ptr<SkyCylinder> skyCylinder_;
 };

@@ -188,35 +188,6 @@ void GamePlayScene::Initialize() {
 	// Load the single well model so it can be placed in the scene
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
 
-	// Create the well object and place it at a fixed position only if model is loaded
-	if (Object3dCommon::GetInstance() && camera_) {
-		// Ensure model was actually loaded
-		if (ModelManager::GetInstance()->FindModel("well.obj")) {
-			wellObject_ = std::make_unique<Object3d>();
-			wellObject_->Initialize(Object3dCommon::GetInstance());
-			wellObject_->SetModel("well.obj");
-			wellObject_->SetCamera(camera_.get());
-			// Adjust this position as needed
-			// Move the well slightly further from the camera and make it very small
-			wellObject_->SetTranslate({0.0f, 0.0f, 0.0f});
-			wellObject_->SetScale({60.0f, 1500.0f, 60.0f});
-			wellObject_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
-			if (wellObject_) {
-				Vector3 wellPos = wellObject_->GetTranslate();
-				Vector3 wellScale = wellObject_->GetScale();
-
-				wellCylinder_.center = wellPos;
-				wellCylinder_.radius = 58.5f;
-				wellCylinder_.halfHeight = 1520.0f;
-			}
-		} else {
-			// Model not found; skip creating wellObject_
-			wellObject_.reset();
-		}
-	} else {
-		wellObject_.reset();
-	}
-
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
 	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
@@ -365,11 +336,46 @@ void GamePlayScene::Initialize() {
 	timerColonSprite_->SetPos(colonPos);
 	timerColonSprite_->SetColor({0.25f, 0.75f, 1.0f, 1.0f});
 	timerColonSprite_->Update();
-	skyCylinder_ = std::make_unique<SkyCylinder>();
-	skyCylinder_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
-	skyCylinder_->SetCamera(camera_.get());
-	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
-	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
+	// --- 井戸の内壁をCylinderSkyboxで生成 ---
+// 見た目はCylinderSkybox、当たり判定や移動制限はwellCylinder_を使う
+	{
+		wellCylinder_.center = { 0.0f, 0.0f, 0.0f };
+		wellCylinder_.radius = 60.0f;
+		wellCylinder_.halfHeight = 1520.0f;
+
+		const std::string wellCylinderTexturePath = "resources/well/well.png";
+		// 後で井戸内壁用の画像ができたら、例えば
+		// "resources/well_wall.png" などに差し替える
+
+		skyCylinder_ = std::make_unique<SkyCylinder>();
+		skyCylinder_->Initialize(
+			DirectXCommon::GetInstance(),
+			SrvManager::GetInstance(),
+			wellCylinderTexturePath
+		);
+		skyCylinder_->SetCamera(camera_.get());
+		Transform& wellTransform = skyCylinder_->GetTransform();
+
+		// CylinderSkyboxの素の形状は radius=1, height=3, Y=0〜3
+		// なので、中心0、高さ2000にしたい場合は
+		// translate.y = -halfHeight
+		// scale.y = height / 3
+		wellTransform.translate = {
+			wellCylinder_.center.x,
+			wellCylinder_.center.y - wellCylinder_.halfHeight,
+			wellCylinder_.center.z
+		};
+
+		wellTransform.rotate = { 0.0f, 0.0f, 0.0f };
+
+		wellTransform.scale = {
+			wellCylinder_.radius,
+			(wellCylinder_.halfHeight * 2.0f) / 3.0f,
+			wellCylinder_.radius
+		};
+
+		skyCylinder_->Update();
+	}
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -823,9 +829,7 @@ void GamePlayScene::Update() {
 		ParticleManager::GetInstance()->SetExternalInstanceCount("xp_orb", numInst);
 	}
 
-	if (wellObject_) {
-		wellObject_->Update();
-	}
+	skyCylinder_->Update();
 
 	DebugRenderer::GetInstance()->AddGrid({0.0f, 0.0f, 0.0f}, 5.0f, 10, {0.0f, 0.0f, 0.0f, 1.0f});
 }
@@ -833,9 +837,7 @@ void GamePlayScene::Update() {
 void GamePlayScene::Draw() {
 	// skybox_->Draw(*camera_);
 
-	if (wellObject_) {
-		wellObject_->Draw();
-	}
+
 
 	// --- 不透明オブジェクトの描画 ---
 // --- 不透明ステージ ---

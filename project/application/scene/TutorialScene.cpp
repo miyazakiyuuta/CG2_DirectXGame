@@ -27,6 +27,7 @@
 #include "utility/Logger.h"
 
 #include "Enemy/Manager/EnemyManager.h"
+#include "../../engine/3d/SkyCylinder.h"
 
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -90,18 +91,45 @@ void TutorialScene::Initialize()
 	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
 
-	if (ModelManager::GetInstance()->FindModel("well.obj")) {
-		wellObject_ = std::make_unique<Object3d>();
-		wellObject_->Initialize(Object3dCommon::GetInstance());
-		wellObject_->SetModel("well.obj");
-		wellObject_->SetCamera(camera_.get());
-		wellObject_->SetTranslate({ 0.0f, 0.0f, 0.0f });
-		wellObject_->SetScale({ 60.0f, 500.0f, 60.0f });
-		wellObject_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
-
+	// --- 井戸の内壁をCylinderSkyboxで生成 ---
+// 見た目はCylinderSkybox、当たり判定や移動制限はwellCylinder_を使う
+	{
 		wellCylinder_.center = { 0.0f, 0.0f, 0.0f };
-		wellCylinder_.radius = 58.5f;
-		wellCylinder_.halfHeight = 1000.0f;
+		wellCylinder_.radius = 60.0f;
+		wellCylinder_.halfHeight = 1520.0f;
+
+		const std::string wellCylinderTexturePath = "resources/well/well.png";
+		// 後で井戸内壁用の画像ができたら、例えば
+		// "resources/well_wall.png" などに差し替える
+
+		skyCylinder_ = std::make_unique<SkyCylinder>();
+		skyCylinder_->Initialize(
+			DirectXCommon::GetInstance(),
+			SrvManager::GetInstance(),
+			wellCylinderTexturePath
+		);
+		skyCylinder_->SetCamera(camera_.get());
+		Transform& wellTransform = skyCylinder_->GetTransform();
+
+		// CylinderSkyboxの素の形状は radius=1, height=3, Y=0〜3
+		// なので、中心0、高さ2000にしたい場合は
+		// translate.y = -halfHeight
+		// scale.y = height / 3
+		wellTransform.translate = {
+			wellCylinder_.center.x,
+			wellCylinder_.center.y - wellCylinder_.halfHeight,
+			wellCylinder_.center.z
+		};
+
+		wellTransform.rotate = { 0.0f, 0.0f, 0.0f };
+
+		wellTransform.scale = {
+			wellCylinder_.radius,
+			(wellCylinder_.halfHeight * 2.0f) / 3.0f,
+			wellCylinder_.radius
+		};
+
+		skyCylinder_->Update();
 	}
 
 	stage_ = std::make_unique<Stage>(Object3dCommon::GetInstance(), camera_.get());
@@ -1473,9 +1501,7 @@ void TutorialScene::Update()
 		camera_->TransferToGPU();
 	}
 
-	if (wellObject_) {
-		wellObject_->Update();
-	}
+	skyCylinder_->Update();
 
 	ParticleManager::GetInstance()->Update(deltaTime);
 	WriteTutorialXPOrbInstances();
@@ -1490,9 +1516,6 @@ void TutorialScene::Update()
 
 void TutorialScene::Draw()
 {
-	if (wellObject_) {
-		wellObject_->Draw();
-	}
 
 	if (player_) {
 		player_->Draw();
@@ -1515,6 +1538,8 @@ void TutorialScene::Draw()
 	if (debugGrid_) {
 		debugGrid_->Draw(*camera_);
 	}
+
+	skyCylinder_->Draw();
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 
