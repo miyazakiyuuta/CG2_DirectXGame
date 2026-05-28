@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "Reticle.h"
 
 #include "2d/Sprite.h"
@@ -23,6 +24,11 @@ namespace{
 			return { 0.0f, 0.0f, 1.0f };
 		}
 		return { v.x / len, v.y / len, v.z / len };
+	}
+
+	float Dot3(const Vector3& a, const Vector3& b)
+	{
+		return a.x * b.x + a.y * b.y + a.z * b.z;
 	}
 }
 
@@ -120,32 +126,60 @@ void Reticle::UpdateVisual(){
 	barRight_->Update();
 }
 
-CollisionUtility::RayHitResult Reticle::CastCameraAimRay() const{
+CollisionUtility::RayHitResult Reticle::CastCameraAimRay(float ignoreBeforeT) const
+{
 	CollisionUtility::RayHitResult best{};
 	best.t = std::numeric_limits<float>::infinity();
 
-	if(!camera_ || !cameraController_ || !blockColliders_){
+	if (!camera_ || !cameraController_ || !blockColliders_) {
 		return best;
 	}
 
 	CollisionUtility::Ray ray;
 	ray.origin = camera_->GetTranslate();
-	ray.dir = cameraController_->GetForwardDirection();
+	ray.dir = Normalize3(cameraController_->GetForwardDirection());
 
-	for(const auto& obb : *blockColliders_){
+	for (const auto& obb : *blockColliders_) {
 		CollisionUtility::RayHitResult hit =
 			CollisionUtility::RayIntersectOBB_Detailed(ray, obb);
 
-		if(!hit.hit || hit.t < 0.0f || hit.t > aimMaxDistance_){
+		if (!hit.hit || hit.t < 0.0f || hit.t > aimMaxDistance_) {
 			continue;
 		}
 
-		if(hit.t < best.t){
+		// カメラとプレイヤーの間にあるブロックは、狙い補正には使わない
+		if (hit.t < ignoreBeforeT) {
+			continue;
+		}
+
+		if (hit.t < best.t) {
 			best = hit;
 		}
 	}
 
 	return best;
+}
+
+float Reticle::GetCameraRayPlayerPassT() const
+{
+	if (!camera_ || !cameraController_ || !player_) {
+		return 0.0f;
+	}
+
+	const Vector3 rayOrigin = camera_->GetTranslate();
+	const Vector3 rayDir = Normalize3(cameraController_->GetForwardDirection());
+
+	// 実際の舌は口元から飛ぶので、プレイヤー中心より口元を基準にする
+	Vector3 playerReference = player_->GetPosition();
+
+	if (Tongue* tongue = player_->GetTongue()) {
+		playerReference = tongue->GetMouthWorldPositionPublic();
+	}
+
+	const Vector3 toPlayer = playerReference - rayOrigin;
+	const float t = Dot3(toPlayer, rayDir);
+
+	return std::max(0.0f, t);
 }
 
 CollisionUtility::RayHitResult Reticle::CastPlayerAimRay(const Vector3& targetPoint) const{
@@ -204,10 +238,18 @@ void Reticle::UpdateAimTarget() {
 		return;
 	}
 
-	CollisionUtility::RayHitResult cameraHit = CastCameraAimRay();
+	const float playerPassT = GetCameraRayPlayerPassT();
+
+	// プレイヤー付近に到達する前のヒットは無視する。
+	// 少し手前から許可しておくと、カメラRayと口元が完全一致しない時も破綻しにくい。
+	const float ignoreBeforeT =
+		std::max(0.0f, playerPassT - cameraPlayerPassMargin_);
+
+	CollisionUtility::RayHitResult cameraHit =
+		CastCameraAimRay(ignoreBeforeT);
 
 	Vector3 maxDistanceTarget =
-		camera_->GetTranslate() + cameraController_->GetForwardDirection() * aimMaxDistance_;
+		camera_->GetTranslate() + Normalize3(cameraController_->GetForwardDirection()) * aimMaxDistance_;
 
 	Vector3 cameraTargetPoint = cameraHit.hit ? cameraHit.point : maxDistanceTarget;
 
