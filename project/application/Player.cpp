@@ -3263,17 +3263,62 @@ void Player::UpdateWallClinging(float cameraYaw)
 		moveY *= invLen;
 	}
 
-	moveVec += clingSurfaceUp_ * moveY;
-	moveVec += wallRightVec_ * (-moveX);
+    if (IsCeilingSurface(clingSurfaceNormal_)) {
+        // 下面に張り付いている時だけ、地面移動と同じくカメラYaw基準で移動する
+        Vector3 cameraForward = {
+            std::sin(cameraYaw),
+            0.0f,
+            std::cos(cameraYaw)
+        };
 
-	float len = Length3(moveVec);
-	if (len > 0.0001f) {
-		moveVec *= (1.0f / len);
-		position += moveVec * wallMoveSpeed_;
-	}
+        Vector3 cameraRight = {
+            std::cos(cameraYaw),
+            0.0f,
+            -std::sin(cameraYaw)
+        };
 
-	// 先に張り付いた面へ向きをそろえる
-	ApplyClingSurfaceRotation();
+        // 念のため、現在の張り付き面へ射影する
+        cameraForward =
+            cameraForward - clingSurfaceNormal_ * Dot3(cameraForward, clingSurfaceNormal_);
+        cameraRight =
+            cameraRight - clingSurfaceNormal_ * Dot3(cameraRight, clingSurfaceNormal_);
+
+        if (Length3(cameraForward) > 0.0001f) {
+            cameraForward = Normalize3(cameraForward);
+        }
+        else {
+            cameraForward = clingSurfaceUp_;
+        }
+
+        if (Length3(cameraRight) > 0.0001f) {
+            cameraRight = Normalize3(cameraRight);
+        }
+        else {
+            cameraRight = wallRightVec_ * -1.0f;
+        }
+
+        moveVec += cameraForward * moveY;
+        moveVec += cameraRight * moveX;
+    }
+    else {
+        // 壁面は従来通り、面の上下左右に沿って移動
+        moveVec += clingSurfaceUp_ * moveY;
+        moveVec += wallRightVec_ * (-moveX);
+    }
+
+    float len = Length3(moveVec);
+    if (len > 0.0001f) {
+        moveVec *= (1.0f / len);
+        position += moveVec * wallMoveSpeed_;
+    }
+
+    // 先に張り付いた面へ向きをそろえる
+    if (IsCeilingSurface(clingSurfaceNormal_) && len > 0.0001f) {
+        ApplyClingSurfaceRotationFacing(moveVec);
+    }
+    else {
+        ApplyClingSurfaceRotation();
+    }
 
     // まず張り付き面の範囲に拘束
     position = ClampPositionToCurrentClingSurface(position);
