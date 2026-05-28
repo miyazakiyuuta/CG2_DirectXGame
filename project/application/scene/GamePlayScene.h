@@ -112,5 +112,5 @@ private:
 	// --- リザルト演出用UI ---
 	std::unique_ptr<class ResultUI> resultUI_;
 
-	float gameClearHeightY_ = 510.0f;
+	float gameClearHeightY_ = 1510.0f;
 };

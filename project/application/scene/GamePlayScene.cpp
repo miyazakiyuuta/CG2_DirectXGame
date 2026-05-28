@@ -199,7 +199,7 @@ void GamePlayScene::Initialize() {
 			// Adjust this position as needed
 			// Move the well slightly further from the camera and make it very small
 			wellObject_->SetTranslate({0.0f, 0.0f, 0.0f});
-			wellObject_->SetScale({60.0f, 500.0f, 60.0f});
+			wellObject_->SetScale({60.0f, 1500.0f, 60.0f});
 			wellObject_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 			if (wellObject_) {
 				Vector3 wellPos = wellObject_->GetTranslate();
@@ -207,7 +207,7 @@ void GamePlayScene::Initialize() {
 
 				wellCylinder_.center = wellPos;
 				wellCylinder_.radius = 58.5f;
-				wellCylinder_.halfHeight = 1000.0f;
+				wellCylinder_.halfHeight = 1520.0f;
 			}
 		} else {
 			// Model not found; skip creating wellObject_
