@@ -11,6 +11,7 @@
 #include "math/Vector4.h"
 #include "utility/Logger.h"
 #include <../externals/nlohmann/json.hpp>
+#include "audio/SoundManager.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -433,6 +434,8 @@ bool Player::TryUseBeam(const Vector3& direction)
     if (!StartBeamActive(direction)) {
         // if cannot start animated sweep (e.g., resources), still return success of instant hit
     }
+
+    SoundManager::GetInstance()->PlayWave(SoundManager::GetInstance()->LoadFile("resources/BGM/武器を振り回す.mp3"));
 
     return true;
 }
@@ -1233,6 +1236,7 @@ bool Player::TryShotTongue(const Vector3& direction)
     }
 
     tongue_->Shot(direction);
+    SoundManager::GetInstance()->PlayWave(SoundManager::GetInstance()->LoadFile("resources/BGM/ショット命中.mp3"));
     return true;
 }
 
@@ -2476,6 +2480,8 @@ void Player::ExecuteChargedJump(int chargeLevel)
 	velocity_.y = baseJump * jumpPowerMultiplier_ * verticalMultiplier;
 	isOnGround_ = false;
     jumpChargeAirCancelGraceTimer_ = 0;
+
+    SoundManager::GetInstance()->PlayWave(SoundManager::GetInstance()->LoadFile("resources/BGM/かわいく跳ねる・ジャンプ03.mp3"));
 
     if (chargeLevel > 0) {
         // chargeStock_ -= chargeLevel;

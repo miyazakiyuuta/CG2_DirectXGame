@@ -1,5 +1,6 @@
 #pragma once
 #include "../../../engine/math/Vector3.h"
+#include "../../../engine/math/Vector4.h"
 #include "../Core/BaseEnemy.h"
 #include <memory>
 
@@ -36,6 +37,9 @@ private:
 	// 視野角（FOV）と距離、擬態を考慮した判定
 	bool CanSeePlayer(const Vector3& playerPos);
 
+	// ビームObject3dの座標・回転・スケールを計算して適用する
+	void UpdateBeamTransform(const Vector3& origin, const Vector3& direction, float length, float thickness);
+
 private:
 	SensorState state_;
 	float stateTimer_;
@@ -55,4 +59,12 @@ private:
 	Vector3 baseForwardDir_; // 【追加】索敵の基準となる正面方向
 	float searchTimer_;      // 【追加】首振り計算用のタイマー
 	static constexpr float kBeamRadius = 0.8f; //ビームの当たり判定用半径
+
+	// --- ビームOBJモデル描画用 ---
+	// ビーム形状のOBJモデルを描画するObject3d
+	std::unique_ptr<Object3d> beamObject_;
+	// ビームの可視状態（trueのとき描画する）
+	bool beamVisible_ = false;
+	// ビームの現在の色（ステートに応じて変化する）
+	Vector4 beamColor_ = {0.2f, 0.6f, 1.0f, 0.4f};
 };
