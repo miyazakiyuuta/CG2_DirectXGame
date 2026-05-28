@@ -74,7 +74,7 @@ void ResultUI::TriggerGameOver() {
 
 	textTitleSprite_ = CreateTextSprite(ToUtf8String(u8"LOSER..."), "resources/generated_ui/res_loser.png", screenH * 0.4f, { 1.0f, 0.2f, 0.2f, 1.0f }, 160);
 	textTimeSprite_ = nullptr;
-	textGuidanceSprite_ = CreateTextSprite(ToUtf8String(u8"スペースキーでタイトルへ"), "resources/generated_ui/res_guide_over.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 40);
+	textGuidanceSprite_ = CreateTextSprite(ToUtf8String(u8"スペースキーでタイトルへ"), "resources/generated_ui/res_guide_over.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
 }
 
 void ResultUI::Update() {
@@ -179,8 +179,10 @@ void ResultUI::Draw() {
 		bgSprite_->Draw();
 
 	if ((state_ == State::Clear && effectAlpha_ < 0.8f) || (state_ == State::GameOver && effectAlpha_ < 0.9f)) {
-		//if (textTitleSprite_)
-		//	textTitleSprite_->Draw();
+		if (state_ == State::GameOver) {
+			if (textTitleSprite_)
+				textTitleSprite_->Draw();
+		}
 
 		if (rankingTitleSprite_) {
 			rankingTitleSprite_->Draw();

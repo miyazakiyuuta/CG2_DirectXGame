@@ -1819,9 +1819,9 @@ void Player::Update()
                 if (lastHitEnemy_) {
                     velocity_ = lastHitEnemy_->GetVelocity();
                     velocity_.y += baseJumpPowers_[0] * jumpPowerMultiplier_;
+                    lastHitEnemy_->KillPart(lastHitEnemyPartId_);
                     lastHitEnemy_ = nullptr;
                     tonguePullingEnemy_ = false;
-                    lastHitEnemy_->KillPart(lastHitEnemyPartId_);
                 }
 
                 if (tongue_) {
