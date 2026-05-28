@@ -204,6 +204,8 @@ private:
 public:
     // 外部から能力XPをキューイングするための関数（敵のドロップなどから呼ばれる）
 	void EnqueueAbilityXP(AbilityId ability, float amount);
+    // Set all ability levels to their maximum and apply their effects immediately.
+	void SetAllAbilitiesToMax();
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
 	void ApplyGravity();
@@ -281,6 +283,8 @@ public:
 	void StartJumpPoseAnimation();
 	void UpdateJumpPoseAnimation();
 	void EndJumpPoseAnimation();
+
+	void SetWallDetachJumpBoost(float boostY);
 
 private:
     // 経験値とレベルアップの保留キュー
@@ -627,4 +631,13 @@ public:
 	float enemyContactInvincibilityTimer_ = 0.0f;
 
 	bool tonguePullingEnemy_ = false;
+
+	// 移動床が上昇している時、壁張り付き離脱ジャンプだけに乗せる上昇分
+	float wallDetachJumpBoostY_ = 0.0f;
+
+	// delta.y は1フレームあたりの移動量なので、そのまま足す
+	float wallDetachJumpBoostScale_ = 1.0f;
+
+	// 強くなりすぎ防止
+	float wallDetachJumpBoostMax_ = 20.0f;
 };

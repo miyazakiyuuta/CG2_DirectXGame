@@ -68,7 +68,12 @@ void TutorialScene::Initialize()
 	);
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
 	ParticleManager::GetInstance()->EnsureParticleGroup("break", "resources/uvChecker.png");
-	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");
+	// XPオーブ用。ここでブレンドモードを指定する
+	ParticleManager::GetInstance()->CreateParticleGroup(
+		"xp_orb",
+		"resources/circle.png",
+		BlendMode::Add
+	);
 
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
@@ -104,6 +109,8 @@ void TutorialScene::Initialize()
 	if (loadedStage) {
 		stage_->SetStageData(*loadedStage);
 	}
+
+	ParticleManager::GetInstance()->CreateParticleGroup("xp_orb", "resources/circle.png", BlendMode::Add);
 
 	Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
 	if (auto spawn = stage_->GetPlayerSpawnPosition()) {
@@ -286,8 +293,8 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 	tutorialStepDefinitions_.push_back({
 		"エイム",
-		ToUtf8String(u8"右クリックで1秒間エイムしてみよう"),
-		ToUtf8String(u8"左トリガーで1秒間エイムしてみよう"),
+		ToUtf8String(u8"右クリックで1秒間一人称にしてみよう"),
+		ToUtf8String(u8"左トリガーで1秒間一人称にしてみよう"),
 		60,
 		[](const TutorialContext& ctx) {
 			if (!ctx.cameraController) {
@@ -408,8 +415,8 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 	tutorialStepDefinitions_.push_back({
 		"下面張り付き",
-		ToUtf8String(u8"天井の下面はSpaceで走れる"),
-		ToUtf8String(u8"天井の下面はAボタンで走れる"),
+		ToUtf8String(u8"天井の下面はSpaceで走ろう"),
+		ToUtf8String(u8"天井の下面はAボタンで走ろう"),
 		30,
 		[](const TutorialContext& ctx) {
 			if (!ctx.player) {
@@ -487,13 +494,13 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
-		3.0f
+		2.5f
 		});
 
 	tutorialStepDefinitions_.push_back({
 		"擬態",
-		ToUtf8String(u8"     Qキーの後にブロックに張り付いて\n擬態を使ってみよう"),
-		ToUtf8String(u8"     Xボタンの後にブロックに張り付いて\n擬態を使ってみよう"),
+		ToUtf8String(u8"     Qキーの後に舌でブロックに張り付いて\n       擬態を使ってみよう"),
+		ToUtf8String(u8"     Xボタンの後舌でにブロックに張り付いて\n       擬態を使ってみよう"),
 		1,
 		[](const TutorialContext& ctx) {
 			if (!ctx.input || !ctx.player) {
@@ -592,8 +599,8 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 	tutorialStepDefinitions_.push_back({
 		"センチネルフック",
-		ToUtf8String(u8"センチネルに舌を当ててフック移動しよう"),
-		ToUtf8String(u8"センチネルに舌を当ててフック移動しよう"),
+		ToUtf8String(u8"  センチネル(緑の敵)に\n   舌を当ててフック移動しよう"),
+		ToUtf8String(u8"  センチネル(緑の敵)に\n   舌を当ててフック移動しよう"),
 		60,
 		[](const TutorialContext& ctx) {
 			if (!ctx.player) {
@@ -918,7 +925,7 @@ void TutorialScene::SpawnTutorialBreakableBlocks()
 
 	AddTutorialStageObject(MakeTutorialBlock(
 		BlockID::Breakable,
-		{ 0.0f, 2.5f, 10.0f },
+		{ -10.0f, 2.5f, 10.0f },
 		{ 1.5f, 1.5f, 1.5f },
 		{ 0.95f, 0.45f, 0.25f, 1.0f },
 		2
@@ -926,7 +933,7 @@ void TutorialScene::SpawnTutorialBreakableBlocks()
 
 	AddTutorialStageObject(MakeTutorialBlock(
 		BlockID::Breakable,
-		{ 5.0f, 3.0f, 10.0f },
+		{ 10.0f, 3.0f, 10.0f },
 		{ 2.0f, 2.0f, 2.0f },
 		{ 0.95f, 0.35f, 0.20f, 1.0f },
 		3
@@ -1272,7 +1279,6 @@ void TutorialScene::UpdateTutorialXPOrbs(float deltaTime)
 
 void TutorialScene::WriteTutorialXPOrbInstances()
 {
-	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");
 
 	uint32_t maxInst = 0;
 	auto* instPtr = ParticleManager::GetInstance()->GetInstancingDataWritePtr("xp_orb", maxInst);

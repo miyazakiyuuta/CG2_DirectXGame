@@ -13,7 +13,6 @@
 #include "io/Input.h"
 #include "utility/Random.h"
 
-#include "2d/Sprite.h"
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
 #include "CameraController.h"
@@ -33,7 +32,6 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-#include "effect/ParticleManager.h"
 #include "utility/Logger.h"
 #include <numbers>
 #include <sstream>
@@ -199,7 +197,7 @@ void GamePlayScene::Initialize() {
 			// Adjust this position as needed
 			// Move the well slightly further from the camera and make it very small
 			wellObject_->SetTranslate({0.0f, 0.0f, 0.0f});
-			wellObject_->SetScale({60.0f, 500.0f, 60.0f});
+			wellObject_->SetScale({60.0f, 1500.0f, 60.0f});
 			wellObject_->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 			if (wellObject_) {
 				Vector3 wellPos = wellObject_->GetTranslate();
@@ -207,7 +205,7 @@ void GamePlayScene::Initialize() {
 
 				wellCylinder_.center = wellPos;
 				wellCylinder_.radius = 58.5f;
-				wellCylinder_.halfHeight = 1000.0f;
+				wellCylinder_.halfHeight = 1520.0f;
 			}
 		} else {
 			// Model not found; skip creating wellObject_
@@ -244,6 +242,9 @@ void GamePlayScene::Initialize() {
 	player_->Initialize(Object3dCommon::GetInstance(), camera_.get(), "Frog.gltf", playerStart);
 	// give player a reference to the stage for abilities (camouflage lookup / sonar)
 	player_->SetStage(stage_.get());
+
+	// For debugging/testing: set all ability levels to their maximum
+	player_->SetAllAbilitiesToMax();
 
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
@@ -363,9 +364,6 @@ void GamePlayScene::Initialize() {
 	timerColonSprite_->SetColor({0.25f, 0.75f, 1.0f, 1.0f});
 	timerColonSprite_->Update();
 
-	debugGrid_ = std::make_unique<DebugGrid>();
-	debugGrid_->Initialize(DirectXCommon::GetInstance());
-
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
 	Object3dCommon::GetInstance()->SetPointLight({
@@ -471,6 +469,29 @@ void GamePlayScene::Update() {
 
 				const float halfX = o.scale.x;
 				const float halfZ = o.scale.z;
+
+				// 上昇中の移動床の側面に張り付いている時だけ、
+// 離脱ジャンプへ上昇分を乗せる
+				if (delta.y > 0.0f && player_ && player_->IsWallClinging()) {
+					const float sideBoostXZMargin = 1.20f;
+					const float sideBoostYMargin = 0.90f;
+
+					const float platformBottomY = o.position.y - o.scale.y;
+					const float platformTopY = o.position.y + o.scale.y;
+					const float playerTop = playerPos.y + playerHalfY;
+
+					const bool nearPlatformXZ =
+						std::fabs(playerPos.x - o.position.x) <= halfX + sideBoostXZMargin &&
+						std::fabs(playerPos.z - o.position.z) <= halfZ + sideBoostXZMargin;
+
+					const bool nearPlatformHeight =
+						playerTop >= platformBottomY - sideBoostYMargin &&
+						playerBottom <= platformTopY + sideBoostYMargin;
+
+					if (nearPlatformXZ && nearPlatformHeight) {
+						player_->SetWallDetachJumpBoost(delta.y);
+					}
+				}
 
 				const float prevTopY = prevPlatformPos.y + o.scale.y;
 				const float currTopY = o.position.y + o.scale.y;
@@ -843,8 +864,6 @@ void GamePlayScene::Draw() {
 
 	// パーティクル（XPオーブ等）を描画
 	ParticleManager::GetInstance()->Draw();
-
-	debugGrid_->Draw(*camera_);
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 	if (!resultUI_->IsActive()) {

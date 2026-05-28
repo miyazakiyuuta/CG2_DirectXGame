@@ -19,6 +19,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include "../../engine/effect/GPUParticleEmitter.h"
 
 class Camera;
 class DebugCamera;
@@ -91,7 +92,7 @@ private:
 	std::vector<std::unique_ptr<WarpExit>> activeWarpExits_;
 	std::unique_ptr<Skybox> skybox_;
 
-	std::unique_ptr<DebugGrid> debugGrid_;
+	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 
 	CollisionUtility::Cylinder wellCylinder_ = {};
 
@@ -112,5 +113,5 @@ private:
 	// --- リザルト演出用UI ---
 	std::unique_ptr<class ResultUI> resultUI_;
 
-	float gameClearHeightY_ = 510.0f;
+	float gameClearHeightY_ = 1510.0f;
 };
