@@ -2,21 +2,15 @@
 
 #include "io/Input.h"
 #include "2d/TextureManager.h"
-#include "2d/SpriteCommon.h"
 #include "3d/ModelManager.h"
 #include "3d/DebugCamera.h"
 #include "3d/Object3dCommon.h"
 #include "effect/ParticleManager.h"
-#include "effect/RingManager.h"
-#include "effect/CylinderManager.h"
 #include "effect/GPUParticleEmitter.h"
-#include "audio/SoundManager.h"
 
-#include "2d/Sprite.h"
 #include "3d/Object3d.h"
-#include "effect/ParticleEmitter.h"
 #include "3d/Skybox.h"
-#include "debug/DebugGrid.h"
+#include "3d/CylinderSkybox.h"
 #include "debug/DebugRenderer.h"
 
 #include <numbers>
@@ -68,10 +62,11 @@ void GamePlayScene::Initialize() {
 	skybox_ = std::make_unique<Skybox>();
 	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-	debugGrid_ = std::make_unique<DebugGrid>();
-	debugGrid_->Initialize(DirectXCommon::GetInstance());
-	debugGrid_->SetPosition({ 0.0f,0.0f,0.0f });
-	debugGrid_->SetColor({ 0.0f,0.0f,0.0f,1.0f });
+	cylinderSkybox_ = std::make_unique<CylinderSkybox>();
+	cylinderSkybox_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
+	cylinderSkybox_->SetCamera(camera_.get());
+	cylinderSkybox_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
+	cylinderSkybox_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -81,6 +76,8 @@ void GamePlayScene::Finalize() {
 }
 
 void GamePlayScene::Update() {
+
+	cylinderSkybox_->Update();
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -105,6 +102,7 @@ void GamePlayScene::Update() {
 
 void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
+	cylinderSkybox_->Draw();
 
 	object3d_->Draw();
 
