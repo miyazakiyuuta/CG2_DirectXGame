@@ -204,6 +204,8 @@ private:
 public:
     // 外部から能力XPをキューイングするための関数（敵のドロップなどから呼ばれる）
 	void EnqueueAbilityXP(AbilityId ability, float amount);
+    // Set all ability levels to their maximum and apply their effects immediately.
+	void SetAllAbilitiesToMax();
 	void MoveHorizontal(float cameraYaw);
 	void UpdateJumpCharge();
 	void ApplyGravity();

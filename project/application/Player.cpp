@@ -106,6 +106,34 @@ static float ApproachFloat(float current, float target, float delta) {
 
 } // namespace
 
+void Player::SetAllAbilitiesToMax()
+{
+    // Ensure config loaded so maxLevel and base values are valid
+    LoadAbilityConfig();
+
+    // Iterate through all known abilities and set them to their max
+    AbilityId allAbilities[] = {
+        AbilityId::JumpPower,
+        AbilityId::TongueRange,
+        AbilityId::SonarDuration,
+        AbilityId::WallClingDuration,
+        AbilityId::CamouflageDuration
+    };
+
+    for (AbilityId a : allAbilities) {
+        auto& s = abilityStates_[a];
+        // If maxLevel not set, default to 10
+        if (s.maxLevel <= 0) s.maxLevel = 10;
+        s.level = s.maxLevel;
+        s.xp = 0.0f;
+        // enqueue a fake pending level up so ApplyPendingLevelUps will apply the multipliers
+        pendingLevelUps_.push_back({a, s.level});
+    }
+
+    // Apply the level-up effects immediately
+    ApplyPendingLevelUps();
+}
+
 // 次のレベルまでの必要経験値を計算する関数。レベルが上がるごとに必要経験値が増えるように、二次関数的な成長をさせています。
 float Player::XPToNextLevel(int level) const
 {

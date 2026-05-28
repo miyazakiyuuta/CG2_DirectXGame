@@ -245,6 +245,9 @@ void GamePlayScene::Initialize() {
 	// give player a reference to the stage for abilities (camouflage lookup / sonar)
 	player_->SetStage(stage_.get());
 
+	// For debugging/testing: set all ability levels to their maximum
+	player_->SetAllAbilitiesToMax();
+
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
 	cameraController_->SetTargetOffset({0.0f, 1.0f, 0.0f});
