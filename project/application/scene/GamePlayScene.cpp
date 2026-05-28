@@ -32,7 +32,6 @@
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-#include "effect/ParticleManager.h"
 #include "utility/Logger.h"
 #include <numbers>
 #include <sstream>
@@ -364,9 +363,6 @@ void GamePlayScene::Initialize() {
 	timerColonSprite_->SetPos(colonPos);
 	timerColonSprite_->SetColor({0.25f, 0.75f, 1.0f, 1.0f});
 	timerColonSprite_->Update();
-
-	debugGrid_ = std::make_unique<DebugGrid>();
-	debugGrid_->Initialize(DirectXCommon::GetInstance());
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -860,8 +856,6 @@ void GamePlayScene::Draw() {
 
 	// パーティクル（XPオーブ等）を描画
 	ParticleManager::GetInstance()->Draw();
-
-	debugGrid_->Draw(*camera_);
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 	if (!resultUI_->IsActive()) {

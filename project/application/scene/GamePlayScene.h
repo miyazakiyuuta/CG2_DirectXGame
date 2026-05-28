@@ -19,6 +19,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include "../../engine/effect/GPUParticleEmitter.h"
 
 class Camera;
 class DebugCamera;
