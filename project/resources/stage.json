@@ -2909,7 +2909,7 @@
         "z": -24.600000381469727
       },
       "rotation": {
-        "x": 0.8199999928474426,
+        "x": 0.0,
         "y": -0.7900000214576721,
         "z": 0.0
       },
@@ -2948,7 +2948,7 @@
         "z": 24.600000381469727
       },
       "rotation": {
-        "x": -0.7900000214576721,
+        "x": 0.0,
         "y": -0.8199999928474426,
         "z": 0.0
       },
@@ -3731,7 +3731,7 @@
       "moveSpeed": 2.0,
       "movementLocked": false,
       "position": {
-        "x": 11.907844543457031,
+        "x": 26.488481521606445,
         "y": 620.0,
         "z": 5.0
       },
@@ -4090,7 +4090,7 @@
       "movementLocked": false,
       "position": {
         "x": 20.0,
-        "y": 749.2422485351563,
+        "y": 750.0,
         "z": 5.0
       },
       "rotation": {
@@ -4099,11 +4099,11 @@
         "z": 0.0
       },
       "savedPosition": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
+        "x": 20.0,
+        "y": 750.0,
+        "z": 5.0
       },
-      "savedPositionPersisted": false,
+      "savedPositionPersisted": true,
       "scale": {
         "x": 9.0,
         "y": 1.0,
@@ -4381,6 +4381,2491 @@
         "x": 5.0,
         "y": 14.75,
         "z": 1.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 119,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -13.699999809265137,
+        "y": 880.0,
+        "z": -3.299999952316284
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.5,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 120,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -2.0999999046325684,
+        "y": 860.0,
+        "z": 40.900001525878906
+      },
+      "rotation": {
+        "x": -0.5,
+        "y": -1.5,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 121,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 24.200000762939453,
+        "y": 860.0,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.17000000178813934,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 122,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 45.5,
+        "y": 820.0,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.17000000178813934,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 123,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -8.800000190734863,
+        "y": 820.0,
+        "z": 14.100000381469727
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.17000000178813934,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 124,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 16.700000762939453,
+        "y": 700.0,
+        "z": -10.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.5400000214576721,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 1.0,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 125,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 27.600000381469727,
+        "y": 845.0,
+        "z": 27.5
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.17000000178813934,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 3.0,
+        "y": 1.0,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 127,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -37.099998474121094,
+        "y": 900.0,
+        "z": -36.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 7.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 128,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 16.5,
+        "y": 915.0,
+        "z": -36.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 129,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -1.2000000476837158,
+        "y": 895.0,
+        "z": 23.700000762939453
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 20.0,
+        "y": 1.0,
+        "z": 20.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 130,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -50.20000076293945,
+        "y": 935.0,
+        "z": -10.199999809265137
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 131,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -39.0,
+        "y": 920.0,
+        "z": 35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.9700000286102295,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 7.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 132,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -16.5,
+        "y": 945.0,
+        "z": -19.700000762939453
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 133,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -28.100000381469727,
+        "y": 980.0,
+        "z": 3.5999999046325684
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 18.0,
+        "y": 1.0,
+        "z": 18.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 134,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 8.5,
+        "y": 1000.0,
+        "z": -40.400001525878906
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 135,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -45.0,
+        "y": 1020.0,
+        "z": -21.399999618530273
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 6,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 136,
+      "modelName": "Cube.obj",
+      "moveDirection": 1,
+      "movePhase": 0.0,
+      "moveRange": 12.0,
+      "moveSpeed": 2.5,
+      "movementLocked": false,
+      "position": {
+        "x": 34.099998474121094,
+        "y": 1010.0,
+        "z": 13.600000381469727
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "savedPosition": {
+        "x": 34.099998474121094,
+        "y": 1010.0,
+        "z": 13.600000381469727
+      },
+      "savedPositionPersisted": true,
+      "scale": {
+        "x": 8.0,
+        "y": 1.0,
+        "z": 8.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 137,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 29.399999618530273,
+        "y": 1020.0,
+        "z": -32.900001525878906
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 10.0,
+        "z": 1.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 138,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -32.0,
+        "y": 1020.0,
+        "z": 45.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 10.0,
+        "z": 1.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 139,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -37.20000076293945,
+        "y": 1050.0,
+        "z": 5.099999904632568
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 140,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 13.0,
+        "y": 1085.0,
+        "z": -39.599998474121094
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 141,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 37.0,
+        "y": 1055.0,
+        "z": -39.599998474121094
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 3.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 142,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 15.699999809265137,
+        "y": 1085.0,
+        "z": 23.399999618530273
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 143,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -35.099998474121094,
+        "y": 1085.0,
+        "z": -12.899999618530273
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 12.0,
+        "y": 1.0,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 144,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 4.300000190734863,
+        "y": 1100.0,
+        "z": -8.899999618530273
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -1.0199999809265137,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 3.0,
+        "y": 20.0,
+        "z": 3.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 145,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 48.599998474121094,
+        "y": 1120.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 4.0,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 146,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -32.70000076293945,
+        "y": 1120.0,
+        "z": 41.20000076293945
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 4.0,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 147,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -4.5,
+        "y": 1120.0,
+        "z": -52.099998474121094
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 4.0,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 148,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 5.300000190734863,
+        "y": 1140.0,
+        "z": -18.600000381469727
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 149,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 5.199999809265137,
+        "y": 1140.0,
+        "z": 30.799999237060547
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 6,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 150,
+      "modelName": "Cube.obj",
+      "moveDirection": 2,
+      "movePhase": 0.0,
+      "moveRange": 9.0,
+      "moveSpeed": 3.0,
+      "movementLocked": false,
+      "position": {
+        "x": 32.79999923706055,
+        "y": 1160.0,
+        "z": 6.5
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "savedPosition": {
+        "x": 32.79999923706055,
+        "y": 1160.0,
+        "z": 6.5
+      },
+      "savedPositionPersisted": true,
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 151,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 25.0,
+        "y": 1200.0,
+        "z": 30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 152,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -22.0,
+        "y": 1240.0,
+        "z": 30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 16.0,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 153,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -15.0,
+        "y": 1215.0,
+        "z": 50.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 154,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 50.0,
+        "y": 1215.0,
+        "z": -15.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 155,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 30.0,
+        "y": 1240.0,
+        "z": -22.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 16.0,
+        "z": 1.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 156,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -15.0,
+        "y": 1200.0,
+        "z": -12.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 157,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -38.0,
+        "y": 1220.0,
+        "z": 27.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 158,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 27.0,
+        "y": 1220.0,
+        "z": -38.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 159,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 25.0,
+        "y": 1275.0,
+        "z": 30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 15.0,
+        "y": 0.800000011920929,
+        "z": 15.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 160,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1292.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 6.0,
+        "y": 0.800000011920929,
+        "z": 6.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 161,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1300.0,
+        "z": -7.099999904632568
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 6.0,
+        "y": 9.0,
+        "z": 0.800000011920929
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 162,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -7.099999904632568,
+        "y": 1300.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 0.800000011920929,
+        "y": 9.0,
+        "z": 6.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 163,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1330.0,
+        "z": -35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 6.0,
+        "y": 0.800000011920929,
+        "z": 6.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 164,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -35.0,
+        "y": 1330.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 6.0,
+        "y": 0.800000011920929,
+        "z": 6.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 165,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 40.0,
+        "y": 1355.0,
+        "z": -35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 0.800000011920929,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 166,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -35.0,
+        "y": 1355.0,
+        "z": 40.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 0.800000011920929,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 167,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -35.0,
+        "y": 1375.0,
+        "z": -5.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 0.800000011920929,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 168,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 40.0,
+        "y": 1375.0,
+        "z": 10.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 8.0,
+        "y": 0.800000011920929,
+        "z": 12.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 6,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 169,
+      "modelName": "Cube.obj",
+      "moveDirection": 1,
+      "movePhase": 0.0,
+      "moveRange": 18.0,
+      "moveSpeed": 1.0,
+      "movementLocked": false,
+      "position": {
+        "x": 10.0,
+        "y": 1380.0,
+        "z": 42.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "savedPosition": {
+        "x": 10.0,
+        "y": 1380.0,
+        "z": 42.0
+      },
+      "savedPositionPersisted": true,
+      "scale": {
+        "x": 6.0,
+        "y": 0.800000011920929,
+        "z": 3.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 6,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 170,
+      "modelName": "Cube.obj",
+      "moveDirection": 1,
+      "movePhase": 0.0,
+      "moveRange": 18.0,
+      "moveSpeed": 1.0,
+      "movementLocked": false,
+      "position": {
+        "x": 10.0,
+        "y": 1380.0,
+        "z": -42.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "savedPosition": {
+        "x": 10.0,
+        "y": 1380.0,
+        "z": -42.0
+      },
+      "savedPositionPersisted": true,
+      "scale": {
+        "x": 6.0,
+        "y": 1.0,
+        "z": 3.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 171,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1410.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 20.0,
+        "y": 0.800000011920929,
+        "z": 20.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 172,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 54.0,
+        "y": 1425.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 173,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -54.0,
+        "y": 1425.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 174,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1425.0,
+        "z": 54.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 175,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1425.0,
+        "z": -54.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 176,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 0.0,
+        "y": 1440.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 0.800000011920929,
+        "z": 10.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 177,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 40.0,
+        "y": 1460.0,
+        "z": 30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 178,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -40.0,
+        "y": 1460.0,
+        "z": 30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 179,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 40.0,
+        "y": 1460.0,
+        "z": -30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 180,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -40.0,
+        "y": 1460.0,
+        "z": -30.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 4.0,
+        "y": 0.800000011920929,
+        "z": 4.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 181,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": -20.0,
+        "y": 1480.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+      },
+      "warpTargetPosition": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "warpTargetSceneId": -1
+    },
+    {
+      "blockId": 0,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyRespawnInterval": 5.0,
+      "enemyType": 0,
+      "hp": 1,
+      "id": 182,
+      "modelName": "Cube.obj",
+      "moveDirection": 0,
+      "movePhase": 0.0,
+      "moveRange": 0.0,
+      "moveSpeed": 0.0,
+      "position": {
+        "x": 20.0,
+        "y": 1480.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 5.0,
+        "y": 0.800000011920929,
+        "z": 5.0
       },
       "warpTargetPosition": {
         "x": 0.0,
@@ -4673,26 +7158,26 @@
       "enemyRespawnInterval": 5.0,
       "enemyType": 0,
       "hp": 1,
-      "id": 119,
+      "id": 183,
       "modelName": "Cube.obj",
       "moveDirection": 0,
       "movePhase": 0.0,
       "moveRange": 0.0,
       "moveSpeed": 0.0,
       "position": {
-        "x": -13.699999809265137,
-        "y": 880.0,
-        "z": -3.299999952316284
+        "x": 0.0,
+        "y": 1480.0,
+        "z": -48.0
       },
       "rotation": {
         "x": 0.0,
-        "y": -1.5,
+        "y": 0.0,
         "z": 0.0
       },
       "scale": {
-        "x": 5.0,
-        "y": 1.0,
-        "z": 12.0
+        "x": 5.079999923706055,
+        "y": 0.800000011920929,
+        "z": 5.0
       },
       "warpTargetPosition": {
         "x": 0.0,
@@ -4712,26 +7197,26 @@
       "enemyRespawnInterval": 5.0,
       "enemyType": 0,
       "hp": 1,
-      "id": 120,
+      "id": 184,
       "modelName": "Cube.obj",
       "moveDirection": 0,
       "movePhase": 0.0,
       "moveRange": 0.0,
       "moveSpeed": 0.0,
       "position": {
-        "x": -2.0999999046325684,
-        "y": 860.0,
-        "z": 40.900001525878906
+        "x": 0.0,
+        "y": 1480.0,
+        "z": 48.0
       },
       "rotation": {
-        "x": -0.5,
-        "y": -1.5,
+        "x": 0.0,
+        "y": 0.0,
         "z": 0.0
       },
       "scale": {
-        "x": 5.0,
-        "y": 1.0,
-        "z": 12.0
+        "x": 5.079999923706055,
+        "y": 0.800000011920929,
+        "z": 5.0
       },
       "warpTargetPosition": {
         "x": 0.0,
@@ -4751,104 +7236,26 @@
       "enemyRespawnInterval": 5.0,
       "enemyType": 0,
       "hp": 1,
-      "id": 121,
+      "id": 185,
       "modelName": "Cube.obj",
       "moveDirection": 0,
       "movePhase": 0.0,
       "moveRange": 0.0,
       "moveSpeed": 0.0,
       "position": {
-        "x": 24.200000762939453,
-        "y": 860.0,
-        "z": 0.800000011920929
-      },
-      "rotation": {
         "x": 0.0,
-        "y": 0.17000000178813934,
+        "y": 1500.0,
         "z": 0.0
       },
-      "scale": {
-        "x": 5.0,
-        "y": 1.0,
-        "z": 12.0
-      },
-      "warpTargetPosition": {
+      "rotation": {
         "x": 0.0,
         "y": 0.0,
         "z": 0.0
       },
-      "warpTargetSceneId": -1
-    },
-    {
-      "blockId": 0,
-      "color": {
-        "w": 1.0,
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
-      },
-      "enemyRespawnInterval": 5.0,
-      "enemyType": 0,
-      "hp": 1,
-      "id": 122,
-      "modelName": "Cube.obj",
-      "moveDirection": 0,
-      "movePhase": 0.0,
-      "moveRange": 0.0,
-      "moveSpeed": 0.0,
-      "position": {
-        "x": 45.5,
-        "y": 820.0,
-        "z": 0.800000011920929
-      },
-      "rotation": {
-        "x": 0.0,
-        "y": 0.17000000178813934,
-        "z": 0.0
-      },
       "scale": {
-        "x": 5.0,
-        "y": 1.0,
-        "z": 12.0
-      },
-      "warpTargetPosition": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      "warpTargetSceneId": -1
-    },
-    {
-      "blockId": 0,
-      "color": {
-        "w": 1.0,
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
-      },
-      "enemyRespawnInterval": 5.0,
-      "enemyType": 0,
-      "hp": 1,
-      "id": 123,
-      "modelName": "Cube.obj",
-      "moveDirection": 0,
-      "movePhase": 0.0,
-      "moveRange": 0.0,
-      "moveSpeed": 0.0,
-      "position": {
-        "x": -8.800000190734863,
-        "y": 820.0,
-        "z": 14.100000381469727
-      },
-      "rotation": {
-        "x": 0.0,
-        "y": 0.17000000178813934,
-        "z": 0.0
-      },
-      "scale": {
-        "x": 12.0,
-        "y": 1.0,
-        "z": 12.0
+        "x": 30.0,
+        "y": 0.800000011920929,
+        "z": 30.0
       },
       "warpTargetPosition": {
         "x": 0.0,
