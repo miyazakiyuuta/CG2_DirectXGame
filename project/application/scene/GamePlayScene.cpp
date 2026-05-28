@@ -30,6 +30,7 @@
 #include "effect/ParticleEmitter.h"
 #include "math/Transform.h"
 #include "scene/SceneManager.h"
+#include "../transition/BlindTransition.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -589,7 +590,7 @@ void GamePlayScene::Update() {
 	if (resultUI_ && resultUI_->IsActive()) {
 		resultUI_->Update();
 		if (resultUI_->IsTitleRequested()) {
-			SceneManager::GetInstance()->ChangeScene("TITLE");
+			SceneManager::GetInstance()->ChangeScene("TITLE", std::make_unique<BlindTransition>());
 		}
 
 		camera_->Update();

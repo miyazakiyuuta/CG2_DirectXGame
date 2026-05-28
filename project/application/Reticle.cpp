@@ -224,7 +224,12 @@ void Reticle::UpdateAimTarget() {
 			Vector3 toHit = playerHit.point - mouthPos;
 
 			float distance = toHit.Length();
-			canReachTongueTarget_ = (distance <= tongue->GetMaxDistance());
+
+			constexpr float kShotStartForwardOffset = 0.15f;
+			constexpr float kTongueHitRadiusMargin = 0.30f;
+
+			canReachTongueTarget_ =
+				(distance <= tongue->GetMaxDistance() + kShotStartForwardOffset + kTongueHitRadiusMargin);
 		}
 	}
 

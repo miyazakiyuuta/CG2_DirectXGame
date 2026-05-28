@@ -68,7 +68,7 @@ void TutorialScene::Initialize()
 		SrvManager::GetInstance()
 	);
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
-	ParticleManager::GetInstance()->EnsureParticleGroup("break", "resources/uvChecker.png");
+	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
 	// XPオーブ用。ここでブレンドモードを指定する
 	ParticleManager::GetInstance()->CreateParticleGroup(
 		"xp_orb",
@@ -138,8 +138,6 @@ void TutorialScene::Initialize()
 	if (loadedStage) {
 		stage_->SetStageData(*loadedStage);
 	}
-
-	ParticleManager::GetInstance()->CreateParticleGroup("xp_orb", "resources/circle.png", BlendMode::Add);
 
 	Vector3 playerStart = { 0.0f, 3.0f, 0.0f };
 	if (auto spawn = stage_->GetPlayerSpawnPosition()) {

@@ -36,6 +36,66 @@ namespace {
         Vector3 d = p - proj;
         return d.x * d.x + d.y * d.y + d.z * d.z;
     }
+
+    struct EnemyDamageProfile {
+        int contact = 1;
+        int projectile = 0;
+        int beam = 0;
+    };
+
+    EnemyDamageProfile GetDefaultEnemyDamageProfile(EnemyType type)
+    {
+        switch (type) {
+        case EnemyType::Chasing:
+            return {
+                1, // contact
+                0, // projectile
+                0  // beam
+            };
+
+        case EnemyType::Shooting:
+            return {
+                1, // contact
+                5, // projectile
+                0  // beam
+            };
+
+        case EnemyType::Sentinel:
+            return {
+                3, // contact
+                0, // projectile
+                0  // beam
+            };
+
+        case EnemyType::ClusterSlime:
+            return {
+                1, // contact
+                0, // projectile
+                0  // beam
+            };
+
+        case EnemyType::ProminenceSensor:
+            return {
+                1, // contact
+                0, // projectile
+                30  // beam
+            };
+
+        case EnemyType::PhaseGhost:
+            return {
+                1, // contact
+                0, // projectile
+                0  // beam
+            };
+
+        default:
+            return {
+                1,
+                0,
+                0
+            };
+        }
+    }
 }
 
 void EnemyManager::Initialize(Object3dCommon* common, Camera* camera)
@@ -177,6 +237,14 @@ BaseEnemy* EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos)
 		e->Initialize(common_, camera_, pos);
 		e->SetBlockColliders(blockColliders_);
 		e->SetKeepInsideCylinder(keepInsideCylinder_);
+        const EnemyDamageProfile damageProfile =
+            GetDefaultEnemyDamageProfile(type);
+
+        e->SetDamageProfile(
+            damageProfile.contact,
+            damageProfile.projectile,
+            damageProfile.beam
+        );
         // 該当タイプのドロップテーブルがあれば注入する
         int typeInt = static_cast<int>(type);
         auto it = dropTables_.find(typeInt);
@@ -279,7 +347,12 @@ void EnemyManager::CheckPlayerProjectileHits(Player* player)
                 }
 
                 if (CollisionUtility::IntersectSphere_OBB(bullet->GetHitSphere(), playerObb)) {
-                    player->ApplyDamage(1);
+                    const int damage = bullet->GetDamage();
+
+                    if (damage > 0) {
+                        player->ApplyDamage(damage);
+                    }
+
                     bullet->Kill();
                 }
             }
@@ -298,7 +371,11 @@ void EnemyManager::CheckPlayerProjectileHits(Player* player)
             float hitRadius = sensor->GetBeamRadius() + kPlayerBeamHitRadius;
 
             if (distSq <= hitRadius * hitRadius) {
-                player->ApplyDamage(1);
+                const int damage = sensor->GetBeamDamage();
+
+                if (damage > 0) {
+                    player->ApplyDamage(damage);
+                }
             }
         }
     }

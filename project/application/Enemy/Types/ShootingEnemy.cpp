@@ -65,7 +65,13 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 
 void ShootingEnemy::Shoot(const Vector3& target) {
 	auto b = std::make_unique<EnemyBullet>();
-	b->Initialize(common_, camera_, position_, target);
+	b->Initialize(
+		common_,
+		camera_,
+		position_,
+		target,
+		GetProjectileDamage()
+	);
 	bullets_.push_back(std::move(b));
 }
 

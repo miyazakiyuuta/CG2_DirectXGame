@@ -1576,23 +1576,24 @@ void Player::CheckEnemyContactDamage()
 
     CollisionUtility::OBB playerObb = GetPlayerOBB(GetPosition());
 
-    bool hitEnemy = false;
+    int damageToApply = 0;
 
     enemyManager_->ForEachEnemy([&](BaseEnemy* e) {
-        if (hitEnemy || !e) {
+        if (!e) {
             return;
         }
 
         for (const auto& part : e->GetTargetParts(0.8f)) {
             if (CollisionUtility::IntersectOBB_OBB(playerObb, part.obb)) {
-                hitEnemy = true;
+                // 複数の敵に同時接触した場合は、一番大きいダメージだけ採用
+                damageToApply = std::max(damageToApply, e->GetContactDamage());
                 break;
             }
         }
         });
 
-    if (hitEnemy) {
-        ApplyDamage(enemyContactDamage_);
+    if (damageToApply > 0) {
+        ApplyDamage(damageToApply);
     }
 }
 

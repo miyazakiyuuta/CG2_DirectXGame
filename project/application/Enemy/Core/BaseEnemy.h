@@ -59,6 +59,22 @@ public:
     // プレイヤーへの速度補正値を取得
     float GetPlayerSpeedMultiplier() const { return playerSpeedMultiplier_; }
 
+    // ダメージ設定
+    int GetContactDamage() const { return contactDamage_; }
+    int GetProjectileDamage() const { return projectileDamage_; }
+    int GetBeamDamage() const { return beamDamage_; }
+
+    void SetContactDamage(int damage) { contactDamage_ = damage < 0 ? 0 : damage; }
+    void SetProjectileDamage(int damage) { projectileDamage_ = damage < 0 ? 0 : damage; }
+    void SetBeamDamage(int damage) { beamDamage_ = damage < 0 ? 0 : damage; }
+
+    void SetDamageProfile(int contactDamage, int projectileDamage, int beamDamage)
+    {
+        SetContactDamage(contactDamage);
+        SetProjectileDamage(projectileDamage);
+        SetBeamDamage(beamDamage);
+    }
+
     // 4. マネージャーからプレイヤー情報を受け取るための追加
     void SetPlayer(class Player* p) { player_ = p; }
 
@@ -178,4 +194,8 @@ protected:
     float landingBlockMinZ_ = 0.0f;     // 着地ブロックの Z 最小値
     float landingBlockMaxZ_ = 0.0f;     // 着地ブロックの Z 最大値
     float landingBlockTopY_ = 0.0f;     // 着地ブロックの上面 Y 座標（プレイヤーが実際に赤に超えているかの判定に使う）
+
+    int contactDamage_ = 1;
+    int projectileDamage_ = 1;
+    int beamDamage_ = 1;
 };

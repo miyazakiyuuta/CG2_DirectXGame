@@ -6,12 +6,19 @@
 EnemyBullet::EnemyBullet() = default;
 EnemyBullet::~EnemyBullet() = default;
 
-void EnemyBullet::Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos, const Vector3& target) {
+void EnemyBullet::Initialize(
+	Object3dCommon* common,
+	Camera* camera,
+	const Vector3& pos,
+	const Vector3& target,
+	int damage
+) {
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
 	object_->SetModel("sphere.obj");
 	object_->SetCamera(camera);
 	position_ = pos;
+	damage_ = damage < 0 ? 0 : damage;
 	object_->SetScale({0.3f, 0.3f, 0.3f});
 	object_->SetColor({1.0f, 0.8f, 0.0f, 1.0f}); // 黄色
 

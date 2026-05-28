@@ -569,8 +569,8 @@ public:
 	Vector2 hpGaugeSize_ = { 320.0f, 20.0f };
 	float hpGaugeFrameThickness_ = 3.0f;
 
-	int maxHp_ = 30;
-	int hp_ = 30;
+	int maxHp_ = 100;
+	int hp_ = 100;
 
 	bool isDead_ = false;
 
