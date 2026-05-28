@@ -10,7 +10,7 @@
 class SrvManager;
 class Camera;
 
-class CylinderSkybox {
+class SkyCylinder {
 public:
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, const std::string& texturePath);
     void Update();

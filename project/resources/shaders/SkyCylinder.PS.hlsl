@@ -1,4 +1,4 @@
-#include "CylinderSkybox.hlsli"
+#include "SkyCylinder.hlsli"
 #include "GammaCorrection.hlsli"
 
 struct Material {

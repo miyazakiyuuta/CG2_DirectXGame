@@ -12,7 +12,7 @@ class Object3d;
 class Skybox;
 class DebugGrid;
 class GPUParticleEmitter;
-class CylinderSkybox;
+class SkyCylinder;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -41,6 +41,6 @@ private:
 
 	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 
-	std::unique_ptr<CylinderSkybox> cylinderSkybox_;
+	std::unique_ptr<SkyCylinder> skyCylinder_;
 };
 

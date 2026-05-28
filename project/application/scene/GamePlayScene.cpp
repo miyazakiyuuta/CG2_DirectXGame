@@ -10,7 +10,7 @@
 
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
-#include "3d/CylinderSkybox.h"
+#include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 
 #include <numbers>
@@ -62,11 +62,11 @@ void GamePlayScene::Initialize() {
 	skybox_ = std::make_unique<Skybox>();
 	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-	cylinderSkybox_ = std::make_unique<CylinderSkybox>();
-	cylinderSkybox_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
-	cylinderSkybox_->SetCamera(camera_.get());
-	cylinderSkybox_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
-	cylinderSkybox_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
+	skyCylinder_ = std::make_unique<SkyCylinder>();
+	skyCylinder_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
+	skyCylinder_->SetCamera(camera_.get());
+	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
+	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -77,7 +77,7 @@ void GamePlayScene::Finalize() {
 
 void GamePlayScene::Update() {
 
-	cylinderSkybox_->Update();
+	skyCylinder_->Update();
 
 	camera_->Update();
 	camera_->TransferToGPU();
@@ -102,7 +102,7 @@ void GamePlayScene::Update() {
 
 void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
-	cylinderSkybox_->Draw();
+	skyCylinder_->Draw();
 
 	object3d_->Draw();
 
