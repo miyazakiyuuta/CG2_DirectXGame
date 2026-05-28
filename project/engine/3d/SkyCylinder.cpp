@@ -1,4 +1,4 @@
-#include "CylinderSkybox.h"
+#include "SkyCylinder.h"
 #include "base/SrvManager.h"
 #include "3d/Camera.h"
 #include "2d/TextureManager.h"
@@ -7,7 +7,7 @@
 
 using namespace Logger;
 
-void CylinderSkybox::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, const std::string& texturePath) {
+void SkyCylinder::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager, const std::string& texturePath) {
 	dxCommon_ = dxCommon;
 	srvManager_ = srvManager;
 
@@ -26,7 +26,7 @@ void CylinderSkybox::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager,
 	CreateGraphicsPipelineState();
 }
 
-void CylinderSkybox::Update() {
+void SkyCylinder::Update() {
 	assert(camera_);
 
 	Matrix4x4 world = Matrix4x4::Scale(transform_.scale)
@@ -37,7 +37,7 @@ void CylinderSkybox::Update() {
 	transformData_->wvp = world * camera_->GetViewMatrix() * camera_->GetProjectionMatrix();
 }
 
-void CylinderSkybox::Draw() {
+void SkyCylinder::Draw() {
 	auto* cmd = dxCommon_->GetCommandList();
 
 	cmd->SetGraphicsRootSignature(rootSignature_.Get());
@@ -52,7 +52,7 @@ void CylinderSkybox::Draw() {
 	cmd->DrawInstanced(vertexCount_, 1, 0, 0);
 }
 
-void CylinderSkybox::CreateRootSignature() {
+void SkyCylinder::CreateRootSignature() {
     D3D12_DESCRIPTOR_RANGE srvRange[1] = {};
     srvRange[0].BaseShaderRegister = 0;
     srvRange[0].NumDescriptors = 1;
@@ -100,7 +100,7 @@ void CylinderSkybox::CreateRootSignature() {
     assert(SUCCEEDED(hr));
 }
 
-void CylinderSkybox::CreateGraphicsPipelineState() {
+void SkyCylinder::CreateGraphicsPipelineState() {
     CreateRootSignature();
 
     D3D12_INPUT_ELEMENT_DESC inputElements[3] = {};
@@ -127,8 +127,8 @@ void CylinderSkybox::CreateGraphicsPipelineState() {
     depthDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // 背景は深度書き込みしない
     depthDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
-    auto vs = dxCommon_->CompileShader(L"resources/shaders/CylinderSkybox.VS.hlsl", L"vs_6_0");
-    auto ps = dxCommon_->CompileShader(L"resources/shaders/CylinderSkybox.PS.hlsl", L"ps_6_0");
+    auto vs = dxCommon_->CompileShader(L"resources/shaders/SkyCylinder.VS.hlsl", L"vs_6_0");
+    auto ps = dxCommon_->CompileShader(L"resources/shaders/SkyCylinder.PS.hlsl", L"ps_6_0");
     assert(vs && ps);
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
@@ -150,8 +150,8 @@ void CylinderSkybox::CreateGraphicsPipelineState() {
     assert(SUCCEEDED(hr));
 }
 
-void CylinderSkybox::CreateVertexResource() {
-    const uint32_t kDivide = 32;
+void SkyCylinder::CreateVertexResource() {
+    const uint32_t kDivide = 128;
     vertexCount_ = kDivide * 6;
 
     vertexResource_ = dxCommon_->CreateBufferResource(sizeof(VertexData) * vertexCount_);

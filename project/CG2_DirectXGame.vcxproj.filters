@@ -258,10 +258,8 @@
     <ClCompile Include="application\transition\BlindTransition.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\3d\SkyCylinder.cpp">
     <ClCompile Include="application\UI\ResultUI.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="engine\3d\CylinderSkybox.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -539,7 +537,7 @@
     <ClInclude Include="application\UI\ResultUI.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="engine\3d\CylinderSkybox.h">
+    <ClInclude Include="engine\3d\SkyCylinder.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
@@ -564,8 +562,8 @@
     <None Include="resources\enemy_drops.json" />
     <None Include="resources\ability_config.json" />
     <None Include="resources\shaders\GammaCorrection.hlsli" />
+    <None Include="resources\shaders\SkyCylinder.hlsli" />
     <None Include="resources\stage_enemies.json" />
-    <None Include="resources\shaders\CylinderSkybox.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />
@@ -588,7 +586,7 @@
     <FxCompile Include="resources\shaders\Random.hlsl" />
     <FxCompile Include="resources\shaders\RandomGenerator.hlsl" />
     <FxCompile Include="resources\shaders\UpdateParticle.CS.hlsl" />
-    <FxCompile Include="resources\shaders\CylinderSkybox.VS.hlsl" />
-    <FxCompile Include="resources\shaders\CylinderSkybox.PS.hlsl" />
+    <FxCompile Include="resources\shaders\SkyCylinder.VS.hlsl" />
+    <FxCompile Include="resources\shaders\SkyCylinder.PS.hlsl" />
   </ItemGroup>
 </Project>

@@ -25,6 +25,7 @@
 #include "Tongue.h"
 #include "UI/PauseMenu.h"
 #include "debug/DebugGrid.h"
+#include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/ParticleEmitter.h"
 #include "math/Transform.h"
@@ -364,6 +365,11 @@ void GamePlayScene::Initialize() {
 	timerColonSprite_->SetPos(colonPos);
 	timerColonSprite_->SetColor({0.25f, 0.75f, 1.0f, 1.0f});
 	timerColonSprite_->Update();
+	skyCylinder_ = std::make_unique<SkyCylinder>();
+	skyCylinder_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
+	skyCylinder_->SetCamera(camera_.get());
+	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
+	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -865,6 +871,8 @@ void GamePlayScene::Draw() {
 
 	// パーティクル（XPオーブ等）を描画
 	ParticleManager::GetInstance()->Draw();
+	//skybox_->Draw(*camera_);
+	skyCylinder_->Draw();
 
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 	if (!resultUI_->IsActive()) {

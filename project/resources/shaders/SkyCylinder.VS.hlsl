@@ -1,4 +1,4 @@
-#include "CylinderSkybox.hlsli"
+#include "SkyCylinder.hlsli"
 
 struct TransformationMatrix {
     float4x4 WVP;

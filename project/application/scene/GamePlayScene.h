@@ -32,6 +32,8 @@ class Skybox;
 class DebugGrid;
 class EnemyManager;
 class PauseMenu;
+class GPUParticleEmitter;
+class SkyCylinder;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -114,4 +116,5 @@ private:
 	std::unique_ptr<class ResultUI> resultUI_;
 
 	float gameClearHeightY_ = 1510.0f;
+	std::unique_ptr<SkyCylinder> skyCylinder_;
 };
