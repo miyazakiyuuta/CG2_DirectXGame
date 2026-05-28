@@ -91,7 +91,7 @@ private:
 	std::vector<std::unique_ptr<WarpExit>> activeWarpExits_;
 	std::unique_ptr<Skybox> skybox_;
 
-	std::unique_ptr<DebugGrid> debugGrid_;
+	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 
 	CollisionUtility::Cylinder wellCylinder_ = {};
 

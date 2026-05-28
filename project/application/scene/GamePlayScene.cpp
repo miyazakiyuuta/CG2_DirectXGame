@@ -13,7 +13,6 @@
 #include "io/Input.h"
 #include "utility/Random.h"
 
-#include "2d/Sprite.h"
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
 #include "CameraController.h"
