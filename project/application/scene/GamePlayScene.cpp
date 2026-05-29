@@ -187,6 +187,7 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/ShootingEnemy", "ShootingEnemy.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/ChasingEnemy", "ChasingEnemy.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/Bullet", "Bullet.obj");
 
 	// Load the single well model so it can be placed in the scene
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
@@ -592,6 +593,10 @@ void GamePlayScene::Update() {
 	if (enemyManager_) {
 		enemyManager_->SetBlockColliders(&stageBlockColliders_);
 		enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
+	}
+
+	if (player_) {
+		player_->SetAutoCameraOnCeilingToWallEnabled(PauseMenu::s_cameraAssistEnabled);
 	}
 
 	// --- リザルト演出中の場合は、演出のみ更新して早期リターン ---
