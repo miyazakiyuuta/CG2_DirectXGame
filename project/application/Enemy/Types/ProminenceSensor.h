@@ -24,6 +24,7 @@ public:
 	~ProminenceSensor() override;
 
 	void Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) override;
+	void SetRotation(const Vector3& rot) override; // 【追加】エディタからの回転を反映
 	void Update(float deltaTime, const Vector3& playerPos) override;
 	void Draw() override;
 

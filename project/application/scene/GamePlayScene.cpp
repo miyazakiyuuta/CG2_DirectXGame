@@ -67,6 +67,7 @@ void GamePlayScene::InitializeEnemiesFromStage() {
 	for (const auto& s : spawns) {
 		EnemySpawnRuntime rt;
 		rt.basePosition = s.position;
+		rt.rotation = s.rotation;
 		rt.enemyType = static_cast<int>(ClampEnemyTypeInt(s.enemyType));
 		rt.respawnIntervalSec = s.respawnInterval;
 		rt.allowRespawn = s.allowRespawn;
@@ -99,7 +100,7 @@ void GamePlayScene::SpawnEnemyForPoint(size_t idx) {
 	Vector3 pos = sp.basePosition;
 	pos.y += enemySpawnYOffset_;
 
-	BaseEnemy* created = enemyManager_->CreateEnemy(ClampEnemyTypeInt(sp.enemyType), pos);
+	BaseEnemy* created = enemyManager_->CreateEnemy(ClampEnemyTypeInt(sp.enemyType), pos, sp.rotation);
 	if (created) {
 		sp.current = created;
 		enemyToSpawnIndex_[created] = idx;

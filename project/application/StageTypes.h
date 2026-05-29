@@ -96,6 +96,7 @@ struct StageData {
 
 struct EnemySpawnPoint{
     Vector3 position{};
+    Vector3 rotation{};
     int enemyType = 0;
     float respawnInterval = 5.0f;
     bool allowRespawn = true;

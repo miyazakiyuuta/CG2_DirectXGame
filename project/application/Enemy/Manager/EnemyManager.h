@@ -28,7 +28,7 @@ public:
 	void Initialize(Object3dCommon* common, Camera* camera);
 	void Update(float deltaTime, class Player* player);
 	void Draw();
-   BaseEnemy* CreateEnemy(EnemyType type, const Vector3& pos);
+    BaseEnemy* CreateEnemy(EnemyType type, const Vector3& pos, const Vector3& rot = {0,0,0});
 	void Clear();
 	void ForEachEnemy(const std::function<void(class BaseEnemy*)>& cb);
 

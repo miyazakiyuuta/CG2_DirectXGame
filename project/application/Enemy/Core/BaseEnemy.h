@@ -20,6 +20,7 @@ public:
     virtual ~BaseEnemy();
 
     virtual void Initialize(Object3dCommon* common, Camera* camera, const Vector3& pos) = 0;
+    virtual void SetRotation(const Vector3& rot) { (void)rot; } // 敵の初期向き等を設定するための仮想関数
     virtual void Update(float deltaTime, const Vector3& playerPos) = 0;
     virtual void Draw() = 0;
 

@@ -4,6 +4,7 @@
 #include "../../../engine/3d/ModelManager.h"
 #include <algorithm>
 #include <cmath>
+#include "../../../engine/math/Matrix4x4.h"
 
 // --- コンストラクタ：変数の初期化 ---
 ProminenceSensor::ProminenceSensor() : state_(SensorState::Idle), stateTimer_(0.0f), lockOnDir_({0, 0, 1}), forwardDir_({0, 0, 1}), baseForwardDir_({0, 0, 1}), searchTimer_(0.0f) {}
@@ -43,6 +44,20 @@ void ProminenceSensor::Initialize(Object3dCommon* common, Camera* camera, const 
 	beamObject_->SetEnableLighting(false);
 	// 初期状態では非表示
 	beamVisible_ = false;
+}
+
+void ProminenceSensor::SetRotation(const Vector3& rot) {
+	// 回転行列を作成し、基準となる前方ベクトル（Z+方向）を回転させる
+	Matrix4x4 matRot = Matrix4x4::Rotate(rot);
+	baseForwardDir_ = matRot.Transform({0.0f, 0.0f, 1.0f});
+	
+	// 索敵中の現在の方向も基準に合わせる
+	forwardDir_ = baseForwardDir_;
+
+	// 見た目（モデル）の回転も更新
+	if (object_) {
+		object_->SetRotate(rot);
+	}
 }
 
 // --- ビームObject3dの座標・回転・スケールを計算して適用する ---
