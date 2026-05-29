@@ -69,17 +69,44 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
 
-	dxCommon_->ExecuteCommandListAndWait();
-
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
-	// srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata.format, static_cast<UINT>(textureData.metadata.mipLevels));
 }
 
 void TextureManager::ReloadTexture(const std::string& filePath) {
-	// キャッシュからエントリを削除して、LoadTexture で再読み込みさせる
-	// ※SRV スロットは再利用せず新たに確保する（頻繁には呼ばれない前提）
-	textureDatas_.erase(filePath);
-	LoadTexture(filePath);
+	auto it = textureDatas_.find(filePath);
+	if (it == textureDatas_.end()) {
+		LoadTexture(filePath);   // 未ロードなら通常ロード
+		return;
+	}
+	TextureData& textureData = it->second;
+	const uint32_t srvIndex = textureData.srvIndex;
+
+	// 画像を読み直す
+	std::wstring filePathW = ConvertString(filePath);
+	DirectX::ScratchImage image{};
+	HRESULT hr = filePathW.ends_with(L".dds")
+		? DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image)
+		: DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
+	assert(SUCCEEDED(hr));
+
+	DirectX::ScratchImage mipImages{};
+	if (DirectX::IsCompressed(image.GetMetadata().format)) {
+		mipImages = std::move(image);
+	} else {
+		hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
+			image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
+		assert(SUCCEEDED(hr));
+	}
+
+	// 古いリソースは GPU 完了後に破棄（in-flight 参照の use-after-free 防止）
+	ComPtr<ID3D12Resource> oldResource = textureData.resource;
+
+	textureData.metadata = mipImages.GetMetadata();
+	textureData.resource = dxCommon_->CreateTextureResource(textureData.metadata);
+
+	ComPtr<ID3D12Resource> intermediate = dxCommon_->UpLoadTextureData(textureData.resource, mipImages);
+
+	srvManager_->CreateSRVForTexture(srvIndex, textureData.resource.Get(), textureData.metadata);
 }
 
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {
@@ -121,9 +148,6 @@ void TextureManager::CreateDefaultTexture() {
 	textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
 
 	ComPtr<ID3D12Resource> intermediateResource = dxCommon_->UpLoadTextureData(textureData.resource, image);
-	
-
-	dxCommon_->ExecuteCommandListAndWait();
 
 	srvManager_->CreateSRVForTexture(textureData.srvIndex, textureData.resource.Get(), textureData.metadata);
 }
