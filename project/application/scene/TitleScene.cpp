@@ -557,7 +557,11 @@ void TitleScene::UpdateTitleSunMoonPointLight(float deltaTime)
 
 	PointLight finalLight = LerpPointLight(moonLight, sunLight, sunWeight);
 
-	Object3dCommon::GetInstance()->SetPointLight(finalLight);
+	PointLightArray pointLights = {};
+	pointLights.count = 1;
+	pointLights.lights[0] = finalLight;
+
+	Object3dCommon::GetInstance()->SetPointLights(pointLights);
 }
 
 void TitleScene::GenerateCreditSprites()

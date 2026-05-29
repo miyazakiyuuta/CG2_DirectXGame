@@ -382,12 +382,17 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	Object3dCommon::GetInstance()->SetPointLight({
-	    {1.0f, 1.0f, 1.0f, 1.0f}, // color
-	    {0.0f, -0.1f, 0.0f}, // position
-	    0.12f, // intensity
-	    20000.0f, // radius
-	    0.0f  // decay
+	PointLightArray pointLights = {};
+	pointLights.count = 1;
+
+	pointLights.lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	pointLights.lights[0].position = { 0.0f, -0.1f, 0.0f };
+	pointLights.lights[0].intensity = 0.12f;
+	pointLights.lights[0].radius = 20000.0f;
+	pointLights.lights[0].decay = 0.0f;
+
+	Object3dCommon::GetInstance()->SetPointLights({
+		pointLights
 	});
 
 	// ポーズメニューの初期化
