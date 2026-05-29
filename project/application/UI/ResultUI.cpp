@@ -56,6 +56,13 @@ void ResultUI::TriggerClear(float clearTimeSeconds) {
 		{ 0.8f, 0.8f, 0.8f, 1.0f },
 		60
 	);
+	textGuidanceGamepadSprite_ = CreateTextSprite(
+		ToUtf8String(u8"Aボタンでタイトルへ"),
+		"resources/generated_ui/res_guide_gamepad.png",
+		screenH * 0.94f,
+		{ 0.8f, 0.8f, 0.8f, 1.0f },
+		60
+	);
 }
 
 void ResultUI::TriggerGameOver() {
@@ -75,6 +82,7 @@ void ResultUI::TriggerGameOver() {
 	textTitleSprite_ = CreateTextSprite(ToUtf8String(u8"LOSER..."), "resources/generated_ui/res_loser.png", screenH * 0.4f, { 1.0f, 0.2f, 0.2f, 1.0f }, 160);
 	textTimeSprite_ = nullptr;
 	textGuidanceSprite_ = CreateTextSprite(ToUtf8String(u8"スペースキーでタイトルへ"), "resources/generated_ui/res_guide_over.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
+	textGuidanceGamepadSprite_ = CreateTextSprite(ToUtf8String(u8"Aボタンでタイトルへ"), "resources/generated_ui/res_guide_over_gamepad.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
 }
 
 void ResultUI::Update() {
@@ -104,9 +112,30 @@ void ResultUI::Update() {
 	bool canInput = (state_ == State::Clear && effectAlpha_ <= 0.2f) || (state_ == State::GameOver && effectAlpha_ <= 0.6f);
 
 	if (canInput) {
-		if (textGuidanceSprite_)
-			textGuidanceSprite_->Update();
-		if (Input::GetInstance()->IsTriggerKey(DIK_SPACE)) {
+		Input* input = Input::GetInstance();
+		
+		if (input->IsControllerConnected()) {
+			if (input->IsPressPad(XINPUT_GAMEPAD_A) || input->IsPressPad(XINPUT_GAMEPAD_B) || 
+			    input->IsPressPad(XINPUT_GAMEPAD_X) || input->IsPressPad(XINPUT_GAMEPAD_Y) ||
+			    (input->GetLeftStickX() * input->GetLeftStickX() + input->GetLeftStickY() * input->GetLeftStickY() > 0.05f)) {
+				isGamepadMode_ = true;
+			}
+		}
+		
+		if (input->IsPushKey(DIK_SPACE) || input->IsPushKey(DIK_W) || input->IsPushKey(DIK_A) || 
+		    input->IsPushKey(DIK_S) || input->IsPushKey(DIK_D)) {
+			isGamepadMode_ = false;
+		}
+
+		if (isGamepadMode_) {
+			if (textGuidanceGamepadSprite_)
+				textGuidanceGamepadSprite_->Update();
+		} else {
+			if (textGuidanceSprite_)
+				textGuidanceSprite_->Update();
+		}
+
+		if (input->IsTriggerKey(DIK_SPACE) || input->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 			isTitleRequested_ = true;
 		}
 	}
@@ -205,8 +234,13 @@ void ResultUI::Draw() {
 
 	bool canInput = (state_ == State::Clear && effectAlpha_ <= 0.2f) || (state_ == State::GameOver && effectAlpha_ <= 0.6f);
 	if (canInput) {
-		if (textGuidanceSprite_)
-			textGuidanceSprite_->Draw();
+		if (isGamepadMode_) {
+			if (textGuidanceGamepadSprite_)
+				textGuidanceGamepadSprite_->Draw();
+		} else {
+			if (textGuidanceSprite_)
+				textGuidanceSprite_->Draw();
+		}
 	}
 }
 

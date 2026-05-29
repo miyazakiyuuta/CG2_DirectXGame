@@ -89,6 +89,8 @@ void TutorialScene::Initialize()
 	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ShootingEnemy", "ShootingEnemy.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ChasingEnemy", "ChasingEnemy.obj");
 
 	if (ModelManager::GetInstance()->FindModel("well.obj")) {
 		wellObject_ = std::make_unique<Object3d>();
