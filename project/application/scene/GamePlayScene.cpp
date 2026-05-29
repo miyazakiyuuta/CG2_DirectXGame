@@ -594,6 +594,9 @@ void GamePlayScene::Update() {
 		if (resultUI_->IsTitleRequested()) {
 			SceneManager::GetInstance()->ChangeScene("TITLE", std::make_unique<BlindTransition>());
 		}
+		if (resultUI_->IsRestartRequested()) {
+			SceneManager::GetInstance()->ChangeScene("GAMEPLAY", std::make_unique<BlindTransition>());
+		}
 
 		camera_->Update();
 		camera_->TransferToGPU();

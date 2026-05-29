@@ -22,6 +22,7 @@ public:
 
 	bool IsActive() const { return state_ != State::None; }
 	bool IsTitleRequested() const { return isTitleRequested_; }
+	bool IsRestartRequested() const { return isRestartRequested_; }
 
 private:
 	std::unique_ptr<Sprite> CreateTextSprite(const std::string& textUtf8, const std::string& outputPath, float yPos, const Vector4& color, int fontSize);
@@ -40,9 +41,12 @@ private:
 	std::unique_ptr<Sprite> textTimeSprite_ = nullptr;
 	std::unique_ptr<Sprite> textGuidanceSprite_ = nullptr;
 	std::unique_ptr<Sprite> textGuidanceGamepadSprite_ = nullptr;
+	std::unique_ptr<Sprite> textRestartGuidanceSprite_ = nullptr;
+	std::unique_ptr<Sprite> textRestartGuidanceGamepadSprite_ = nullptr;
 
 	float effectAlpha_ = 0.0f;
 	bool isTitleRequested_ = false;
+	bool isRestartRequested_ = false;
 	bool isGamepadMode_ = false;
 
 	static constexpr int kClearTimeRankingMaxCount_ = 5;

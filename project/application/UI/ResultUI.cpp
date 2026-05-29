@@ -25,12 +25,14 @@ void ResultUI::Initialize(SpriteCommon* spriteCommon) {
 	spriteCommon_ = spriteCommon;
 	state_ = State::None;
 	isTitleRequested_ = false;
+	isRestartRequested_ = false;
 }
 
 void ResultUI::TriggerClear(float clearTimeSeconds) {
 	state_ = State::Clear;
 	effectAlpha_ = 1.0f;
 	isTitleRequested_ = false;
+	isRestartRequested_ = false;
 
 	float screenW = static_cast<float>(WinApp::kClientWidth);
 	float screenH = static_cast<float>(WinApp::kClientHeight);
@@ -52,13 +54,27 @@ void ResultUI::TriggerClear(float clearTimeSeconds) {
 	textGuidanceSprite_ = CreateTextSprite(
 		ToUtf8String(u8"スペースキーでタイトルへ"),
 		"resources/generated_ui/res_guide.png",
-		screenH * 0.94f,
+		screenH * 0.88f,
 		{ 0.8f, 0.8f, 0.8f, 1.0f },
 		60
 	);
 	textGuidanceGamepadSprite_ = CreateTextSprite(
 		ToUtf8String(u8"Aボタンでタイトルへ"),
 		"resources/generated_ui/res_guide_gamepad.png",
+		screenH * 0.88f,
+		{ 0.8f, 0.8f, 0.8f, 1.0f },
+		60
+	);
+	textRestartGuidanceSprite_ = CreateTextSprite(
+		ToUtf8String(u8"Rキーでリスタート"),
+		"resources/generated_ui/res_restart_guide.png",
+		screenH * 0.94f,
+		{ 0.8f, 0.8f, 0.8f, 1.0f },
+		60
+	);
+	textRestartGuidanceGamepadSprite_ = CreateTextSprite(
+		ToUtf8String(u8"Bボタンでリスタート"),
+		"resources/generated_ui/res_restart_guide_gamepad.png",
 		screenH * 0.94f,
 		{ 0.8f, 0.8f, 0.8f, 1.0f },
 		60
@@ -69,6 +85,7 @@ void ResultUI::TriggerGameOver() {
 	state_ = State::GameOver;
 	effectAlpha_ = 1.0f;
 	isTitleRequested_ = false;
+	isRestartRequested_ = false;
 
 	float screenW = static_cast<float>(WinApp::kClientWidth);
 	float screenH = static_cast<float>(WinApp::kClientHeight);
@@ -83,6 +100,8 @@ void ResultUI::TriggerGameOver() {
 	textTimeSprite_ = nullptr;
 	textGuidanceSprite_ = CreateTextSprite(ToUtf8String(u8"スペースキーでタイトルへ"), "resources/generated_ui/res_guide_over.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
 	textGuidanceGamepadSprite_ = CreateTextSprite(ToUtf8String(u8"Aボタンでタイトルへ"), "resources/generated_ui/res_guide_over_gamepad.png", screenH * 0.7f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
+	textRestartGuidanceSprite_ = CreateTextSprite(ToUtf8String(u8"Rキーでリスタート"), "resources/generated_ui/res_restart_guide_over.png", screenH * 0.78f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
+	textRestartGuidanceGamepadSprite_ = CreateTextSprite(ToUtf8String(u8"Bボタンでリスタート"), "resources/generated_ui/res_restart_guide_over_gamepad.png", screenH * 0.78f, { 0.6f, 0.6f, 0.6f, 1.0f }, 80);
 }
 
 void ResultUI::Update() {
@@ -130,13 +149,20 @@ void ResultUI::Update() {
 		if (isGamepadMode_) {
 			if (textGuidanceGamepadSprite_)
 				textGuidanceGamepadSprite_->Update();
+			if (textRestartGuidanceGamepadSprite_)
+				textRestartGuidanceGamepadSprite_->Update();
 		} else {
 			if (textGuidanceSprite_)
 				textGuidanceSprite_->Update();
+			if (textRestartGuidanceSprite_)
+				textRestartGuidanceSprite_->Update();
 		}
 
 		if (input->IsTriggerKey(DIK_SPACE) || input->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 			isTitleRequested_ = true;
+		}
+		if (input->IsTriggerKey(DIK_R) || input->IsTriggerPad(XINPUT_GAMEPAD_B)) {
+			isRestartRequested_ = true;
 		}
 	}
 	if (rankingTitleSprite_) {
@@ -237,9 +263,13 @@ void ResultUI::Draw() {
 		if (isGamepadMode_) {
 			if (textGuidanceGamepadSprite_)
 				textGuidanceGamepadSprite_->Draw();
+			if (textRestartGuidanceGamepadSprite_)
+				textRestartGuidanceGamepadSprite_->Draw();
 		} else {
 			if (textGuidanceSprite_)
 				textGuidanceSprite_->Draw();
+			if (textRestartGuidanceSprite_)
+				textRestartGuidanceSprite_->Draw();
 		}
 	}
 }
