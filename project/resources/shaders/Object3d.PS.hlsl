@@ -25,7 +25,7 @@ struct DirectionalLight {
 
 ConstantBuffer<DirectionalLight> gDirectionalLight : register(b1);
 ConstantBuffer<Camera> gCamera : register(b2);
-ConstantBuffer<PointLight> gPointLight : register(b3);
+ConstantBuffer<PointLightArray> gPointLights : register(b3);
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
 
 PixelShaderOutput main(VertexShaderOutput input) {
@@ -72,19 +72,24 @@ PixelShaderOutput main(VertexShaderOutput input) {
         float3 specularDirectionalLight = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPowD * float3(1.0f, 1.0f, 1.0f);
         
         // Point
-        float distance = length(gPointLight.position - input.worldPosition); // ポイントライトへの距離
-        float factor = pow(saturate(-distance / gPointLight.radius + 1.0), gPointLight.decay); // 指数によるコントロール
-        float3 pointLightDirection = normalize(gPointLight.position - input.worldPosition);
-        float NdotL_P = dot(normalize(input.normal), pointLightDirection);
-        float cosP = pow(NdotL_P * 0.5f + 0.5f, 2.0f);
-        float3 halfVectorP = normalize(pointLightDirection + toEye);
-        float NDotH_P = dot(normalize(input.normal), halfVectorP);
-        float specularPowP = pow(saturate(NDotH_P), gMaterial.shininess);
-        float3 pointLightColor = gPointLight.color.rgb * gPointLight.intensity * factor;
-        // 拡散反射
-        float3 diffusePointLight = gMaterial.color.rgb * textureColor.rgb * pointLightColor * cosP;
-        // 鏡面反射
-        float3 specularPointLight = pointLightColor * specularPowP * float3(1.0f, 1.0f, 1.0f);
+        float3 diffusePointLight = float3(0, 0, 0);
+        float3 specularPointLight = float3(0, 0, 0);
+
+        for (uint i = 0; i < gPointLights.count; i++) {
+            PointLight light = gPointLights.lights[i];
+            float dist = length(light.position - input.worldPosition);
+            float factor = pow(saturate(-dist / light.radius + 1.0), light.decay);
+            float3 dir = normalize(light.position - input.worldPosition);
+            float NdotL = dot(normalize(input.normal), dir);
+            float cosP = pow(NdotL * 0.5f + 0.5f, 2.0f);
+            float3 halfV = normalize(dir + toEye);
+            float NDotH = dot(normalize(input.normal), halfV);
+            float specPow = pow(saturate(NDotH), gMaterial.shininess);
+            float3 lightColor = light.color.rgb * light.intensity * factor;
+
+            diffusePointLight += gMaterial.color.rgb * textureColor.rgb * lightColor * cosP;
+            specularPointLight += lightColor * specPow * float3(1.0f, 1.0f, 1.0f);
+        }
         
         // Spot
         float spotDistance = length(gSpotLight.position - input.worldPosition);
