@@ -7,13 +7,54 @@
 #include "audio/SoundManager.h"
 #include "base/WinApp.h"
 #include "io/Input.h"
+#include "PauseMenu.h"
 #include "UI/RuntimeTextTextureGenerator.h"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include "../../externals/nlohmann/json.hpp"
+
+float PauseMenu::s_mouseSensitivity = 1.0f;
+float PauseMenu::s_volume = 0.5f;
+std::string PauseMenu::s_currentBgmPath = "resources/BGM/thirdStage.wav";
+
+static void LoadSettings() {
+	std::ifstream file("settings.json");
+	if (file.is_open()) {
+		nlohmann::json j;
+		try {
+			file >> j;
+			if (j.contains("mouseSensitivity")) PauseMenu::s_mouseSensitivity = j["mouseSensitivity"];
+			if (j.contains("volume")) PauseMenu::s_volume = j["volume"];
+			if (j.contains("currentBgmPath")) PauseMenu::s_currentBgmPath = j["currentBgmPath"];
+		} catch (...) {
+			// Ignore parse errors
+		}
+	}
+}
+
+static void SaveSettings() {
+	std::ofstream file("settings.json");
+	if (file.is_open()) {
+		nlohmann::json j;
+		j["mouseSensitivity"] = PauseMenu::s_mouseSensitivity;
+		j["volume"] = PauseMenu::s_volume;
+		j["currentBgmPath"] = PauseMenu::s_currentBgmPath;
+		file << j.dump(4);
+	}
+}
 
 PauseMenu::~PauseMenu() = default;
 
 void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraController) {
+	static bool s_loaded = false;
+	if (!s_loaded) {
+		LoadSettings();
+		s_loaded = true;
+	}
+
 	input_ = Input::GetInstance();
 	cameraController_ = cameraController;
 	spriteCommon_ = spriteCommon;
@@ -146,6 +187,9 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	std::unique_ptr<Sprite> bgmTitleSprite;
 	GenAndLoadTextSprite(bgmTitleSprite, reinterpret_cast<const char*>(u8"BGM選択"), "resources/ui/txt_bgm_title.png", 32, 10, 5);
 	textSprites_["resources/ui/txt_bgm_title.png"] = std::move(bgmTitleSprite);
+	
+	// 設定を反映
+	ApplySettings();
 }
 
 void PauseMenu::Update() {
@@ -216,10 +260,22 @@ void PauseMenu::HandleInput() {
 	}
 
 	// --- マウスによる選択・決定処理 ---
+	HWND hwnd = WinApp::GetInstance()->GetHwnd();
 	POINT p;
 	GetCursorPos(&p);
-	ScreenToClient(WinApp::GetInstance()->GetHwnd(), &p);
-	Vector2 mousePos = { static_cast<float>(p.x), static_cast<float>(p.y) };
+	ScreenToClient(hwnd, &p);
+
+	RECT clientRect;
+	GetClientRect(hwnd, &clientRect);
+	float clientW = static_cast<float>(clientRect.right - clientRect.left);
+	float clientH = static_cast<float>(clientRect.bottom - clientRect.top);
+	if (clientW <= 0.0f) clientW = 1280.0f;
+	if (clientH <= 0.0f) clientH = 720.0f;
+
+	Vector2 mousePos = { 
+		static_cast<float>(p.x) * (1280.0f / clientW), 
+		static_cast<float>(p.y) * (720.0f / clientH) 
+	};
 	
 	bool isMouseLeftTriggered = input_->IsTriggerMouse(0);
 
@@ -254,9 +310,10 @@ void PauseMenu::HandleInput() {
 				mousePos.y > y - 40.0f && mousePos.y < y + 40.0f) {
 				selectIndex_ = i;
 				float rate = (mousePos.x - 650.0f) / 400.0f;
-				if (i == 0) { mouseSensitivity_ = (std::clamp)(rate * 5.0f, 0.1f, 5.0f); }
-				if (i == 1) { volume_ = (std::clamp)(rate, 0.0f, 1.0f); }
+				if (i == 0) { s_mouseSensitivity = (std::clamp)(rate * 5.0f, 0.1f, 5.0f); }
+				if (i == 1) { s_volume = (std::clamp)(rate, 0.0f, 1.0f); }
 				ApplySettings();
+				SaveSettings();
 			}
 		}
 		// BGMリスト判定
@@ -267,7 +324,11 @@ void PauseMenu::HandleInput() {
 				mousePos.y > y - 35.0f && mousePos.y < y + 35.0f) {
 				if (isMouseLeftTriggered) {
 					selectIndex_ = itemIndex;
-					if (onBgmChanged_) onBgmChanged_(bgmFilePaths_[i]);
+					if (onBgmChanged_) {
+						s_currentBgmPath = bgmFilePaths_[i];
+						SaveSettings();
+						onBgmChanged_(bgmFilePaths_[i]);
+					}
 				}
 			}
 		}
@@ -285,7 +346,11 @@ void PauseMenu::HandleInput() {
 		} else if (activeTab_ == Tab::Options) {
 			if (selectIndex_ >= 2) {
 				int bgmIndex = selectIndex_ - 2;
-				if (onBgmChanged_) onBgmChanged_(bgmFilePaths_[bgmIndex]);
+				if (onBgmChanged_) {
+					s_currentBgmPath = bgmFilePaths_[bgmIndex];
+					SaveSettings();
+					onBgmChanged_(bgmFilePaths_[bgmIndex]);
+				}
 			}
 		}
 	}
@@ -302,11 +367,13 @@ void PauseMenu::HandleInput() {
 			delta = 0.01f;
 
 		if (selectIndex_ == 0) {
-			mouseSensitivity_ = (std::clamp)(mouseSensitivity_ + delta, 0.1f, 5.0f);
+			s_mouseSensitivity = (std::clamp)(s_mouseSensitivity + delta, 0.1f, 5.0f);
 			ApplySettings();
+			SaveSettings();
 		} else if (selectIndex_ == 1) {
-			volume_ = (std::clamp)(volume_ + delta, 0.0f, 1.0f);
+			s_volume = (std::clamp)(s_volume + delta, 0.0f, 1.0f);
 			ApplySettings();
+			SaveSettings();
 		}
 
 		// スクロール計算
@@ -320,14 +387,14 @@ void PauseMenu::HandleInput() {
 
 void PauseMenu::ApplySettings() {
 	if (cameraController_) {
-		float mult = mouseSensitivity_;
+		float mult = s_mouseSensitivity;
 		cameraController_->SetYawSpeed(cameraController_->GetBaseYawSpeed() * mult);
 		cameraController_->SetPitchSpeed(cameraController_->GetBasePitchSpeed() * mult);
 		cameraController_->SetMouseSensitivity(cameraController_->GetBaseMouseSensitivity() * mult);
 		cameraController_->SetPadYawSpeed(cameraController_->GetBasePadYawSpeed() * mult);
 		cameraController_->SetPadPitchSpeed(cameraController_->GetBasePadPitchSpeed() * mult);
 	}
-	SoundManager::GetInstance()->SetCategoryVolume(SoundManager::SoundCategory::BGM, volume_);
+	SoundManager::GetInstance()->SetCategoryVolume(SoundManager::SoundCategory::BGM, s_volume);
 }
 
 void PauseMenu::Draw() {
@@ -410,7 +477,17 @@ void PauseMenu::Draw() {
 		}
 	} else if (activeTab_ == Tab::Options) {
 		auto dxCommon = DirectXCommon::GetInstance();
-		D3D12_RECT scissorRect = { 0, 110, 1280, 610 };
+
+		HWND hwnd = WinApp::GetInstance()->GetHwnd();
+		RECT clientRect;
+		GetClientRect(hwnd, &clientRect);
+		LONG clientW = clientRect.right - clientRect.left;
+		LONG clientH = clientRect.bottom - clientRect.top;
+
+		LONG top = static_cast<LONG>(clientH * (110.0f / 720.0f));
+		LONG bottom = static_cast<LONG>(clientH * (610.0f / 720.0f));
+
+		D3D12_RECT scissorRect = { 0, top, clientW, bottom };
 		dxCommon->GetCommandList()->RSSetScissorRects(1, &scissorRect);
 
 		DrawTextSprite(textSprites_["resources/ui/txt_sensitivity.png"].get(), {350.0f, 265.0f - optionsScrollY_}, (selectIndex_ == 0 ? kColorAccent : kColorNormal));
@@ -423,7 +500,7 @@ void PauseMenu::Draw() {
 			sliderBg_[i]->Update();
 			sliderBg_[i]->Draw();
 
-			float rate = (i == 0) ? (mouseSensitivity_ / 5.0f) : volume_;
+			float rate = (i == 0) ? (s_mouseSensitivity / 5.0f) : s_volume;
 			sliderFill_[i]->SetSize({400.0f * rate, 15.0f});
 			sliderFill_[i]->SetPos({650.0f, y + 15.0f});
 			sliderFill_[i]->SetColor({kColorAccent.x, kColorAccent.y, kColorAccent.z, menuAlpha_});
@@ -465,7 +542,7 @@ void PauseMenu::Draw() {
 			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, (selectIndex_ == itemIndex ? kColorAccent : kColorNormal));
 		}
 
-		D3D12_RECT resetRect = { 0, 0, 1280, 720 };
+		D3D12_RECT resetRect = { 0, 0, clientW, clientH };
 		dxCommon->GetCommandList()->RSSetScissorRects(1, &resetRect);
 	} else if (activeTab_ == Tab::Controls) {
 		Sprite* target = isControllerMode_ ? controlsPad_.get() : controlsKB_.get();

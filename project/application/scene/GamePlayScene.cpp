@@ -408,7 +408,7 @@ void GamePlayScene::Initialize() {
 	resultUI_->Initialize(SpriteCommon::GetInstance());
 
 	// --- BGMの読み込みと再生 ---
-	bgm_ = SoundManager::GetInstance()->LoadFile("resources/BGM/thirdStage.wav");
+	bgm_ = SoundManager::GetInstance()->LoadFile(PauseMenu::s_currentBgmPath);
 	bgmHandle_ = SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
 
 #ifndef USE_IMGUI
@@ -432,7 +432,7 @@ void GamePlayScene::Finalize() {
 	}
 
 	// BGMのアンロード
-	SoundManager::GetInstance()->Unload("resources/BGM/thirdStage.wav");
+	SoundManager::GetInstance()->Unload(PauseMenu::s_currentBgmPath);
 
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 
