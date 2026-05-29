@@ -623,6 +623,8 @@ void StageEditor::DrawImGui(){
                     editSavedPositionPersisted_ = o.savedPositionPersisted;
                     editMovementLocked_ = o.movementLocked;
                     editEnemyType_ = o.enemyType;
+                    editAllowRespawn_ = o.allowRespawn;
+                    editSpawnOnSceneStart_ = o.spawnOnSceneStart;
                     strncpy_s(selectedModelBuf_, sizeof(selectedModelBuf_), o.modelName.c_str(), _TRUNCATE);
 
                     stage_->SetInstanceColorById(o.id, { o.color.x, o.color.y, o.color.z, selectionBlinkAlpha_ });
@@ -749,6 +751,8 @@ void StageEditor::DrawImGui(){
             if(placingEnemyRespawnInterval_ < 0.0f){
                 placingEnemyRespawnInterval_ = 0.0f;
             }
+            ImGui::Checkbox("Allow Respawn", &placingAllowRespawn_);
+            ImGui::Checkbox("Spawn On Scene Start", &placingSpawnOnSceneStart_);
         }
 
         ImGui::Separator();
@@ -782,6 +786,8 @@ void StageEditor::DrawImGui(){
                 if(o.blockId == BlockID::EnemySpawn){
                     o.enemyType = placingEnemyType_;
                     o.enemyRespawnInterval = placingEnemyRespawnInterval_;
+                    o.allowRespawn = placingAllowRespawn_;
+                    o.spawnOnSceneStart = placingSpawnOnSceneStart_;
                 }
 
                 data.objects.push_back(o);
@@ -948,6 +954,12 @@ void StageEditor::DrawImGui(){
                             o.moveSpeed = placingMoveSpeed_;
                             o.moveRange = placingMoveRange_;
                             o.movePhase = placingMovePhase_;
+                        }
+                        if(o.blockId == BlockID::EnemySpawn){
+                            o.enemyType = placingEnemyType_;
+                            o.enemyRespawnInterval = placingEnemyRespawnInterval_;
+                            o.allowRespawn = placingAllowRespawn_;
+                            o.spawnOnSceneStart = placingSpawnOnSceneStart_;
                         }
                         data.objects.push_back(o);
                         stage_->UpdateOrCreateInstance(o);
@@ -1124,6 +1136,16 @@ void StageEditor::DrawImGui(){
                             }
                         }
                     }
+                    if(ImGui::Checkbox("Allow Respawn", &editAllowRespawn_)){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.allowRespawn = editAllowRespawn_; break; } }
+                        }
+                    }
+                    if(ImGui::Checkbox("Spawn On Scene Start", &editSpawnOnSceneStart_)){
+                        if(liveEdit_){
+                            for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.spawnOnSceneStart = editSpawnOnSceneStart_; break; } }
+                        }
+                    }
                 }
 
                 if(showFieldColor_){
@@ -1178,6 +1200,8 @@ void StageEditor::DrawImGui(){
                           if(obj.blockId == BlockID::EnemySpawn){
                                 obj.enemyType = editEnemyType_;
                                 obj.enemyRespawnInterval = editEnemyRespawnInterval_;
+                                obj.allowRespawn = editAllowRespawn_;
+                                obj.spawnOnSceneStart = editSpawnOnSceneStart_;
                             }
                             break;
                         }

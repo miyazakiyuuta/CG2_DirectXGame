@@ -260,4 +260,9 @@ private:
     int editEnemyType_ = 0;
   float placingEnemyRespawnInterval_ = 5.0f;
     float editEnemyRespawnInterval_ = 5.0f;
+    bool placingAllowRespawn_ = true;
+    bool placingSpawnOnSceneStart_ = true;
+    bool editAllowRespawn_ = true;
+    bool editSpawnOnSceneStart_ = true;
+    int lastSelectedIdForEdit_ = -1;
 };

@@ -68,6 +68,8 @@ void GamePlayScene::InitializeEnemiesFromStage() {
 		rt.basePosition = s.position;
 		rt.enemyType = static_cast<int>(ClampEnemyTypeInt(s.enemyType));
 		rt.respawnIntervalSec = s.respawnInterval;
+		rt.allowRespawn = s.allowRespawn;
+		rt.spawnOnSceneStart = s.spawnOnSceneStart;
 		if (rt.respawnIntervalSec < 0.0f) {
 			rt.respawnIntervalSec = 0.0f;
 		}
@@ -77,7 +79,9 @@ void GamePlayScene::InitializeEnemiesFromStage() {
 	}
 
 	for (size_t i = 0; i < enemySpawns_.size(); ++i) {
-		SpawnEnemyForPoint(i);
+		if (enemySpawns_[i].spawnOnSceneStart && !enemySpawns_[i].disabled) {
+			SpawnEnemyForPoint(i);
+		}
 	}
 }
 
@@ -98,6 +102,9 @@ void GamePlayScene::SpawnEnemyForPoint(size_t idx) {
 	if (created) {
 		sp.current = created;
 		enemyToSpawnIndex_[created] = idx;
+		// apply a short spawn protection to avoid immediate re-kill
+		const float kSpawnProtection = 2.0f; // seconds of invulnerability after spawn
+		created->SetSpawnProtectionSeconds(kSpawnProtection);
 	}
 }
 
@@ -120,7 +127,13 @@ void GamePlayScene::OnEnemyDead(BaseEnemy* e) {
 	auto& sp = enemySpawns_[idx];
 	if (sp.current == e) {
 		sp.current = nullptr;
-		sp.cooldownSec = sp.respawnIntervalSec;
+		if (sp.allowRespawn) {
+			sp.cooldownSec = sp.respawnIntervalSec;
+		} else {
+			// 永続的に再出現させたくない場合は disabled として扱う
+			sp.disabled = true;
+			sp.cooldownSec = 0.0f;
+		}
 	}
 }
 
@@ -132,7 +145,11 @@ void GamePlayScene::UpdateEnemyRespawns(float deltaTime) {
 	// クールダウン更新と再スポーン
 	for (size_t i = 0; i < enemySpawns_.size(); ++i) {
 		auto& sp = enemySpawns_[i];
-		if (sp.current != nullptr) {
+		if (sp.current != nullptr || sp.disabled) {
+			continue;
+		}
+		if (!sp.allowRespawn) {
+			// allowRespawn が false の場合、初期スポーンのみ許可される（spawnOnSceneStart が true だった場合）
 			continue;
 		}
 		if (sp.cooldownSec > 0.0f) {
@@ -273,6 +290,9 @@ void GamePlayScene::Initialize() {
 	enemyManager_ = std::make_unique<EnemyManager>();
 	enemyManager_->Initialize(Object3dCommon::GetInstance(), camera_.get());
 
+	// 敵が死亡したときにスポーン点側へ通知するコールバックを登録
+	enemyManager_->SetOnEnemyDeadCallback([this](BaseEnemy* e) { this->OnEnemyDead(e); });
+
 	// XP orb pool 初期化
 	xpOrbs_.resize(64); // 最大 64 個のオーブを同時管理
 
@@ -299,17 +319,8 @@ void GamePlayScene::Initialize() {
 		}
 	});
 
-	// Stage から敵スポーン情報を取得して生成
-	for (const auto& spawn : stage_->GetEnemySpawnPoints()) {
-		const int typeValue = spawn.enemyType;
-
-		// EnemyType と Stage 側の int の整合を軽くガード
-		if (typeValue < static_cast<int>(EnemyType::Chasing) || typeValue > static_cast<int>(EnemyType::PhaseGhost)) {
-			continue;
-		}
-
-		enemyManager_->CreateEnemy(static_cast<EnemyType>(typeValue), spawn.position);
-	}
+	// Stage から敵スポーン情報を取得してランタイムで管理する（再生成対応）
+	InitializeEnemiesFromStage();
 
 	//// 【エネミー出現位置】Y座標を5.0にしているので、空から降ってきて地面に着地します。
 	// enemyManager_->CreateEnemy(EnemyType::Chasing, { 10.0f, 5.0f, 10.0f });        // 追尾（赤）
@@ -680,6 +691,9 @@ void GamePlayScene::Update() {
 
 			// (描画インスタンス書き込みは ParticleManager::Update 後に行う)
 		}
+
+		// 敵の再生成処理（クールダウン処理）
+		UpdateEnemyRespawns(1.0f / 60.0f);
 
 		// ワープ判定と処理：プレイヤーの更新前に行うことで、ゲームプレイ中に滑らかな移行やテレポートを正しくトリガーする
 		// 1. プレイヤーがワープ入り口ブロックに接触したか判定

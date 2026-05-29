@@ -97,6 +97,14 @@ void EnemyManager::Update(float deltaTime, Player* player)
             enemy->SetBlockColliders(blockColliders_);
             enemy->SetPlayer(player); // 【追加】情報を渡す
             enemy->SetKeepInsideCylinder(keepInsideCylinder_);
+            // tick spawn protection timer so it counts down while alive
+            enemy->TickSpawnProtection(deltaTime);
+            // update visual feedback for spawn protection if implemented
+            // (BaseEnemy may implement UpdateSpawnProtectionVisual)
+            // use dynamic dispatch via pointer to check presence
+            // we call unconditionally; base provides a no-op if not implemented
+            // (function exists on BaseEnemy cpp)
+            enemy->UpdateSpawnProtectionVisual(deltaTime);
             // 死亡演出のために常にUpdateを呼ぶ（死んだ敵のUpdate内で演出処理や早期リターンを行う）
             enemy->Update(deltaTime, playerPos);
         }
