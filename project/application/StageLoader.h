@@ -4,7 +4,6 @@
 #include <memory>
 #include <unordered_map>
 #include "StageTypes.h"
-#include "3d/Object3dCommon.h"
 #include "3d/Object3d.h"
 #include "3d/Camera.h"
 
@@ -85,4 +84,6 @@ private:
 
     // 現在描画中のオブジェクト一覧
     std::vector<Instance> instances_;
+
+    std::vector<std::unique_ptr<Object3d>> pendingDeletion_;
 };

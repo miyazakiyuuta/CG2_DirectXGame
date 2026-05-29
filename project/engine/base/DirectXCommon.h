@@ -8,7 +8,6 @@
 #include <array>
 #include <string>
 #include <chrono>
-#include <functional>
 
 class WinApp;
 
@@ -64,16 +63,6 @@ public:
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
 	size_t GetSwapChainResourceNum()const { return swapChainResources_.size(); }
-
-	// Fence helpers
-	// Returns last signaled fence value
-	uint64_t GetLastSignaledFenceValue() const;
-	// Returns the completed fence value reported by the GPU
-	uint64_t GetCompletedFenceValue() const;
-
-public:
-	// Enqueue a callable to be executed after GPU work up to the current fence completes
-	void EnqueueDeferredDeletion(std::function<void()> fn);
 
 private:
 	// デバイスの初期化
@@ -174,9 +163,6 @@ private:
 
 	// TransitionBarrierの設定
 	D3D12_RESOURCE_BARRIER barrier_{};
-
-	// Deferred deletions to execute after GPU fence completion
-	std::vector<std::function<void()>> deferredDeletions_;
 
 	// 記録時間(FPS固定用)
 	std::chrono::steady_clock::time_point reference_;

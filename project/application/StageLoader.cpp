@@ -90,16 +90,8 @@ void StageLoader::CreateFromData(const StageData& data)
     // 新しいインスタンスリストに置き換える
     instances_ = std::move(newInstances);
 
-    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
-    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
-        for (auto &ptr : toDelete) {
-            // ptr を shared_ptr に移動してキャプチャすることで、lambda 内で安全にリソースを保持できるようにする
-            std::shared_ptr<Object3d> sp = std::move(ptr);
-            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
-                // ここで sp がスコープから外れると、Object3d のデストラクタが呼び出される
-                sp.reset();
-            });
-        }
+    for (auto& ptr : toDelete) {
+        pendingDeletion_.push_back(std::move(ptr));
     }
 }
 
@@ -169,14 +161,8 @@ void StageLoader::RemoveInstanceById(int id)
     // インスタンスリストから指定IDのインスタンスを削除
     instances_.erase(std::remove_if(instances_.begin(), instances_.end(), [id](const Instance& a) { return a.id == id; }), instances_.end());
 
-    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
-    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
-        for (auto &ptr : toDelete) {
-            std::shared_ptr<Object3d> sp = std::move(ptr);
-            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
-                sp.reset();
-            });
-        }
+    for (auto& ptr : toDelete) {
+        pendingDeletion_.push_back(std::move(ptr));
     }
 }
 
@@ -228,14 +214,8 @@ void StageLoader::Clear()
     }
     instances_.clear();
 
-    // GPU の描画完了後に削除するためのリストが空でない場合は DirectXCommon にデフード削除を登録
-    if (!toDelete.empty() && DirectXCommon::GetInstance()) {
-        for (auto &ptr : toDelete) {
-            std::shared_ptr<Object3d> sp = std::move(ptr);
-            DirectXCommon::GetInstance()->EnqueueDeferredDeletion([sp]() mutable {
-                sp.reset();
-            });
-        }
+    for (auto& ptr : toDelete) {
+        pendingDeletion_.push_back(std::move(ptr));
     }
 }
 
@@ -244,6 +224,7 @@ void StageLoader::Clear()
 /// </summary>
 void StageLoader::DrawAndUpdate()
 {
+    pendingDeletion_.clear();
     // すべてのインスタンスに対して Update と Draw を呼び出す
     for (auto& i : instances_) {
         if (i.object) {
@@ -256,6 +237,7 @@ void StageLoader::DrawAndUpdate()
 
 void StageLoader::DrawOpaqueAndUpdate()
 {
+    pendingDeletion_.clear();
     for (auto& i : instances_) {
         if (!i.object) {
             continue;
@@ -275,6 +257,7 @@ void StageLoader::DrawOpaqueAndUpdate()
 
 void StageLoader::DrawTransparentSortedAndUpdate(const Vector3& cameraPos)
 {
+    pendingDeletion_.clear();
     struct DrawItem {
         Instance* instance = nullptr;
         float distanceSq = 0.0f;

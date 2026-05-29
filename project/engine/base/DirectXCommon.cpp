@@ -121,28 +121,6 @@ void DirectXCommon::PostDraw() {
 	assert(SUCCEEDED(hr));
 	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
 	assert(SUCCEEDED(hr));
-
-	// Execute any deferred deletions now that GPU work up to fenceValue_ has completed.
-	if (!deferredDeletions_.empty()) {
-		std::vector<std::function<void()>> local;
-		local.swap(deferredDeletions_);
-		for (auto &fn : local) {
-			try { fn(); } catch (...) {}
-		}
-	}
-}
-
-uint64_t DirectXCommon::GetLastSignaledFenceValue() const {
-	return fenceValue_;
-}
-
-uint64_t DirectXCommon::GetCompletedFenceValue() const {
-	if (fence_) return fence_->GetCompletedValue();
-	return 0;
-}
-
-void DirectXCommon::EnqueueDeferredDeletion(std::function<void()> fn) {
-	deferredDeletions_.push_back(std::move(fn));
 }
 
 void DirectXCommon::ResizeSwapChain(int width, int height) {
