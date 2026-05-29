@@ -19,8 +19,6 @@ private:
 
 	void Shoot(const Vector3& target);
 
-	Object3dCommon* common_ = nullptr;
-	Camera* camera_ = nullptr;
 	std::list<std::unique_ptr<EnemyBullet>> bullets_;
 	float shotTimer_ = 0.0f;
 	const float kShotInterval = 2.5f;

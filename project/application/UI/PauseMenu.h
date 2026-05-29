@@ -63,6 +63,7 @@ public:
 	static float s_mouseSensitivity;
 	static float s_volume;
 	static std::string s_currentBgmPath;
+	static bool s_cameraAssistEnabled;
 
 private:
 	// テキスト画像描画の補助
