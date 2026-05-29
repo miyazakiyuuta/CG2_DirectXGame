@@ -3459,7 +3459,32 @@ void Player::UpdateCeilingCrawling()
 
             object_->SetTranslate(reattachPos);
 
-			ApplyClingSurfaceRotation();
+            ApplyClingSurfaceRotation();
+
+            // 下面から側面へ移った瞬間、カメラをプレイヤーの背中側へ回す。
+            // sideNormal の外側へカメラを置きたいので、カメラの前方向は -sideNormal にする。
+            if (cameraController_) {
+                Vector3 cameraForward = {
+                    -nextNormal.x,
+                    0.0f,
+                    -nextNormal.z
+                };
+
+                float lenSq =
+                    cameraForward.x * cameraForward.x +
+                    cameraForward.z * cameraForward.z;
+
+                if (lenSq > 0.0001f) {
+                    float invLen = 1.0f / std::sqrt(lenSq);
+                    cameraForward.x *= invLen;
+                    cameraForward.z *= invLen;
+
+                    const float targetYaw =
+                        std::atan2(cameraForward.x, cameraForward.z);
+
+                    cameraController_->RequestAutoYaw(targetYaw, 18, 0.22f);
+                }
+            }
 
             // 面遷移後の新しい張り付き面から、舌のフック位置を更新
             RefreshClingAnchorFromCurrentSurface();
