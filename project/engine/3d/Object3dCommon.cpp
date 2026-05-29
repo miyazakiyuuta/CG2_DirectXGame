@@ -500,16 +500,17 @@ void Object3dCommon::CreateComputePipelineState() {
 }
 
 void Object3dCommon::InitializePointLight() {
-	pointLightResource_ = dxCommon_->CreateBufferResource(sizeof(PointLight));
+	pointLightResource_ = dxCommon_->CreateBufferResource(sizeof(PointLightArray));
 	assert(pointLightResource_);
 	HRESULT hr = pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
 	assert(SUCCEEDED(hr));
 
-	pointLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLightData_->position = { 0.0f, 3.0f, 0.0f };
-	pointLightData_->intensity = 1.0f;
-	pointLightData_->radius = 3.0f;
-	pointLightData_->decay = 1.0f;
+	pointLightData_->count = 1;
+	pointLightData_->lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	pointLightData_->lights[0].position = { 0.0f, 3.0f, 0.0f };
+	pointLightData_->lights[0].intensity = 1.0f;
+	pointLightData_->lights[0].radius = 3.0f;
+	pointLightData_->lights[0].decay = 1.0f;
 }
 
 void Object3dCommon::InitializeSpotLight() {

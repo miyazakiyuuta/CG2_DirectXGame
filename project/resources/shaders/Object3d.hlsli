@@ -19,6 +19,12 @@ struct PointLight {
     float padding[2];
 };
 
+struct PointLightArray {
+    PointLight lights[16];
+    uint count;
+    float padding[3];
+};
+
 struct SpotLight {
     float4 color; //!< ライトの色
     float3 position; //!< ライトの位置

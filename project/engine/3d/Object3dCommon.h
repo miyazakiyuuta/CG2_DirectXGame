@@ -4,6 +4,8 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 
+static const uint32_t kMaxPointLights = 16;
+
 struct PointLight {
 	Vector4 color; //!< ライトの色
 	Vector3 position; //!< ライトの位置
@@ -24,6 +26,12 @@ struct SpotLight {
 	float padding;
 };
 
+struct PointLightArray {
+	PointLight lights[kMaxPointLights];
+	uint32_t count;
+	float padding[3];
+};
+
 class SrvManager;
 
 // 3Dオブジェクト共通部
@@ -42,7 +50,7 @@ public: // メンバ関数
 public:
 	// setter
 	void SetDefaultCamera(Camera* camera) { defaultCamera_ = camera; }
-	void SetPointLight(const PointLight& light) { *pointLightData_ = light; }
+	void SetPointLights(const PointLightArray& lights) { *pointLightData_ = lights; }
 	void SetSpotLight(const SpotLight& light) { *spotLightData_ = light; }
 	void SetEnvironmentSrvIndex(uint32_t srvIndex) { environmentSrvIndex_ = srvIndex; }
 	// getter
@@ -86,7 +94,7 @@ private: // メンバ変数
 	Camera* defaultCamera_ = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource_;
-	PointLight* pointLightData_ = nullptr;
+	PointLightArray* pointLightData_ = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> spotLightResource_;
 	SpotLight* spotLightData_ = nullptr;
