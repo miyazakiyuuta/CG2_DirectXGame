@@ -16,12 +16,13 @@ struct PointLight {
     float intensity; //!< 輝度
     float radius; //!< ライトの届く最大距離
     float decay; //!< 減衰率
+    float2 padding;
 };
 
 struct PointLightArray {
     PointLight lights[16];
     uint count;
-    float padding[3];
+    float3 padding;
 };
 
 struct SpotLight {
