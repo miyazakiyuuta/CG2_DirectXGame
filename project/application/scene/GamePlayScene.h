@@ -22,6 +22,7 @@
 #include <vector>
 #include "../../engine/effect/GPUParticleEmitter.h"
 
+class LightEditor;
 class Camera;
 class DebugCamera;
 class Object3d;
@@ -80,6 +81,10 @@ private:
 
 	std::unique_ptr<Stage> stage_;
 	std::unique_ptr<StageEditor> stageEditor_;
+
+#ifdef USE_IMGUI
+	std::unique_ptr<LightEditor> lightEditor_;
+#endif
 
 	// エネミーを一括管理するマネージャー
 	std::unique_ptr<EnemyManager> enemyManager_;

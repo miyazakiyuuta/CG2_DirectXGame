@@ -31,6 +31,8 @@
 #include "math/Transform.h"
 #include "scene/SceneManager.h"
 #include "../transition/BlindTransition.h"
+#include "Light/LightManager.h"
+#include "Light/LightEditor.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -239,7 +241,7 @@ void GamePlayScene::Initialize() {
 	player_->SetStage(stage_.get());
 
 	// For debugging/testing: set all ability levels to their maximum
-	player_->SetAllAbilitiesToMax();
+	//player_->SetAllAbilitiesToMax();
 
 	cameraController_ = std::make_unique<CameraController>();
 	cameraController_->Initialize(camera_.get());
@@ -395,18 +397,13 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	PointLightArray pointLights = {};
-	pointLights.count = 1;
+	LightManager::GetInstance()->LoadFromFile("resources/stage_lights.json");
+	LightManager::GetInstance()->ApplyToObject3dCommon();
 
-	pointLights.lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLights.lights[0].position = { 0.0f, -0.1f, 0.0f };
-	pointLights.lights[0].intensity = 0.12f;
-	pointLights.lights[0].radius = 20000.0f;
-	pointLights.lights[0].decay = 0.0f;
-
-	Object3dCommon::GetInstance()->SetPointLights({
-		pointLights
-	});
+#ifdef USE_IMGUI
+	lightEditor_ = std::make_unique<LightEditor>();
+	lightEditor_->Initialize("resources/stage_lights.json");
+#endif
 
 	// ポーズメニューの初期化
 	pauseMenu_ = std::make_unique<PauseMenu>();
@@ -895,10 +892,6 @@ void GamePlayScene::Draw() {
 		player_->Draw();
 	}
 
-	if (enemyManager_) {
-		enemyManager_->Draw();
-	}
-
 	// --- 透過ステージ ---
 	// ソナーで alpha が下がったブロックだけ、カメラから遠い順に描く
 	if (stage_ && camera_) {
@@ -968,6 +961,10 @@ void GamePlayScene::DrawImGui() {
 	}
 
 	player_->DrawImGui();
+
+#ifdef USE_IMGUI
+	lightEditor_->DrawImGui();
+#endif
 
 	cameraController_->DrawImGui();
 	if (enemyManager_) {

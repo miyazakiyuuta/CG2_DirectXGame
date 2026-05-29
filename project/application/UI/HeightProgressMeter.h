@@ -29,12 +29,14 @@ private:
 
 	SpriteNumberText zeroText_;
 	SpriteNumberText goalText_;
+	SpriteNumberText currentText_;
 
 	float currentHeight_ = 0.0f;
 	float goalHeight_ = 1.0f;
 
 	Vector2 meterSize_ = { 18.0f, 260.0f };
 	Vector2 labelDigitSize_ = { 18.0f, 22.0f };
+	Vector2 currentDigitSize_ = { 16.0f, 20.0f };
 
 	float rightMargin_ = 26.0f;
 	float bottomMargin_ = 230.0f;

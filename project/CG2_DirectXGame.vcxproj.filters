@@ -103,6 +103,8 @@
     <ClCompile Include="application\UI\RuntimeTextTextureGenerator.cpp" />
     <ClCompile Include="application\UI\ResultUI.cpp" />
     <ClCompile Include="application\UI\HeightProgressMeter.cpp" />
+    <ClCompile Include="application\Light\LightManager.cpp" />
+    <ClCompile Include="application\Light\LightEditor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="application\Ability.h" />
@@ -198,6 +200,8 @@
     <ClInclude Include="application\UI\RuntimeTextTextureGenerator.h" />
     <ClInclude Include="application\UI\ResultUI.h" />
     <ClInclude Include="application\UI\HeightProgressMeter.h" />
+    <ClInclude Include="application\Light\LightManager.h" />
+    <ClInclude Include="application\Light\LightEditor.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl" />
