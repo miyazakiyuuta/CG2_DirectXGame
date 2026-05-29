@@ -1,11 +1,11 @@
 #pragma once
-#include <string>
-#include <wrl.h>
-#include <d3d12.h>
 #include "DirectXTex.h"
 #include "base/DirectXCommon.h"
-#include <unordered_map>
 #include <DirectXPackedVector.h>
+#include <d3d12.h>
+#include <string>
+#include <unordered_map>
+#include <wrl.h>
 
 class SrvManager;
 
@@ -25,6 +25,12 @@ public:
 	/// <param name="filePath">テクスチャファイルのパス</param>
 	/// <returns>画像イメージデータ</returns>
 	void LoadTexture(const std::string& filePath);
+
+	/// <summary>
+	/// 既に読み込み済みのテクスチャをキャッシュから削除し、ディスクから再読み込みする。
+	/// 同じファイルパスで中身が変わった場合（ランタイム生成テクスチャ等）に使う。
+	/// </summary>
+	void ReloadTexture(const std::string& filePath);
 
 	// メタデータの取得
 	const DirectX::TexMetadata& GetMetaData(const std::string& filePath);
@@ -62,4 +68,3 @@ private:
 
 	SrvManager* srvManager_ = nullptr;
 };
-
