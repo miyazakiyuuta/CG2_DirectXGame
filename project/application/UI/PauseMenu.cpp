@@ -143,6 +143,7 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 		textDesc.textUtf8 = text;
 		textDesc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
 		textDesc.outputFilePath = path;
+		textDesc.overwriteIfExists = true;
 		textDesc.fontPixelSize = fontSize;
 		textDesc.paddingX = padX;
 		textDesc.paddingY = padY;
@@ -170,11 +171,13 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	// --- BGMリストの生成 ---
 	std::vector<std::pair<std::string, std::string>> bgms = {
 		{"Dear Childhood Friend", "resources/BGM/Dear Childhood Friend.mp3"},
-		{"k012", "resources/BGM/k012.wav"},
-		{"ks004", "resources/BGM/ks004.wav"},
+		{"Minutes To Daydream", "resources/BGM/k012.wav"},
+		{"reliqua", "resources/BGM/ks004.wav"},
 		{"thirdStage", "resources/BGM/thirdStage.wav"},
-		{"未知の旅へ", "resources/BGM/未知の旅へ.mp3"},
-		{"tutorial", "resources/BGM/tutorial.wav"}
+		{reinterpret_cast<const char*>(u8"未知の旅へ"), "resources/BGM/未知の旅へ.mp3"},
+		{"tutorial", "resources/BGM/tutorial.wav"},
+		{"under the rain", "resources/BGM/st004.wav"},
+		{reinterpret_cast<const char*>(u8"野良猫のワルツ"), "resources/BGM/st005.wav"}
 	};
 
 	for (size_t i = 0; i < bgms.size(); ++i) {
