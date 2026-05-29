@@ -98,6 +98,17 @@ namespace{
 
 		return rayOrigin + segment * low;
 	}
+
+	float WrapAnglePi(float angle)
+	{
+		while (angle > 3.14159265f) {
+			angle -= 6.28318530f;
+		}
+		while (angle < -3.14159265f) {
+			angle += 6.28318530f;
+		}
+		return angle;
+	}
 }
 
 void CameraController::Initialize(Camera* camera){
@@ -123,6 +134,14 @@ void CameraController::Initialize(Camera* camera){
 	}
 
 	isUse_ = true;
+}
+
+void CameraController::RequestAutoYaw(float targetYaw, int frames, float ease)
+{
+	autoYawTarget_ = targetYaw;
+	autoYawTimer_ = std::max(1, frames);
+	autoYawEase_ = std::clamp(ease, 0.01f, 1.0f);
+	autoYawActive_ = true;
 }
 
 Vector3 CameraController::GetForwardDirection() const{
@@ -175,6 +194,17 @@ void CameraController::Update(const Vector3& target){
 	// 実際の反映は1回だけ
 	yaw_ += lookX;
 	pitch_ += lookY;
+
+	if (autoYawActive_) {
+		float diff = WrapAnglePi(autoYawTarget_ - yaw_);
+		yaw_ += diff * autoYawEase_;
+
+		--autoYawTimer_;
+
+		if (autoYawTimer_ <= 0 || std::abs(diff) < 0.01f) {
+			autoYawActive_ = false;
+		}
+	}
 
 	// ホイール入力は通常時だけ反映
 	if(!isAimMode_){

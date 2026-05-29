@@ -87,6 +87,8 @@ public:
 	float GetDistance() const { return distance_; }
 	float GetMouseSensitivity() const { return mouseSensitivity_; }
 
+	void RequestAutoYaw(float targetYaw, int frames = 18, float ease = 0.22f);
+
 	bool SetIsUse(bool isUse) { return isUse_ = isUse; }
 	bool GetIsUse() const { return isUse_; }
 
@@ -105,6 +107,12 @@ private:
 
 	float yaw_ = 0.0f;
 	float pitch_ = 0.35f;
+
+	// 自動カメラ回転
+	bool autoYawActive_ = false;
+	float autoYawTarget_ = 0.0f;
+	int autoYawTimer_ = 0;
+	float autoYawEase_ = 0.22f;
 
 	float distance_ = 10.0f;
 	float targetDistance_ = 10.0f;

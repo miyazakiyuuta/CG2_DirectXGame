@@ -49,8 +49,10 @@ private:
 	void ApplyLayout();
 	void UpdateAimTarget();
 
-	CollisionUtility::RayHitResult CastCameraAimRay() const;
+	CollisionUtility::RayHitResult CastCameraAimRay(float ignoreBeforeT = 0.0f) const;
 	CollisionUtility::RayHitResult CastPlayerAimRay(const Vector3& targetPoint) const;
+
+	float GetCameraRayPlayerPassT() const;
 
 private:
 	SpriteCommon* spriteCommon_ = nullptr;
@@ -86,4 +88,6 @@ private:
 	bool hasAimTargetPoint_ = false;
 
 	float aimMaxDistance_ = 50.0f;
+	// カメラRayがプレイヤー付近へ到達するまでは、手前のブロックを補正対象にしない
+	float cameraPlayerPassMargin_ = -1.5f;
 };
