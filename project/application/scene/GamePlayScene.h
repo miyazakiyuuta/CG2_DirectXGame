@@ -10,6 +10,7 @@
 #include "UI/GameTimer.h"
 #include "UI/SpriteNumberText.h"
 #include "audio/SoundManager.h"
+#include "UI/HeightProgressMeter.h"
 
 #include "XPOrb.h"
 #include "WarpExit.h"
@@ -117,4 +118,5 @@ private:
 
 	float gameClearHeightY_ = 1510.0f;
 	std::unique_ptr<SkyCylinder> skyCylinder_;
+	std::unique_ptr<HeightProgressMeter> heightProgressMeter_ = nullptr;
 };
