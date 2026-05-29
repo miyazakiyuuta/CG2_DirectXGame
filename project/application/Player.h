@@ -47,6 +47,16 @@ public:
 	void SetCamera(Camera* camera);
 	void SetCameraController(CameraController* cameraController) { cameraController_ = cameraController; }
 
+	void SetAutoCameraOnCeilingToWallEnabled(bool enabled)
+	{
+		autoCameraOnCeilingToWallEnabled_ = enabled;
+	}
+
+	bool IsAutoCameraOnCeilingToWallEnabled() const
+	{
+		return autoCameraOnCeilingToWallEnabled_;
+	}
+
 	void SetPosition(const Vector3& position);
 
 	// 速度低下デバフを外部からセットする
@@ -285,6 +295,8 @@ public:
 	void EndJumpPoseAnimation();
 
 	void SetWallDetachJumpBoost(float boostY);
+
+	void Heal(int amount);
 
 private:
     // 経験値とレベルアップの保留キュー
@@ -642,4 +654,7 @@ public:
 
 	// 強くなりすぎ防止
 	float wallDetachJumpBoostMax_ = 20.0f;
+
+	// 下面から側面へ移った時に、カメラを自動で背中側へ回すか
+	bool autoCameraOnCeilingToWallEnabled_ = true;
 };

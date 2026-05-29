@@ -3463,7 +3463,7 @@ void Player::UpdateCeilingCrawling()
 
             // 下面から側面へ移った瞬間、カメラをプレイヤーの背中側へ回す。
             // sideNormal の外側へカメラを置きたいので、カメラの前方向は -sideNormal にする。
-            if (cameraController_) {
+            if (autoCameraOnCeilingToWallEnabled_ && cameraController_) {
                 Vector3 cameraForward = {
                     -nextNormal.x,
                     0.0f,
@@ -4403,6 +4403,11 @@ void Player::SetWallDetachJumpBoost(float boostY)
 
     // 複数候補がある場合は一番強い上昇分だけ使う
     wallDetachJumpBoostY_ = std::max(wallDetachJumpBoostY_, boostY);
+}
+
+void Player::Heal(int amount)
+{
+    if (hp_ <= 0) return; hp_ = std::min(hp_ + amount, maxHp_);
 }
 
 void Player::UpdateClingStageObjectFromHitPoint(const Vector3& hitPoint)

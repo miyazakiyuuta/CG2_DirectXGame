@@ -407,6 +407,12 @@ void GamePlayScene::Initialize() {
 	resultUI_ = std::make_unique<ResultUI>();
 	resultUI_->Initialize(SpriteCommon::GetInstance());
 
+	heightProgressMeter_ = std::make_unique<HeightProgressMeter>();
+	heightProgressMeter_->Initialize(
+		SpriteCommon::GetInstance(),
+		gameClearHeightY_
+	);
+
 	// --- BGMの読み込みと再生 ---
 	bgm_ = SoundManager::GetInstance()->LoadFile(PauseMenu::s_currentBgmPath);
 	bgmHandle_ = SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
@@ -776,7 +782,14 @@ void GamePlayScene::Update() {
 		}
 
 		if (isTouchingWater) {
-			player_->AddWater(15.0f / 60.0f);
+			player_->Heal(1);
+		}
+
+		if (heightProgressMeter_ && player_) {
+			heightProgressMeter_->Update(
+				player_->GetPosition().y,
+				gameClearHeightY_
+			);
 		}
 	}
 
@@ -885,6 +898,10 @@ void GamePlayScene::Draw() {
 			reticle_->Draw();
 		}
 		player_->DrawUI();
+
+		if (heightProgressMeter_) {
+			heightProgressMeter_->Draw();
+		}
 		timerText_.Draw();
 		timerColonSprite_->Draw();
 	}
