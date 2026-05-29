@@ -2,7 +2,8 @@
 #include "3d/Camera.h"
 #include "3d/Object3d.h"
 #include "3d/Object3dCommon.h"
-
+#include <cmath>
+#include <numbers>
 EnemyBullet::EnemyBullet() = default;
 EnemyBullet::~EnemyBullet() = default;
 
@@ -15,16 +16,26 @@ void EnemyBullet::Initialize(
 ) {
 	object_ = std::make_unique<Object3d>();
 	object_->Initialize(common);
-	object_->SetModel("sphere.obj");
+	object_->SetModel("Bullet.obj");
 	object_->SetCamera(camera);
 	position_ = pos;
 	damage_ = damage < 0 ? 0 : damage;
 	object_->SetScale({0.3f, 0.3f, 0.3f});
-	object_->SetColor({1.0f, 0.8f, 0.0f, 1.0f}); // 黄色
+	object_->SetColor({244.0f / 255.0f, 234.0f / 255.0f, 230.0f / 255.0f, 1.0f}); // #F4EAE6
 
 	Vector3 dir = target - pos;
-	if (dir.Length() > 0)
+	if (dir.Length() > 0) {
 		velocity_ = Vector3::Normalized(dir) * speed_ * (1.0f / 60.0f);
+		
+		Vector3 vDir = Vector3::Normalized(velocity_);
+		// モデルが-X軸方向を向いているため、Y軸回転とZ軸回転を組み合わせて完全な3D方向（縦・横）に向かせる
+		// ジンバルロックを避けるための特別なオイラー角計算
+		float yaw = std::asin(vDir.z);
+		float roll = std::atan2(-vDir.y, -vDir.x);
+		
+		// X軸(pitch)は0にし、Y軸(yaw)で左右、Z軸(roll)で上下の傾きを作る
+		object_->SetRotate({0.0f, yaw, roll});
+	}
 
 	object_->SetTranslate(position_);
 	object_->Update();

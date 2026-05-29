@@ -28,15 +28,18 @@ bool ShootingEnemy::IsLineOfSightBlocked(const Vector3& target) const {
 		return false;
 	}
 
+	Vector3 rayOrigin = position_;
+	rayOrigin.y += 0.5f;
+
 	// 敵からプレイヤーへの方向ベクトル
-	Vector3 toTarget = target - position_;
+	Vector3 toTarget = target - rayOrigin;
 	float distToPlayer = std::sqrt(
 		toTarget.x * toTarget.x +
 		toTarget.y * toTarget.y +
 		toTarget.z * toTarget.z
 	);
 
-	// 距離が0なら遮蔽なし
+	// 距離0なら遮蔽なし
 	if (distToPlayer < 0.01f) {
 		return false;
 	}
@@ -50,7 +53,7 @@ bool ShootingEnemy::IsLineOfSightBlocked(const Vector3& target) const {
 
 	// レイを構築
 	CollisionUtility::Ray ray;
-	ray.origin = position_;
+	ray.origin = rayOrigin;
 	ray.dir = dir;
 
 	// 全ブロックに対してレイキャスト
@@ -94,9 +97,12 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	// 水平・垂直ともに感知範囲内かチェック
 	bool inRange = (distXZ <= detectionRange_) && (distY <= detectionHeightRange_);
 
+	Vector3 playerCenter = playerPos;
+	playerCenter.y += 0.5f; // プレイヤーの中心を狙う
+
 	// 範囲内ならブロックによる視線遮蔽をチェック
 	if (inRange) {
-		isPlayerDetected_ = !IsLineOfSightBlocked(playerPos);
+		isPlayerDetected_ = !IsLineOfSightBlocked(playerCenter);
 	} else {
 		isPlayerDetected_ = false;
 	}
@@ -104,8 +110,16 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	// --- プレイヤー方向への回転 ---
 	// 感知中はプレイヤーの方向を向く
 	if (isPlayerDetected_ && object_) {
-		float targetYaw = std::atan2(toPlayer.x, toPlayer.z);
+		Vector3 rayOrigin = position_;
+		rayOrigin.y += 0.5f;
+		Vector3 toPlayerCenter = playerCenter - rayOrigin;
+		float distXZCenter = std::sqrt(toPlayerCenter.x * toPlayerCenter.x + toPlayerCenter.z * toPlayerCenter.z);
+
+		float targetYaw = std::atan2(toPlayerCenter.x, toPlayerCenter.z);
+		float targetPitch = std::atan2(-toPlayerCenter.y, distXZCenter); // 上下方向の傾き
+		
 		Vector3 rot = object_->GetRotate();
+		rot.x = targetPitch;
 		rot.y = targetYaw;
 		object_->SetRotate(rot);
 	}
@@ -115,7 +129,7 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	if (isPlayerDetected_ && (!player_ || !player_->IsMimicking())) {
 		shotTimer_ += deltaTime;
 		if (shotTimer_ >= kShotInterval) {
-			Shoot(playerPos);
+			Shoot(playerCenter); // 足元ではなく中心に向けて撃つ
 			shotTimer_ = 0.0f;
 		}
 	} else {
@@ -140,10 +154,12 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 
 void ShootingEnemy::Shoot(const Vector3& target) {
 	auto b = std::make_unique<EnemyBullet>();
+	Vector3 shootPos = position_;
+	shootPos.y += 0.5f; // 敵の中心から弾を発射する
 	b->Initialize(
 		common_,
 		camera_,
-		position_,
+		shootPos,
 		target,
 		GetProjectileDamage()
 	);

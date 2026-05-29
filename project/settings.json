@@ -1,5 +1,6 @@
 {
-    "currentBgmPath": "resources/BGM/Dear Childhood Friend.mp3",
+    "cameraAssistEnabled": true,
+    "currentBgmPath": "resources/BGM/st004.wav",
     "mouseSensitivity": 1.6024994850158691,
     "volume": 0.612500011920929
 }

@@ -213,7 +213,7 @@ void EnemyManager::Draw()
             e->Draw();
 }
 
-BaseEnemy* EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos)
+BaseEnemy* EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos, const Vector3& rot)
 {
     if (!common_)
         return nullptr;
@@ -241,10 +241,11 @@ BaseEnemy* EnemyManager::CreateEnemy(EnemyType type, const Vector3& pos)
         break;
     }
 
-	if (e) {
-		e->Initialize(common_, camera_, pos);
-		e->SetBlockColliders(blockColliders_);
-		e->SetKeepInsideCylinder(keepInsideCylinder_);
+    if (e) {
+        e->Initialize(common_, camera_, pos);
+        e->SetRotation(rot);
+        e->SetBlockColliders(blockColliders_);
+        e->SetKeepInsideCylinder(keepInsideCylinder_);
         const EnemyDamageProfile damageProfile =
             GetDefaultEnemyDamageProfile(type);
 

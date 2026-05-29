@@ -310,6 +310,7 @@ std::vector<EnemySpawnPoint> Stage::GetEnemySpawnPoints() const{
 
         EnemySpawnPoint spawn;
         spawn.position = o.position;
+        spawn.rotation = o.rotation;
         spawn.enemyType = o.enemyType;
         spawn.respawnInterval = o.enemyRespawnInterval;
         result.push_back(spawn);

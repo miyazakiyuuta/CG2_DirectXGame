@@ -51,6 +51,7 @@ public:
 private:
 	struct EnemySpawnRuntime {
 		Vector3 basePosition{};
+		Vector3 rotation{};
 		int enemyType = 0;
 		float respawnIntervalSec = 5.0f;
 		float cooldownSec = 0.0f;

@@ -19,6 +19,7 @@
 float PauseMenu::s_mouseSensitivity = 1.0f;
 float PauseMenu::s_volume = 0.5f;
 std::string PauseMenu::s_currentBgmPath = "resources/BGM/thirdStage.wav";
+bool PauseMenu::s_cameraAssistEnabled = true;
 
 static void LoadSettings() {
 	std::ifstream file("settings.json");
@@ -29,6 +30,7 @@ static void LoadSettings() {
 			if (j.contains("mouseSensitivity")) PauseMenu::s_mouseSensitivity = j["mouseSensitivity"];
 			if (j.contains("volume")) PauseMenu::s_volume = j["volume"];
 			if (j.contains("currentBgmPath")) PauseMenu::s_currentBgmPath = j["currentBgmPath"];
+			if (j.contains("cameraAssistEnabled")) PauseMenu::s_cameraAssistEnabled = j["cameraAssistEnabled"];
 		} catch (...) {
 			// Ignore parse errors
 		}
@@ -42,6 +44,7 @@ static void SaveSettings() {
 		j["mouseSensitivity"] = PauseMenu::s_mouseSensitivity;
 		j["volume"] = PauseMenu::s_volume;
 		j["currentBgmPath"] = PauseMenu::s_currentBgmPath;
+		j["cameraAssistEnabled"] = PauseMenu::s_cameraAssistEnabled;
 		file << j.dump(4);
 	}
 }
@@ -190,6 +193,13 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	std::unique_ptr<Sprite> bgmTitleSprite;
 	GenAndLoadTextSprite(bgmTitleSprite, reinterpret_cast<const char*>(u8"BGM選択"), "resources/ui/txt_bgm_title.png", 32, 10, 5);
 	textSprites_["resources/ui/txt_bgm_title.png"] = std::move(bgmTitleSprite);
+
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_camera_assist.png"], reinterpret_cast<const char*>(u8"カメラアシスト"), "resources/ui/txt_camera_assist.png", 32, 10, 5);
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_camera_assist_desc.png"], reinterpret_cast<const char*>(u8"※側面移動時のカメラ自動追従"), "resources/ui/txt_camera_assist_desc.png", 20, 10, 5);
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_on.png"], "ON", "resources/ui/txt_on.png", 32, 10, 5);
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_off.png"], "OFF", "resources/ui/txt_off.png", 32, 10, 5);
+
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_bgm_playing.png"], reinterpret_cast<const char*>(u8"→"), "resources/ui/txt_bgm_playing.png", 32, 10, 5);
 	
 	// 設定を反映
 	ApplySettings();
@@ -254,7 +264,7 @@ void PauseMenu::HandleInput() {
 		selectIndex_ = 0;
 	}
 
-	int maxItems = (activeTab_ == Tab::System) ? 3 : (activeTab_ == Tab::Options) ? (2 + static_cast<int>(bgmFilePaths_.size())) : 0;
+	int maxItems = (activeTab_ == Tab::System) ? 3 : (activeTab_ == Tab::Options) ? (3 + static_cast<int>(bgmFilePaths_.size())) : 0;
 	if (maxItems > 0) {
 		if (input_->IsTriggerKey(DIK_W) || input_->IsTriggerPad(XINPUT_GAMEPAD_DPAD_UP))
 			selectIndex_ = (selectIndex_ + maxItems - 1) % maxItems;
@@ -319,10 +329,21 @@ void PauseMenu::HandleInput() {
 				SaveSettings();
 			}
 		}
+		// Camera Assist判定
+		float assistY = 450.0f - optionsScrollY_;
+		if (mousePos.x > 300.0f && mousePos.x < 1000.0f &&
+			mousePos.y > assistY - 35.0f && mousePos.y < assistY + 35.0f) {
+			if (isMouseLeftTriggered) {
+				selectIndex_ = 2;
+				s_cameraAssistEnabled = !s_cameraAssistEnabled;
+				ApplySettings();
+				SaveSettings();
+			}
+		}
 		// BGMリスト判定
 		for (int i = 0; i < static_cast<int>(bgmFilePaths_.size()); ++i) {
-			float y = 540.0f + (i * 70.0f) - optionsScrollY_;
-			int itemIndex = 2 + i;
+			float y = 570.0f + (i * 70.0f) - optionsScrollY_;
+			int itemIndex = 3 + i;
 			if (mousePos.x > 300.0f && mousePos.x < 1000.0f &&
 				mousePos.y > y - 35.0f && mousePos.y < y + 35.0f) {
 				if (isMouseLeftTriggered) {
@@ -347,8 +368,12 @@ void PauseMenu::HandleInput() {
 			if (selectIndex_ == 2)
 				isTitleRequested_ = true;
 		} else if (activeTab_ == Tab::Options) {
-			if (selectIndex_ >= 2) {
-				int bgmIndex = selectIndex_ - 2;
+			if (selectIndex_ == 2) {
+				s_cameraAssistEnabled = !s_cameraAssistEnabled;
+				ApplySettings();
+				SaveSettings();
+			} else if (selectIndex_ >= 3) {
+				int bgmIndex = selectIndex_ - 3;
 				if (onBgmChanged_) {
 					s_currentBgmPath = bgmFilePaths_[bgmIndex];
 					SaveSettings();
@@ -380,10 +405,10 @@ void PauseMenu::HandleInput() {
 		}
 
 		// スクロール計算
-		if (selectIndex_ < 2) {
+		if (selectIndex_ < 3) {
 			targetOptionsScrollY_ = 0.0f;
 		} else {
-			targetOptionsScrollY_ = (selectIndex_ - 1) * 70.0f;
+			targetOptionsScrollY_ = (selectIndex_ - 2) * 70.0f;
 		}
 	}
 }
@@ -522,18 +547,33 @@ void PauseMenu::Draw() {
 			}
 		}
 
-		float bgmTitleY = 490.0f - optionsScrollY_;
+		float bgmTitleY = 540.0f - optionsScrollY_;
 		DrawTextSprite(textSprites_["resources/ui/txt_bgm_title.png"].get(), {640.0f, bgmTitleY}, kColorNormal);
+
+		DrawTextSprite(textSprites_["resources/ui/txt_camera_assist.png"].get(), {350.0f, 450.0f - optionsScrollY_}, (selectIndex_ == 2 ? kColorAccent : kColorNormal));
+		DrawTextSprite(textSprites_["resources/ui/txt_camera_assist_desc.png"].get(), {350.0f, 490.0f - optionsScrollY_}, kColorInactive);
+		
+		std::string onOffKey = s_cameraAssistEnabled ? "resources/ui/txt_on.png" : "resources/ui/txt_off.png";
+		Vector4 onOffColor = s_cameraAssistEnabled ? kColorAccent : kColorInactive;
+		if (selectIndex_ == 2) {
+			float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.2f;
+			onOffColor = {kColorAccent.x, kColorAccent.y, kColorAccent.z, onOffColor.w + pulse};
+		}
+		DrawTextSprite(textSprites_[onOffKey].get(), {650.0f, 450.0f - optionsScrollY_}, onOffColor);
 
 		// --- BGMリスト描画 ---
 		for (size_t i = 0; i < bgmTextSprites_.size(); ++i) {
-			float y = 580.0f + (i * 70.0f) - optionsScrollY_;
-			int itemIndex = 2 + static_cast<int>(i);
+			float y = 610.0f + (i * 70.0f) - optionsScrollY_;
+			int itemIndex = 3 + static_cast<int>(i);
+
+			float currentWidth = 0.0f;
+			if (bgmTextSprites_[i]) {
+				currentWidth = bgmTextSprites_[i]->GetSize().x;
+			}
 
 			if (selectIndex_ == itemIndex) {
 				float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.2f;
 				if (bgmTextSprites_[i]) {
-					float currentWidth = bgmTextSprites_[i]->GetSize().x;
 					selectorSprite_->SetSize({currentWidth + 60.0f, 40.0f});
 				}
 				selectorSprite_->SetPos({640.0f, y});
@@ -542,7 +582,17 @@ void PauseMenu::Draw() {
 				selectorSprite_->Draw();
 			}
 
-			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, (selectIndex_ == itemIndex ? kColorAccent : kColorNormal));
+			bool isCurrentBgm = (bgmFilePaths_[i] == s_currentBgmPath);
+			Vector4 color = (selectIndex_ == itemIndex ? kColorAccent : kColorNormal);
+			
+			if (isCurrentBgm) {
+				float checkX = 640.0f - (currentWidth / 2.0f) - 40.0f;
+				if (textSprites_["resources/ui/txt_bgm_playing.png"]) {
+					DrawTextSprite(textSprites_["resources/ui/txt_bgm_playing.png"].get(), {checkX, y}, color);
+				}
+			}
+
+			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, color);
 		}
 
 		D3D12_RECT resetRect = { 0, 0, clientW, clientH };
