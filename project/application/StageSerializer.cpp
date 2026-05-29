@@ -2,16 +2,22 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <unordered_map>
 #include <../externals/nlohmann/json.hpp>
 
 namespace {
-    std::vector<std::string> GetEnemyFileCandidates(const std::string& stagePathStr)
+    std::vector<std::string> GetStageDerivedFileCandidates(const std::string& stagePathStr, const std::string& suffix)
     {
         std::vector<std::string> result;
         std::filesystem::path stagePath(stagePathStr);
-        // Preferred: <stem>_enemies.json (e.g. resources/stage.json -> resources/stage_enemies.json)
-        result.push_back((stagePath.parent_path() / (stagePath.stem().string() + "_enemies.json")).string());
+        result.push_back((stagePath.parent_path() / (stagePath.stem().string() + suffix)).string());
         return result;
+    }
+
+    std::vector<std::string> GetEnemyFileCandidates(const std::string& stagePathStr)
+    {
+        // Preferred: <stem>_enemies.json (e.g. resources/stage.json -> resources/stage_enemies.json)
+        return GetStageDerivedFileCandidates(stagePathStr, "_enemies.json");
     }
 
     bool TryWriteJsonFile(const std::string& path, const nlohmann::json& j)
@@ -39,84 +45,89 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
     // ステージ名を保存
     j["name"] = data.name;
 
-    // オブジェクト配列を保存
-    for (const auto& o : data.objects) {
-        nlohmann::json jo;
-        // オブジェクトの基本情報を保存
-        jo["id"] = o.id;
-        jo["modelName"] = o.modelName;
-        jo["blockId"] = static_cast<int>(o.blockId);
+        // オブジェクト配列を保存
+        for (const auto& o : data.objects) {
+            nlohmann::json jo;
+            // オブジェクトの基本情報を保存
+            jo["id"] = o.id;
+            jo["modelName"] = o.modelName;
+            jo["blockId"] = static_cast<int>(o.blockId);
 
-        // 色を保存（RGBA）
-        nlohmann::json color;
-        color["x"] = o.color.x;
-        color["y"] = o.color.y;
-        color["z"] = o.color.z;
-        color["w"] = o.color.w;
+            // 色を保存（RGBA）
+            nlohmann::json color;
+            color["x"] = o.color.x;
+            color["y"] = o.color.y;
+            color["z"] = o.color.z;
+            color["w"] = o.color.w;
+            jo["color"] = color;
 
-        // オブジェクトの色を保存
-        jo["color"] = color;
+            // 位置を保存
+            nlohmann::json pos;
+            // 移動床については savedPositionPersisted が true の場合 savedPosition を優先して保存する
+            if (o.blockId == BlockID::MovingPlatform && o.savedPositionPersisted) {
+                pos["x"] = o.savedPosition.x;
+                pos["y"] = o.savedPosition.y;
+                pos["z"] = o.savedPosition.z;
+            } else {
+                pos["x"] = o.position.x;
+                pos["y"] = o.position.y;
+                pos["z"] = o.position.z;
+            }
+            jo["position"] = pos;
 
-        // 位置を保存
-        nlohmann::json pos;
-        // 移動床については savedPositionPersisted が true の場合 savedPosition を優先して保存する
-        if (o.blockId == BlockID::MovingPlatform && o.savedPositionPersisted) {
-            pos["x"] = o.savedPosition.x;
-            pos["y"] = o.savedPosition.y;
-            pos["z"] = o.savedPosition.z;
-        } else {
-            pos["x"] = o.position.x;
-            pos["y"] = o.position.y;
-            pos["z"] = o.position.z;
+            // 回転を保存
+            nlohmann::json rot;
+            rot["x"] = o.rotation.x;
+            rot["y"] = o.rotation.y;
+            rot["z"] = o.rotation.z;
+            jo["rotation"] = rot;
+
+            // 拡縮率を保存
+            nlohmann::json scl;
+            scl["x"] = o.scale.x;
+            scl["y"] = o.scale.y;
+            scl["z"] = o.scale.z;
+            jo["scale"] = scl;
+
+            // ブロック固有フィールドは該当するオブジェクトにのみ追加する
+            if (o.blockId == BlockID::Breakable) {
+                jo["hp"] = o.hp;
+            }
+
+            if (o.blockId == BlockID::Warp) {
+                nlohmann::json warpTarget;
+                warpTarget["x"] = o.warpTargetPosition.x;
+                warpTarget["y"] = o.warpTargetPosition.y;
+                warpTarget["z"] = o.warpTargetPosition.z;
+                jo["warpTargetPosition"] = warpTarget;
+                jo["warpTargetSceneId"] = o.warpTargetSceneId;
+            }
+
+            if (o.blockId == BlockID::MovingPlatform) {
+                jo["moveDirection"] = o.moveDirection;
+                jo["moveSpeed"] = o.moveSpeed;
+                jo["moveRange"] = o.moveRange;
+                jo["movePhase"] = o.movePhase;
+
+                nlohmann::json savedPos;
+                savedPos["x"] = o.savedPosition.x;
+                savedPos["y"] = o.savedPosition.y;
+                savedPos["z"] = o.savedPosition.z;
+                jo["savedPosition"] = savedPos;
+                jo["savedPositionPersisted"] = o.savedPositionPersisted;
+                jo["movementLocked"] = o.movementLocked;
+            }
+
+            if (o.blockId == BlockID::EnemySpawn) {
+                jo["enemyType"] = o.enemyType;
+                jo["enemyRespawnInterval"] = o.enemyRespawnInterval;
+                jo["allowRespawn"] = o.allowRespawn;
+                jo["spawnOnSceneStart"] = o.spawnOnSceneStart;
+            }
+
+            // オブジェクトをオブジェクト配列に追加
+            j["objects"].push_back(jo);
         }
-
-        // 回転を保存
-        nlohmann::json rot;
-        rot["x"] = o.rotation.x;
-        rot["y"] = o.rotation.y;
-        rot["z"] = o.rotation.z;
-
-        // 拡縮率を保存
-        nlohmann::json scl;
-        scl["x"] = o.scale.x;
-        scl["y"] = o.scale.y;
-        scl["z"] = o.scale.z;
-
-        // 位置・回転・拡縮率をオブジェクトに保存
-        jo["position"] = pos;
-        jo["rotation"] = rot;
-        jo["scale"] = scl;
-
-        // block 固有プロパティを保存
-        jo["hp"] = o.hp;
-
-        nlohmann::json warpTarget;
-        warpTarget["x"] = o.warpTargetPosition.x;
-        warpTarget["y"] = o.warpTargetPosition.y;
-        warpTarget["z"] = o.warpTargetPosition.z;
-        jo["warpTargetPosition"] = warpTarget;
-        jo["warpTargetSceneId"] = o.warpTargetSceneId;
-
-        jo["moveDirection"] = o.moveDirection;
-        jo["moveSpeed"] = o.moveSpeed;
-        jo["moveRange"] = o.moveRange;
-        jo["movePhase"] = o.movePhase;
-        // savedPosition / persisted は移動床専用のメタデータとしてのみ出力する
-        if (o.blockId == BlockID::MovingPlatform) {
-            nlohmann::json savedPos;
-            savedPos["x"] = o.savedPosition.x;
-            savedPos["y"] = o.savedPosition.y;
-            savedPos["z"] = o.savedPosition.z;
-            jo["savedPosition"] = savedPos;
-            jo["savedPositionPersisted"] = o.savedPositionPersisted;
-            jo["movementLocked"] = o.movementLocked;
-        }
-        jo["enemyType"] = o.enemyType;
-        jo["enemyRespawnInterval"] = o.enemyRespawnInterval;
-
-        // オブジェクトをオブジェクト配列に追加
-        j["objects"].push_back(jo);
-    }
 
     // JSONオブジェクトをファイルに保存
     std::ofstream ofs(path);
@@ -130,29 +141,61 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
 
     // 正常に保存できた場合は true を返す
     try {
-        // EnemySpawn は別ファイルにも書き出しておく（編集・差し替え用）
-        // 例: resources/stage.json -> resources/stage_enemies.json
+        // ブロック種別ごとの補助ファイルを書き出す（編集・差し替え用）
+        // 例: resources/stage.json ->
+        //   resources/stage_enemies.json
+        //   resources/stage_moving_platforms.json
+        //   resources/stage_warps.json
+        //   resources/stage_breakables.json
+
+        // EnemySpawn: export full enemy-spawn data so enemies file is authoritative
         nlohmann::json je = nlohmann::json::array();
         for (const auto& o : data.objects) {
             if (o.blockId != BlockID::EnemySpawn) {
                 continue;
             }
             nlohmann::json se;
+            // id and model
             se["id"] = o.id;
+            se["modelName"] = o.modelName;
+
+            // position
             nlohmann::json pos;
             pos["x"] = o.position.x;
             pos["y"] = o.position.y;
             pos["z"] = o.position.z;
             se["position"] = pos;
+
+            // scale
+            nlohmann::json scl;
+            scl["x"] = o.scale.x;
+            scl["y"] = o.scale.y;
+            scl["z"] = o.scale.z;
+            se["scale"] = scl;
+
+            // color
+            nlohmann::json col;
+            col["x"] = o.color.x;
+            col["y"] = o.color.y;
+            col["z"] = o.color.z;
+            col["w"] = o.color.w;
+            se["color"] = col;
+
+            // enemy-specific
             se["enemyType"] = o.enemyType;
             se["enemyRespawnInterval"] = o.enemyRespawnInterval;
+            // keep old key name too for compatibility
+            se["respawnInterval"] = o.enemyRespawnInterval;
+            se["allowRespawn"] = o.allowRespawn;
+            se["spawnOnSceneStart"] = o.spawnOnSceneStart;
+
             je.push_back(se);
         }
-
-        const auto candidates = GetEnemyFileCandidates(path);
-        for (const auto& enemyPath : candidates) {
+        for (const auto& enemyPath : GetStageDerivedFileCandidates(path, "_enemies.json")) {
             (void)TryWriteJsonFile(enemyPath, je);
         }
+        // NOTE: only enemy auxiliary file is written by design; moving platforms, warps and breakables
+        // are intentionally not exported to separate files anymore.
     } catch (...) {
     }
 
@@ -310,6 +353,16 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                 }
 
                 // 別ファイルが見つかったら、stage.json 側の EnemySpawn は無視して差し替える
+                // しかし既存の EnemySpawn に設定された modelName を保持できるようにする
+                std::unordered_map<int, StageObject> existingEnemyMap;
+                std::vector<std::pair<int, Vector3>> existingEnemyPositions;
+                for (const auto& o : data.objects) {
+                    if (o.blockId == BlockID::EnemySpawn) {
+                        existingEnemyMap[o.id] = o;
+                        existingEnemyPositions.push_back({o.id, o.position});
+                    }
+                }
+
                 data.objects.erase(
                     std::remove_if(data.objects.begin(), data.objects.end(), [](const StageObject& o) {
                         return o.blockId == BlockID::EnemySpawn;
@@ -325,32 +378,49 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                 for (const auto& item : je) {
                     StageObject o;
                     o.blockId = BlockID::EnemySpawn;
-                    o.modelName = "Cube.obj";
-                    o.scale = { 1.0f, 1.0f, 1.0f };
-                    o.color = { 0.0f, 1.0f, 0.0f, 1.0f };
 
+                    // id
                     if (item.contains("id")) {
                         o.id = item["id"].get<int>();
                     } else {
                         o.id = nextId++;
                     }
 
+                    // modelName
+                    o.modelName = item.value("modelName", std::string("Cube.obj"));
+
+                    // position
                     if (item.contains("position")) {
                         o.position.x = item["position"].value("x", 0.0f);
                         o.position.y = item["position"].value("y", 0.0f);
                         o.position.z = item["position"].value("z", 0.0f);
-                    } else {
-                        o.position.x = item.value("x", 0.0f);
-                        o.position.y = item.value("y", 0.0f);
-                        o.position.z = item.value("z", 0.0f);
                     }
 
+                    // scale
+                    if (item.contains("scale")) {
+                        o.scale.x = item["scale"].value("x", 1.0f);
+                        o.scale.y = item["scale"].value("y", 1.0f);
+                        o.scale.z = item["scale"].value("z", 1.0f);
+                    }
+
+                    // color
+                    if (item.contains("color")) {
+                        o.color.x = item["color"].value("x", 0.0f);
+                        o.color.y = item["color"].value("y", 1.0f);
+                        o.color.z = item["color"].value("z", 0.0f);
+                        o.color.w = item["color"].value("w", 1.0f);
+                    }
+
+                    // enemy specific
                     o.enemyType = item.value("enemyType", 0);
                     if (item.contains("enemyRespawnInterval")) {
                         o.enemyRespawnInterval = item["enemyRespawnInterval"].get<float>();
                     } else if (item.contains("respawnInterval")) {
                         o.enemyRespawnInterval = item["respawnInterval"].get<float>();
                     }
+                    o.allowRespawn = item.value("allowRespawn", true);
+                    o.spawnOnSceneStart = item.value("spawnOnSceneStart", true);
+
                     if (o.enemyRespawnInterval < 0.0f) {
                         o.enemyRespawnInterval = 0.0f;
                     }
