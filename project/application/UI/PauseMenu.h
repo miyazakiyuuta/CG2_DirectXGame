@@ -60,6 +60,10 @@ public:
 	// BGM変更時のコールバック登録
 	void SetOnBgmChanged(std::function<void(const std::string&)> callback) { onBgmChanged_ = callback; }
 
+	static float s_mouseSensitivity;
+	static float s_volume;
+	static std::string s_currentBgmPath;
+
 private:
 	// テキスト画像描画の補助
 	void DrawTextSprite(Sprite* sprite, const Vector2& pos, const Vector4& color);
@@ -78,9 +82,6 @@ private:
 
 	Tab activeTab_ = Tab::System;
 	int selectIndex_ = 0;
-
-	float mouseSensitivity_ = 1.0f;
-	float volume_ = 0.5f;
 
 	float menuAlpha_ = 0.0f;
 	float pulseTimer_ = 0.0f;

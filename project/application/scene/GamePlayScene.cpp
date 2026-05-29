@@ -185,6 +185,8 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ShootingEnemy", "ShootingEnemy.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ChasingEnemy", "ChasingEnemy.obj");
 
 	// Load the single well model so it can be placed in the scene
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
@@ -406,7 +408,7 @@ void GamePlayScene::Initialize() {
 	resultUI_->Initialize(SpriteCommon::GetInstance());
 
 	// --- BGMの読み込みと再生 ---
-	bgm_ = SoundManager::GetInstance()->LoadFile("resources/BGM/thirdStage.wav");
+	bgm_ = SoundManager::GetInstance()->LoadFile(PauseMenu::s_currentBgmPath);
 	bgmHandle_ = SoundManager::GetInstance()->PlayWave(bgm_, true, SoundManager::SoundCategory::BGM);
 
 #ifndef USE_IMGUI
@@ -430,7 +432,7 @@ void GamePlayScene::Finalize() {
 	}
 
 	// BGMのアンロード
-	SoundManager::GetInstance()->Unload("resources/BGM/thirdStage.wav");
+	SoundManager::GetInstance()->Unload(PauseMenu::s_currentBgmPath);
 
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 

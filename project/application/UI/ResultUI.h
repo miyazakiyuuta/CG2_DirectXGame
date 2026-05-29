@@ -39,9 +39,11 @@ private:
 	std::unique_ptr<Sprite> textTitleSprite_ = nullptr;
 	std::unique_ptr<Sprite> textTimeSprite_ = nullptr;
 	std::unique_ptr<Sprite> textGuidanceSprite_ = nullptr;
+	std::unique_ptr<Sprite> textGuidanceGamepadSprite_ = nullptr;
 
 	float effectAlpha_ = 0.0f;
 	bool isTitleRequested_ = false;
+	bool isGamepadMode_ = false;
 
 	static constexpr int kClearTimeRankingMaxCount_ = 5;
 	static constexpr const char* kClearTimeRankingFilePath_ =
