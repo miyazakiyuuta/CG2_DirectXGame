@@ -1,72 +1,52 @@
 [
   {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 0,
-    "id": 11,
-    "position": {
-      "x": 0.0,
-      "y": 8.199999809265137,
-      "z": 0.0
-    }
-  },
-  {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 2,
-    "id": 12,
-    "position": {
-      "x": 6.099999904632568,
-      "y": 8.199999809265137,
-      "z": 0.0
-    }
-  },
-  {
-    "enemyRespawnInterval": 5.0,
+    "allowRespawn": true,
+    "color": {
+      "w": 1.0,
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "enemyRespawnInterval": 15.0,
     "enemyType": 1,
-    "id": 13,
+    "id": 186,
+    "modelName": "",
     "position": {
-      "x": 11.600000381469727,
-      "y": 8.199999809265137,
+      "x": 35.0,
+      "y": 11.0,
       "z": 0.0
-    }
+    },
+    "respawnInterval": 15.0,
+    "scale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "spawnOnSceneStart": true
   },
   {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 3,
-    "id": 14,
+    "allowRespawn": true,
+    "color": {
+      "w": 1.0,
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "enemyRespawnInterval": 15.0,
+    "enemyType": 1,
+    "id": 187,
+    "modelName": "",
     "position": {
-      "x": -6.0,
-      "y": 8.199999809265137,
+      "x": -35.0,
+      "y": 11.0,
       "z": 0.0
-    }
-  },
-  {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 4,
-    "id": 15,
-    "position": {
-      "x": -11.0,
-      "y": 8.199999809265137,
-      "z": 0.0
-    }
-  },
-  {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 5,
-    "id": 16,
-    "position": {
-      "x": -17.0,
-      "y": 8.199999809265137,
-      "z": 0.0
-    }
-  },
-  {
-    "enemyRespawnInterval": 5.0,
-    "enemyType": 3,
-    "id": 91,
-    "position": {
-      "x": -35.79999923706055,
-      "y": 13.899999618530273,
-      "z": 0.0
-    }
+    },
+    "respawnInterval": 15.0,
+    "scale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "spawnOnSceneStart": true
   }
 ]

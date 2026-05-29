@@ -30,7 +30,7 @@ public:
     const Vector3& GetPosition() const { return position_; }
     bool IsDead() const { return isDead_; }
     bool IsDestroyed() const { return isDestroyed_; } // 追加: EnemyManagerの削除判定用
-    virtual void Kill() { isDead_ = true; } // 仮想関数に変更
+    virtual void Kill(); // 仮想関数に変更
 
     // 当たり判定の部位（パーツ）情報を表す構造体
     struct TargetPart {
@@ -45,10 +45,15 @@ public:
     }
 
     // 指定した部位を破壊（撃破）する（デフォルトは敵全体を撃破）
-    virtual void KillPart(int partId) {
-        (void)partId;
-        Kill();
-    }
+    virtual void KillPart(int partId);
+
+    // Respawn protection: when >0 the enemy ignores Kill/KillPart
+    void SetSpawnProtectionSeconds(float sec);
+    bool IsSpawnProtected() const { return spawnProtectionTimer_ > 0.0f; }
+    // Tick protection timer (called by manager each frame)
+    void TickSpawnProtection(float deltaTime);
+    // Update visual feedback while spawn protection active (called per-frame)
+    void UpdateSpawnProtectionVisual(float deltaTime);
 
     // 色設定ヘルパー：派生クラスは Initialize 内で SetColor を呼ぶこと
     void SetColor(const Vector4& color);
@@ -185,6 +190,12 @@ protected:
     class Player* player_ = nullptr;
     std::vector<DropEntry> dropTable_;
     AbilityId lastDropAbility_ = AbilityId::Unknown;
+    // Spawn protection remaining seconds. When >0, enemy ignores Kill/KillPart
+    float spawnProtectionTimer_ = 0.0f;
+    // Initial protection duration used for visual calculations
+    float spawnProtectionInitial_ = 0.0f;
+    // Blink timer for visual feedback while protected
+    float spawnProtectionBlinkTimer_ = 0.0f;
 
     // 着地ブロック記録方式：着地した瞬間のブロックの XYZ 範囲を保持する
     // ジャンプ中は無効化し、接地中のみ横移動制限に使用する

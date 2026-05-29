@@ -76,6 +76,10 @@ struct StageObject {
 
     // 敵リスポーン用（秒）
     float enemyRespawnInterval = 5.0f;
+    // 敵の自動リスポーンを許可するか（false の場合、死亡後は再出現しない）
+    bool allowRespawn = true;
+    // シーン開始時にこのスポーンから敵を自動生成するか（false の場合、初期生成は行われない）
+    bool spawnOnSceneStart = true;
 };
 
 /// <summary>
@@ -94,4 +98,6 @@ struct EnemySpawnPoint{
     Vector3 position{};
     int enemyType = 0;
     float respawnInterval = 5.0f;
+    bool allowRespawn = true;
+    bool spawnOnSceneStart = true;
 };

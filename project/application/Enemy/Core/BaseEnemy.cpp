@@ -14,6 +14,59 @@ void BaseEnemy::ResolveHorizontalCollisions(const Vector3& previousPosition) {
 	ResolveHorizontalCollisionsForPos(position_, previousPosition, 1.0f, isOnGround_);
 }
 
+// Override Kill to respect spawn protection
+void BaseEnemy::Kill() {
+	if (spawnProtectionTimer_ > 0.0f)
+		return;
+	isDead_ = true;
+}
+
+void BaseEnemy::KillPart(int partId) {
+	(void)partId;
+	if (spawnProtectionTimer_ > 0.0f)
+		return;
+	Kill();
+}
+
+void BaseEnemy::TickSpawnProtection(float deltaTime) {
+	if (spawnProtectionTimer_ > 0.0f) {
+		spawnProtectionTimer_ -= deltaTime;
+		if (spawnProtectionTimer_ < 0.0f)
+			spawnProtectionTimer_ = 0.0f;
+	}
+}
+
+// Visual feedback: blink while protected
+void BaseEnemy::SetSpawnProtectionSeconds(float sec) {
+	spawnProtectionTimer_ = sec;
+	spawnProtectionInitial_ = sec;
+	spawnProtectionBlinkTimer_ = 0.0f;
+	// set initial semi-transparent alpha
+	if (object_) {
+		SetAlpha(0.5f);
+	}
+}
+
+// Called each frame to update blink visual
+void BaseEnemy::UpdateSpawnProtectionVisual(float deltaTime) {
+	if (spawnProtectionTimer_ <= 0.0f) {
+		// restore alpha if needed
+		if (object_) {
+			SetAlpha(GetOriginalAlpha());
+		}
+		return;
+	}
+
+	// blink frequency rises as protection nears end
+	float t = 1.0f - (spawnProtectionTimer_ / std::max(0.0001f, spawnProtectionInitial_));
+	float freq = 2.0f + t * 8.0f; // from 2Hz to 10Hz
+	spawnProtectionBlinkTimer_ += deltaTime * freq * 3.14159265f * 2.0f;
+	float alpha = 0.4f + 0.6f * 0.5f * (1.0f + std::sin(spawnProtectionBlinkTimer_));
+	if (object_) {
+		SetAlpha(alpha);
+	}
+}
+
 void BaseEnemy::ResolveVerticalCollisions() { 
 	ResolveVerticalCollisionsForPos(position_, velocity_, 1.0f, 0.5f, isOnGround_); 
 }

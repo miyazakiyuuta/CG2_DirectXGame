@@ -55,12 +55,15 @@ private:
 		float respawnIntervalSec = 5.0f;
 		float cooldownSec = 0.0f;
 		class BaseEnemy* current = nullptr;
+		bool allowRespawn = true;
+		bool spawnOnSceneStart = true;
+		bool disabled = false; // permanently disabled (won't respawn)
 	};
 
 	std::vector<EnemySpawnRuntime> enemySpawns_;
 	std::unordered_map<class BaseEnemy*, size_t> enemyToSpawnIndex_;
 	bool enemiesInitializedFromStage_ = false;
-	float enemySpawnYOffset_ = 5.0f;
+	float enemySpawnYOffset_ = 0.0f;
 	void InitializeEnemiesFromStage();
 	void UpdateEnemyRespawns(float deltaTime);
 	void SpawnEnemyForPoint(size_t idx);
