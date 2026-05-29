@@ -90,6 +90,8 @@ void TutorialScene::Initialize()
 	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ShootingEnemy", "ShootingEnemy.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ChasingEnemy", "ChasingEnemy.obj");
 
 	// --- 井戸の内壁をCylinderSkyboxで生成 ---
 // 見た目はCylinderSkybox、当たり判定や移動制限はwellCylinder_を使う

@@ -185,6 +185,8 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("Enemy/ProminenceSensor", "ProminenceSensor.obj");
 	ModelManager::GetInstance()->LoadModel("Enemy/beam", "beam.obj"); // ビーム用OBJモデル
 	ModelManager::GetInstance()->LoadModel("Enemy/SentinelHook", "SentinelHook.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ShootingEnemy", "ShootingEnemy.obj");
+	ModelManager::GetInstance()->LoadModel("Enemy/ChasingEnemy", "ChasingEnemy.obj");
 
 	// Load the single well model so it can be placed in the scene
 	ModelManager::GetInstance()->LoadModel("well", "well.obj");
