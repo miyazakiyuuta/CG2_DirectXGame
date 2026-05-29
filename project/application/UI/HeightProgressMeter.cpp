@@ -87,6 +87,16 @@ void HeightProgressMeter::Initialize(SpriteCommon* spriteCommon, float goalHeigh
 	goalText_.SetColor({ 1.0f, 1.0f, 1.0f, 0.9f });
 	goalText_.SetNumber(goalValue, goalDigits);
 
+	currentText_.Initialize(
+		spriteCommon_,
+		"resources/UI/KiwiMaruNumStrength.png",
+		4
+	);
+	currentText_.SetDigitSize(currentDigitSize_);
+	currentText_.SetSpacing(0.0f);
+	currentText_.SetColor({ 1.0f, 1.0f, 1.0f, 0.95f });
+	currentText_.SetNumber(0, 1);
+
 	initialized_ = true;
 
 	UpdateLayout();
@@ -138,13 +148,25 @@ void HeightProgressMeter::UpdateLayout()
 		fillSprite_->Update();
 	}
 
-	if (markerSprite_) {
-		const float markerY = barBottomY - meterSize_.y * progress;
+	const float markerY = barBottomY - meterSize_.y * progress;
 
+	if (markerSprite_) {
 		markerSprite_->SetPos({ barCenterX, markerY });
 		markerSprite_->SetSize({ meterSize_.x + 12.0f, 4.0f });
 		markerSprite_->Update();
 	}
+
+	int currentValue = static_cast<int>(currentHeight_ + 0.5f);
+	currentValue = std::clamp(currentValue, 0, 9999);
+
+	const int currentDigits = CountDigits(currentValue);
+
+	currentText_.SetPosition({
+		barCenterX - meterSize_.x * 0.5f - majorTickLength_ - 78.0f,
+		markerY - currentDigitSize_.y * 0.5f
+		});
+	currentText_.SetNumber(currentValue, currentDigits);
+	currentText_.Update();
 
 	for (int i = 0; i <= 10 && i < static_cast<int>(tickSprites_.size()); ++i) {
 		const bool isMajorTick = i == 0 || i == 5 || i == 10;
@@ -212,4 +234,5 @@ void HeightProgressMeter::Draw()
 
 	zeroText_.Draw();
 	goalText_.Draw();
+	currentText_.Draw();
 }
