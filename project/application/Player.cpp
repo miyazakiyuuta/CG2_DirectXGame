@@ -4022,23 +4022,27 @@ void Player::UpdateAbilityLevelUI()
     const float screenW = static_cast<float>(WinApp::kClientWidth);
     const float screenH = static_cast<float>(WinApp::kClientHeight);
 
+    const float blockWidth = abilityLevelUIIconSize_.x;
+
     const float blockHeight =
-        abilityLevelUIIconSize_.y +
         abilityLevelUILevelTextOffset_.y +
         abilityLevelUINumberSize_.y;
 
-    const float totalHeight =
-        blockHeight * static_cast<float>(abilityLevelUIEntries_.size()) +
-        abilityLevelUIVerticalGap_ * static_cast<float>(abilityLevelUIEntries_.size() - 1);
+    const float totalWidth =
+        blockWidth * static_cast<float>(abilityLevelUIEntries_.size()) +
+        abilityLevelUIHorizontalGap_ * static_cast<float>(abilityLevelUIEntries_.size() - 1);
 
-    const float startX = screenW - abilityLevelUIRightMargin_ - abilityLevelUIIconSize_.x;
-    const float startY = screenH - abilityLevelUIBottomMargin_ - totalHeight;
+    const float startX =
+        screenW - abilityLevelUIRightMargin_ - totalWidth;
+
+    const float startY =
+        screenH - abilityLevelUIBottomMargin_ - blockHeight;
 
     for (size_t i = 0; i < abilityLevelUIEntries_.size(); ++i) {
         auto& entry = abilityLevelUIEntries_[i];
 
-        float x = startX;
-        float y = startY + static_cast<float>(i) * (blockHeight + abilityLevelUIVerticalGap_);
+        float x = startX + static_cast<float>(i) * (blockWidth + abilityLevelUIHorizontalGap_);
+        float y = startY;
 
         int level = 1;
         int maxLevel = 10;

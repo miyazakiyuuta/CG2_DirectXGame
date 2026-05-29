@@ -604,11 +604,13 @@ public:
 
 	// 右下寄せ用
 	float abilityLevelUIRightMargin_ = 24.0f;
-	float abilityLevelUIBottomMargin_ = -10.0f;
+	float abilityLevelUIBottomMargin_ = 24.0f;
 
 	// 1項目あたり
 	Vector2 abilityLevelUIIconSize_ = { 56.0f, 56.0f };
-	float abilityLevelUIVerticalGap_ = -36.0f;
+
+	// 横並びのアイコン間隔
+	float abilityLevelUIHorizontalGap_ = 10.0f;
 
 	// アイコンの下の "lv." 表示
 	Vector2 abilityLevelUILevelTextOffset_ = { 0.0f, 60.0f };
