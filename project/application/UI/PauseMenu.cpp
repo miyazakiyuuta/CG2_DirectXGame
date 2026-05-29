@@ -198,6 +198,8 @@ void PauseMenu::Initialize(SpriteCommon* spriteCommon, CameraController* cameraC
 	GenAndLoadTextSprite(textSprites_["resources/ui/txt_camera_assist_desc.png"], reinterpret_cast<const char*>(u8"※側面移動時のカメラ自動追従"), "resources/ui/txt_camera_assist_desc.png", 20, 10, 5);
 	GenAndLoadTextSprite(textSprites_["resources/ui/txt_on.png"], "ON", "resources/ui/txt_on.png", 32, 10, 5);
 	GenAndLoadTextSprite(textSprites_["resources/ui/txt_off.png"], "OFF", "resources/ui/txt_off.png", 32, 10, 5);
+
+	GenAndLoadTextSprite(textSprites_["resources/ui/txt_bgm_playing.png"], reinterpret_cast<const char*>(u8"→"), "resources/ui/txt_bgm_playing.png", 32, 10, 5);
 	
 	// 設定を反映
 	ApplySettings();
@@ -564,10 +566,14 @@ void PauseMenu::Draw() {
 			float y = 610.0f + (i * 70.0f) - optionsScrollY_;
 			int itemIndex = 3 + static_cast<int>(i);
 
+			float currentWidth = 0.0f;
+			if (bgmTextSprites_[i]) {
+				currentWidth = bgmTextSprites_[i]->GetSize().x;
+			}
+
 			if (selectIndex_ == itemIndex) {
 				float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.2f;
 				if (bgmTextSprites_[i]) {
-					float currentWidth = bgmTextSprites_[i]->GetSize().x;
 					selectorSprite_->SetSize({currentWidth + 60.0f, 40.0f});
 				}
 				selectorSprite_->SetPos({640.0f, y});
@@ -576,7 +582,17 @@ void PauseMenu::Draw() {
 				selectorSprite_->Draw();
 			}
 
-			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, (selectIndex_ == itemIndex ? kColorAccent : kColorNormal));
+			bool isCurrentBgm = (bgmFilePaths_[i] == s_currentBgmPath);
+			Vector4 color = (selectIndex_ == itemIndex ? kColorAccent : kColorNormal);
+			
+			if (isCurrentBgm) {
+				float checkX = 640.0f - (currentWidth / 2.0f) - 40.0f;
+				if (textSprites_["resources/ui/txt_bgm_playing.png"]) {
+					DrawTextSprite(textSprites_["resources/ui/txt_bgm_playing.png"].get(), {checkX, y}, color);
+				}
+			}
+
+			DrawTextSprite(bgmTextSprites_[i].get(), {640.0f, y}, color);
 		}
 
 		D3D12_RECT resetRect = { 0, 0, clientW, clientH };
