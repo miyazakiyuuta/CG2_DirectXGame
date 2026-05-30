@@ -367,6 +367,181 @@ void Player::LoadAbilityConfig()
     abilityConfigLoaded_ = true;
 }
 
+const char* Player::GetAbilityLevelFileName(AbilityId ability) const
+{
+    switch (ability) {
+    case AbilityId::JumpPower:
+        return "JumpPower";
+    case AbilityId::SonarDuration:
+        return "SonarDuration";
+    case AbilityId::WallClingDuration:
+        return "WallClingDuration";
+    case AbilityId::TongueRange:
+        return "TongueRange";
+    case AbilityId::CamouflageDuration:
+        return "CamouflageDuration";
+    default:
+        return "Unknown";
+    }
+}
+
+bool Player::HasKeyboardMouseAbilityUIInput() const
+{
+    if (!input_) {
+        return false;
+    }
+
+    return
+        input_->IsPushKey(DIK_W) ||
+        input_->IsPushKey(DIK_A) ||
+        input_->IsPushKey(DIK_S) ||
+        input_->IsPushKey(DIK_D) ||
+        input_->IsPushKey(DIK_SPACE) ||
+        input_->IsTriggerKey(DIK_E) ||
+        input_->IsTriggerKey(DIK_Q) ||
+        input_->IsTriggerKey(DIK_F) ||
+        input_->IsTriggerMouse(0) ||
+        input_->IsTriggerMouse(1);
+}
+
+bool Player::HasGamepadAbilityUIInput() const
+{
+    if (!input_) {
+        return false;
+    }
+
+    const float stickX = input_->GetLeftStickX();
+    const float stickY = input_->GetLeftStickY();
+
+    const bool stickMoved =
+        (stickX * stickX + stickY * stickY) > 0.15f * 0.15f;
+
+    return
+        stickMoved ||
+        input_->IsPressPad(XINPUT_GAMEPAD_A) ||
+        input_->IsPressPad(XINPUT_GAMEPAD_B) ||
+        input_->IsPressPad(XINPUT_GAMEPAD_X) ||
+        input_->IsPressPad(XINPUT_GAMEPAD_Y) ||
+        input_->GetRightTrigger() >= 0.5f;
+}
+
+void Player::UpdateAbilityUIInputDevice()
+{
+    if (HasGamepadAbilityUIInput()) {
+        abilityUIInputDevice_ = AbilityUIInputDevice::Gamepad;
+        return;
+    }
+
+    if (HasKeyboardMouseAbilityUIInput()) {
+        abilityUIInputDevice_ = AbilityUIInputDevice::KeyboardMouse;
+    }
+}
+
+const char* Player::GetAbilityLevelKeyLabel(
+    AbilityId ability,
+    AbilityUIInputDevice device
+) const
+{
+    const bool isGamepad = device == AbilityUIInputDevice::Gamepad;
+
+    switch (ability) {
+    case AbilityId::JumpPower:
+        return isGamepad ? "A" : "SPACE";
+
+    case AbilityId::SonarDuration:
+        return isGamepad ? "Y" : "F";
+
+    case AbilityId::CamouflageDuration:
+        return isGamepad ? "X" : "Q";
+
+    case AbilityId::TongueRange:
+        // 特殊例: 舌の長さUPは攻撃操作として表示
+        return isGamepad ? "B" : "E";
+
+    case AbilityId::WallClingDuration:
+        // 特殊例: 張り付き時間UPは舌伸ばし操作として表示
+        return isGamepad ? "RT" : "LMB";
+
+    default:
+        return "";
+    }
+}
+
+Vector2 Player::CalculateAbilityLevelKeySpriteSize(const std::string& label) const
+{
+    const float width = std::max(
+        abilityLevelUIKeyMinWidth_,
+        static_cast<float>(label.size()) * abilityLevelUIKeyCharWidth_ + 14.0f
+    );
+
+    return {
+        width,
+        abilityLevelUIKeyHeight_
+    };
+}
+
+void Player::CreateAbilityLevelKeySprite(
+    SpriteCommon* spriteCommon,
+    AbilityId ability,
+    AbilityUIInputDevice device,
+    std::unique_ptr<Sprite>& outSprite,
+    Vector2& outSize
+) {
+    if (!spriteCommon) {
+        return;
+    }
+
+    const std::string label =
+        GetAbilityLevelKeyLabel(ability, device);
+
+    if (label.empty()) {
+        return;
+    }
+
+    const std::string deviceName =
+        device == AbilityUIInputDevice::Gamepad
+        ? "gamepad"
+        : "keyboard";
+
+    const std::string outputPath =
+        "resources/UI/generated/ability_key_" +
+        std::string(GetAbilityLevelFileName(ability)) +
+        "_" +
+        deviceName +
+        "_" +
+        label +
+        ".png";
+
+    if (!std::filesystem::exists(outputPath)) {
+        RuntimeTextTextureGenerator::GenerateDesc desc;
+        desc.textUtf8 = label;
+        desc.fontFilePath = "resources/fonts/KiwiMaru-Medium.ttf";
+        desc.outputFilePath = outputPath;
+
+        desc.fontPixelSize = 26;
+        desc.paddingX = 10;
+        desc.paddingY = 4;
+
+        desc.textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+        desc.shadowColor = { 0.0f, 0.0f, 0.0f, 0.75f };
+        desc.shadowOffsetX = 2;
+        desc.shadowOffsetY = 2;
+
+        RuntimeTextTextureGenerator::GeneratePng(desc);
+    }
+
+    TextureManager::GetInstance()->LoadTexture(outputPath);
+
+    outSize = CalculateAbilityLevelKeySpriteSize(label);
+
+    outSprite = std::make_unique<Sprite>();
+    outSprite->Initialize(spriteCommon, outputPath);
+    outSprite->SetAnchorPoint({ 0.0f, 0.0f });
+    outSprite->SetSize(outSize);
+    outSprite->SetColor({ 1.0f, 1.0f, 1.0f, 0.95f });
+    outSprite->Update();
+}
+
 bool Player::TryUseBeam(const Vector3& direction)
 {
     if (beamTimer_ > 0.0f)
@@ -786,6 +961,22 @@ void Player::InitializeAbilityLevelUI(SpriteCommon* spriteCommon)
         entry.levelNumberText.SetDigitSize(abilityLevelUINumberSize_);
         entry.levelNumberText.SetSpacing(0.0f);
         entry.levelNumberText.SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
+        CreateAbilityLevelKeySprite(
+            spriteCommon,
+            ability,
+            AbilityUIInputDevice::KeyboardMouse,
+            entry.keyboardKeySprite,
+            entry.keyboardKeySpriteSize
+        );
+
+        CreateAbilityLevelKeySprite(
+            spriteCommon,
+            ability,
+            AbilityUIInputDevice::Gamepad,
+            entry.gamepadKeySprite,
+            entry.gamepadKeySpriteSize
+        );
 
         entry.stateOverlaySprite = std::make_unique<Sprite>();
         entry.stateOverlaySprite->Initialize(spriteCommon, "white");
@@ -1750,6 +1941,8 @@ void Player::Update()
     if (!abilityConfigLoaded_) {
         LoadAbilityConfig();
     }
+
+    UpdateAbilityUIInputDevice();
 
     // 経験値とレベルアップの適用
     ApplyPendingAbilityXP();
@@ -3363,7 +3556,7 @@ void Player::UpdateWallClinging(float cameraYaw)
     }
 
 	if (input_->IsTriggerKey(DIK_SPACE) ||
-		input_->IsPressPad(XINPUT_GAMEPAD_A)) {
+		input_->IsTriggerPad(XINPUT_GAMEPAD_A)) {
 		object_->SetTranslate(position);
 
         // 天井に張り付いているときだけ高速移動モードへ移行
@@ -4088,6 +4281,27 @@ void Player::UpdateAbilityLevelUI()
             entry.iconSprite->Update();
         }
 
+        Sprite* keySprite = nullptr;
+        Vector2 keySize = { 0.0f, 0.0f };
+
+        if (abilityUIInputDevice_ == AbilityUIInputDevice::Gamepad) {
+            keySprite = entry.gamepadKeySprite.get();
+            keySize = entry.gamepadKeySpriteSize;
+        }
+        else {
+            keySprite = entry.keyboardKeySprite.get();
+            keySize = entry.keyboardKeySpriteSize;
+        }
+
+        if (keySprite) {
+            keySprite->SetPos({
+                x + abilityLevelUIIconSize_.x * 0.5f - keySize.x * 0.5f,
+                y - keySize.y - abilityLevelUIKeyGap_
+                });
+            keySprite->SetSize(keySize);
+            keySprite->Update();
+        }
+
         if (entry.stateOverlaySprite) {
             Vector4 overlayColor = { 1.0f, 1.0f, 1.0f, 0.0f };
 
@@ -4161,6 +4375,15 @@ void Player::DrawAbilityLevelUI()
     }
 
     for (auto& entry : abilityLevelUIEntries_) {
+        Sprite* keySprite =
+            abilityUIInputDevice_ == AbilityUIInputDevice::Gamepad
+            ? entry.gamepadKeySprite.get()
+            : entry.keyboardKeySprite.get();
+
+        if (keySprite) {
+            keySprite->Draw();
+        }
+
         if (entry.stateOverlaySprite) {
             entry.stateOverlaySprite->Draw();
         }

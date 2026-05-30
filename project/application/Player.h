@@ -39,6 +39,7 @@ public:
 	void UpdateAbilityLevelUI();
 	void DrawAbilityLevelUI();
 	const char* GetAbilityLevelIconTexturePath(AbilityId ability) const;
+	void UpdateAbilityUIInputDevice();
 
 	void Update();
 	void Draw();
@@ -593,14 +594,28 @@ public:
 	Vector2 wallClingGaugeSize_ = { 320.0f, 14.0f };
 	bool showWallClingGaugeUI_ = true;
 
+	enum class AbilityUIInputDevice {
+		KeyboardMouse,
+		Gamepad,
+	};
+
 	struct AbilityLevelUIEntry {
 		AbilityId ability = AbilityId::Unknown;
+
 		std::unique_ptr<Sprite> iconSprite = nullptr;
 		std::unique_ptr<Sprite> xpFillSprite = nullptr;
 		std::unique_ptr<Sprite> lvPrefixSprite = nullptr;
 		std::unique_ptr<Sprite> stateOverlaySprite = nullptr;
+
+		std::unique_ptr<Sprite> keyboardKeySprite = nullptr;
+		std::unique_ptr<Sprite> gamepadKeySprite = nullptr;
+
+		Vector2 keyboardKeySpriteSize = { 0.0f, 0.0f };
+		Vector2 gamepadKeySpriteSize = { 0.0f, 0.0f };
+
 		SpriteNumberText levelNumberText;
 	};
+
 
 	std::vector<AbilityLevelUIEntry> abilityLevelUIEntries_;
 
@@ -612,6 +627,27 @@ public:
 		AbilityId::CamouflageDuration
 	};
 
+	private:
+		bool HasKeyboardMouseAbilityUIInput() const;
+		bool HasGamepadAbilityUIInput() const;
+
+		const char* GetAbilityLevelKeyLabel(
+			AbilityId ability,
+			AbilityUIInputDevice device
+		) const;
+
+		const char* GetAbilityLevelFileName(AbilityId ability) const;
+
+		Vector2 CalculateAbilityLevelKeySpriteSize(const std::string& label) const;
+
+		void CreateAbilityLevelKeySprite(
+			SpriteCommon* spriteCommon,
+			AbilityId ability,
+			AbilityUIInputDevice device,
+			std::unique_ptr<Sprite>& outSprite,
+			Vector2& outSize
+		);
+
 	bool showAbilityLevelUI_ = true;
 
 	// 右下寄せ用
@@ -620,6 +656,14 @@ public:
 
 	// 1項目あたり
 	Vector2 abilityLevelUIIconSize_ = { 56.0f, 56.0f };
+
+	// アイコン上部の操作キー表示
+	AbilityUIInputDevice abilityUIInputDevice_ = AbilityUIInputDevice::KeyboardMouse;
+
+	float abilityLevelUIKeyGap_ = 6.0f;
+	float abilityLevelUIKeyHeight_ = 22.0f;
+	float abilityLevelUIKeyMinWidth_ = 28.0f;
+	float abilityLevelUIKeyCharWidth_ = 10.0f;
 
 	// 横並びのアイコン間隔
 	float abilityLevelUIHorizontalGap_ = 10.0f;

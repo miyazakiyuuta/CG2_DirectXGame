@@ -76,6 +76,17 @@ void TutorialScene::Initialize()
 		"resources/circle.png",
 		BlendMode::Add
 	);
+	ParticleManager::GetInstance()->CreateParticleGroup(
+		"warp_trail",
+		"resources/circle.png",
+		BlendMode::Add
+	);
+
+	ParticleManager::GetInstance()->CreateParticleGroup(
+		"warp_suck",
+		"resources/circle.png",
+		BlendMode::Add
+	);
 
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
@@ -1926,31 +1937,57 @@ void TutorialScene::Update()
 
 void TutorialScene::Draw()
 {
+	// ----------------------------------------------------
+	// 背景
+	// ----------------------------------------------------
+	if (skyCylinder_) {
+		skyCylinder_->Draw();
+	}
 
-	if (player_) {
-		player_->Draw();
+	// ----------------------------------------------------
+	// 不透明3D
+	// ----------------------------------------------------
+	if (stage_) {
+		stage_->DrawOpaque();
 	}
 
 	if (enemyManager_) {
 		enemyManager_->Draw();
 	}
 
-	if (stage_) {
-		stage_->Draw();
+	if (player_) {
+		player_->Draw();
+	}
+
+	// ----------------------------------------------------
+	// 透過3D
+	// ----------------------------------------------------
+	if (stage_ && camera_) {
+		stage_->DrawTransparentSorted(camera_->GetTranslate());
 	}
 
 	for (const auto& exit : activeWarpExits_) {
-		exit->Draw();
+		if (exit) {
+			exit->Draw();
+		}
 	}
 
 	ParticleManager::GetInstance()->Draw();
 
+	// ----------------------------------------------------
+	// 3Dデバッグ
+	// ----------------------------------------------------
 	if (debugGrid_) {
 		debugGrid_->Draw(*camera_);
 	}
 
-	skyCylinder_->Draw();
+	if (camera_) {
+		DebugRenderer::GetInstance()->RenderAll(*camera_);
+	}
 
+	// ----------------------------------------------------
+	// 2D UI
+	// ----------------------------------------------------
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 
 	if (reticle_) {
@@ -1970,8 +2007,6 @@ void TutorialScene::Draw()
 	if (pauseMenu_) {
 		pauseMenu_->Draw();
 	}
-
-	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
 
 void TutorialScene::DrawImGui()

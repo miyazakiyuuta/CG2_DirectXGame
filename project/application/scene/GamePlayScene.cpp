@@ -923,62 +923,84 @@ void GamePlayScene::Update() {
 }
 
 void GamePlayScene::Draw() {
-	// skybox_->Draw(*camera_);
+	// ----------------------------------------------------
+	// 背景
+	// ----------------------------------------------------
+	if (skyCylinder_) {
+		skyCylinder_->Draw();
+	}
 
-
-
-	// --- 不透明オブジェクトの描画 ---
-// --- 不透明ステージ ---
+	// ----------------------------------------------------
+	// 不透明3D
+	// 先に深度を書かせる
+	// ----------------------------------------------------
 	if (stage_) {
 		stage_->DrawOpaque();
 	}
 
-	stageEditor_->Draw();
+	if (stageEditor_) {
+		stageEditor_->Draw();
+	}
+
+	if (enemyManager_) {
+		enemyManager_->Draw();
+	}
 
 	if (player_) {
 		player_->Draw();
 	}
 
-	// --- 透過ステージ ---
-	// ソナーで alpha が下がったブロックだけ、カメラから遠い順に描く
+	// ----------------------------------------------------
+	// 透過3D
+	// ソナーなどで alpha が下がったブロックは後描き
+	// ----------------------------------------------------
 	if (stage_ && camera_) {
 		stage_->DrawTransparentSorted(camera_->GetTranslate());
 	}
 
-	// --- ワープ出口アクターの描画 ---
+	// ワープ出口はエフェクト寄りなので透過側に寄せる
 	for (const auto& exit : activeWarpExits_) {
-		exit->Draw();
+		if (exit) {
+			exit->Draw();
+		}
 	}
 
-	// エネミーの描画
-	if (enemyManager_) {
-		enemyManager_->Draw();
-	}
-
-	// パーティクル（XPオーブ等）を描画
+	// パーティクルは基本的に透過扱い
 	ParticleManager::GetInstance()->Draw();
-	//skybox_->Draw(*camera_);
-	skyCylinder_->Draw();
 
+	if (camera_) {
+		DebugRenderer::GetInstance()->RenderAll(*camera_);
+	}
+
+	// ----------------------------------------------------
+	// 2D UI
+	// ----------------------------------------------------
 	SpriteCommon::GetInstance()->CommonDrawSetting();
+
 	if (!resultUI_->IsActive()) {
 		if (reticle_) {
 			reticle_->Draw();
 		}
-		player_->DrawUI();
+
+		if (player_) {
+			player_->DrawUI();
+		}
 
 		if (heightProgressMeter_) {
 			heightProgressMeter_->Draw();
 		}
+
 		timerText_.Draw();
-		timerColonSprite_->Draw();
+
+		if (timerColonSprite_) {
+			timerColonSprite_->Draw();
+		}
 	}
 
-	// 3. ポーズUIを最後に重ねる（一番手前に表示）
-	pauseMenu_->Draw();
-	DebugRenderer::GetInstance()->RenderAll(*camera_);
+	if (pauseMenu_) {
+		pauseMenu_->Draw();
+	}
 
-	// リザルト演出の描画
 	if (resultUI_->IsActive()) {
 		resultUI_->Draw();
 	}
