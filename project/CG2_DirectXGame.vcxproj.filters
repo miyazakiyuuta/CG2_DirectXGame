@@ -105,6 +105,7 @@
     <ClCompile Include="application\UI\HeightProgressMeter.cpp" />
     <ClCompile Include="application\Light\LightManager.cpp" />
     <ClCompile Include="application\Light\LightEditor.cpp" />
+    <ClCompile Include="application\scene\GameStartSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="application\Ability.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="application\UI\HeightProgressMeter.h" />
     <ClInclude Include="application\Light\LightManager.h" />
     <ClInclude Include="application\Light\LightEditor.h" />
+    <ClInclude Include="application\scene\GameStartSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl" />

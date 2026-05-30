@@ -266,7 +266,22 @@ void GamePlayScene::Initialize() {
 	stage_ = std::make_unique<Stage>(Object3dCommon::GetInstance(), camera_.get());
 
 	// ステージファイルの読み込みは GamePlayScene が担当
-	auto loadedStage = StageSerializer::LoadFromFile("resources/stage.json");
+	// タイトルで選ばれた難易度ごとのステージを読む
+	auto loadedStage = StageSerializer::LoadFromFile(
+		GameStartSettings::GetStageFilePath()
+	);
+
+	// 保険。難易度別ファイルがまだ無い場合は従来ステージを読む
+	if (!loadedStage) {
+		Logger::Log(
+			std::string("Stage file not found: ") +
+			GameStartSettings::GetStageFilePath() +
+			"\nFallback to resources/stage.json\n"
+		);
+
+		loadedStage = StageSerializer::LoadFromFile("resources/stage.json");
+	}
+
 	if (loadedStage) {
 		stage_->SetStageData(*loadedStage);
 	}

@@ -241,6 +241,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\UI\HeightProgressMeter.cpp" />
     <ClCompile Include="application\Light\LightManager.cpp" />
     <ClCompile Include="application\Light\LightEditor.cpp" />
+    <ClCompile Include="application\scene\GameStartSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -358,6 +359,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\UI\HeightProgressMeter.h" />
     <ClInclude Include="application\Light\LightManager.h" />
     <ClInclude Include="application\Light\LightEditor.h" />
+    <ClInclude Include="application\scene\GameStartSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

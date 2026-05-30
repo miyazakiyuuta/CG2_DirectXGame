@@ -26,9 +26,21 @@ public:
 	void Draw() override;
 
 private:
-	enum class MenuItem {
+	enum class TitleMenuMode {
+		Main,
+		Difficulty,
+	};
+
+	enum class MainMenuItem {
 		GamePlay = 0,
 		Tutorial,
+		Count,
+	};
+
+	enum class DifficultyMenuItem {
+		Normal = 0,
+		Hard,
+		Hell,
 		Count,
 	};
 
@@ -67,7 +79,9 @@ private:
 	Input* input_ = nullptr;
 	SpriteCommon* spriteCommon_ = nullptr;
 
-	MenuItem selectItem_ = MenuItem::GamePlay;
+	TitleMenuMode menuMode_ = TitleMenuMode::Main;
+	MainMenuItem selectedMainItem_ = MainMenuItem::GamePlay;
+	DifficultyMenuItem selectedDifficultyItem_ = DifficultyMenuItem::Normal;
 
 	std::unique_ptr<Camera> camera_ = nullptr;
 

@@ -14,6 +14,7 @@
 #include "io/Input.h"
 #include "scene/SceneManager.h"
 #include "transition/BlindTransition.h"
+#include "scene/GameStartSettings.h"
 
 #include <cmath>
 #include <memory>
@@ -216,7 +217,7 @@ void TitleScene::Initialize()
 	titleFrogObject_->PlayAnimation("walk", true, 0.15f);
 	titleFrogObject_->SetLightIntensity(0.0f);
 
-	CreatePrimitiveSprite(menuPanelSprite_, { 420.0f, 220.0f }, { 0.02f, 0.05f, 0.08f, 0.72f });
+	CreatePrimitiveSprite(menuPanelSprite_, { 420.0f, 300.0f }, { 0.02f, 0.05f, 0.08f, 0.72f });
 	menuPanelSprite_->SetAnchorPoint({ 0.5f, 0.5f });
 
 	CreatePrimitiveSprite(titleLineSprite_, { 720.0f, 3.0f }, kColorAccent_);
@@ -228,7 +229,9 @@ void TitleScene::Initialize()
 	GenerateTitleTextTextures();
 	GenerateCreditSprites();
 
-	selectItem_ = MenuItem::GamePlay;
+	menuMode_ = TitleMenuMode::Main;
+	selectedMainItem_ = MainMenuItem::GamePlay;
+	selectedDifficultyItem_ = DifficultyMenuItem::Normal;
 	pulseTimer_ = 0.0f;
 
 	// --- BGMの読み込みとループ再生 ---
@@ -280,9 +283,39 @@ void TitleScene::GenerateTitleTextTextures()
 	);
 
 	CreateTextSprite(
-		"guide",
+		"difficulty",
+		ToUtf8String(u8"難易度選択"),
+		"resources/generated_ui/title_difficulty.png"
+	);
+
+	CreateTextSprite(
+		"normal",
+		ToUtf8String(u8"ノーマル"),
+		"resources/generated_ui/title_normal.png"
+	);
+
+	CreateTextSprite(
+		"hard",
+		ToUtf8String(u8"ハード"),
+		"resources/generated_ui/title_hard.png"
+	);
+
+	CreateTextSprite(
+		"hell",
+		ToUtf8String(u8"ヘル"),
+		"resources/generated_ui/title_hell.png"
+	);
+
+	CreateTextSprite(
+		"guide_main",
 		ToUtf8String(u8"W/S または 十字キーで選択  Enter/Aで決定"),
-		"resources/generated_ui/title_guide.png"
+		"resources/generated_ui/title_guide_main.png"
+	);
+
+	CreateTextSprite(
+		"guide_difficulty",
+		ToUtf8String(u8"W/Sで選択  Enter/Aで決定  BackSpace/Bで戻る"),
+		"resources/generated_ui/title_guide_difficulty.png"
 	);
 }
 
@@ -360,9 +393,6 @@ void TitleScene::Update()
 
 void TitleScene::HandleInput()
 {
-	const int itemCount = static_cast<int>(MenuItem::Count);
-	int index = static_cast<int>(selectItem_);
-
 	const bool up =
 		input_->IsTriggerKey(DIK_W) ||
 		input_->IsTriggerKey(DIK_UP) ||
@@ -373,14 +403,43 @@ void TitleScene::HandleInput()
 		input_->IsTriggerKey(DIK_DOWN) ||
 		input_->IsTriggerPad(XINPUT_GAMEPAD_DPAD_DOWN);
 
-	if (up) {
-		index = (index + itemCount - 1) % itemCount;
-		selectItem_ = static_cast<MenuItem>(index);
+	const bool back =
+		input_->IsTriggerKey(DIK_BACK) ||
+		input_->IsTriggerPad(XINPUT_GAMEPAD_B);
+
+	if (menuMode_ == TitleMenuMode::Difficulty && back) {
+		menuMode_ = TitleMenuMode::Main;
+		selectedMainItem_ = MainMenuItem::GamePlay;
+		return;
 	}
 
-	if (down) {
-		index = (index + 1) % itemCount;
-		selectItem_ = static_cast<MenuItem>(index);
+	if (menuMode_ == TitleMenuMode::Main) {
+		int index = static_cast<int>(selectedMainItem_);
+		const int itemCount = static_cast<int>(MainMenuItem::Count);
+
+		if (up) {
+			index = (index + itemCount - 1) % itemCount;
+			selectedMainItem_ = static_cast<MainMenuItem>(index);
+		}
+
+		if (down) {
+			index = (index + 1) % itemCount;
+			selectedMainItem_ = static_cast<MainMenuItem>(index);
+		}
+	}
+	else {
+		int index = static_cast<int>(selectedDifficultyItem_);
+		const int itemCount = static_cast<int>(DifficultyMenuItem::Count);
+
+		if (up) {
+			index = (index + itemCount - 1) % itemCount;
+			selectedDifficultyItem_ = static_cast<DifficultyMenuItem>(index);
+		}
+
+		if (down) {
+			index = (index + 1) % itemCount;
+			selectedDifficultyItem_ = static_cast<DifficultyMenuItem>(index);
+		}
 	}
 
 	const bool decide =
@@ -395,17 +454,42 @@ void TitleScene::HandleInput()
 
 void TitleScene::DecideCurrentItem()
 {
-	if (selectItem_ == MenuItem::GamePlay) {
-		SceneManager::GetInstance()->ChangeScene(
-			"GAMEPLAY",
-			std::make_unique<BlindTransition>()
-		);
+	if (menuMode_ == TitleMenuMode::Main) {
+		if (selectedMainItem_ == MainMenuItem::GamePlay) {
+			menuMode_ = TitleMenuMode::Difficulty;
+			selectedDifficultyItem_ = DifficultyMenuItem::Normal;
+			return;
+		}
+
+		if (selectedMainItem_ == MainMenuItem::Tutorial) {
+			SceneManager::GetInstance()->ChangeScene(
+				"TUTORIAL",
+				std::make_unique<BlindTransition>()
+			);
+			return;
+		}
+
 		return;
 	}
 
-	if (selectItem_ == MenuItem::Tutorial) {
+	if (menuMode_ == TitleMenuMode::Difficulty) {
+		switch (selectedDifficultyItem_) {
+		case DifficultyMenuItem::Normal:
+			GameStartSettings::SetDifficulty(GameStartSettings::Difficulty::Normal);
+			break;
+		case DifficultyMenuItem::Hard:
+			GameStartSettings::SetDifficulty(GameStartSettings::Difficulty::Hard);
+			break;
+		case DifficultyMenuItem::Hell:
+			GameStartSettings::SetDifficulty(GameStartSettings::Difficulty::Hell);
+			break;
+		default:
+			GameStartSettings::SetDifficulty(GameStartSettings::Difficulty::Normal);
+			break;
+		}
+
 		SceneManager::GetInstance()->ChangeScene(
-			"TUTORIAL",
+			"GAMEPLAY",
 			std::make_unique<BlindTransition>()
 		);
 		return;
@@ -876,38 +960,99 @@ void TitleScene::Draw()
 
 	DrawTextSprite(textSprites_["title"].get(), { 640.0f, 95.0f }, kColorAccent_);
 
+	const bool isDifficultyMode = menuMode_ == TitleMenuMode::Difficulty;
+
+	if (menuPanelSprite_) {
+		menuPanelSprite_->SetPos(isDifficultyMode ? Vector2{ 960.0f, 505.0f } : Vector2{ 960.0f, 470.0f });
+		menuPanelSprite_->SetSize(isDifficultyMode ? Vector2{ 420.0f, 350.0f } : Vector2{ 420.0f, 220.0f });
+		menuPanelSprite_->Update();
+		menuPanelSprite_->Draw();
+	}
+
 	const Vector2 gameplayPos = { 960.0f, 430.0f };
 	const Vector2 tutorialPos = { 960.0f, 515.0f };
 
+	const Vector2 difficultyTitlePos = { 960.0f, 360.0f };
+	const Vector2 normalPos = { 960.0f, 435.0f };
+	const Vector2 hardPos = { 960.0f, 510.0f };
+	const Vector2 hellPos = { 960.0f, 585.0f };
+
 	Vector2 selectorPos = gameplayPos;
-	if (selectItem_ == MenuItem::Tutorial) {
-		selectorPos = tutorialPos;
+
+	if (menuMode_ == TitleMenuMode::Main) {
+		switch (selectedMainItem_) {
+		case MainMenuItem::GamePlay:
+			selectorPos = gameplayPos;
+			break;
+		case MainMenuItem::Tutorial:
+			selectorPos = tutorialPos;
+			break;
+		default:
+			break;
+		}
+	}
+	else {
+		switch (selectedDifficultyItem_) {
+		case DifficultyMenuItem::Normal:
+			selectorPos = normalPos;
+			break;
+		case DifficultyMenuItem::Hard:
+			selectorPos = hardPos;
+			break;
+		case DifficultyMenuItem::Hell:
+			selectorPos = hellPos;
+			break;
+		default:
+			break;
+		}
 	}
 
 	if (selectorSprite_) {
-		const float pulse = (std::sin(pulseTimer_ * 4.0f) * 0.5f + 0.5f) * 0.18f;
+		const float alpha = 0.18f + 0.10f * std::sin(pulseTimer_ * 5.0f);
 		selectorSprite_->SetPos(selectorPos);
-		selectorSprite_->SetColor({
-			kColorAccent_.x,
-			kColorAccent_.y,
-			kColorAccent_.z,
-			0.18f + pulse
-			});
+		selectorSprite_->SetColor({ kColorAccent_.x, kColorAccent_.y, kColorAccent_.z, alpha });
 		selectorSprite_->Update();
 		selectorSprite_->Draw();
 	}
 
-	DrawTextSprite(
-		textSprites_["gameplay"].get(),
-		gameplayPos,
-		selectItem_ == MenuItem::GamePlay ? kColorAccent_ : kColorNormal_
-	);
+	if (menuMode_ == TitleMenuMode::Main) {
+		DrawTextSprite(
+			textSprites_["gameplay"].get(),
+			gameplayPos,
+			selectedMainItem_ == MainMenuItem::GamePlay ? kColorAccent_ : kColorNormal_
+		);
 
-	DrawTextSprite(
-		textSprites_["tutorial"].get(),
-		tutorialPos,
-		selectItem_ == MenuItem::Tutorial ? kColorAccent_ : kColorNormal_
-	);
+		DrawTextSprite(
+			textSprites_["tutorial"].get(),
+			tutorialPos,
+			selectedMainItem_ == MainMenuItem::Tutorial ? kColorAccent_ : kColorNormal_
+		);
+	}
+	else {
+		DrawTextSprite(
+			textSprites_["difficulty"].get(),
+			difficultyTitlePos,
+			kColorAccent_
+		);
+
+		DrawTextSprite(
+			textSprites_["normal"].get(),
+			normalPos,
+			selectedDifficultyItem_ == DifficultyMenuItem::Normal ? kColorAccent_ : kColorNormal_
+		);
+
+		DrawTextSprite(
+			textSprites_["hard"].get(),
+			hardPos,
+			selectedDifficultyItem_ == DifficultyMenuItem::Hard ? kColorAccent_ : kColorNormal_
+		);
+
+		DrawTextSprite(
+			textSprites_["hell"].get(),
+			hellPos,
+			selectedDifficultyItem_ == DifficultyMenuItem::Hell ? kColorAccent_ : kColorNormal_
+		);
+	}
 }
 
 void TitleScene::DrawTextSprite(Sprite* sprite, const Vector2& pos, const Vector4& color)

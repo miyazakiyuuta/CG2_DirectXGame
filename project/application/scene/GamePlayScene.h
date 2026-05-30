@@ -11,6 +11,7 @@
 #include "UI/SpriteNumberText.h"
 #include "audio/SoundManager.h"
 #include "UI/HeightProgressMeter.h"
+#include "scene/GameStartSettings.h"
 
 #include "XPOrb.h"
 #include "WarpExit.h"
