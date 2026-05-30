@@ -179,6 +179,8 @@ void GamePlayScene::Initialize() {
 	// パーティクルグループの作成。第一引数はグループ名、第二引数はテクスチャファイルパス
 	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
 	ParticleManager::GetInstance()->CreateParticleGroup("xp_orb", "resources/circle.png", BlendMode::Add);
+	ParticleManager::GetInstance()->CreateParticleGroup("warp_trail", "resources/circle.png", BlendMode::Add);
+	ParticleManager::GetInstance()->CreateParticleGroup("warp_suck", "resources/circle.png", BlendMode::Add);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
@@ -736,6 +738,51 @@ void GamePlayScene::Update() {
 				t.translate = o.position;
 				t.rotate = o.rotation;
 				t.scale = o.scale;
+
+				// 入口ポータルの視覚効果（脈動リングと吸い込みパーティクル）
+				static float warpPortalTimer = 0.0f;
+				warpPortalTimer += 1.0f / 60.0f;
+				if (std::fmod(warpPortalTimer, 0.5f) < 0.02f) { // 約0.5秒おきに放出
+					RingConfig rCfg;
+					rCfg.lifeTime = 0.6f;
+					rCfg.startScale = o.scale.x * 1.5f * 0.5f;
+					rCfg.endScale = o.scale.x * 1.5f * 1.2f;
+					rCfg.startColor = {0.2f, 0.9f, 0.8f, 0.8f};
+					rCfg.endColor = {0.2f, 0.9f, 0.8f, 0.0f};
+					rCfg.isBillboard = true;
+					RingManager::GetInstance()->Emit(o.position, o.rotation, rCfg);
+				}
+
+				// 吸い込みパーティクル演出
+				for (int i = 0; i < 2; i++) {
+					float angle = Random::GetFloat(0.0f, 6.283185f);
+					float radius = o.scale.x * 1.5f; 
+					Vector3 spawnPos = o.position + Vector3{std::cos(angle)*radius, std::sin(angle)*radius, 0.0f};
+					
+					Vector3 toCenter = o.position - spawnPos;
+					float len = std::sqrt(toCenter.x*toCenter.x + toCenter.y*toCenter.y + toCenter.z*toCenter.z);
+					float speed = 2.0f;
+					if (len > 0.0f) {
+						toCenter.x = (toCenter.x / len) * speed;
+						toCenter.y = (toCenter.y / len) * speed;
+						toCenter.z = (toCenter.z / len) * speed;
+					}
+					
+					Vector3 v1 = {toCenter.x * 0.8f, toCenter.y * 0.8f, toCenter.z * 0.8f};
+					Vector3 v2 = {toCenter.x * 1.2f, toCenter.y * 1.2f, toCenter.z * 1.2f};
+					ParticleConfig cfg;
+					cfg.minVelocity = {(std::min)(v1.x, v2.x), (std::min)(v1.y, v2.y), (std::min)(v1.z, v2.z)};
+					cfg.maxVelocity = {(std::max)(v1.x, v2.x), (std::max)(v1.y, v2.y), (std::max)(v1.z, v2.z)};
+					cfg.lifeTime = radius / speed;
+					cfg.startColor = {0.2f, 0.9f, 1.0f, 1.0f};
+					cfg.blendMode = BlendMode::Add;
+					cfg.minScale = {0.1f, 0.1f, 0.1f};
+					cfg.maxScale = {0.1f, 0.1f, 0.1f};
+					
+					try {
+						ParticleManager::GetInstance()->Emit("warp_suck", spawnPos, cfg, 1);
+					} catch(...) {}
+				}
 
 				// 判定を少し大きめにして、プレイヤーがワープに入りやすくする（当たり判定の膨張）
 				const float warpInflation = 1.5f;
