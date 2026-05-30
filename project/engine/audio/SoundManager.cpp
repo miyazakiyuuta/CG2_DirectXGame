@@ -124,7 +124,7 @@ void SoundManager::Update(float deltaTime) {
 	}
 }
 
-SoundData SoundManager::LoadFile(const std::string& filename) {
+const SoundData& SoundManager::LoadFile(const std::string& filename) {
 
 	auto it = soundCache_.find(filename);
 	if (it != soundCache_.end()) {
@@ -188,8 +188,11 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 		}
 	}
 
-	soundCache_[filename] = soundData;
-	return soundData;
+	//soundCache_[filename] = soundData;
+	//return soundData;
+
+	auto [insertedIt, _] = soundCache_.emplace(filename, std::move(soundData));
+	return insertedIt->second;
 }
 
 void SoundManager::Unload(const std::string& filename) {

@@ -110,6 +110,11 @@ void WinApp::Initialize() {
 	// ウィンドウを表示する
 	ShowWindow(hwnd_, SW_SHOW);
 
+#ifndef USE_IMGUI
+	// 起動時にフルスクリーンにする
+	ToggleFullscreen(hwnd_);
+#endif
+
 }
 
 void WinApp::Finalize() {

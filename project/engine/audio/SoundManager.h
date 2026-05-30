@@ -36,7 +36,7 @@ public:
 		SE
 	};
 
-	SoundData LoadFile(const std::string& filename); // wavファイル読み込み
+	const SoundData& LoadFile(const std::string& filename); // wavファイル読み込み
 	void Unload(const std::string& filename); // 特定ファイルをキャッシュから削除
 	void UnloadAll(); // 全キャッシュ削除
 	SoundHandle PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
