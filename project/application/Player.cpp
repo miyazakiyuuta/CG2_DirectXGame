@@ -12,6 +12,8 @@
 #include "utility/Logger.h"
 #include <../externals/nlohmann/json.hpp>
 #include "audio/SoundManager.h"
+#include "effect/ParticleManager.h"
+#include "effect/ParticleConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -3224,6 +3226,19 @@ void Player::UpdateWarping()
         currentPos.y = warpStartPosition_.y + (warpTargetPosition_.y - warpStartPosition_.y) * t;
         currentPos.z = warpStartPosition_.z + (warpTargetPosition_.z - warpStartPosition_.z) * t;
         object_->SetTranslate(currentPos);
+        
+        // ワープの軌跡パーティクル
+        ParticleConfig trailCfg;
+        trailCfg.minVelocity = {-0.02f, -0.02f, -0.02f};
+        trailCfg.maxVelocity = {0.02f, 0.02f, 0.02f};
+        trailCfg.lifeTime = 0.8f;
+        trailCfg.startColor = {1.0f, 1.0f, 1.0f, 1.0f};
+        trailCfg.blendMode = BlendMode::Add;
+        trailCfg.minScale = {0.05f, 0.05f, 0.05f};
+        trailCfg.maxScale = {0.12f, 0.12f, 0.12f};
+        try {
+            ParticleManager::GetInstance()->Emit("warp_trail", currentPos, trailCfg, 5);
+        } catch(...) {}
     }
 }
 
