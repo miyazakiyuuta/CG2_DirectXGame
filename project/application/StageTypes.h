@@ -15,6 +15,7 @@ enum class BlockID {
     Warp = 5,      // ワープブロック
     MovingPlatform = 6, // 動く床ブロック
     EnemySpawn = 7,
+    ClearGoal = 8, // 触れるとクリアになるゴールブロック
 };
 
 /// <summary>

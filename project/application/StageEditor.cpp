@@ -664,7 +664,8 @@ void StageEditor::DrawImGui(){
         "Breakable",
         "Warp",
         "MovingPlatform",
-        "EnemySpawn"
+        "EnemySpawn",
+        "ClearGoal"
     };
 
     const char* enemyTypes[] = {

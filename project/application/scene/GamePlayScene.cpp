@@ -141,6 +141,46 @@ void GamePlayScene::OnEnemyDead(BaseEnemy* e) {
 	}
 }
 
+bool GamePlayScene::IsPlayerTouchingClearGoalBlock() const
+{
+	if (!stage_ || !player_) {
+		return false;
+	}
+
+	const CollisionUtility::OBB playerObb =
+		player_->GetPlayerOBB(player_->GetPosition());
+
+	for (const auto& o : stage_->GetStageData().objects) {
+		if (o.blockId != BlockID::ClearGoal) {
+			continue;
+		}
+
+		Transform t;
+		t.translate = o.position;
+		t.rotate = o.rotation;
+		t.scale = o.scale;
+
+		// 触れた判定を少し拾いやすくするため、ほんの少しだけ膨らませる
+		const float goalInflation = 1.05f;
+
+		CollisionUtility::OBB goalObb =
+			CollisionUtility::MakeOBBFromTransform(
+				t,
+				{
+					o.scale.x * goalInflation,
+					o.scale.y * goalInflation,
+					o.scale.z * goalInflation
+				}
+			);
+
+		if (CollisionUtility::IntersectOBB_OBB(playerObb, goalObb)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void GamePlayScene::UpdateEnemyRespawns(float deltaTime) {
 	if (!enemyManager_ || enemySpawns_.empty()) {
 		return;
@@ -887,7 +927,7 @@ void GamePlayScene::Update() {
 		resultUI_->TriggerGameOver();
 		return;
 	}
-	if (player_->GetPosition().y >= gameClearHeightY_) {
+	if (IsPlayerTouchingClearGoalBlock()) {
 		resultUI_->TriggerClear(gameTimer_.GetTimeSeconds());
 		return;
 	}

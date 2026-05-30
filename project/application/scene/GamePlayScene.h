@@ -70,6 +70,7 @@ private:
 	void UpdateEnemyRespawns(float deltaTime);
 	void SpawnEnemyForPoint(size_t idx);
 	void OnEnemyDead(class BaseEnemy* e);
+	bool IsPlayerTouchingClearGoalBlock() const;
 
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
@@ -125,7 +126,7 @@ private:
 	// --- リザルト演出用UI ---
 	std::unique_ptr<class ResultUI> resultUI_;
 
-	float gameClearHeightY_ = 1510.0f;
+	float gameClearHeightY_ = 1500.0f;
 	std::unique_ptr<SkyCylinder> skyCylinder_;
 	std::unique_ptr<HeightProgressMeter> heightProgressMeter_ = nullptr;
 };
