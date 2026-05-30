@@ -189,7 +189,7 @@ void Object3d::CreateDirectionalLightData() {
 	// デフォルト値を書き込んでおく
 	directionalLightData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
 	directionalLightData_->direction = Vector3{ 0.0f,-1.0f,0.0f };
-	directionalLightData_->intensity = 1.0f; // 輝度
+	directionalLightData_->intensity = 0.0f; // 輝度
 }
 
 void Object3d::DrawDebugSkeleton() {

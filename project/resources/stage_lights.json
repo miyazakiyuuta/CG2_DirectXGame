@@ -1,0 +1,41 @@
+{
+  "pointLights": [
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "decay": 0.0,
+      "enabled": true,
+      "intensity": 0.05999999865889549,
+      "name": "DefaultGameplayLight",
+      "position": [
+        0.0,
+        -0.10000000149011612,
+        0.0
+      ],
+      "radius": 20000.0
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "decay": 0.0,
+      "enabled": true,
+      "intensity": 0.05999999865889549,
+      "name": "PointLight1",
+      "position": [
+        0.0,
+        2000.0,
+        0.0
+      ],
+      "radius": 20000.0
+    }
+  ],
+  "version": 1
+}

@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "scene/TutorialScene.h"
 
 #include "2d/SpriteCommon.h"
@@ -178,15 +179,19 @@ void TutorialScene::Initialize()
 	enemyManager_->SetBlockColliders(&stageBlockColliders_);
 	enemyManager_->SetKeepInsideCylinder(&wellCylinder_);
 	enemyManager_->SetOnEnemyDeadCallback([this](BaseEnemy* deadEnemy) {
-		// チュートリアル用センチネルは「敵を倒す」カウントに入れない。
-		// センチネルフックタスク中なら、少し待って再生成する。
 		if (deadEnemy == tutorialSentinelEnemy_) {
 			tutorialSentinelEnemy_ = nullptr;
+			tutorialSentinelRespawnRequested_ = true;
+			tutorialSentinelRespawnTimer_ = tutorialSentinelRespawnDelay_;
+			return;
+		}
 
-			if (IsSentinelHookTutorialActive()) {
-				tutorialSentinelRespawnRequested_ = true;
-				tutorialSentinelRespawnTimer_ = tutorialSentinelRespawnDelay_;
-			}
+		if (deadEnemy == tutorialWeakEnemy_) {
+			tutorialWeakEnemy_ = nullptr;
+			++tutorialEnemyKilledCount_;
+
+			tutorialWeakEnemyRespawnRequested_ = true;
+			tutorialWeakEnemyRespawnTimer_ = tutorialWeakEnemyRespawnDelay_;
 			return;
 		}
 
@@ -212,20 +217,12 @@ void TutorialScene::Initialize()
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	PointLightArray pointLights = {};
-	pointLights.count = 1;
-
-	pointLights.lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLights.lights[0].position = { 0.0f, -0.1f, 0.0f };
-	pointLights.lights[0].intensity = 0.12f;
-	pointLights.lights[0].radius = 20000.0f;
-	pointLights.lights[0].decay = 0.0f;
-
-	Object3dCommon::GetInstance()->SetPointLights({
-		pointLights
-		});
-
+	SpawnPermanentTutorialStations();
 	UpdateStageColliders();
+
+	SpawnPermanentTutorialEnemies();
+
+	SetupDefaultTutorialPointLights();
 
 	BuildTutorialStepDefinitions();
 	GenerateTutorialMessageSprites();
@@ -300,7 +297,9 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return speedSq > threshold ? 1 : 0;
 		},
-		nullptr,
+			[this]() {
+		SetTutorialGuideLight({ 0.0f, 2.0f, 0.0f });
+	},
 		nullptr,
 		0.5f
 		});
@@ -369,6 +368,7 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		},
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
+			SetTutorialGuideLight({ 0.0f, 10.0f, 50.0f });
 		},
 		nullptr,
 		0.5f
@@ -394,7 +394,9 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return (keyboardUp || gamepadUp) ? 1 : 0;
 		},
-		nullptr,
+		[this]() {
+SetTutorialGuideLight({ 0.0f, 24.0f, 50.0f });
+		},
 		nullptr,
 		0.5f
 		});
@@ -459,7 +461,9 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return ctx.player->IsCeilingCrawling() ? 1 : 0;
 		},
-		nullptr,
+[this]() {
+SetTutorialGuideLight({ -28.0f, 11.0f, -24.0f });
+},
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
@@ -509,6 +513,25 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		});
 
 	tutorialStepDefinitions_.push_back({
+	"上を目指す",
+	ToUtf8String(u8"このゲームは上へ登るゲームです\n足場を使って光っている所まで登ろう"),
+	ToUtf8String(u8"このゲームは上へ登るゲームです\n足場を使って光っている所まで登ろう"),
+	1,
+	[this](const TutorialContext& ctx) {
+		if (!ctx.player) {
+			return 0;
+		}
+
+		return ctx.player->GetPosition().y >= tutorialHeightGoalY_ ? 1 : 0;
+	},
+	[this]() {
+SetTutorialGuideLight({ 0.0f, 140.0f, 0.0f });
+	},
+	nullptr,
+	1.0f
+		});
+
+	tutorialStepDefinitions_.push_back({
 		"ソナー",
 		ToUtf8String(u8"Fキーでソナーを使ってみよう"),
 		ToUtf8String(u8"Yボタンでソナーを使ってみよう"),
@@ -520,11 +543,11 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return ctx.player->IsSonarActive() ? 1 : 0;
 		},
-		[this]() {
-			ClearTutorialPhaseRuntime(true);
-			SpawnTutorialWeakEnemy();
-			SpawnTutorialClingBlocks();
-		},
+[this]() {
+	ClearTutorialPhaseRuntime(true);
+	SetTutorialGuideLight({ 20.0f, 9.0f, 14.0f });
+	SpawnTutorialWeakEnemy();
+},
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
@@ -554,16 +577,17 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 	tutorialStepDefinitions_.push_back({
 		"敵を倒す",
-		ToUtf8String(u8"Eキーで敵を倒してみよう"),
-		ToUtf8String(u8"Bボタンで敵を倒してみよう"),
+		ToUtf8String(u8"Eキーで黄色の敵を倒してみよう"),
+		ToUtf8String(u8"Bボタンで黄色の敵を倒してみよう"),
 		1,
 		[this](const TutorialContext&) {
 			return tutorialEnemyKilledCount_ > 0 ? 1 : 0;
 		},
 		[this]() {
-			ClearTutorialPhaseRuntime(true);
-			SpawnTutorialWeakEnemy();
-		},
+	ClearTutorialPhaseRuntime(true);
+	SetTutorialGuideLight({ 30.0f, 8.0f, 12.0f });
+	SpawnTutorialWeakEnemy();
+},
 		[this]() {
 			ClearTutorialEnemies();
 			ClearTutorialPhaseObjects();
@@ -621,10 +645,10 @@ void TutorialScene::BuildTutorialStepDefinitions()
 		[this](const TutorialContext&) {
 			return tutorialWarpUsedCount_ > 0 ? 1 : 0;
 		},
-		[this]() {
-			ClearTutorialPhaseRuntime(true);
-			SpawnTutorialWarpBlock();
-		},
+[this]() {
+	ClearTutorialPhaseRuntime(true);
+	SetTutorialGuideLight({ 28.0f, 26.0f, -34.0f });
+},
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
@@ -643,10 +667,11 @@ void TutorialScene::BuildTutorialStepDefinitions()
 
 			return ctx.player->IsTonguePulling() ? 1 : 0;
 		},
-		[this]() {
-			ClearTutorialPhaseRuntime(true);
-			SpawnTutorialSentinelHook();
-		},
+[this]() {
+	ClearTutorialPhaseRuntime(true);
+	SetTutorialGuideLight({ -30.0f, 11.0f, 12.0f });
+	SpawnTutorialSentinelHook();
+},
 		[this]() {
 			ClearTutorialPhaseRuntime(true);
 		},
@@ -716,12 +741,12 @@ void TutorialScene::GenerateTutorialMessageSprites()
 	}
 
 	tutorialKeyboardFinishedMessageSprite_ = CreateTutorialMessageSprite(
-		ToUtf8String(u8"チュートリアル完了！\nESCメニューからタイトルに戻れます"),
+		ToUtf8String(u8"   自由に動いてみよう！\nESCメニューからタイトルに戻れる"),
 		prefix + "keyboard_message_finished.png"
 	);
 
 	tutorialGamepadFinishedMessageSprite_ = CreateTutorialMessageSprite(
-		ToUtf8String(u8"チュートリアル完了！\nSTARTメニューからタイトルに戻れます"),
+		ToUtf8String(u8"   自由に動いてみよう！\nSTARTメニューからタイトルに戻れる"),
 		prefix + "gamepad_message_finished.png"
 	);
 }
@@ -839,6 +864,400 @@ int TutorialScene::AddTutorialStageObject(const StageObject& source)
 	return object.id;
 }
 
+int TutorialScene::AddPermanentTutorialStageObject(const StageObject& source)
+{
+	if (!stage_) {
+		return -1;
+	}
+
+	StageObject object = source;
+	object.id = tutorialNextObjectId_++;
+
+	stage_->GetStageData().objects.push_back(object);
+	stage_->UpdateOrCreateInstance(object);
+
+	tutorialPermanentObjectIds_.push_back(object.id);
+
+	UpdateStageColliders();
+
+	return object.id;
+}
+
+void TutorialScene::SpawnPermanentTutorialStations()
+{
+	// ----------------------------------------------------
+	// 基礎練習エリア
+	// 中央: 移動、ジャンプ、エイム、舌
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 0.0f, 0.0f },
+		{ 60.0f, 1.0f, 60.0f },
+		{ 0.025f, 0.19f, 0.14f, 1.0f }
+	));
+
+	// ----------------------------------------------------
+	// 側面張り付きエリア
+	// 北側: 壁張り付き、側面登り、スタミナ説明
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 9.5f, 50.0f },
+		{ 6.0f, 19.0f, 1.0f },
+		{ 0.25f, 0.85f, 0.65f, 1.0f }
+	));
+
+	// 壁登り後に着地できる広めの足場
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 29.0f, 39.0f },
+		{ 9.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	// ----------------------------------------------------
+	// 下面走りエリア
+	// 南西: 下面張り付き、下面から側面へ
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -28.0f, 12.0f, -24.0f },
+		{ 12.0f, 1.0f, 12.0f },
+		{ 0.20f, 0.55f, 0.95f, 1.0f }
+	));
+
+	// 下面走り後の着地点
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -14.0f, 18.0f, -8.0f },
+		{ 8.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	// ----------------------------------------------------
+	// 敵、XP、壊れるブロックエリア
+	// 東側: 他ギミックと干渉しない隔離足場
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 30.0f, 4.0f, 12.0f },
+		{ 7.0f, 1.0f, 7.0f },
+		{ 0.35f, 0.25f, 0.20f, 1.0f }
+	));
+
+	// ----------------------------------------------------
+	// センチネルフックエリア
+	// 西側: 敵用足場と対になる位置
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -30.0f, 6.0f, 12.0f },
+		{ 7.0f, 1.0f, 7.0f },
+		{ 0.20f, 0.35f, 0.25f, 1.0f }
+	));
+
+	// ----------------------------------------------------
+	// ワープエリア
+	// 南東: 高めに置いて、到達した先が分かるようにする
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 28.0f, 22.0f, -34.0f },
+		{ 7.0f, 1.0f, 7.0f },
+		{ 0.20f, 0.25f, 0.55f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -10.0f, 38.0f, -34.0f },
+		{ 8.0f, 1.0f, 8.0f },
+		{ 0.25f, 0.45f, 0.65f, 1.0f }
+	));
+
+	StageObject warp = MakeTutorialBlock(
+		BlockID::Warp,
+		{ 28.0f, 24.2f, -34.0f },
+		{ 1.5f, 1.2f, 1.5f },
+		{ 0.35f, 0.45f, 1.0f, 0.85f }
+	);
+	warp.warpTargetPosition = { -10.0f, 40.0f, -34.0f };
+	warp.warpTargetSceneId = -1;
+	AddPermanentTutorialStageObject(warp);
+
+	// ----------------------------------------------------
+	// 軽いアスレチック
+	// 壁登り後から、上を目指すゲームだと伝えるための導線
+	// 本編序盤っぽく、足場を広めにしつつX/Zを散らす
+	// ----------------------------------------------------
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 42.0f, 24.0f },
+		{ 9.0f, 0.8f, 9.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 24.0f, 54.0f, 12.0f },
+		{ 8.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 36.0f, 66.0f, -16.0f },
+		{ 8.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 10.0f, 78.0f, -36.0f },
+		{ 8.5f, 0.8f, 8.5f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -22.0f, 90.0f, -26.0f },
+		{ 8.5f, 0.8f, 8.5f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -36.0f, 102.0f, 6.0f },
+		{ 8.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ -12.0f, 114.0f, 34.0f },
+		{ 8.0f, 0.8f, 8.0f },
+		{ 0.25f, 0.65f, 0.85f, 1.0f }
+	));
+
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 20.0f, 126.0f, 22.0f },
+		{ 8.5f, 0.8f, 8.5f },
+		{ 0.25f, 0.85f, 0.65f, 1.0f }
+	));
+
+	// 高さ到達タスクのゴール足場
+	AddPermanentTutorialStageObject(MakeTutorialBlock(
+		BlockID::Normal,
+		{ 0.0f, 140.0f, 0.0f },
+		{ 13.0f, 0.8f, 13.0f },
+		{ 0.35f, 0.95f, 0.55f, 1.0f }
+	));
+}
+
+void TutorialScene::SpawnPermanentTutorialEnemies()
+{
+	SpawnTutorialWeakEnemy();
+	SpawnTutorialSentinelHook();
+}
+
+int TutorialScene::FindTutorialPointLightIndex(const std::string& name) const
+{
+	for (size_t i = 0; i < tutorialPointLights_.size(); ++i) {
+		if (tutorialPointLights_[i].name == name) {
+			return static_cast<int>(i);
+		}
+	}
+
+	return -1;
+}
+
+void TutorialScene::ClearTutorialPointLights()
+{
+	tutorialPointLights_.clear();
+	ApplyTutorialPointLights();
+}
+
+int TutorialScene::AddTutorialPointLight(
+	const std::string& name,
+	const Vector3& position,
+	const Vector4& color,
+	float intensity,
+	float radius,
+	float decay,
+	bool enabled
+) {
+	if (tutorialPointLights_.size() >= kMaxPointLights) {
+		return -1;
+	}
+
+	TutorialPointLightSetting light;
+	light.name = name;
+	light.enabled = enabled;
+	light.color = color;
+	light.position = position;
+	light.intensity = std::max(0.0f, intensity);
+	light.radius = std::max(0.001f, radius);
+	light.decay = std::max(0.0f, decay);
+
+	tutorialPointLights_.push_back(light);
+
+	ApplyTutorialPointLights();
+
+	return static_cast<int>(tutorialPointLights_.size() - 1);
+}
+
+void TutorialScene::SetTutorialPointLight(
+	const std::string& name,
+	const Vector3& position,
+	const Vector4& color,
+	float intensity,
+	float radius,
+	float decay,
+	bool enabled
+) {
+	const int index = FindTutorialPointLightIndex(name);
+
+	if (index < 0) {
+		AddTutorialPointLight(
+			name,
+			position,
+			color,
+			intensity,
+			radius,
+			decay,
+			enabled
+		);
+		return;
+	}
+
+	TutorialPointLightSetting& light = tutorialPointLights_[index];
+
+	light.enabled = enabled;
+	light.color = color;
+	light.position = position;
+	light.intensity = std::max(0.0f, intensity);
+	light.radius = std::max(0.001f, radius);
+	light.decay = std::max(0.0f, decay);
+
+	ApplyTutorialPointLights();
+}
+
+void TutorialScene::RemoveTutorialPointLight(const std::string& name)
+{
+	const int index = FindTutorialPointLightIndex(name);
+
+	if (index < 0) {
+		return;
+	}
+
+	tutorialPointLights_.erase(
+		tutorialPointLights_.begin() + index
+	);
+
+	ApplyTutorialPointLights();
+}
+
+void TutorialScene::SetTutorialPointLightEnabled(const std::string& name, bool enabled)
+{
+	const int index = FindTutorialPointLightIndex(name);
+
+	if (index < 0) {
+		return;
+	}
+
+	tutorialPointLights_[index].enabled = enabled;
+
+	ApplyTutorialPointLights();
+}
+
+void TutorialScene::SetTutorialGuideLight(const Vector3& position)
+{
+	SetTutorialPointLight(
+		"CurrentGuide",
+		position,
+		{ 0.45f, 0.85f, 1.0f, 1.0f },
+		4.0f,
+		18.0f,
+		2.0f,
+		true
+	);
+}
+
+void TutorialScene::SetupDefaultTutorialPointLights()
+{
+	tutorialPointLights_.clear();
+
+	// 全体をうっすら明るくする疑似アンビエント用ライト
+	AddTutorialPointLight(
+		"GlobalFill",
+		{ 0.0f, -0.1f, 0.0f },
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		0.06f,
+		20000.0f,
+		0.0f,
+		true
+	);
+
+	// 全体をうっすら明るくする疑似アンビエント用ライト
+	AddTutorialPointLight(
+		"GlobalFill",
+		{ 0.0f, 2000.0f, 0.0f },
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		0.06f,
+		20000.0f,
+		0.0f,
+		true
+	);
+
+	// 初期の誘導ライト
+	AddTutorialPointLight(
+		"CurrentGuide",
+		{ 0.0f, 6.0f, 30.0f },
+		{ 0.45f, 0.85f, 1.0f, 1.0f },
+		4.0f,
+		18.0f,
+		2.0f,
+		true
+	);
+
+	ApplyTutorialPointLights();
+}
+
+void TutorialScene::ApplyTutorialPointLights() const
+{
+	PointLightArray pointLights = {};
+	pointLights.count = 0;
+
+	for (const auto& src : tutorialPointLights_) {
+		if (!src.enabled) {
+			continue;
+		}
+
+		if (pointLights.count >= kMaxPointLights) {
+			break;
+		}
+
+		PointLight& dst = pointLights.lights[pointLights.count];
+
+		dst.color = src.color;
+		dst.position = src.position;
+		dst.intensity = std::max(0.0f, src.intensity);
+		dst.radius = std::max(0.001f, src.radius);
+		dst.decay = std::max(0.0f, src.decay);
+
+		++pointLights.count;
+	}
+
+	Object3dCommon::GetInstance()->SetPointLights(pointLights);
+}
+
 void TutorialScene::ClearTutorialPhaseObjects()
 {
 	if (!stage_) {
@@ -870,13 +1289,10 @@ void TutorialScene::ClearTutorialPhaseObjects()
 
 void TutorialScene::ClearTutorialEnemies()
 {
-	if (enemyManager_) {
-		enemyManager_->Clear();
-	}
-
-	tutorialSentinelEnemy_ = nullptr;
-	tutorialSentinelRespawnRequested_ = false;
-	tutorialSentinelRespawnTimer_ = 0.0f;
+	// 常設チュートリアル敵は消さない。
+	// 倒された場合はリスポーン処理に任せる。
+	SpawnTutorialWeakEnemy();
+	SpawnTutorialSentinelHook();
 }
 
 void TutorialScene::ClearTutorialXP()
@@ -974,33 +1390,21 @@ void TutorialScene::SpawnTutorialBreakableBlocks()
 	));
 }
 
-void TutorialScene::SpawnTutorialWarpBlock()
-{
-	ClearTutorialPhaseObjects();
-
-	StageObject warp = MakeTutorialBlock(
-		BlockID::Warp,
-		{ 0.0f, 10.2f, 14.0f },
-		{ 1.5f, 1.2f, 1.5f },
-		{ 0.35f, 0.45f, 1.0f, 0.85f }
-	);
-
-	warp.warpTargetPosition = { -6.0f, 4.0f, -8.0f };
-	warp.warpTargetSceneId = -1;
-
-	AddTutorialStageObject(warp);
-}
-
 void TutorialScene::SpawnTutorialWeakEnemy()
 {
 	if (!enemyManager_) {
 		return;
 	}
 
-	enemyManager_->Clear();
-	tutorialEnemyKilledCount_ = 0;
+	if (tutorialWeakEnemy_) {
+		return;
+	}
 
-	enemyManager_->CreateEnemy(EnemyType::Chasing, { 0.0f, 5.0f, 16.0f });
+	tutorialWeakEnemy_ =
+		enemyManager_->CreateEnemy(EnemyType::Chasing, { 30.0f, 7.0f, 12.0f });
+
+	tutorialWeakEnemyRespawnRequested_ = false;
+	tutorialWeakEnemyRespawnTimer_ = 0.0f;
 }
 
 void TutorialScene::SpawnTutorialSentinelHook()
@@ -1009,10 +1413,12 @@ void TutorialScene::SpawnTutorialSentinelHook()
 		return;
 	}
 
-	enemyManager_->Clear();
+	if (tutorialSentinelEnemy_) {
+		return;
+	}
 
 	tutorialSentinelEnemy_ =
-		enemyManager_->CreateEnemy(EnemyType::Sentinel, { 0.0f, 5.0f, 16.0f });
+		enemyManager_->CreateEnemy(EnemyType::Sentinel, { -30.0f, 9.0f, 12.0f });
 
 	tutorialSentinelRespawnRequested_ = false;
 	tutorialSentinelRespawnTimer_ = 0.0f;
@@ -1033,22 +1439,21 @@ bool TutorialScene::IsSentinelHookTutorialActive() const
 
 void TutorialScene::UpdateTutorialSentinelRespawn(float deltaTime)
 {
-	if (!tutorialSentinelRespawnRequested_) {
-		return;
+	if (tutorialSentinelRespawnRequested_) {
+		tutorialSentinelRespawnTimer_ -= deltaTime;
+
+		if (tutorialSentinelRespawnTimer_ <= 0.0f) {
+			SpawnTutorialSentinelHook();
+		}
 	}
 
-	if (!IsSentinelHookTutorialActive()) {
-		tutorialSentinelRespawnRequested_ = false;
-		tutorialSentinelRespawnTimer_ = 0.0f;
-		return;
-	}
+	if (tutorialWeakEnemyRespawnRequested_) {
+		tutorialWeakEnemyRespawnTimer_ -= deltaTime;
 
-	tutorialSentinelRespawnTimer_ -= deltaTime;
-	if (tutorialSentinelRespawnTimer_ > 0.0f) {
-		return;
+		if (tutorialWeakEnemyRespawnTimer_ <= 0.0f) {
+			SpawnTutorialWeakEnemy();
+		}
 	}
-
-	SpawnTutorialSentinelHook();
 }
 
 bool TutorialScene::IsTutorialStageObjectAlive(int id) const

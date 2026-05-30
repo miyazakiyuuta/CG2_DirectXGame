@@ -5,6 +5,8 @@
 #include "Tutorial/TutorialDirector.h"
 #include "2d/Sprite.h"
 #include "math/Vector2.h"
+#include "math/Vector3.h"
+#include "math/Vector4.h"
 #include "XPOrb.h"
 #include "StageTypes.h"
 #include "audio/SoundManager.h"
@@ -59,6 +61,18 @@ private:
 		Gamepad,
 	};
 
+	struct TutorialPointLightSetting {
+		std::string name = "PointLight";
+		bool enabled = true;
+
+		Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
+		Vector3 position = { 0.0f, 5.0f, 0.0f };
+
+		float intensity = 1.0f;
+		float radius = 20.0f;
+		float decay = 2.0f;
+	};
+
 private:
 	void BuildTutorialStepDefinitions();
 	void SetupTutorialTasksFromDefinitions();
@@ -93,6 +107,11 @@ private:
 	) const;
 
 	int AddTutorialStageObject(const StageObject& object);
+	int AddPermanentTutorialStageObject(const StageObject& object);
+
+	void SpawnPermanentTutorialStations();
+	void SpawnPermanentTutorialEnemies();
+
 	void ClearTutorialPhaseObjects();
 	void ClearTutorialEnemies();
 	void ClearTutorialXP();
@@ -102,11 +121,39 @@ private:
 
 	void SpawnTutorialClingBlocks();
 	void SpawnTutorialBreakableBlocks();
-	void SpawnTutorialWarpBlock();
 	void SpawnTutorialWeakEnemy();
 	void SpawnTutorialSentinelHook();
 	bool IsSentinelHookTutorialActive() const;
 	void UpdateTutorialSentinelRespawn(float deltaTime);
+
+	void ClearTutorialPointLights();
+
+	int AddTutorialPointLight(
+		const std::string& name,
+		const Vector3& position,
+		const Vector4& color,
+		float intensity,
+		float radius,
+		float decay,
+		bool enabled = true
+	);
+
+	void SetTutorialPointLight(
+		const std::string& name,
+		const Vector3& position,
+		const Vector4& color,
+		float intensity,
+		float radius,
+		float decay,
+		bool enabled = true
+	);
+
+	void RemoveTutorialPointLight(const std::string& name);
+	void SetTutorialPointLightEnabled(const std::string& name, bool enabled);
+	void SetTutorialGuideLight(const Vector3& position);
+	void SetupDefaultTutorialPointLights();
+	void ApplyTutorialPointLights() const;
+	int FindTutorialPointLightIndex(const std::string& name) const;
 
 	bool IsTutorialStageObjectAlive(int id) const;
 	int CountAliveTutorialObjects(BlockID blockId) const;
@@ -162,6 +209,17 @@ private:
 
 	std::vector<int> tutorialPhaseObjectIds_;
 	int tutorialNextObjectId_ = 900000;
+
+	std::vector<int> tutorialPermanentObjectIds_;
+
+	float tutorialHeightGoalY_ = 135.0f;
+
+	std::vector<TutorialPointLightSetting> tutorialPointLights_;
+
+	BaseEnemy* tutorialWeakEnemy_ = nullptr;
+	bool tutorialWeakEnemyRespawnRequested_ = false;
+	float tutorialWeakEnemyRespawnTimer_ = 0.0f;
+	float tutorialWeakEnemyRespawnDelay_ = 2.0f;
 
 	int tutorialEnemyKilledCount_ = 0;
 	int tutorialXPCollectedCount_ = 0;
