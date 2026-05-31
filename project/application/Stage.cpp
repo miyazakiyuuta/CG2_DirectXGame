@@ -312,7 +312,13 @@ std::vector<EnemySpawnPoint> Stage::GetEnemySpawnPoints() const{
         spawn.position = o.position;
         spawn.rotation = o.rotation;
         spawn.enemyType = o.enemyType;
-        spawn.respawnInterval = o.enemyRespawnInterval;
+        // Use per-enemy-type default if present; fallback to object's value for compatibility
+        auto it = data_.enemyTypeRespawnDefaults.find(o.enemyType);
+        if (it != data_.enemyTypeRespawnDefaults.end()) {
+            spawn.respawnInterval = it->second;
+        } else {
+            spawn.respawnInterval = o.enemyRespawnInterval;
+        }
         result.push_back(spawn);
     }
 

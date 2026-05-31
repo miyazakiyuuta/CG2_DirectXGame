@@ -2567,7 +2567,7 @@
       "moveSpeed": 2.0,
       "movementLocked": false,
       "position": {
-        "x": 18.29717254638672,
+        "x": 23.57963752746582,
         "y": 620.0,
         "z": 5.0
       },
@@ -4776,6 +4776,59 @@
       }
     },
     {
+      "blockId": 4,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "hp": 1,
+      "id": 209,
+      "modelName": "Cube.obj",
+      "position": {
+        "x": 1.2000000476837158,
+        "y": 310.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.41999998688697815,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 10.0,
+        "y": 10.0,
+        "z": 1.0
+      }
+    },
+    {
+      "blockId": 1,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "id": 212,
+      "modelName": "Cube.obj",
+      "position": {
+        "x": 0.0,
+        "y": 421.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.600000023841858,
+        "y": 0.4000000059604645,
+        "z": 2.4000000953674316
+      }
+    },
+    {
       "allowRespawn": true,
       "blockId": 7,
       "color": {
@@ -4784,7 +4837,6 @@
         "y": 1.0,
         "z": 1.0
       },
-      "enemyRespawnInterval": 15.0,
       "enemyType": 1,
       "id": 186,
       "modelName": "",
@@ -4814,7 +4866,6 @@
         "y": 1.0,
         "z": 1.0
       },
-      "enemyRespawnInterval": 15.0,
       "enemyType": 1,
       "id": 187,
       "modelName": "",
@@ -4834,6 +4885,1279 @@
         "z": 1.0
       },
       "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 188,
+      "modelName": "",
+      "position": {
+        "x": -10.0,
+        "y": 29.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 189,
+      "modelName": "",
+      "position": {
+        "x": 10.0,
+        "y": 29.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 190,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 18.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 191,
+      "modelName": "",
+      "position": {
+        "x": 45.0,
+        "y": 38.0,
+        "z": 35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 192,
+      "modelName": "",
+      "position": {
+        "x": -45.0,
+        "y": 38.0,
+        "z": -35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 193,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 58.0,
+        "z": -18.299999237060547
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 194,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 58.0,
+        "z": 16.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 195,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 63.0,
+        "z": -55.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 196,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 63.0,
+        "z": 55.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 197,
+      "modelName": "",
+      "position": {
+        "x": 10.0,
+        "y": 132.0,
+        "z": 10.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 200,
+      "modelName": "",
+      "position": {
+        "x": -10.0,
+        "y": 132.0,
+        "z": -10.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 201,
+      "modelName": "",
+      "position": {
+        "x": 42.5,
+        "y": 182.0,
+        "z": -38.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 202,
+      "modelName": "",
+      "position": {
+        "x": -42.5,
+        "y": 182.0,
+        "z": 38.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 2,
+      "id": 203,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 95.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 204,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 205.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 205,
+      "modelName": "",
+      "position": {
+        "x": -20.0,
+        "y": 202.0,
+        "z": -15.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 206,
+      "modelName": "",
+      "position": {
+        "x": 20.0,
+        "y": 202.0,
+        "z": 15.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 207,
+      "modelName": "",
+      "position": {
+        "x": 15.0,
+        "y": 202.0,
+        "z": -20.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 208,
+      "modelName": "",
+      "position": {
+        "x": -15.0,
+        "y": 202.0,
+        "z": 20.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 210,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 342.0,
+        "z": 25.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 211,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 342.0,
+        "z": -25.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 213,
+      "modelName": "",
+      "position": {
+        "x": 4.5,
+        "y": 502.0,
+        "z": 7.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 2,
+      "id": 214,
+      "modelName": "",
+      "position": {
+        "x": 20.0,
+        "y": 745.0,
+        "z": -20.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 215,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 792.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 216,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 897.0,
+        "z": 25.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 217,
+      "modelName": "",
+      "position": {
+        "x": 17.200000762939453,
+        "y": 917.0,
+        "z": -35.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 218,
+      "modelName": "",
+      "position": {
+        "x": -29.299999237060547,
+        "y": 982.0,
+        "z": 11.800000190734863
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 219,
+      "modelName": "",
+      "position": {
+        "x": -29.299999237060547,
+        "y": 982.0,
+        "z": -6.800000190734863
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 220,
+      "modelName": "",
+      "position": {
+        "x": 13.0,
+        "y": 1087.0,
+        "z": -40.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 221,
+      "modelName": "",
+      "position": {
+        "x": -35.0,
+        "y": 1087.0,
+        "z": -13.5
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 222,
+      "modelName": "",
+      "position": {
+        "x": 15.0,
+        "y": 1087.0,
+        "z": 23.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 223,
+      "modelName": "",
+      "position": {
+        "x": 48.0,
+        "y": 1125.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 224,
+      "modelName": "",
+      "position": {
+        "x": -5.0,
+        "y": 1125.0,
+        "z": -52.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 225,
+      "modelName": "",
+      "position": {
+        "x": -33.0,
+        "y": 1125.0,
+        "z": 42.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 2,
+      "id": 226,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 1320.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 227,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 1412.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 228,
+      "modelName": "",
+      "position": {
+        "x": -10.0,
+        "y": 1412.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 229,
+      "modelName": "",
+      "position": {
+        "x": 10.0,
+        "y": 1412.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 0,
+      "id": 230,
+      "modelName": "",
+      "position": {
+        "x": -18.0,
+        "y": 1502.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 231,
+      "modelName": "",
+      "position": {
+        "x": -9.0,
+        "y": 1502.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 3,
+      "id": 232,
+      "modelName": "",
+      "position": {
+        "x": 0.0,
+        "y": 1502.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 4,
+      "id": 233,
+      "modelName": "",
+      "position": {
+        "x": 9.0,
+        "y": 1502.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "allowRespawn": true,
+      "blockId": 7,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "enemyType": 1,
+      "id": 234,
+      "modelName": "",
+      "position": {
+        "x": 18.0,
+        "y": 1502.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "spawnOnSceneStart": true
+    },
+    {
+      "blockId": 1,
+      "color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "id": 235,
+      "modelName": "Cube.obj",
+      "position": {
+        "x": 2.0,
+        "y": 897.0,
+        "z": 24.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.600000023841858,
+        "y": 0.4000000059604645,
+        "z": 2.4000000953674316
+      }
     }
   ]
 }

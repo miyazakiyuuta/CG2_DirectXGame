@@ -10,6 +10,23 @@
 #include <filesystem>
 #include <imgui.h>
 
+// Helper: map known enemy type ints to human-friendly names used in the project
+static const std::vector<std::pair<int,std::string>> kKnownEnemyTypes = {
+    {0, "Chasing"},
+    {1, "Shooting"},
+    {2, "Sentinel"},
+    {3, "ClusterSlime"},
+    {4, "ProminenceSensor"},
+    {5, "PhaseGhost"}
+};
+
+static std::string EnemyTypeToName(int et) {
+    for (const auto& p : kKnownEnemyTypes) {
+        if (p.first == et) return p.second;
+    }
+    return std::string("Type_") + std::to_string(et);
+}
+
 /// <summary>
 /// コンストラクタ
 /// </summary>
@@ -515,6 +532,56 @@ void StageEditor::DrawImGui(){
 
     ImGui::Separator();
 
+    // Enemy type defaults editor
+    if (ImGui::CollapsingHeader("Enemy Type Defaults")) {
+        // List existing defaults
+        if (data.enemyTypeRespawnDefaults.empty()) {
+            ImGui::Text("(no defaults)");
+        } else {
+            for (auto it = data.enemyTypeRespawnDefaults.begin(); it != data.enemyTypeRespawnDefaults.end(); ) {
+                int et = it->first;
+                float val = it->second;
+                ImGui::PushID(et);
+                // show human friendly name
+                ImGui::Text("%s (%d)", EnemyTypeToName(et).c_str(), et);
+                // put interval on its own line to avoid cramped layout
+                ImGui::Indent(10);
+                if (ImGui::DragFloat("Interval (sec)", &val, 0.1f, 0.0f, 9999.0f, "%.2f")) {
+                    it->second = val;
+                }
+                ImGui::Unindent(10);
+                if (ImGui::Button("Remove")) {
+                    it = data.enemyTypeRespawnDefaults.erase(it);
+                    ImGui::PopID();
+                    continue;
+                }
+                ImGui::Separator();
+                ImGui::PopID();
+                ++it;
+            }
+        }
+        ImGui::Separator();
+        // Add new default
+        // Offer a combo of known enemy type names for convenience
+        std::string previewStr = EnemyTypeToName(newEnemyTypeDefaultType_);
+        if (ImGui::BeginCombo("Enemy Type", previewStr.c_str())) {
+            for (const auto& p : kKnownEnemyTypes) {
+                bool selected = (p.first == newEnemyTypeDefaultType_);
+                std::string itemLabel = p.second + " (" + std::to_string(p.first) + ")";
+                if (ImGui::Selectable(itemLabel.c_str(), selected)) {
+                    newEnemyTypeDefaultType_ = p.first;
+                }
+                if (selected) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::Text("Respawn Interval (sec)");
+        ImGui::DragFloat("#interval", &newEnemyTypeDefaultInterval_, 0.1f, 0.0f, 9999.0f, "%.2f");
+        if (ImGui::Button("Add/Update Type Default")) {
+            data.enemyTypeRespawnDefaults[newEnemyTypeDefaultType_] = newEnemyTypeDefaultInterval_;
+        }
+    }
+
 
         ImGui::Text("Editor Mode");
         int uiMode = static_cast<int>(uiMode_);
@@ -747,11 +814,6 @@ void StageEditor::DrawImGui(){
                 placingEnemyType_ = 0;
             }
             ImGui::Combo("Enemy Type", &placingEnemyType_, enemyTypes, IM_ARRAYSIZE(enemyTypes));
-
-            ImGui::InputFloat("Respawn Interval (sec)", &placingEnemyRespawnInterval_);
-            if(placingEnemyRespawnInterval_ < 0.0f){
-                placingEnemyRespawnInterval_ = 0.0f;
-            }
             ImGui::Checkbox("Allow Respawn", &placingAllowRespawn_);
             ImGui::Checkbox("Spawn On Scene Start", &placingSpawnOnSceneStart_);
         }
@@ -786,7 +848,6 @@ void StageEditor::DrawImGui(){
                 }
                 if(o.blockId == BlockID::EnemySpawn){
                     o.enemyType = placingEnemyType_;
-                    o.enemyRespawnInterval = placingEnemyRespawnInterval_;
                     o.allowRespawn = placingAllowRespawn_;
                     o.spawnOnSceneStart = placingSpawnOnSceneStart_;
                 }
@@ -958,7 +1019,6 @@ void StageEditor::DrawImGui(){
                         }
                         if(o.blockId == BlockID::EnemySpawn){
                             o.enemyType = placingEnemyType_;
-                            o.enemyRespawnInterval = placingEnemyRespawnInterval_;
                             o.allowRespawn = placingAllowRespawn_;
                             o.spawnOnSceneStart = placingSpawnOnSceneStart_;
                         }
@@ -1123,20 +1183,6 @@ void StageEditor::DrawImGui(){
                             }
                         }
                     }
-
-                    if(ImGui::InputFloat("Respawn Interval (sec)", &editEnemyRespawnInterval_)){
-                        if(editEnemyRespawnInterval_ < 0.0f){
-                            editEnemyRespawnInterval_ = 0.0f;
-                        }
-                        if(liveEdit_){
-                            for(auto& obj : data.objects){
-                                if(obj.id == selectedObjectId_){
-                                    obj.enemyRespawnInterval = editEnemyRespawnInterval_;
-                                    break;
-                                }
-                            }
-                        }
-                    }
                     if(ImGui::Checkbox("Allow Respawn", &editAllowRespawn_)){
                         if(liveEdit_){
                             for(auto& obj : data.objects){ if(obj.id == selectedObjectId_){ obj.allowRespawn = editAllowRespawn_; break; } }
@@ -1198,9 +1244,8 @@ void StageEditor::DrawImGui(){
                                 // Apply movementLocked from editor state
                                 obj.movementLocked = editMovementLocked_;
                             }
-                          if(obj.blockId == BlockID::EnemySpawn){
+                            if(obj.blockId == BlockID::EnemySpawn){
                                 obj.enemyType = editEnemyType_;
-                                obj.enemyRespawnInterval = editEnemyRespawnInterval_;
                                 obj.allowRespawn = editAllowRespawn_;
                                 obj.spawnOnSceneStart = editSpawnOnSceneStart_;
                             }

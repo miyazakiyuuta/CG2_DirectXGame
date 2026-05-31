@@ -84,6 +84,10 @@ public:
     // 4. マネージャーからプレイヤー情報を受け取るための追加
     void SetPlayer(class Player* p) { player_ = p; }
 
+    // Gravity control: enable/disable gravity for this enemy instance
+    void SetUseGravity(bool use) { useGravity_ = use; }
+    bool GetUseGravity() const { return useGravity_; }
+
     // 能力 XP のドロップ定義
     struct DropEntry {
         AbilityId ability = AbilityId::Unknown;
@@ -184,6 +188,9 @@ protected:
 
     float gravity_ = -0.04f;
     float groundY_ = 0.0f;
+
+    // Whether this enemy is affected by gravity
+    bool useGravity_ = true;
 
     // プレイヤーの移動速度倍率（1.0 が通常）
     float playerSpeedMultiplier_ = 1.0f;

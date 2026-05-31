@@ -258,11 +258,12 @@ private:
 
     int placingEnemyType_ = 0;
     int editEnemyType_ = 0;
-  float placingEnemyRespawnInterval_ = 5.0f;
-    float editEnemyRespawnInterval_ = 5.0f;
     bool placingAllowRespawn_ = true;
     bool placingSpawnOnSceneStart_ = true;
     bool editAllowRespawn_ = true;
     bool editSpawnOnSceneStart_ = true;
     int lastSelectedIdForEdit_ = -1;
+    // Temp inputs for enemy type defaults editor
+    int newEnemyTypeDefaultType_ = 0;
+    float newEnemyTypeDefaultInterval_ = 5.0f;
 };
