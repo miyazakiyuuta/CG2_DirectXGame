@@ -240,6 +240,8 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
 	ModelManager::GetInstance()->LoadModel("Kanban1.obj");
 	ModelManager::GetInstance()->LoadModel("Cube.obj");
+	ModelManager::GetInstance()->LoadModel("goal.obj");
+	ModelManager::GetInstance()->LoadModel("water.obj");
 	ModelManager::GetInstance()->LoadModel("tongue/tongue.obj");
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
@@ -514,6 +516,22 @@ void GamePlayScene::Initialize() {
 
 	LightManager::GetInstance()->LoadFromFile("resources/stage_lights.json");
 	LightManager::GetInstance()->ApplyToObject3dCommon();
+
+	// Create a player-following light and remember its index
+	if (LightManager::GetInstance()->AddDefaultPointLight()) {
+		// The new light is appended at the end; store its index
+		playerLightIndex_ = static_cast<int>(LightManager::GetInstance()->GetPointLights().size()) - 1;
+		// Initialize its parameters
+		auto& pl = LightManager::GetInstance()->GetPointLightsForEdit()[playerLightIndex_];
+		pl.name = "PlayerFollowLight";
+		pl.enabled = true;
+		pl.color = {1.0f, 0.9f, 0.7f, 1.0f};
+		pl.intensity = 0.5f;
+		pl.radius = 40.0f;
+		pl.decay = 1.0f;
+		// position will be updated in Update()
+		LightManager::GetInstance()->ApplyToObject3dCommon();
+	}
 
 #ifdef USE_IMGUI
 	lightEditor_ = std::make_unique<LightEditor>();
@@ -1010,6 +1028,24 @@ void GamePlayScene::Update() {
 
 	// ParticleManager 更新（インスタンス書き込みの前に最新のカメラ行列を使うため）
 	ParticleManager::GetInstance()->Update(1.0f / 60.0f);
+
+	// Update player-following light position
+	if (playerLightIndex_ >= 0 && player_) {
+		auto& lights = LightManager::GetInstance()->GetPointLightsForEdit();
+		if (playerLightIndex_ < static_cast<int>(lights.size())) {
+			Vector3 ppos = player_->GetPosition();
+			// keep horizontal follow, and make the light float above player based on player's height
+			float followHeight = 5.0f; // base offset
+			// if player is moving up, lift light a bit more
+			Vector3 pvel = player_->GetVelocity();
+			if (pvel.y > 0.1f) {
+				followHeight += pvel.y * 0.5f;
+			}
+			lights[playerLightIndex_].position = { ppos.x, ppos.y + followHeight, ppos.z };
+			// commit to Object3dCommon
+			LightManager::GetInstance()->ApplyToObject3dCommon();
+		}
+	}
 
 	// XP オーブ用インスタンス書き込み（Update 後、Draw 前）
 	ParticleManager::GetInstance()->EnsureParticleGroup("xp_orb", "resources/circle.png");

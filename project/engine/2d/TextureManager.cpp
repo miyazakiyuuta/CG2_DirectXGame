@@ -1,9 +1,13 @@
 #include "2d/TextureManager.h"
 #include "base/SrvManager.h"
 #include "utility/StringUtility.h"
+#include "utility/Logger.h"
+#include <filesystem>
 
 using namespace StringUtility;
 using namespace Microsoft::WRL;
+
+namespace fs = std::filesystem;
 
 TextureManager* TextureManager::instance = nullptr;
 
@@ -31,9 +35,21 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 		return;
 	}
 
+	// Log attempt
+	Logger::Log(std::string("TextureManager::LoadTexture: ") + filePath + "\n");
+
 	// 読み込み済みテクスチャを検索
 	if (textureDatas_.contains(filePath)) {
 		return;
+	}
+
+	// Check file exists early to give clearer diagnostics
+	if (filePath != TextureManager::kDefaultTextureName) {
+		fs::path p(filePath);
+		if (!fs::exists(p)) {
+			Logger::Log(std::string("Texture file not found: ") + filePath + "\n");
+			return; // fallback: do not assert, leave default handling to caller
+		}
 	}
 
 	std::wstring filePathW = ConvertString(filePath);
@@ -46,7 +62,10 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 	} else { // それ以外(WIC)として読み込む
 		hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
 	}
-	assert(SUCCEEDED(hr));
+	if (FAILED(hr)) {
+		Logger::Log(std::string("Texture load failed (LoadFrom...): ") + filePath + " hr=" + std::to_string(static_cast<long long>(hr)) + "\n");
+		return;
+	}
 
 	DirectX::ScratchImage mipImages{};
 
@@ -54,7 +73,16 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 		mipImages = std::move(image);                        // 圧縮フォーマットならそのまま使う
 	} else {
 		hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImages);
-		assert(SUCCEEDED(hr));
+		if (FAILED(hr)) {
+			Logger::Log(std::string("GenerateMipMaps failed for: ") + filePath + " hr=" + std::to_string(static_cast<long long>(hr)) + " - falling back to single-level image\n");
+			// Fallback: use original image as single mip level so loading can continue
+			try {
+				mipImages = std::move(image);
+			} catch (...) {
+				Logger::Log(std::string("Fallback assignment failed for: ") + filePath + "\n");
+				return;
+			}
+		}
 	}
 
 	TextureData& textureData = textureDatas_[filePath];

@@ -106,6 +106,9 @@ private:
 	std::vector<std::unique_ptr<WarpExit>> activeWarpExits_;
 	std::unique_ptr<Skybox> skybox_;
 
+	// index of the point light used to follow the player (-1 = none)
+	int playerLightIndex_ = -1;
+
 	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 
 	CollisionUtility::Cylinder wellCylinder_ = {};
