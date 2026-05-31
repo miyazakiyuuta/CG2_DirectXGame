@@ -120,7 +120,6 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
 
             if (o.blockId == BlockID::EnemySpawn) {
                 jo["enemyType"] = o.enemyType;
-                jo["enemyRespawnInterval"] = o.enemyRespawnInterval;
                 jo["allowRespawn"] = o.allowRespawn;
                 jo["spawnOnSceneStart"] = o.spawnOnSceneStart;
             }
@@ -191,8 +190,42 @@ bool StageSerializer::SaveToFile(const StageData& data, const std::string& path)
 
             je.push_back(se);
         }
+        // Build per-enemy-type defaults array
+        nlohmann::json jt = nlohmann::json::array();
+        try {
+            if (!data.enemyTypeRespawnDefaults.empty()) {
+                for (const auto& kv : data.enemyTypeRespawnDefaults) {
+                    nlohmann::json te;
+                    te["enemyType"] = kv.first;
+                    te["respawnInterval"] = kv.second;
+                    jt.push_back(te);
+                }
+            } else {
+                std::unordered_map<int, float> typeMap;
+                for (const auto& o : data.objects) {
+                    if (o.blockId != BlockID::EnemySpawn) continue;
+                    if (typeMap.find(o.enemyType) == typeMap.end()) {
+                        typeMap[o.enemyType] = o.enemyRespawnInterval;
+                    }
+                }
+                for (const auto& kv : typeMap) {
+                    nlohmann::json te;
+                    te["enemyType"] = kv.first;
+                    te["respawnInterval"] = kv.second;
+                    jt.push_back(te);
+                }
+            }
+        } catch (...) {}
+
+        // Write enemy auxiliary file: include spawns and optional enemyTypeDefaults
         for (const auto& enemyPath : GetStageDerivedFileCandidates(path, "_enemies.json")) {
-            (void)TryWriteJsonFile(enemyPath, je);
+            try {
+                nlohmann::json out;
+                // Write type defaults first so they appear at the start of the file
+                if (!jt.empty()) out["enemyTypeDefaults"] = jt;
+                out["spawns"] = je;
+                (void)TryWriteJsonFile(enemyPath, out);
+            } catch (...) {}
         }
         // NOTE: only enemy auxiliary file is written by design; moving platforms, warps and breakables
         // are intentionally not exported to separate files anymore.
@@ -226,6 +259,15 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
         nlohmann::json j;
         ifs >> j;
         StageData data;
+
+        // Read embedded per-enemy-type defaults from main JSON if present
+        if (j.contains("enemyTypeDefaults") && j["enemyTypeDefaults"].is_array()) {
+            for (const auto& te : j["enemyTypeDefaults"]) {
+                int et = te.value("enemyType", 0);
+                float ri = te.value("respawnInterval", 0.0f);
+                data.enemyTypeRespawnDefaults[et] = ri;
+            }
+        }
 
         // ステージ名を読み込む
         if (j.contains("name")) {
@@ -346,9 +388,30 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                     continue;
                 }
 
+                nlohmann::json je_raw;
+                eifs >> je_raw;
                 nlohmann::json je;
-                eifs >> je;
-                if (!je.is_array()) {
+                std::unordered_map<int, float> enemyTypeDefaults;
+                // Support two formats:
+                // 1) legacy array: [ ...spawn objects... ]
+                // 2) object: { "spawns": [...], "enemyTypeDefaults": [...] }
+                if (je_raw.is_array()) {
+                    je = je_raw;
+                } else if (je_raw.is_object()) {
+                    if (je_raw.contains("spawns") && je_raw["spawns"].is_array()) {
+                        je = je_raw["spawns"];
+                    } else {
+                        continue;
+                    }
+                    if (je_raw.contains("enemyTypeDefaults") && je_raw["enemyTypeDefaults"].is_array()) {
+                        for (const auto& te : je_raw["enemyTypeDefaults"]) {
+                            int et = te.value("enemyType", 0);
+                            float ri = te.value("respawnInterval", 0.0f);
+                            enemyTypeDefaults[et] = ri;
+                            data.enemyTypeRespawnDefaults[et] = ri;
+                        }
+                    }
+                } else {
                     continue;
                 }
 
@@ -417,6 +480,18 @@ std::optional<StageData> StageSerializer::LoadFromFile(const std::string& path)
                         o.enemyRespawnInterval = item["enemyRespawnInterval"].get<float>();
                     } else if (item.contains("respawnInterval")) {
                         o.enemyRespawnInterval = item["respawnInterval"].get<float>();
+                    } else {
+                        // Prefer StageData embedded defaults
+                        auto itMain = data.enemyTypeRespawnDefaults.find(o.enemyType);
+                        if (itMain != data.enemyTypeRespawnDefaults.end()) {
+                            o.enemyRespawnInterval = itMain->second;
+                        } else {
+                            // fallback to legacy external types map if present
+                            auto it = enemyTypeDefaults.find(o.enemyType);
+                            if (it != enemyTypeDefaults.end()) {
+                                o.enemyRespawnInterval = it->second;
+                            }
+                        }
                     }
                     o.allowRespawn = item.value("allowRespawn", true);
                     o.spawnOnSceneStart = item.value("spawnOnSceneStart", true);

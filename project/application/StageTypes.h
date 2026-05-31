@@ -4,6 +4,7 @@
 #include <vector>
 #include "math/Vector3.h"
 #include "math/Vector4.h"
+#include <unordered_map>
 
 // ブロック種類の列挙
 enum class BlockID {
@@ -92,6 +93,8 @@ struct StageData {
 
     // ステージ内の全オブジェクト
     std::vector<StageObject> objects;
+    // 敵種別ごとのデフォルトリスポーン時間 (enemyType -> respawnInterval)
+    std::unordered_map<int, float> enemyTypeRespawnDefaults;
 };
 
 struct EnemySpawnPoint{

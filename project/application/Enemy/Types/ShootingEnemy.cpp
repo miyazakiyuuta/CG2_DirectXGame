@@ -19,6 +19,9 @@ void ShootingEnemy::Initialize(Object3dCommon* common, Camera* camera, const Vec
     object_->SetScale({0.8f, scaleY, 0.8f});
 
 	groundY_ = scaleY;
+
+	// This enemy should not be affected by gravity so it can be placed in the air
+	SetUseGravity(false);
 }
 
 // プレイヤーへの視線がブロックで遮られているかチェック
@@ -127,7 +130,9 @@ void ShootingEnemy::Update(float deltaTime, const Vector3& playerPos) {
 	ResolveHorizontalCollisions(previousPosition);
 
 	// 3. 垂直移動の計算
-	velocity_.y += gravity_; // 重力加算
+	if (GetUseGravity()) {
+		velocity_.y += gravity_; // 重力加算
+	}
 	position_.y += velocity_.y;
 
 	// 4. 垂直衝突解決（接地判定）
