@@ -69,7 +69,8 @@ void TutorialScene::Initialize()
 		SrvManager::GetInstance()
 	);
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
-	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
+	// ブロック破壊パーティクル用テクスチャ
+	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/block_break_particle.png");
 	// XPオーブ用。ここでブレンドモードを指定する
 	ParticleManager::GetInstance()->CreateParticleGroup(
 		"xp_orb",
@@ -88,7 +89,7 @@ void TutorialScene::Initialize()
 		BlendMode::Add
 	);
 
-	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+	TextureManager::GetInstance()->LoadTexture("resources/block_break_particle.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 	TextureManager::GetInstance()->LoadTexture("resources/circle.png");
 

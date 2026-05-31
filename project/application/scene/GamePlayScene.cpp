@@ -218,7 +218,8 @@ void GamePlayScene::Initialize() {
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
 	// パーティクルグループの作成。第一引数はグループ名、第二引数はテクスチャファイルパス
-	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/uvChecker.png");
+	// ブロック破壊パーティクル用テクスチャ
+	ParticleManager::GetInstance()->CreateParticleGroup("break", "resources/block_break_particle.png");
 	ParticleManager::GetInstance()->CreateParticleGroup("xp_orb", "resources/circle.png", BlendMode::Add);
 	ParticleManager::GetInstance()->CreateParticleGroup("warp_trail", "resources/circle.png", BlendMode::Add);
 	ParticleManager::GetInstance()->CreateParticleGroup("warp_suck", "resources/circle.png", BlendMode::Add);
@@ -226,7 +227,7 @@ void GamePlayScene::Initialize() {
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
 
-	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+	TextureManager::GetInstance()->LoadTexture("resources/block_break_particle.png");
 	TextureManager::GetInstance()->LoadTexture("resources/grass.png");
 	TextureManager::GetInstance()->LoadTexture("resources/circle.png");
 	TextureManager::GetInstance()->LoadTexture("resources/UI/KiwiMaruNumStrength.png");

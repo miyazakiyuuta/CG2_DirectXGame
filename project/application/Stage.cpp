@@ -40,19 +40,23 @@ void Stage::ApplyDamageAtSphere(const CollisionUtility::Sphere& sphere, int dama
             loader_.RemoveInstanceById(targetId);
             data_.objects.erase(it);
 
-            // spawn simple particles (if group exists)
+            // ブロック破壊時のパーティクルを生成
             ParticleConfig cfg;
-            cfg.minScale = { 0.2f,0.2f,0.2f };
-            cfg.maxScale = { 0.6f,0.6f,0.6f };
-            cfg.minVelocity = { -1.0f, -1.0f, -1.0f };
-            cfg.maxVelocity = { 1.0f, 1.5f, 1.0f };
-            cfg.lifeTime = 1.0f;
-            cfg.startColor = { 1.0f,1.0f,1.0f,1.0f };
+            // 破片の大きさ（小さめの破片が散らばる）
+            cfg.minScale = { 0.15f, 0.15f, 0.15f };
+            cfg.maxScale = { 0.5f, 0.5f, 0.5f };
+            // 速度：上方向に強めに吹き飛ばして破壊感を演出
+            cfg.minVelocity = { -2.0f, 0.5f, -2.0f };
+            cfg.maxVelocity = { 2.0f, 3.5f, 2.0f };
+            // 寿命：短めにして素早く消える
+            cfg.lifeTime = 0.8f;
+            // 暖色系の色合い（テクスチャの岩片と馴染むアンバー系）
+            cfg.startColor = { 1.0f, 0.85f, 0.6f, 1.0f };
 
             try{
-                ParticleManager::GetInstance()->Emit("break", o.position, cfg, 16);
+                ParticleManager::GetInstance()->Emit("break", o.position, cfg, 12);
             } catch(...) {
-                // if particle group not found, ignore
+                // パーティクルグループが見つからない場合は無視
             }
 
         } else {
