@@ -972,10 +972,10 @@ void TitleScene::Draw()
 	const Vector2 gameplayPos = { 960.0f, 430.0f };
 	const Vector2 tutorialPos = { 960.0f, 515.0f };
 
-	const Vector2 difficultyTitlePos = { 960.0f, 360.0f };
-	const Vector2 normalPos = { 960.0f, 435.0f };
-	const Vector2 hardPos = { 960.0f, 510.0f };
-	const Vector2 hellPos = { 960.0f, 585.0f };
+	const Vector2 difficultyTitlePos = { 960.0f, 380.0f };
+	const Vector2 normalPos = { 960.0f, 460.0f };
+	const Vector2 hardPos = { 960.0f, 540.0f };
+	const Vector2 hellPos = { 960.0f, 620.0f };
 
 	Vector2 selectorPos = gameplayPos;
 
