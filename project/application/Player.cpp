@@ -2486,7 +2486,7 @@ void Player::MoveHorizontal(float cameraYaw) {
 	Vector3 position = object_->GetTranslate();
 	lastMove_ = { 0.0f, 0.0f, 0.0f };
 
-	if (input_->IsPushKey(DIK_R)) {
+	/*if (input_->IsPushKey(DIK_R)) {
 		position = { 0.0f, resetHeight_, 0.0f };
 		velocity_ = { 0.0f, 0.0f, 0.0f };
 		groundMoveVelocity_ = { 0.0f, 0.0f, 0.0f };
@@ -2499,7 +2499,7 @@ void Player::MoveHorizontal(float cameraYaw) {
 		TransitionTo(MovementState::Jumping);
 		object_->SetTranslate(position);
 		return;
-	}
+	}*/
 
 	Vector3 inputDir = GetMoveInputDirection(cameraYaw);
 
