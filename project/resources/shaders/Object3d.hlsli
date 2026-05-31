@@ -20,7 +20,7 @@ struct PointLight {
 };
 
 struct PointLightArray {
-    PointLight lights[16];
+    PointLight lights[128];
     uint count;
     float3 padding;
 };

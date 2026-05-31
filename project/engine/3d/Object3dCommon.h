@@ -4,7 +4,7 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 
-static const uint32_t kMaxPointLights = 16;
+static const uint32_t kMaxPointLights = 128;
 
 struct PointLight {
 	Vector4 color; //!< ライトの色
