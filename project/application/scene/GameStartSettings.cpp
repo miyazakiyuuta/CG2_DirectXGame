@@ -27,6 +27,20 @@ void GameStartSettings::SetDifficulty(Difficulty difficulty)
 	}
 }
 
+float GameStartSettings::GetXPMultiplier()
+{
+	switch (difficulty_) {
+	case Difficulty::Normal:
+		return 1.5f; // ノーマルはやや高め
+	case Difficulty::Hard:
+		return 1.0f; // ハードは基準
+	case Difficulty::Hell:
+		return 0.5f; // ヘルは低め
+	default:
+		return 1.0f;
+	}
+}
+
 GameStartSettings::Difficulty GameStartSettings::GetDifficulty()
 {
 	return difficulty_;

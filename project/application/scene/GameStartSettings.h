@@ -15,6 +15,7 @@ public:
 
 	static const std::string& GetStageFilePath();
 	static const char* GetDifficultyName();
+	static float GetXPMultiplier();
 
 private:
 	static Difficulty difficulty_;

@@ -38,6 +38,7 @@
 #endif
 #include "utility/Logger.h"
 #include <numbers>
+#include <cmath>
 #include <sstream>
 #include <algorithm>
 
@@ -334,7 +335,11 @@ void GamePlayScene::Initialize() {
 	// XP オーブのスポーン処理を登録
 	enemyManager_->SetXPOrbSpawner([this](const Vector3& pos, AbilityId ability, int amount) {
 		// 単純に amount 個のオーブを 1 値ずつスポーンするか、amount を分割して配る
-		int remaining = amount;
+		// 難易度に応じた経験値倍率を適用
+		float multiplier = GameStartSettings::GetXPMultiplier();
+		int finalAmount = static_cast<int>(std::lround(amount * multiplier));
+		if (finalAmount < 1) finalAmount = 1;
+		int remaining = finalAmount;
 		for (auto& orb : xpOrbs_) {
 			if (remaining <= 0)
 				break;
