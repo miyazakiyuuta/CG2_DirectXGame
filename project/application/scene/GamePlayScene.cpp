@@ -334,28 +334,81 @@ void GamePlayScene::Initialize() {
 
 	// XP オーブのスポーン処理を登録
 	enemyManager_->SetXPOrbSpawner([this](const Vector3& pos, AbilityId ability, int amount) {
-		// 単純に amount 個のオーブを 1 値ずつスポーンするか、amount を分割して配る
-		// 難易度に応じた経験値倍率を適用
+		// 合計XP = base amount * 難易度倍率 を計算し、それを複数オーブに分割してスポーンする
 		float multiplier = GameStartSettings::GetXPMultiplier();
-		int finalAmount = static_cast<int>(std::lround(amount * multiplier));
-		if (finalAmount < 1) finalAmount = 1;
-		int remaining = finalAmount;
-		for (auto& orb : xpOrbs_) {
-			if (remaining <= 0)
-				break;
-			if (!orb.IsActive()) {
-				Vector3 spawnPos = pos;
-				// ランダムな小さなオフセットを与えて見た目をばらす
-				spawnPos.x += Random::GetFloat(-0.5f, 0.5f);
-				spawnPos.y += Random::GetFloat(0.0f, 0.6f);
-				spawnPos.z += Random::GetFloat(-0.5f, 0.5f);
-				orb.SetAbility(ability);
-				orb.Init(spawnPos, 1);
-				// Do not expire automatically; remain until collected by player
-				orb.SetFiniteLife(false);
-				orb.SetGroundY(0.0f); // 後で毎フレーム上書きしてもよい
-				--remaining;
+		int totalXP = static_cast<int>(std::lround(amount * multiplier));
+		if (totalXP < 1) totalXP = 1;
+
+		// 使用可能なオーブスロット数を数える
+		int freeSlots = 0;
+		for (const auto& orb : xpOrbs_) {
+			if (!orb.IsActive()) ++freeSlots;
+		}
+		if (freeSlots <= 0) {
+			return; // スロット不足
+		}
+		int numToSpawn = 0;
+
+		// 小さめの合計XP（<=3）は、運に依る 1/2/3 個の出現にする（基本は2、たまに3、悪ければ1）
+		if (totalXP <= 3) {
+			int maxCandidate = std::min(totalXP, freeSlots);
+			if (maxCandidate <= 0) return;
+
+			// 基本ウェイト（1,2,3）を設定し、難易度倍率で大きい方に傾ける
+			float w1 = 0.2f, w2 = 0.6f, w3 = 0.2f;
+			// multiplier>1 の場合は多めに、<1 の場合は少なめにする
+			w2 *= multiplier;
+			w3 *= multiplier * multiplier; // 3個はより倍率の影響を受けやすく
+
+			// Collect candidates and weights
+			std::vector<int> candidates;
+			std::vector<float> weights;
+			if (maxCandidate >= 1) { candidates.push_back(1); weights.push_back(w1); }
+			if (maxCandidate >= 2) { candidates.push_back(2); weights.push_back(w2); }
+			if (maxCandidate >= 3) { candidates.push_back(3); weights.push_back(w3); }
+
+			float sumw = 0.0f;
+			for (float w : weights) sumw += w;
+			if (sumw <= 0.0f) {
+				numToSpawn = 1;
+			} else {
+				float r = Random::GetFloat(0.0f, sumw);
+				float acc = 0.0f;
+				for (size_t i = 0; i < weights.size(); ++i) {
+					acc += weights[i];
+					if (r <= acc) { numToSpawn = candidates[i]; break; }
+				}
+				if (numToSpawn == 0) numToSpawn = candidates.back();
 			}
+		} else {
+			// 大きめは均等分割（以前のロジック）
+			numToSpawn = std::min(totalXP, freeSlots);
+		}
+
+		// 合計XP を numToSpawn 個に分割（ほぼ均等にし、余りを先着で配る）
+		if (numToSpawn <= 0) return;
+		int baseVal = totalXP / numToSpawn;
+		int remainder = totalXP % numToSpawn;
+
+		int spawned = 0;
+		for (auto& orb : xpOrbs_) {
+			if (spawned >= numToSpawn) break;
+			if (orb.IsActive()) continue;
+
+			Vector3 spawnPos = pos;
+			spawnPos.x += Random::GetFloat(-0.5f, 0.5f);
+			spawnPos.y += Random::GetFloat(0.0f, 0.6f);
+			spawnPos.z += Random::GetFloat(-0.5f, 0.5f);
+
+			int val = baseVal + (remainder > 0 ? 1 : 0);
+			if (remainder > 0) --remainder;
+
+			orb.SetAbility(ability);
+			orb.Init(spawnPos, val);
+			orb.SetFiniteLife(false);
+			orb.SetGroundY(0.0f);
+
+			++spawned;
 		}
 	});
 

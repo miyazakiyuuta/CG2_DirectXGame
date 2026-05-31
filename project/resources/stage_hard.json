@@ -2567,7 +2567,7 @@
       "moveSpeed": 2.0,
       "movementLocked": false,
       "position": {
-        "x": 26.75068473815918,
+        "x": 23.57963752746582,
         "y": 620.0,
         "z": 5.0
       },
@@ -4829,32 +4829,6 @@
       }
     },
     {
-      "blockId": 1,
-      "color": {
-        "w": 1.0,
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
-      },
-      "id": 235,
-      "modelName": "Cube.obj",
-      "position": {
-        "x": 2.0,
-        "y": 897.0,
-        "z": 24.0
-      },
-      "rotation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      "scale": {
-        "x": 1.600000023841858,
-        "y": 0.4000000059604645,
-        "z": 2.4000000953674316
-      }
-    },
-    {
       "allowRespawn": true,
       "blockId": 7,
       "color": {
@@ -6160,19 +6134,19 @@
       "spawnOnSceneStart": true
     },
     {
-      "blockId": 5,
+      "blockId": 1,
       "color": {
         "w": 1.0,
         "x": 1.0,
         "y": 1.0,
         "z": 1.0
       },
-      "id": 236,
+      "id": 235,
       "modelName": "Cube.obj",
       "position": {
-        "x": 0.0,
-        "y": 260.0,
-        "z": 0.0
+        "x": 2.0,
+        "y": 897.0,
+        "z": 24.0
       },
       "rotation": {
         "x": 0.0,
@@ -6180,48 +6154,10 @@
         "z": 0.0
       },
       "scale": {
-        "x": 1.5,
-        "y": 1.5,
-        "z": 1.5
-      },
-      "warpTargetPosition": {
-        "x": 10.0,
-        "y": 305.0,
-        "z": 25.0
-      },
-      "warpTargetSceneId": -1
-    },
-    {
-      "blockId": 5,
-      "color": {
-        "w": 1.0,
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
-      },
-      "id": 237,
-      "modelName": "Cube.obj",
-      "position": {
-        "x": 0.0,
-        "y": 390.0,
-        "z": 0.0
-      },
-      "rotation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      "scale": {
-        "x": 1.5,
-        "y": 1.5,
-        "z": 1.5
-      },
-      "warpTargetPosition": {
-        "x": 35.0,
-        "y": 445.0,
-        "z": 0.0
-      },
-      "warpTargetSceneId": -1
+        "x": 1.600000023841858,
+        "y": 0.4000000059604645,
+        "z": 2.4000000953674316
+      }
     },
     {
       "blockId": 8,
