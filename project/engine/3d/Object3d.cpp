@@ -45,6 +45,10 @@ void Object3d::Update() {
 }
 
 void Object3d::Draw() {
+	if (!model_ || !camera_) {
+		return;
+	}
+
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
 	if (model_) {

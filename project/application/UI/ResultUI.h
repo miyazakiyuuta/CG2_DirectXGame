@@ -29,6 +29,7 @@ private:
 	std::vector<float> LoadClearTimeRanking() const;
 	bool SaveClearTimeRanking(const std::vector<float>& times) const;
 	bool UpdateClearTimeRanking(float clearTimeSeconds);
+	std::string GetClearTimeRankingFilePath() const;
 	std::string FormatClearTime(float seconds) const;
 	void CreateClearRankingSprites(float clearTimeSeconds);
 
@@ -50,8 +51,6 @@ private:
 	bool isGamepadMode_ = false;
 
 	static constexpr int kClearTimeRankingMaxCount_ = 5;
-	static constexpr const char* kClearTimeRankingFilePath_ =
-		"resources/clear_time_ranking.json";
 
 	std::vector<float> clearTimeRanking_;
 	bool clearTimeRankingUpdated_ = false;

@@ -5,6 +5,7 @@
 #include "UI/RuntimeTextTextureGenerator.h"
 #include "base/WinApp.h"
 #include "io/Input.h"
+#include "scene/GameStartSettings.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -19,6 +20,7 @@ namespace {
 #if defined(__cpp_char8_t)
 	std::string ToUtf8String(const char8_t* text) { return text ? std::string(reinterpret_cast<const char*>(text)) : std::string(); }
 #endif
+	constexpr const char* kLegacyClearTimeRankingFilePath = "resources/clear_time_ranking.json";
 } // namespace
 
 void ResultUI::Initialize(SpriteCommon* spriteCommon) {
@@ -336,13 +338,21 @@ std::string ResultUI::FormatClearTime(float seconds) const
 std::vector<float> ResultUI::LoadClearTimeRanking() const
 {
 	std::vector<float> times;
+	const std::string rankingFilePath = GetClearTimeRankingFilePath();
+	std::string loadFilePath = rankingFilePath;
 
 	try {
-		if (!std::filesystem::exists(kClearTimeRankingFilePath_)) {
-			return times;
+		if (!std::filesystem::exists(loadFilePath)) {
+			if (GameStartSettings::GetDifficulty() == GameStartSettings::Difficulty::Normal &&
+				std::filesystem::exists(kLegacyClearTimeRankingFilePath)) {
+				loadFilePath = kLegacyClearTimeRankingFilePath;
+			}
+			else {
+				return times;
+			}
 		}
 
-		std::ifstream ifs(kClearTimeRankingFilePath_);
+		std::ifstream ifs(loadFilePath);
 		if (!ifs.is_open()) {
 			return times;
 		}
@@ -373,8 +383,10 @@ std::vector<float> ResultUI::LoadClearTimeRanking() const
 
 bool ResultUI::SaveClearTimeRanking(const std::vector<float>& times) const
 {
+	const std::string rankingFilePath = GetClearTimeRankingFilePath();
+
 	try {
-		std::filesystem::path path(kClearTimeRankingFilePath_);
+		std::filesystem::path path(rankingFilePath);
 		if (path.has_parent_path()) {
 			std::filesystem::create_directories(path.parent_path());
 		}
@@ -388,7 +400,7 @@ bool ResultUI::SaveClearTimeRanking(const std::vector<float>& times) const
 			j["times"].push_back(rounded);
 		}
 
-		std::ofstream ofs(kClearTimeRankingFilePath_);
+		std::ofstream ofs(rankingFilePath);
 		if (!ofs.is_open()) {
 			return false;
 		}
@@ -398,6 +410,20 @@ bool ResultUI::SaveClearTimeRanking(const std::vector<float>& times) const
 	}
 	catch (...) {
 		return false;
+	}
+}
+
+std::string ResultUI::GetClearTimeRankingFilePath() const
+{
+	switch (GameStartSettings::GetDifficulty()) {
+	case GameStartSettings::Difficulty::Normal:
+		return "resources/clear_time_ranking_normal.json";
+	case GameStartSettings::Difficulty::Hard:
+		return "resources/clear_time_ranking_hard.json";
+	case GameStartSettings::Difficulty::Hell:
+		return "resources/clear_time_ranking_hell.json";
+	default:
+		return "resources/clear_time_ranking_normal.json";
 	}
 }
 

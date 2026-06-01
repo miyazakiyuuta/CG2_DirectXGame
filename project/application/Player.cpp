@@ -2245,6 +2245,10 @@ void Player::Update()
     if (sonarTimer_ > 0.0f) {
         if (stage_) {
             for (const auto& o : stage_->GetStageData().objects) {
+                if (o.modelName.empty()) {
+                    continue;
+                }
+
                 float dx = o.position.x - GetPosition().x;
                 float dy = o.position.y - GetPosition().y;
                 float dz = o.position.z - GetPosition().z;
@@ -2294,6 +2298,10 @@ void Player::Update()
             // restore stage object colors
             if (stage_) {
                 for (const auto& o : stage_->GetStageData().objects) {
+                    if (o.modelName.empty()) {
+                        continue;
+                    }
+
                     stage_->SetInstanceColorById(o.id, o.color);
                 }
             }

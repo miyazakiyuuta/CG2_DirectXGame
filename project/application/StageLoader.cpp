@@ -227,7 +227,7 @@ void StageLoader::DrawAndUpdate()
     pendingDeletion_.clear();
     // すべてのインスタンスに対して Update と Draw を呼び出す
     for (auto& i : instances_) {
-        if (i.object) {
+        if (i.object && i.object->HasModel()) {
             // 更新と描画を呼び出す
             i.object->Update();
             i.object->Draw();
@@ -239,7 +239,7 @@ void StageLoader::DrawOpaqueAndUpdate()
 {
     pendingDeletion_.clear();
     for (auto& i : instances_) {
-        if (!i.object) {
+        if (!i.object || !i.object->HasModel()) {
             continue;
         }
 
@@ -267,7 +267,7 @@ void StageLoader::DrawTransparentSortedAndUpdate(const Vector3& cameraPos)
     drawItems.reserve(instances_.size());
 
     for (auto& i : instances_) {
-        if (!i.object) {
+        if (!i.object || !i.object->HasModel()) {
             continue;
         }
 
