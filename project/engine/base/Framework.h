@@ -2,6 +2,8 @@
 #include "scene/AbstractSceneFactory.h"
 #include "base/ImGuiManager.h"
 #include "base/RenderTarget.h"
+#include "effect/EffectManager.h"   // 追加
+
 
 #include <memory>
 #include <wrl/client.h>
@@ -45,9 +47,13 @@ private:
 protected:
 	std::unique_ptr<AbstractSceneFactory> sceneFactory_;
 
+	std::unique_ptr<RenderTarget> sceneRenderTarget_;
+	std::unique_ptr<EffectManager> effectManager_;
+	uint32_t finalImageSrvIndex_ = 0;
+
 #ifdef USE_IMGUI
 	std::unique_ptr<ImGuiManager> imGuiManager_;
-	std::unique_ptr<RenderTarget> sceneRenderTarget_;
+	
 
 	// シーンウィンドウの情報
 	struct SceneViewInfo {

@@ -8,6 +8,8 @@
 #include "3d/ModelManager.h"
 #include "3d/Object3dCommon.h"
 #include "audio/SoundManager.h"
+#include "effect/PostProcess.h"
+#include "effect/Grayscale.h"
 #include "utility/Logger.h"
 
 void Framework::Initialize() {
@@ -31,17 +33,24 @@ void Framework::Initialize() {
 	// スプライト共通部の初期化
 	SpriteCommon::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
+	PostProcess::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+
+	auto dxCommon = DirectXCommon::GetInstance();
+
+	sceneRenderTarget_ = std::make_unique<RenderTarget>();
+	sceneRenderTarget_->Create(dxCommon->GetDevice(), SrvManager::GetInstance(), 
+		dxCommon->GetRTVCPUDescriptorHandle(2), WinApp::kClientWidth, WinApp::kClientHeight);
+	
+	effectManager_ = std::make_unique<EffectManager>();
+	effectManager_->Initialize(dxCommon, SrvManager::GetInstance(),
+		3, 4, WinApp::kClientWidth, WinApp::kClientHeight);
+
+	// エフェクト登録
+	//effectManager_->AddEffect(std::make_unique<Grayscale>());
+
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
-
-	auto dxCommon = DirectXCommon::GetInstance();
-	auto renderTextureRtvHandle = dxCommon->GetRTVCPUDescriptorHandle(2);
-
-	sceneRenderTarget_ = std::make_unique<RenderTarget>();
-	//sceneRenderTarget_->Create(dxCommon->GetDevice(), SrvManager::GetInstance(), renderTextureRtvHandle, WinApp::kClientWidth, WinApp::kClientHeight);
-	sceneRenderTarget_->Create(dxCommon->GetDevice(), SrvManager::GetInstance(), renderTextureRtvHandle, 1280, 720);
-
 #endif
 
 	Logger::Initialize();
@@ -95,7 +104,6 @@ void Framework::Run() {
 			break;
 		}
 		// 描画
-#ifdef USE_IMGUI
 
 		// リサイズ検知
 		if (WinApp::IsResized()) {
@@ -104,7 +112,7 @@ void Framework::Run() {
 			DirectXCommon::GetInstance()->ResizeSwapChain(w, h);
 			WinApp::ClearResizedFlag();
 		}
-		
+
 		SrvManager::GetInstance()->PreDraw();
 
 		auto commandList = DirectXCommon::GetInstance()->GetCommandList();
@@ -114,27 +122,20 @@ void Framework::Run() {
 		Draw();
 		sceneRenderTarget_->EndRender(commandList);
 
+		finalImageSrvIndex_ = effectManager_->Apply(sceneRenderTarget_->GetSrvIndex());
+
 		DirectXCommon::GetInstance()->PreDraw();
 
+#ifdef USE_IMGUI
 		DrawUI(); // ImGUIのウィンド描画
-
 		imGuiManager_->End();
 		imGuiManager_->Draw();
-
-		DirectXCommon::GetInstance()->PostDraw();
 #else
-		if (WinApp::IsResized()) {
-			int w = WinApp::GetNewWidth();
-			int h = WinApp::GetNewHeight();
-			DirectXCommon::GetInstance()->ResizeSwapChain(w, h);
-			WinApp::ClearResizedFlag();
-		}
-
-		DirectXCommon::GetInstance()->PreDraw();
-		SrvManager::GetInstance()->PreDraw();
-		Draw();
-		DirectXCommon::GetInstance()->PostDraw();
+		PostProcess::GetInstance()->Draw(finalImageSrvIndex_);
 #endif
+
+		DirectXCommon::GetInstance()->PostDraw();
+
 	}
 	// ゲームの終了
 	Finalize();

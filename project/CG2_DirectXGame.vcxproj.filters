@@ -168,6 +168,15 @@
     <ClCompile Include="engine\3d\SkyCylinder.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\PostProcess.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\effect\Grayscale.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\effect\EffectManager.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engine\math\Vector3.h">
@@ -335,6 +344,18 @@
     <ClInclude Include="engine\3d\SkyCylinder.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="engine\effect\PostProcess.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\IPostEffect.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\Grayscale.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\EffectManager.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -356,6 +377,7 @@
     <None Include="resources\shaders\Debug.hlsli" />
     <None Include="resources\shaders\GammaCorrection.hlsli" />
     <None Include="resources\shaders\SkyCylinder.hlsli" />
+    <None Include="resources\shaders\Fullscreen.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Particle.VS.hlsl" />
@@ -380,5 +402,8 @@
     <FxCompile Include="resources\shaders\UpdateParticle.CS.hlsl" />
     <FxCompile Include="resources\shaders\SkyCylinder.VS.hlsl" />
     <FxCompile Include="resources\shaders\SkyCylinder.PS.hlsl" />
+    <FxCompile Include="resources\shaders\CopyImage.PS.hlsl" />
+    <FxCompile Include="resources\shaders\Fullscreen.VS.hlsl" />
+    <FxCompile Include="resources\shaders\Grayscale.PS.hlsl" />
   </ItemGroup>
 </Project>

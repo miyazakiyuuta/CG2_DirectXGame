@@ -73,7 +73,7 @@ void Game::DrawUI() {
     sceneViewInfo_.imagePos = ImGui::GetCursorScreenPos();
     sceneViewInfo_.imageSize = imageSize;
 
-    auto srvHandle = SrvManager::GetInstance()->GetGPUDescriptorHandle(sceneRenderTarget_->GetSrvIndex()); // レンダーテクスチャのSRVハンドルを取得
+    auto srvHandle = SrvManager::GetInstance()->GetGPUDescriptorHandle(finalImageSrvIndex_); // レンダーテクスチャのSRVハンドルを取得
     ImGui::Image((ImTextureID)srvHandle.ptr, imageSize); // レンダーテクスチャをウィンドウ内に画像として表示
     // マウスがSceneウィンドウ上にあるか記録
     sceneViewInfo_.isHovered = ImGui::IsWindowHovered();
