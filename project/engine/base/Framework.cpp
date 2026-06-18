@@ -10,6 +10,7 @@
 #include "audio/SoundManager.h"
 #include "effect/PostProcess.h"
 #include "effect/Monochrome.h"
+#include "effect/Vignette.h"
 #include "utility/Logger.h"
 
 void Framework::Initialize() {
@@ -47,7 +48,7 @@ void Framework::Initialize() {
 
 	// エフェクト登録
 	effectManager_->AddEffect(std::make_unique<Monochrome>());
-
+	effectManager_->AddEffect(std::make_unique<Vignette>());
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());

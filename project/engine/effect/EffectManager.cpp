@@ -53,6 +53,7 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
 void EffectManager::DrawImGui() {
 #ifdef USE_IMGUI
     for (auto& effect : effects_) {
+        ImGui::PushID(effect->name);
         // エフェクトごとに折りたたみ見出し
         if (ImGui::CollapsingHeader(effect->name)) {
             // ON/OFFチェックボックス（##で内部IDを区別）
@@ -60,6 +61,7 @@ void EffectManager::DrawImGui() {
             // 各エフェクト固有のUI（Monochromeなら色編集）
             effect->DrawImGui();
         }
+        ImGui::PopID();
     }
 #endif
 }
