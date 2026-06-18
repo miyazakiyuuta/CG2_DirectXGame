@@ -71,6 +71,7 @@ void GamePlayScene::Initialize() {
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
 	effectManager_->FindEffect("Monochrome")->enabled = true;
+	effectManager_->FindEffect("RadialBlur")->enabled = true;
 
 }
 
@@ -98,7 +99,7 @@ void GamePlayScene::Update() {
 
 	object3d_->Update();
 
-	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 5.0f, 10, { 0.0f,0.0f,0.0f,1.0f });
+	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
 
 }
 

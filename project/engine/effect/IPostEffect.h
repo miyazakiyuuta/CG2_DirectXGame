@@ -10,6 +10,8 @@ public:
 
     virtual void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) = 0;
 
+    virtual void Update(float deltaTime) {}
+
     virtual void Draw(uint32_t srcSrvIndex) = 0;
 
     virtual void DrawImGui() {}

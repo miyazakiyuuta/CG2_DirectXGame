@@ -31,5 +31,6 @@ private:
     uint32_t srvIndex_ = 0;
     uint32_t width_ = 0;
     uint32_t height_ = 0;
-    float clearColor_[4] = { 0.1f, 0.25f, 0.5f, 1.0f };
+    //float clearColor_[4] = { 0.1f, 0.25f, 0.5f, 1.0f };
+    float clearColor_[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 };

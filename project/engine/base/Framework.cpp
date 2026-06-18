@@ -12,7 +12,10 @@
 #include "effect/Monochrome.h"
 #include "effect/Vignette.h"
 #include "effect/BoxFilter.h"
+#include "effect/RadialBlur.h"
 #include "utility/Logger.h"
+
+#include <chrono>
 
 void Framework::Initialize() {
 	WinApp::GetInstance()->Initialize();
@@ -48,6 +51,7 @@ void Framework::Initialize() {
 		3, 4, WinApp::kClientWidth, WinApp::kClientHeight);
 
 	// エフェクト登録
+	effectManager_->AddEffect(std::make_unique<RadialBlur>());
 	effectManager_->AddEffect(std::make_unique<Monochrome>());
 	effectManager_->AddEffect(std::make_unique<Vignette>());
 	effectManager_->AddEffect(std::make_unique<BoxFilter>());
@@ -95,10 +99,16 @@ void Framework::Run() {
 	// ゲームの初期化
 	Initialize();
 
+	auto prevTime = std::chrono::steady_clock::now();
+
 	while (true) { // ゲームループ
 #ifdef USE_IMGUI
 		imGuiManager_->Begin();
 #endif
+
+		auto now = std::chrono::steady_clock::now();
+		float deltaTime = std::chrono::duration<float>(now - prevTime).count();
+		prevTime = now;
 
 		// 毎フレーム更新
 		Update();
@@ -124,6 +134,8 @@ void Framework::Run() {
 		sceneRenderTarget_->BeginRender(commandList, dsvHandle);
 		Draw();
 		sceneRenderTarget_->EndRender(commandList);
+
+		effectManager_->Update(deltaTime);
 
 		finalImageSrvIndex_ = effectManager_->Apply(sceneRenderTarget_->GetSrvIndex());
 

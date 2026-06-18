@@ -19,6 +19,8 @@ public:
 
     uint32_t Apply(uint32_t inputSrvIndex);
 
+	void Update(float deltaTime);
+
     void DrawImGui();
 
     void ResetAll();

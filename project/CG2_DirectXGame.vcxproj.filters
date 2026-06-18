@@ -186,6 +186,9 @@
     <ClCompile Include="engine\effect\ConvolutionEffect.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\RadialBlur.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engine\math\Vector3.h">
@@ -374,6 +377,9 @@
     <ClInclude Include="engine\effect\ConvolutionEffect.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="engine\effect\RadialBlur.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -425,5 +431,6 @@
     <FxCompile Include="resources\shaders\Monochrome.PS.hlsl" />
     <FxCompile Include="resources\shaders\Vignette.PS.hlsl" />
     <FxCompile Include="resources\shaders\BoxFilter.PS.hlsl" />
+    <FxCompile Include="resources\shaders\RadialBlur.PS.hlsl" />
   </ItemGroup>
 </Project>

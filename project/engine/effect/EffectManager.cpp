@@ -50,6 +50,12 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
     return currentSrv;
 }
 
+void EffectManager::Update(float deltaTime) {
+    for (auto& effect : effects_) {
+        effect->Update(deltaTime);
+    }
+}
+
 void EffectManager::DrawImGui() {
 #ifdef USE_IMGUI
     for (auto& effect : effects_) {
