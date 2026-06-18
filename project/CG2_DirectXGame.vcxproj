@@ -160,6 +160,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="application\transition\BlindTransition.cpp" />
+    <ClCompile Include="engine\effect\BoxFilter.cpp" />
+    <ClCompile Include="engine\effect\ConvolutionEffect.cpp" />
     <ClCompile Include="engine\effect\EffectManager.cpp" />
     <ClCompile Include="engine\3d\SkyCylinder.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
@@ -234,6 +236,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="application\transition\BlindTransition.h" />
+    <ClInclude Include="engine\effect\BoxFilter.h" />
+    <ClInclude Include="engine\effect\ConvolutionEffect.h" />
     <ClInclude Include="engine\effect\EffectManager.h" />
     <ClInclude Include="engine\3d\SkyCylinder.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
@@ -353,6 +357,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </None>
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="resources\shaders\BoxFilter.PS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="resources\shaders\CopyImage.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
