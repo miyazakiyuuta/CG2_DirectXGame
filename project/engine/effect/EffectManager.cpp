@@ -2,6 +2,10 @@
 #include "base/DirectXCommon.h"
 #include "base/SrvManager.h"
 
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
+
 void EffectManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager,
     uint32_t rtvIndex0, uint32_t rtvIndex1, uint32_t width, uint32_t height) {
     dxCommon_ = dxCommon;
@@ -44,4 +48,33 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
     }
 
     return currentSrv;
+}
+
+void EffectManager::DrawImGui() {
+#ifdef USE_IMGUI
+    for (auto& effect : effects_) {
+        // エフェクトごとに折りたたみ見出し
+        if (ImGui::CollapsingHeader(effect->name)) {
+            // ON/OFFチェックボックス（##で内部IDを区別）
+            ImGui::Checkbox((std::string("Enable##") + effect->name).c_str(), &effect->enabled);
+            // 各エフェクト固有のUI（Monochromeなら色編集）
+            effect->DrawImGui();
+        }
+    }
+#endif
+}
+
+void EffectManager::ResetAll() {
+    for (auto& effect : effects_) {
+        effect->enabled = false;
+    }
+}
+
+IPostEffect* EffectManager::FindEffect(const std::string& name) {
+    for (auto& e : effects_) {
+        if (e->name == name) {
+            return e.get();
+        }
+    }
+    return nullptr;
 }

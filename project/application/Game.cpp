@@ -16,6 +16,7 @@ void Game::Initialize() {
 
 	sceneFactory_ = std::make_unique<SceneFactory>();
 	SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
+    SceneManager::GetInstance()->SetEffectManager(effectManager_.get());
 	SceneManager::GetInstance()->ChangeScene("TITLE");
 	//SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
 
@@ -44,7 +45,7 @@ void Game::DrawUI() {
 	// 画面全体をドッキング可能な領域にする（Unityのレイアウト機能）
     ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspace_flags);
-	// シーン描画用のウィンドウ作成
+#pragma region シーン描画用のウィンドウ作成
     ImGui::Begin("Scene");
     ImVec2 contentSize = ImGui::GetContentRegionAvail(); // ウィンドウの空き領域サイズを取得
 
@@ -81,6 +82,11 @@ void Game::DrawUI() {
     Input::GetInstance()->SetSceneViewInfo(sceneViewInfo_.imagePos, sceneViewInfo_.imageSize, sceneViewInfo_.isHovered);
 
 	ImGui::End();
+#pragma endregion
+
+    ImGui::Begin("PostEffect");
+    effectManager_->DrawImGui();
+    ImGui::End();
 
 	SceneManager::GetInstance()->DrawImGui(); // シーン固有UIの描画
 #endif

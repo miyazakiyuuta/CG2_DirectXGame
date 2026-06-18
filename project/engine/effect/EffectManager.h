@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
+#include <string>
 
 class DirectXCommon;
 class SrvManager;
@@ -18,7 +19,13 @@ public:
 
     uint32_t Apply(uint32_t inputSrvIndex);
 
+    void DrawImGui();
+
+    void ResetAll();
+
     std::vector<std::unique_ptr<IPostEffect>>& GetEffects() { return effects_; }
+
+    IPostEffect* FindEffect(const std::string& name);
 
 private:
     DirectXCommon* dxCommon_ = nullptr;

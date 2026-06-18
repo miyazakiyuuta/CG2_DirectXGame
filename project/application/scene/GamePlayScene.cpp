@@ -7,11 +7,11 @@
 #include "3d/Object3dCommon.h"
 #include "effect/ParticleManager.h"
 #include "effect/GPUParticleEmitter.h"
-
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
+#include "effect/EffectManager.h"
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -69,6 +69,8 @@ void GamePlayScene::Initialize() {
 	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
+
+	effectManager_->FindEffect("Monochrome")->enabled = true;
 
 }
 

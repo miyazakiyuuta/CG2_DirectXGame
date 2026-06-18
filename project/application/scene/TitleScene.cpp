@@ -3,7 +3,7 @@
 #include "scene/SceneManager.h"
 #include "transition/ShutterTransition.h"
 #include "transition/BlindTransition.h"
-#include "memory.h"
+#include "effect/EffectManager.h"
 
 void TitleScene::Initialize() {
 }

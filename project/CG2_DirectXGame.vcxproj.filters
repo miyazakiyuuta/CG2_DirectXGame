@@ -171,7 +171,7 @@
     <ClCompile Include="engine\effect\PostProcess.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="engine\effect\Grayscale.cpp">
+    <ClCompile Include="engine\effect\Monochrome.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="engine\effect\EffectManager.cpp">
@@ -350,7 +350,7 @@
     <ClInclude Include="engine\effect\IPostEffect.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="engine\effect\Grayscale.h">
+    <ClInclude Include="engine\effect\Monochrome.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="engine\effect\EffectManager.h">
@@ -404,6 +404,6 @@
     <FxCompile Include="resources\shaders\SkyCylinder.PS.hlsl" />
     <FxCompile Include="resources\shaders\CopyImage.PS.hlsl" />
     <FxCompile Include="resources\shaders\Fullscreen.VS.hlsl" />
-    <FxCompile Include="resources\shaders\Grayscale.PS.hlsl" />
+    <FxCompile Include="resources\shaders\Monochrome.PS.hlsl" />
   </ItemGroup>
 </Project>

@@ -9,7 +9,7 @@
 #include "3d/Object3dCommon.h"
 #include "audio/SoundManager.h"
 #include "effect/PostProcess.h"
-#include "effect/Grayscale.h"
+#include "effect/Monochrome.h"
 #include "utility/Logger.h"
 
 void Framework::Initialize() {
@@ -46,7 +46,7 @@ void Framework::Initialize() {
 		3, 4, WinApp::kClientWidth, WinApp::kClientHeight);
 
 	// エフェクト登録
-	//effectManager_->AddEffect(std::make_unique<Grayscale>());
+	effectManager_->AddEffect(std::make_unique<Monochrome>());
 
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();

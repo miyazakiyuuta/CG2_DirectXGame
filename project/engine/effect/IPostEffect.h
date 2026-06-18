@@ -12,6 +12,8 @@ public:
 
     virtual void Draw(uint32_t srcSrvIndex) = 0;
 
+    virtual void DrawImGui() {}
+
     bool enabled = true;
     const char* name = "";
 };

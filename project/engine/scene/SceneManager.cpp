@@ -1,4 +1,5 @@
 #include "SceneManager.h"
+#include "effect/EffectManager.h"
 #include <cassert>
 
 SceneManager* SceneManager::instance = nullptr;
@@ -66,7 +67,9 @@ void SceneManager::ChangeScene(const std::string& sceneName, std::unique_ptr<ITr
 	}
 	assert(nextScene_ == nullptr);
 
+	effectManager_->ResetAll();
 	nextScene_ = sceneFactory_->CreateScene(sceneName);
+	nextScene_->SetEffectManager(effectManager_);
 	transition_ = std::move(transition);
 	if (transition_) { transition_->Initialize(); }
 	isSceneChanged_ = false;
