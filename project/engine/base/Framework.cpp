@@ -107,7 +107,7 @@ void Framework::Run() {
 #endif
 
 		auto now = std::chrono::steady_clock::now();
-		float deltaTime = std::chrono::duration<float>(now - prevTime).count();
+		deltaTime_ = std::chrono::duration<float>(now - prevTime).count();
 		prevTime = now;
 
 		// 毎フレーム更新
@@ -135,7 +135,7 @@ void Framework::Run() {
 		Draw();
 		sceneRenderTarget_->EndRender(commandList);
 
-		effectManager_->Update(deltaTime);
+		effectManager_->Update(deltaTime_);
 
 		finalImageSrvIndex_ = effectManager_->Apply(sceneRenderTarget_->GetSrvIndex());
 

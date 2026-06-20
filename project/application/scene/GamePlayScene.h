@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include "math/Vector3.h"
 
 class Camera;
 class DebugCamera;
@@ -13,6 +14,9 @@ class Skybox;
 class DebugGrid;
 class GPUParticleEmitter;
 class SkyCylinder;
+class ImplosionEffect;
+class ExplosionEffect;
+class FireEffect;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -21,7 +25,7 @@ public:
 
 	void Finalize() override;
 	
-	void Update() override;
+	void Update(float deltaTime) override;
 	
 	void Draw() override;
 
@@ -35,12 +39,12 @@ private:
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
 
-	std::unique_ptr<Object3d> object3d_;
-
-	std::unique_ptr<Skybox> skybox_;
-
 	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
 
-	std::unique_ptr<SkyCylinder> skyCylinder_;
+	std::unique_ptr<ImplosionEffect> implosion_;
+	std::unique_ptr<ExplosionEffect> explosion_;
+	std::unique_ptr<FireEffect> fire_;
+
+	std::vector<Vector3> torchPositions_;
 };
 

@@ -51,6 +51,8 @@ protected:
 	std::unique_ptr<EffectManager> effectManager_;
 	uint32_t finalImageSrvIndex_ = 0;
 
+	float deltaTime_;
+
 #ifdef USE_IMGUI
 	std::unique_ptr<ImGuiManager> imGuiManager_;
 	

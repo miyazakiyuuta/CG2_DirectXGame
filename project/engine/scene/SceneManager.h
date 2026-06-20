@@ -10,7 +10,7 @@ class SceneManager {
 public:
 	static SceneManager* GetInstance();
 
-	void Update();
+	void Update(float deltaTime);
 
 	void Draw();
 

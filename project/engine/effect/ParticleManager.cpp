@@ -6,8 +6,19 @@
 #include "utility/Random.h"
 
 #include <numbers>
+#include <cmath>
 
 using namespace Logger;
+
+namespace {
+	// 終端で滑らかに止まるカーブ。閃光・火花の減光/膨張に使う
+	float EaseOutCubic(float t) {
+		float u = 1.0f - t;
+		return 1.0f - u * u * u;
+	}
+	float EaseInCubic(float t) { return t * t * t; }
+}
+
 
 ParticleManager* ParticleManager::instance = nullptr;
 
@@ -58,31 +69,69 @@ void ParticleManager::Update(float deltaTime) {
 			}
 
 			if (numInstance < kNumMaxInstance) {
-				
+				float t = particleIterator->currentTime / particleIterator->lifeTime; // 0→1
 
-				switch (particleIterator->moveType) {
-				case ParticleMoveType::Normal:
-					particleIterator->transform.translate.x += particleIterator->velocity.x * deltaTime;
-					particleIterator->transform.translate.y += particleIterator->velocity.y * deltaTime;
-					particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
+				// --- 速度更新: 重力 → drag ---
+				particleIterator->velocity.x += particleIterator->gravity.x * deltaTime;
+				particleIterator->velocity.y += particleIterator->gravity.y * deltaTime;
+				particleIterator->velocity.z += particleIterator->gravity.z * deltaTime;
+				float dragFactor = 1.0f - particleIterator->drag * deltaTime;
+				if (dragFactor < 0.0f) { dragFactor = 0.0f; }
+				particleIterator->velocity.x *= dragFactor;
+				particleIterator->velocity.y *= dragFactor;
+				particleIterator->velocity.z *= dragFactor;
+
+				// --- 位置更新 ---
+				particleIterator->transform.translate.x += particleIterator->velocity.x * deltaTime;
+				particleIterator->transform.translate.y += particleIterator->velocity.y * deltaTime;
+				particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
+
+				if (particleIterator->swayStrength != 0.0f) {
+					float ph = particleIterator->swayPhase;
+					float f = particleIterator->swayFrequency;
+					float ct = particleIterator->currentTime;
+					particleIterator->transform.translate.x +=
+						std::sin(ct * f + ph) * particleIterator->swayStrength * deltaTime;
+					particleIterator->transform.translate.z +=
+						std::cos(ct * f * 0.8f + ph) * particleIterator->swayStrength * deltaTime;
 				}
 
+				// --- スケール(寿命変化) ---
+				float scaleT = EaseOutCubic(t);
+				float scaleMul = std::lerp(particleIterator->startScaleMul, particleIterator->endScaleMul, scaleT);
+				particleIterator->transform.scale.x = particleIterator->baseScale.x * scaleMul;
+				particleIterator->transform.scale.y = particleIterator->baseScale.y * scaleMul;
+				particleIterator->transform.scale.z = particleIterator->baseScale.z * scaleMul;
+
+				// --- ビルボード(既存のまま) ---
 				Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(std::numbers::pi_v<float>);
 				Matrix4x4 billboardMatrix = backToFrontMatrix * cameraMatrix;
-				billboardMatrix.m[3][0] = 0.0f; // 平行移動成分はいらない
+				billboardMatrix.m[3][0] = 0.0f;
 				billboardMatrix.m[3][1] = 0.0f;
 				billboardMatrix.m[3][2] = 0.0f;
-				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(particleIterator->transform.rotate.z + 0.0f);
-				Matrix4x4 worldMatrix = 
-					Matrix4x4::Scale(particleIterator->transform.scale) * rotateZMatrix * billboardMatrix * 
+				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(particleIterator->transform.rotate.z);
+				Matrix4x4 worldMatrix =
+					Matrix4x4::Scale(particleIterator->transform.scale) * rotateZMatrix * billboardMatrix *
 					Matrix4x4::Translate(particleIterator->transform.translate);
 				Matrix4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
 
 				group.instancingData[numInstance].wvp = worldViewProjectionMatrix;
 				group.instancingData[numInstance].world = worldMatrix;
-				group.instancingData[numInstance].color = particleIterator->color;
-				float alpha = 1.0f - (particleIterator->currentTime / particleIterator->lifeTime);
-				group.instancingData[numInstance].color.w = alpha;
+
+				// --- 色(寿命補間 or 既存の線形フェード) ---
+				if (particleIterator->useColorLerp) {
+					float ct = particleIterator->colorEaseIn ? EaseInCubic(t) : EaseOutCubic(t);
+					Vector4 c;
+					c.x = std::lerp(particleIterator->startColor.x, particleIterator->endColor.x, ct);
+					c.y = std::lerp(particleIterator->startColor.y, particleIterator->endColor.y, ct);
+					c.z = std::lerp(particleIterator->startColor.z, particleIterator->endColor.z, ct);
+					c.w = std::lerp(particleIterator->startColor.w, particleIterator->endColor.w, ct);
+					group.instancingData[numInstance].color = c;
+				} else {
+					group.instancingData[numInstance].color = particleIterator->color;
+					group.instancingData[numInstance].color.w = 1.0f - t; // 従来の線形フェード
+				}
+
 				++numInstance;
 			}
 			++particleIterator; // 次のイテレータに進める
@@ -98,7 +147,7 @@ void ParticleManager::Draw() {
 
 	// ルートシグネチャをセットするコマンド
 	commandList->SetGraphicsRootSignature(rootSignature_.Get());
-	
+
 	// プリミティブトポロジーをセットするコマンド
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// Vertex Buffer Viewをセットするコマンド
@@ -145,26 +194,55 @@ void ParticleManager::Emit(const std::string name, const Vector3& position, cons
 		Particle p{};
 
 		p.transform.translate = position;
+
 		p.transform.scale = {
-			Random::GetFloat(config.minScale.x,config.maxScale.x),
-			Random::GetFloat(config.minScale.y,config.maxScale.y),
-			Random::GetFloat(config.minScale.z,config.maxScale.z)
+	Random::GetFloat(config.minScale.x, config.maxScale.x),
+	Random::GetFloat(config.minScale.y, config.maxScale.y),
+	Random::GetFloat(config.minScale.z, config.maxScale.z)
 		};
+		p.baseScale = p.transform.scale; // 追加: 寿命スケール変化の基準
+
 		p.transform.rotate = {
-			Random::GetFloat(config.minRotate.x,config.maxRotate.x),
-			Random::GetFloat(config.minRotate.y,config.maxRotate.y),
-			Random::GetFloat(config.minRotate.z,config.maxRotate.z)
+			Random::GetFloat(config.minRotate.x, config.maxRotate.x),
+			Random::GetFloat(config.minRotate.y, config.maxRotate.y),
+			Random::GetFloat(config.minRotate.z, config.maxRotate.z)
 		};
-		p.velocity = {
-			Random::GetFloat(config.minVelocity.x,config.maxVelocity.x),
-			Random::GetFloat(config.minVelocity.y,config.maxVelocity.y),
-			Random::GetFloat(config.minVelocity.z,config.maxVelocity.z)
-		};
+
+		// velocity: 放射状 or 従来のボックス
+		if (config.useRadialVelocity) {
+			// 球面上の一様乱数方向
+			float u = Random::GetFloat(-1.0f, 1.0f);                              // cosθ
+			float phi = Random::GetFloat(0.0f, 2.0f * std::numbers::pi_v<float>);
+			float s = std::sqrt(1.0f - u * u);
+			float speed = Random::GetFloat(config.minSpeed, config.maxSpeed);
+			p.velocity = { s * std::cos(phi) * speed, s * std::sin(phi) * speed, u * speed };
+		} else {
+			p.velocity = {
+				Random::GetFloat(config.minVelocity.x, config.maxVelocity.x),
+				Random::GetFloat(config.minVelocity.y, config.maxVelocity.y),
+				Random::GetFloat(config.minVelocity.z, config.maxVelocity.z)
+			};
+		}
+
+		// 新フィールドの転記
+		p.gravity = config.gravity;
+		p.drag = config.drag;
+		p.startScaleMul = config.startScaleMul;
+		p.endScaleMul = config.endScaleMul;
+		p.useColorLerp = config.useColorLerp;
+		p.startColor = config.startColor;
+		p.endColor = config.endColor;
+
 		p.color = config.startColor;
 		p.currentTime = 0.0f;
 		p.moveType = config.moveType;
 		p.lifeTime = config.lifeTime;
-		
+
+		p.colorEaseIn = config.colorEaseIn;
+
+		p.swayStrength = config.swayStrength;
+		p.swayFrequency = config.swayFrequency;
+		p.swayPhase = Random::GetFloat(0.0f, 2.0f * std::numbers::pi_v<float>);
 
 		group.particles.push_back(p);
 	}
@@ -249,7 +327,7 @@ void ParticleManager::CreateRootSignature() {
 }
 
 void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
-	
+
 
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
 	inputElementDescs[0].SemanticName = "POSITION";

@@ -214,6 +214,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\effect\Monochrome.cpp" />
     <ClCompile Include="engine\effect\Vignette.cpp" />
     <ClCompile Include="engine\effect\RadialBlur.cpp" />
+    <ClCompile Include="engine\effect\ExplosionEffect.cpp" />
+    <ClCompile Include="engine\effect\ImplosionEffect.cpp" />
+    <ClCompile Include="engine\effect\FireEffect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -299,6 +302,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\effect\Monochrome.h" />
     <ClInclude Include="engine\effect\Vignette.h" />
     <ClInclude Include="engine\effect\RadialBlur.h" />
+    <ClInclude Include="engine\effect\ExplosionEffect.h" />
+    <ClInclude Include="engine\effect\ImplosionEffect.h" />
+    <ClInclude Include="engine\effect\FireEffect.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

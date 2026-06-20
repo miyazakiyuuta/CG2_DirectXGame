@@ -41,6 +41,21 @@ private:
 		float lifeTime;
 		float currentTime;
 		ParticleMoveType moveType;
+
+		Vector3 baseScale{};       // 寿命スケール変化の基準(生成時スケール)
+		Vector3 gravity{};
+		float   drag = 0.0f;
+		float   startScaleMul = 1.0f;
+		float   endScaleMul = 1.0f;
+		bool    useColorLerp = false;
+		Vector4 startColor{};
+		Vector4 endColor{};
+
+		bool colorEaseIn = false;
+
+		float swayStrength = 0.0f;
+		float swayFrequency = 0.0f;
+		float swayPhase = 0.0f;
 	};
 
 	struct InstanceData {
@@ -105,7 +120,8 @@ private:
 	SrvManager* srvManager_ = nullptr;
 	const Camera* camera_ = nullptr;
 
-	const uint32_t kNumMaxInstance = 1024;
+	//const uint32_t kNumMaxInstance = 1024;
+	const uint32_t kNumMaxInstance = 4096;
 
 	std::unordered_map<std::string, ParticleGroup> particleGroups_;
 

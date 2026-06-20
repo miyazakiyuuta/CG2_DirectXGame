@@ -24,8 +24,15 @@ PixelShaderOutput main(VertexShaderOutput input) {
     float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
     float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
     
-    output.color = gMaterial.color * textureColor * input.color;
-    output.color.rgb = LinearToSRGB(output.color.rgb);
+    //output.color = gMaterial.color * textureColor * input.color;
+    //output.color.rgb = LinearToSRGB(output.color.rgb);
+    
+    float mask = max(textureColor.r, max(textureColor.g, textureColor.b));
+    output.color.rgb = input.color.rgb;
+    output.color.a = input.color.a * mask;
+    if (output.color.a <= 0.001f) {
+        discard;
+    }
     
     if (textureColor.a == 0.0f) {
         discard;

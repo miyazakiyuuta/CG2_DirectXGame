@@ -10,7 +10,7 @@ public: // メンバ関数
 
 	virtual void Finalize();
 
-	virtual void Update();
+	virtual void Update(float deltaTime);
 
 	virtual void Draw();
 

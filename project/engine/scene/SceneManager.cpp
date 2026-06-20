@@ -8,7 +8,7 @@ SceneManager* SceneManager::GetInstance() {
 	return instance;
 }
 
-void SceneManager::Update() {
+void SceneManager::Update(float deltaTime) {
 	if (transition_) {
 		transition_->Update();
 		if (!isSceneChanged_ && transition_->IsReadyToChange()) {
@@ -38,7 +38,7 @@ void SceneManager::Update() {
 		}
 	}
 
-	if (scene_) { scene_->Update(); }
+	if (scene_) { scene_->Update(deltaTime); }
 } 
 
 void SceneManager::Draw() {

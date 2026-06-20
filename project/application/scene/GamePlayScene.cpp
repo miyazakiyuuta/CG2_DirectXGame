@@ -12,6 +12,11 @@
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
+#include "effect/RingManager.h"
+#include "effect/ImplosionEffect.h"
+#include "effect/ExplosionEffect.h"
+#include "effect/FireEffect.h"
+
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -21,8 +26,10 @@
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
 	camera_->InitializeGPU(DirectXCommon::GetInstance()->GetDevice());
-	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
-	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
+	//camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
+	//camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
+	camera_->SetRotate({ std::numbers::pi_v<float> / 40.0f, 0.0f, 0.0f }); // ~4.5°の軽い見下ろし
+	camera_->SetTranslate({ 0.0f, 1.6f, -9.0f });
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
@@ -45,32 +52,47 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
 
-	object3d_ = std::make_unique<Object3d>();
-	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("human_re.gltf");
-	object3d_->SetCamera(camera_.get());
-	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
-	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-	object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
-	object3d_->SetUseEnvironmentMap(true); // 環境マップ
-
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
 	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
 	Object3dCommon::GetInstance()->SetEnvironmentSrvIndex(envSrvIndex);
 
-	skybox_ = std::make_unique<Skybox>();
-	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
+	RingManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	RingManager::GetInstance()->SetCamera(camera_.get());
 
-	skyCylinder_ = std::make_unique<SkyCylinder>();
-	skyCylinder_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
-	skyCylinder_->SetCamera(camera_.get());
-	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
-	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
+	implosion_ = std::make_unique<ImplosionEffect>();
+	implosion_->Initialize();
+
+	explosion_ = std::make_unique<ExplosionEffect>();
+	explosion_->Initialize();
+	explosion_->loop_ = false;            // ショーケースとして自動ループ
+	//explosion_->Trigger({ 0.0f, 2.0f, 0.0f });
+
+	fire_ = std::make_unique<FireEffect>();
+	fire_->Initialize();
+	//fire_->Ignite({ 0.0f, 0.0f, 0.0f });
+
+	// 参道: Z方向に等間隔、左右対称に篝火を並べる
+	{
+		const int   pairs = 10;     // 何対置くか
+		const float spacingZ = 4.0f;  // 前後の間隔
+		const float halfWidth = 3.0f;  // 道の半幅(左右の距離)
+		const float startZ = -9.0f; // 手前端
+		const float baseY = 0.0f;
+
+		torchPositions_.clear();
+		torchPositions_.reserve(pairs * 2);
+		for (int i = 0; i < pairs; ++i) {
+			float z = startZ + spacingZ * i;
+			torchPositions_.push_back({ -halfWidth, baseY, z }); // 左
+			torchPositions_.push_back({ +halfWidth, baseY, z }); // 右
+		}
+	}
+	//fire_->SetPositions(torchPositions_);
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	effectManager_->FindEffect("Monochrome")->enabled = true;
+	effectManager_->FindEffect("Monochrome")->enabled = false;
 	effectManager_->FindEffect("RadialBlur")->enabled = true;
 
 }
@@ -78,36 +100,41 @@ void GamePlayScene::Initialize() {
 void GamePlayScene::Finalize() {
 }
 
-void GamePlayScene::Update() {
-
-	skyCylinder_->Update();
+void GamePlayScene::Update(float deltaTime) {
 
 	camera_->Update();
 	camera_->TransferToGPU();
-	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
-		object3d_->StopAnimation();
+
+	implosion_->Update(deltaTime);
+	explosion_->Update(deltaTime);
+	fire_->Update(deltaTime);
+	ParticleManager::GetInstance()->Update(deltaTime);
+	RingManager::GetInstance()->Update(deltaTime);
+
+	if (Input::GetInstance()->IsTriggerKey(DIK_1)) {
+		implosion_->Trigger({ 0.0f, 0.0f, 10.0f });
 	}
-	if (Input::GetInstance()->IsTriggerKey(DIK_9)) {
-		object3d_->StopAnimation(0.5f);
-	}
-	if (Input::GetInstance()->IsPushKey(DIK_1)) {
-		object3d_->PlayAnimation("walk", true, 0.1f);
-	}
+
 	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
-		object3d_->PlayAnimation("sneakWalk", true, 0.1f);
+		explosion_->Trigger({ 0.0f, 0.0f, 10.0f });
 	}
 
-	object3d_->Update();
+	if (Input::GetInstance()->IsTriggerKey(DIK_3)) {
+		if (fire_->IsBurning()) {
+			fire_->Extinguish();
+		} else {
+			fire_->SetPositions(torchPositions_);
+		}
+	}
 
-	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
+	//DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 0.5f,0.5f,0.5f,1.0f });
 
 }
 
 void GamePlayScene::Draw() {
-	//skybox_->Draw(*camera_);
-	skyCylinder_->Draw();
 
-	object3d_->Draw();
+	ParticleManager::GetInstance()->Draw();
+	RingManager::GetInstance()->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*camera_);
 }
@@ -115,13 +142,8 @@ void GamePlayScene::Draw() {
 void GamePlayScene::DrawImGui() {
 #ifdef USE_IMGUI
 
-	Vector3 object3dPos = object3d_->GetTranslate();
-
 	ImGui::Begin("GamePlayScene_Object");
 	camera_->DrawImGui();
-	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
-		object3d_->SetTranslate(object3dPos);
-	}
 	ImGui::End();
 
 #endif

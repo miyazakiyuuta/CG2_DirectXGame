@@ -31,7 +31,7 @@ void Game::Finalize() {
 
 void Game::Update() {
 	Framework::Update();
-	SceneManager::GetInstance()->Update();
+	SceneManager::GetInstance()->Update(deltaTime_);
 }
 
 void Game::Draw() {
