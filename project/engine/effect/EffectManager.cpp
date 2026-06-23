@@ -39,9 +39,16 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
 
         RenderTarget* target = pingPong_[writeIndex].get();
 
-        target->BeginRender(commandList, dsvHandle);
-        effect->Draw(currentSrv);
-        target->EndRender(commandList);
+        if (effect->IsSeparable()) {
+            uint32_t midSrv = effect->RenderFirstPass(currentSrv);
+            target->BeginRender(commandList, dsvHandle);
+            effect->Draw(midSrv);
+            target->EndRender(commandList);
+        } else {
+            target->BeginRender(commandList, dsvHandle);
+            effect->Draw(currentSrv);
+            target->EndRender(commandList);
+        }
 
         currentSrv = target->GetSrvIndex();
         writeIndex = 1 - writeIndex;

@@ -14,6 +14,10 @@ public:
 
     virtual void Draw(uint32_t srcSrvIndex) = 0;
 
+    virtual bool IsSeparable() const { return false; }
+
+    virtual uint32_t RenderFirstPass(uint32_t srcSrvIndex) { return srcSrvIndex; }
+
     virtual void DrawImGui() {}
 
     bool enabled = true;

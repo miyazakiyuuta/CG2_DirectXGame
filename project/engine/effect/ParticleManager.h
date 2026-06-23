@@ -110,4 +110,3 @@ private:
 	std::unordered_map<std::string, ParticleGroup> particleGroups_;
 
 };
-

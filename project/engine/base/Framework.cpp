@@ -12,6 +12,7 @@
 #include "effect/Monochrome.h"
 #include "effect/Vignette.h"
 #include "effect/BoxFilter.h"
+#include "effect/GaussianFilter.h"
 #include "effect/RadialBlur.h"
 #include "utility/Logger.h"
 
@@ -55,6 +56,9 @@ void Framework::Initialize() {
 	effectManager_->AddEffect(std::make_unique<Monochrome>());
 	effectManager_->AddEffect(std::make_unique<Vignette>());
 	effectManager_->AddEffect(std::make_unique<BoxFilter>());
+	auto gaussian = std::make_unique<GaussianFilter>();
+	gaussian->SetIntermediateRtvIndex(5); // ★RTVヒープに空きが必要（下記注意点参照）
+	effectManager_->AddEffect(std::move(gaussian));
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
