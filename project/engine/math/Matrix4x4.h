@@ -10,7 +10,7 @@ struct Matrix4x4 {
 	Matrix4x4& operator*=(const Matrix4x4& other);
 
 	/* インスタンスメンバ関数 */
-	Matrix4x4 Inverse();
+	Matrix4x4 Inverse() const;
 	Matrix4x4 Transpose();
 	Vector3 Transform(const Vector3& vector) const;
 

@@ -15,6 +15,8 @@ public:
     /// 描画開始（バリア遷移 + RTセット + クリア）
     void BeginRender(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle);
 
+    void BeginRenderNoDepth(ID3D12GraphicsCommandList* commandList);
+
     /// 描画終了（バリア遷移）
     void EndRender(ID3D12GraphicsCommandList* cmdList);
 

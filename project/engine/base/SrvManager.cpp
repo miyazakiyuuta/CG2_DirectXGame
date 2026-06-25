@@ -106,6 +106,16 @@ void SrvManager::CreateUAVForStructuredBuffer(uint32_t index, ID3D12Resource* pR
 	);
 }
 
+void SrvManager::CreateDepthSrv(uint32_t srvIndex, ID3D12Resource* depthResource) {
+	D3D12_SHADER_RESOURCE_VIEW_DESC desc{};
+	desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; // D24_S8の深度を読む
+	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	desc.Texture2D.MipLevels = 1;
+	// ↓ CreateRenderTextureSrv が使っているCPUハンドル取得と同じものに合わせてください
+	dxCommon_->GetDevice()->CreateShaderResourceView(depthResource, &desc, GetCPUDescriptorHandle(srvIndex));
+}
+
 void SrvManager::PreDraw() {
 	// 描画用のDescriptorHeapの設定
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap_.Get() };

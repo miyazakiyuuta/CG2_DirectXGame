@@ -12,6 +12,7 @@
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
+#include "effect/DepthBasedOutline.h"
 
 #include <numbers>
 #ifdef USE_IMGUI
@@ -47,12 +48,13 @@ void GamePlayScene::Initialize() {
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("human_re.gltf");
+	//object3d_->SetModel("human_re.gltf");
+	object3d_->SetModel("sphere.obj");
 	object3d_->SetCamera(camera_.get());
-	object3d_->SetTranslate({ 0.0f, 0.0f, 5.0f });
+	object3d_->SetTranslate({ 0.0f, 0.0f, 0.0f });
 	object3d_->SetRotate({ 0.0f, std::numbers::pi_v<float>, 0.0f });
-	object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
-	object3d_->SetUseEnvironmentMap(true); // 環境マップ
+	//object3d_->SetColor({ 0.5f,0.5f,0.5f,1.0f });
+	//object3d_->SetUseEnvironmentMap(true); // 環境マップ
 
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
@@ -70,8 +72,14 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
-	effectManager_->FindEffect("Monochrome")->enabled = true;
-	effectManager_->FindEffect("RadialBlur")->enabled = true;
+	effectManager_->FindEffect("Monochrome")->enabled = false;
+	effectManager_->FindEffect("RadialBlur")->enabled = false;
+	//effectManager_->FindEffect("DepthBasedOutline")->enabled = true;
+	if (auto* e = effectManager_->FindEffect("DepthBasedOutline")) {
+		auto* outline = static_cast<DepthBasedOutline*>(e);
+		outline->SetCamera(camera_.get()); // このシーンのアクティブカメラ
+		outline->enabled = true;
+	}
 
 }
 

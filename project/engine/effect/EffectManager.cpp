@@ -27,7 +27,6 @@ void EffectManager::AddEffect(std::unique_ptr<IPostEffect> effect) {
 
 uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dxCommon_->GetDSVCPUDescriptorHandle(0);
 
     uint32_t currentSrv = inputSrvIndex;
     int writeIndex = 0;
@@ -41,11 +40,11 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
 
         if (effect->IsSeparable()) {
             uint32_t midSrv = effect->RenderFirstPass(currentSrv);
-            target->BeginRender(commandList, dsvHandle);
+            target->BeginRenderNoDepth(commandList);
             effect->Draw(midSrv);
             target->EndRender(commandList);
         } else {
-            target->BeginRender(commandList, dsvHandle);
+            target->BeginRenderNoDepth(commandList);
             effect->Draw(currentSrv);
             target->EndRender(commandList);
         }

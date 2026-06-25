@@ -59,6 +59,24 @@ void RenderTarget::BeginRender(ID3D12GraphicsCommandList* commandList, D3D12_CPU
     commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 }
 
+void RenderTarget::BeginRenderNoDepth(ID3D12GraphicsCommandList* commandList) {
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = texture_.Get();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    commandList->ResourceBarrier(1, &barrier);
+
+    commandList->OMSetRenderTargets(1, &rtvHandle_, false, nullptr);
+
+    D3D12_VIEWPORT viewport = { 0, 0, (float)width_, (float)height_, 0, 1 };
+    D3D12_RECT     scissor = { 0, 0, (LONG)width_, (LONG)height_ };
+    commandList->RSSetViewports(1, &viewport);
+    commandList->RSSetScissorRects(1, &scissor);
+    commandList->ClearRenderTargetView(rtvHandle_, clearColor_, 0, nullptr);
+
+}
+
 void RenderTarget::EndRender(ID3D12GraphicsCommandList* cmdList) {
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;

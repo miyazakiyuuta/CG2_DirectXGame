@@ -14,6 +14,7 @@
 #include "effect/BoxFilter.h"
 #include "effect/GaussianFilter.h"
 #include "effect/RadialBlur.h"
+#include "effect/DepthBasedOutline.h"
 #include "utility/Logger.h"
 
 #include <chrono>
@@ -57,8 +58,10 @@ void Framework::Initialize() {
 	effectManager_->AddEffect(std::make_unique<Vignette>());
 	effectManager_->AddEffect(std::make_unique<BoxFilter>());
 	auto gaussian = std::make_unique<GaussianFilter>();
-	gaussian->SetIntermediateRtvIndex(5); // ★RTVヒープに空きが必要（下記注意点参照）
+	gaussian->SetIntermediateRtvIndex(5);
 	effectManager_->AddEffect(std::move(gaussian));
+	auto outline = std::make_unique<DepthBasedOutline>();
+	effectManager_->AddEffect(std::move(outline));
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
@@ -128,6 +131,10 @@ void Framework::Run() {
 			int h = WinApp::GetNewHeight();
 			DirectXCommon::GetInstance()->ResizeSwapChain(w, h);
 			WinApp::ClearResizedFlag();
+
+			if (auto* e = effectManager_->FindEffect("DepthBasedOutline")) {
+				static_cast<DepthBasedOutline*>(e)->OnResize();
+			}
 		}
 
 		SrvManager::GetInstance()->PreDraw();

@@ -63,6 +63,7 @@ public:
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
 	size_t GetSwapChainResourceNum()const { return swapChainResources_.size(); }
+	ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
 
 private:
 	// デバイスの初期化

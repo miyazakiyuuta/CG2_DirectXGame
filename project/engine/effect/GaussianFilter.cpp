@@ -39,9 +39,8 @@ uint32_t GaussianFilter::RenderFirstPass(uint32_t srcSrvIndex) {
     UpdateParams(); // このフレームの値を両CBufferへ反映（縦の分もここで済ます）
 
     ID3D12GraphicsCommandList* cl = dxCommon_->GetCommandList();
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = dxCommon_->GetDSVCPUDescriptorHandle(0);
 
-    intermediate_->BeginRender(cl, dsv);
+    intermediate_->BeginRenderNoDepth(cl);
     cl->SetGraphicsRootSignature(rootSignature_.Get());
     cl->SetPipelineState(pipelineState_.Get());
     cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

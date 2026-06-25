@@ -25,6 +25,8 @@ public:
 	// UAV作成(Structured Buffer用)
 	void CreateUAVForStructuredBuffer(uint32_t index, ID3D12Resource* pResource, UINT numElements, UINT structureByteStride);
 
+	void CreateDepthSrv(uint32_t srvIndex, ID3D12Resource* depthResource);
+
 	void PreDraw();
 
 	void SetGraphicsRootDescriptorTable(UINT RootParameterIndex, uint32_t srvIndex);
