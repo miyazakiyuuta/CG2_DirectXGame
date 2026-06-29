@@ -42,13 +42,13 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("plane.gltf");
 	ModelManager::GetInstance()->LoadModel("sphere.obj");
 	ModelManager::GetInstance()->LoadModel("terrain.obj");
-	ModelManager::GetInstance()->LoadModel("human", "sneakWalk.gltf");
-	ModelManager::GetInstance()->LoadModel("human", "human_re.gltf");
-	ModelManager::GetInstance()->LoadModel("Frog", "Frog.gltf");
+	ModelManager::GetInstance()->LoadModel("human/sneakWalk.gltf");
+	ModelManager::GetInstance()->LoadModel("human/human_re.gltf");
+	ModelManager::GetInstance()->LoadModel("Frog/Frog.gltf");
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	//object3d_->SetModel("human_re.gltf");
+	//object3d_->SetModel("human/human_re.gltf");
 	object3d_->SetModel("sphere.obj");
 	object3d_->SetCamera(camera_.get());
 	object3d_->SetTranslate({ 0.0f, 0.0f, 0.0f });

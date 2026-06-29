@@ -21,9 +21,8 @@ public:
 	/// <summary>
 	/// モデルファイルの読み込み
 	/// </summary>
-	/// <param name="filepath">モデルファイルのパス</param>
+	/// <param name="filePath">resources からの相対パス。サブフォルダは "human/human_re.gltf" のように指定する</param>
 	void LoadModel(const std::string& filePath);
-	void LoadModel(const std::string& directoryPath, const std::string& filePath);
 
 	/// <summary>
 	/// モデルの検索
