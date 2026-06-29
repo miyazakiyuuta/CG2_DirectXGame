@@ -16,6 +16,7 @@
 #include "effect/RadialBlur.h"
 #include "effect/DepthBasedOutline.h"
 #include "effect/Dissolve.h"
+#include "effect/Noise.h"
 #include "utility/Logger.h"
 
 #include <chrono>
@@ -64,6 +65,7 @@ void Framework::Initialize() {
 	auto outline = std::make_unique<DepthBasedOutline>();
 	effectManager_->AddEffect(std::move(outline));
 	effectManager_->AddEffect(std::make_unique<Dissolve>());
+	effectManager_->AddEffect(std::make_unique<Noise>());
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());

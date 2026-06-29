@@ -162,6 +162,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\transition\BlindTransition.cpp" />
     <ClCompile Include="engine\effect\DepthBasedOutline.cpp" />
     <ClCompile Include="engine\effect\Dissolve.cpp" />
+    <ClCompile Include="engine\effect\Noise.cpp" />
     <ClCompile Include="engine\effect\BoxFilter.cpp" />
     <ClCompile Include="engine\effect\ConvolutionEffect.cpp" />
     <ClCompile Include="engine\effect\EffectManager.cpp" />
@@ -242,6 +243,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\transition\BlindTransition.h" />
     <ClInclude Include="engine\effect\DepthBasedOutline.h" />
     <ClInclude Include="engine\effect\Dissolve.h" />
+    <ClInclude Include="engine\effect\Noise.h" />
     <ClInclude Include="engine\effect\BoxFilter.h" />
     <ClInclude Include="engine\effect\ConvolutionEffect.h" />
     <ClInclude Include="engine\effect\EffectManager.h" />
@@ -374,6 +376,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="resources\shaders\Dissolve.PS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\Noise.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
