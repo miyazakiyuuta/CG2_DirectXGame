@@ -15,6 +15,7 @@
 #include "effect/GaussianFilter.h"
 #include "effect/RadialBlur.h"
 #include "effect/DepthBasedOutline.h"
+#include "effect/Dissolve.h"
 #include "utility/Logger.h"
 
 #include <chrono>
@@ -62,6 +63,7 @@ void Framework::Initialize() {
 	effectManager_->AddEffect(std::move(gaussian));
 	auto outline = std::make_unique<DepthBasedOutline>();
 	effectManager_->AddEffect(std::move(outline));
+	effectManager_->AddEffect(std::make_unique<Dissolve>());
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());

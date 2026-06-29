@@ -192,6 +192,9 @@
     <ClCompile Include="engine\effect\GaussianFilter.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\Dissolve.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="engine\effect\DepthBasedOutline.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -392,6 +395,9 @@
     <ClInclude Include="engine\effect\DepthBasedOutline.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="engine\effect\Dissolve.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="resources\shaders\Object3d.PS.hlsl">
@@ -446,5 +452,6 @@
     <FxCompile Include="resources\shaders\RadialBlur.PS.hlsl" />
     <FxCompile Include="resources\shaders\GaussianFilter.PS.hlsl" />
     <FxCompile Include="resources\shaders\DepthBasedOutline.PS.hlsl" />
+    <FxCompile Include="resources\shaders\Dissolve.PS.hlsl" />
   </ItemGroup>
 </Project>

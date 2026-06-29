@@ -325,3 +325,9 @@ project/logs/
 
 imgui.ini
 /project/imgui.ini
+
+# 作業用ドキュメント（実装資料など。リポジトリには含めない）
+documents/
+
+# Claude Code 用のプロジェクトメモ（ローカル専用）
+CLAUDE.md
