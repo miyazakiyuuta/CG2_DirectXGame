@@ -6,6 +6,7 @@
 #include "3d/DebugCamera.h"
 #include "3d/Object3dCommon.h"
 #include "effect/ParticleManager.h"
+#include "effect/ParticleEmitter.h"
 #include "effect/GPUParticleEmitter.h"
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
@@ -17,7 +18,14 @@
 #include <numbers>
 #ifdef USE_IMGUI
 #include <imgui.h>
+#include "debug/EditorPanels.h"
+#include "debug/TransformGizmo.h"
 #endif
+
+namespace {
+	// シーン配置の保存先(作業ディレクトリ=プロジェクト直下からの相対パス)
+	const std::string kScenePath = "resources/scenes/GamePlayScene.json";
+}
 
 void GamePlayScene::Initialize() {
 	camera_ = std::make_unique<Camera>();
@@ -25,8 +33,25 @@ void GamePlayScene::Initialize() {
 	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
 	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
 
-	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+	// パーティクルにこのシーンのアクティブカメラを渡す(初期化・更新・描画はFrameworkが行う)
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
+
+	// CPUパーティクルのサンプル: 火花の噴水
+	ParticleConfig sparkConfig;
+	sparkConfig.minScale = { 0.3f, 0.3f, 0.3f };
+	sparkConfig.maxScale = { 0.6f, 0.6f, 0.6f };
+	sparkConfig.minVelocity = { -1.5f, 4.0f, -1.5f };
+	sparkConfig.maxVelocity = { 1.5f, 7.0f, 1.5f };
+	sparkConfig.acceleration = { 0.0f, -9.8f, 0.0f }; // 重力
+	sparkConfig.lifeTimeMin = 0.6f;
+	sparkConfig.lifeTimeMax = 1.4f;
+	sparkConfig.startColor = { 1.0f, 0.8f, 0.3f, 1.0f };
+	sparkConfig.endColor = { 1.0f, 0.2f, 0.0f, 0.0f };
+	sparkConfig.endScaleRatio = 0.2f;
+	sparkEmitter_ = std::make_unique<ParticleEmitter>("spark", "resources/circle.png", sparkConfig, BlendMode::Add);
+	sparkEmitter_->SetPosition({ 3.0f, 0.5f, 0.0f });
+	sparkEmitter_->SetCount(6);
+	sparkEmitter_->SetEmitInterval(0.1f);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize();
@@ -72,6 +97,29 @@ void GamePlayScene::Initialize() {
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
+	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧。
+	// オブジェクトを追加したらここに1行足すだけで全機能に反映される。
+	// SkyCylinderは全天を覆うため、Cameraは実体が見えないためクリック選択の対象外
+	editorObjects_.clear();
+	editorObjects_.push_back({ "Sphere", &object3d_->GetTransform(), true });
+	editorObjects_.push_back({ "SkyCylinder", &skyCylinder_->GetTransform(), false });
+	editorObjects_.push_back({ "Camera", &camera_->GetTransform(), false });
+	editorObjects_.back().scaleEditable = false; // カメラのscaleはビュー行列を歪ませるため編集させない
+	selectedIndex_ = -1;
+
+#ifdef USE_IMGUI
+	// 型別のInspector追加UI(ImGui呼び出しを含むためDebug構成のみ)
+	editorObjects_.back().drawInspector = [this]() {
+		float fovY = camera_->GetFovY();
+		if (ImGui::DragFloat("FovY", &fovY, 0.01f)) {
+			camera_->SetFovY(fovY);
+		}
+	};
+#endif
+
+	// 保存済みのシーン配置があれば復元(無ければ上の初期値のまま)
+	SceneSerializer::Load(kScenePath, BuildSerializeEntries());
+
 	effectManager_->FindEffect("Monochrome")->enabled = false;
 	effectManager_->FindEffect("RadialBlur")->enabled = false;
 	//effectManager_->FindEffect("DepthBasedOutline")->enabled = true;
@@ -104,6 +152,10 @@ void GamePlayScene::Update() {
 	if (Input::GetInstance()->IsTriggerKey(DIK_2)) {
 		object3d_->PlayAnimation("sneakWalk", true, 0.1f);
 	}
+	// 単発バーストのサンプル(ヒットエフェクト想定)
+	if (Input::GetInstance()->IsTriggerKey(DIK_3)) {
+		sparkEmitter_->EmitAt(object3d_->GetTranslate(), 30);
+	}
 
 	object3d_->Update();
 
@@ -123,16 +175,42 @@ void GamePlayScene::Draw() {
 void GamePlayScene::DrawImGui() {
 #ifdef USE_IMGUI
 
-	Vector3 object3dPos = object3d_->GetTranslate();
-
-	ImGui::Begin("GamePlayScene_Object");
-	camera_->DrawImGui();
-	if (ImGui::DragFloat3("object3d_->pos", &object3dPos.x, 0.01f)) {
-		object3d_->SetTranslate(object3dPos);
+	// Hierarchy: オブジェクト一覧+選択、シーンファイル操作
+	ImGui::Begin("Hierarchy");
+	EditorPanels::DrawHierarchy(editorObjects_, selectedIndex_);
+	ImGui::SeparatorText("Scene File");
+	if (ImGui::Button("Save")) {
+		SceneSerializer::Save(kScenePath, BuildSerializeEntries());
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load")) {
+		SceneSerializer::Load(kScenePath, BuildSerializeEntries());
 	}
 	ImGui::End();
 
+	// Inspector: ギズモ操作モード+選択中オブジェクトの編集
+	ImGui::Begin("Inspector");
+	TransformGizmo::DrawOperationSelector();
+	EditorPanels::DrawInspector(editorObjects_, selectedIndex_);
+	ImGui::End();
+
+	// Sceneビューのクリックで選択を更新し、選択中の対象にギズモを表示
+	TransformGizmo::PickBySceneClick(*camera_, editorObjects_, selectedIndex_);
+	if (selectedIndex_ >= 0) {
+		TransformGizmo::Manipulate(*camera_, editorObjects_[selectedIndex_]);
+	}
+
 #endif
+}
+
+std::vector<SceneSerializer::Entry> GamePlayScene::BuildSerializeEntries() const {
+	// エディタ一覧がそのまま保存対象(一覧が唯一の定義箇所になる)
+	std::vector<SceneSerializer::Entry> entries;
+	entries.reserve(editorObjects_.size());
+	for (const EditorObject& object : editorObjects_) {
+		entries.push_back({ object.name, object.transform });
+	}
+	return entries;
 }
 
 GamePlayScene::GamePlayScene() = default;

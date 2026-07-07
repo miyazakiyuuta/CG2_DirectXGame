@@ -160,6 +160,10 @@ public:
 
 	/// マウスがSceneビュー上にあるか
 	bool IsSceneViewHovered() const { return sceneViewHovered_; }
+
+	/// Sceneビュー内イメージのスクリーン座標矩形(ImGuizmo等のオーバーレイ用)
+	const ImVec2& GetSceneImagePos() const { return sceneImagePos_; }
+	const ImVec2& GetSceneImageSize() const { return sceneImageSize_; }
 #endif
 };
 

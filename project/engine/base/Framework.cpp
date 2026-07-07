@@ -9,6 +9,7 @@
 #include "3d/Object3dCommon.h"
 #include "audio/SoundManager.h"
 #include "effect/PostProcess.h"
+#include "effect/ParticleManager.h"
 #include "effect/Monochrome.h"
 #include "effect/Vignette.h"
 #include "effect/BoxFilter.h"
@@ -44,6 +45,8 @@ void Framework::Initialize() {
 
 	PostProcess::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
+	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+
 	auto dxCommon = DirectXCommon::GetInstance();
 
 	sceneRenderTarget_ = std::make_unique<RenderTarget>();
@@ -54,7 +57,7 @@ void Framework::Initialize() {
 	effectManager_->Initialize(dxCommon, SrvManager::GetInstance(),
 		3, 4, WinApp::kClientWidth, WinApp::kClientHeight);
 
-	// エフェクト登録
+#pragma region エフェクト登録
 	effectManager_->AddEffect(std::make_unique<RadialBlur>());
 	effectManager_->AddEffect(std::make_unique<Monochrome>());
 	effectManager_->AddEffect(std::make_unique<Vignette>());
@@ -66,6 +69,8 @@ void Framework::Initialize() {
 	effectManager_->AddEffect(std::move(outline));
 	effectManager_->AddEffect(std::make_unique<Dissolve>());
 	effectManager_->AddEffect(std::make_unique<Noise>());
+#pragma endregion
+
 #ifdef USE_IMGUI
 	imGuiManager_ = std::make_unique<ImGuiManager>();
 	imGuiManager_->Initialize(WinApp::GetInstance(), DirectXCommon::GetInstance(), SrvManager::GetInstance());
@@ -81,6 +86,7 @@ void Framework::Finalize() {
 	imGuiManager_->Finalize();
 #endif
 	
+	ParticleManager::GetInstance()->Finalize();
 	SoundManager::GetInstance()->Finalize();
 	ModelManager::GetInstance()->Finalize();
 	TextureManager::GetInstance()->Finalize();
@@ -127,6 +133,9 @@ void Framework::Run() {
 		if (IsEndRequest()) {
 			break;
 		}
+
+		// パーティクルの更新(シーン更新でカメラが確定した後)
+		ParticleManager::GetInstance()->Update(deltaTime);
 		// 描画
 
 		// リサイズ検知
@@ -148,6 +157,8 @@ void Framework::Run() {
 
 		sceneRenderTarget_->BeginRender(commandList, dsvHandle);
 		Draw();
+		// パーティクルは半透明なので不透明オブジェクトの後に描く
+		ParticleManager::GetInstance()->Draw();
 		sceneRenderTarget_->EndRender(commandList);
 
 		effectManager_->Update(deltaTime);

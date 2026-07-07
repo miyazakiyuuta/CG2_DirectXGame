@@ -7,10 +7,13 @@
 #include "math/Transform.h"
 #include "effect/ParticleConfig.h"
 #include <string>
-#include <random>
+#include <list>
+#include <vector>
+#include <unordered_map>
 
 class SrvManager;
 class Camera;
+class ParticleEmitter;
 
 class ParticleManager {
 public:
@@ -18,15 +21,36 @@ public:
 
 	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 
+	void Finalize();
+
+	// 登録済みエミッタの更新と全パーティクルのシミュレーション(Frameworkが毎フレーム呼ぶ)
 	void Update(float deltaTime);
 
+	// 半透明のためシーン描画の後に呼ぶ(Frameworkが毎フレーム呼ぶ)
 	void Draw();
 
-	void CreateParticleGroup(const std::string name, const std::string textureFilePath, BlendMode blendMode = BlendMode::Alpha);
+	// グループを作成する。既存の名前なら何もしない(冪等)
+	void CreateParticleGroup(const std::string& name, const std::string& textureFilePath, BlendMode blendMode = BlendMode::Alpha);
 
-	void Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count);
+	// グループ作成と既定configの登録をまとめて行う
+	void RegisterEffect(const std::string& name, const std::string& textureFilePath, const ParticleConfig& config, BlendMode blendMode = BlendMode::Alpha);
+
+	// configを指定して発生させる
+	void Emit(const std::string& name, const Vector3& position, const ParticleConfig& config, uint32_t count);
+
+	// RegisterEffectで登録した既定configで発生させる
+	void Emit(const std::string& name, const Vector3& position, uint32_t count);
+
+	void DrawImGui();
+
+	// ParticleConfig編集用の共通UI(USE_IMGUI未定義時は何もしない)
+	static void DrawConfigImGui(ParticleConfig& config);
 
 	void SetCamera(const Camera* camera) { camera_ = camera; }
+
+	// ParticleEmitterがコンストラクタ/デストラクタで自動的に呼ぶ(直接呼ぶ必要はない)
+	void RegisterEmitter(ParticleEmitter* emitter);
+	void UnregisterEmitter(ParticleEmitter* emitter);
 
 private:
 	struct MaterialData {
@@ -36,11 +60,14 @@ private:
 
 	struct Particle {
 		Transform transform;
+		Vector3 baseScale;       // 初期スケール(寿命補間の基準)
 		Vector3 velocity;
-		Vector4 color;
-		float lifeTime;
-		float currentTime;
-		ParticleMoveType moveType;
+		Vector3 acceleration;
+		Vector4 startColor;
+		Vector4 endColor;
+		float endScaleRatio = 1.0f;
+		float lifeTime = 0.0f;
+		float currentTime = 0.0f;
 	};
 
 	struct InstanceData {
@@ -57,6 +84,7 @@ private:
 		uint32_t instanceCount = 0;
 		InstanceData* instancingData = nullptr; // 書き込み先
 		BlendMode blendMode = BlendMode::Alpha;
+		ParticleConfig defaultConfig{}; // RegisterEffectで登録される既定config
 	};
 
 	// 頂点データ
@@ -108,5 +136,7 @@ private:
 	const uint32_t kNumMaxInstance = 1024;
 
 	std::unordered_map<std::string, ParticleGroup> particleGroups_;
+
+	std::vector<ParticleEmitter*> emitters_; // 生成中のエミッタ(所有はしない)
 
 };

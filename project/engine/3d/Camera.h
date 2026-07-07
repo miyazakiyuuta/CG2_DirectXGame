@@ -31,6 +31,8 @@ public:
 	const Matrix4x4& GetBillboardMatrix() const { return billboardMatrix_; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }
+	Transform& GetTransform() { return transform_; } // エディタ(Inspector/ギズモ/保存読込)用
+	float GetFovY() const { return fovY_; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
 
 private:

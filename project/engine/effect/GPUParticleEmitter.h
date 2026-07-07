@@ -1,5 +1,5 @@
 #pragma once
-#include "effect/Particle.h"
+#include "effect/GPUParticle.h"
 #include "base/DirectXCommon.h"
 #include "base/SrvManager.h"
 #include "3d/Camera.h"

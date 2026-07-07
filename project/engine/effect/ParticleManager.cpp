@@ -1,11 +1,17 @@
 #include "effect/ParticleManager.h"
+#include "effect/ParticleEmitter.h"
 #include "base/SrvManager.h"
 #include "2d/TextureManager.h"
 #include "3d/Camera.h"
 #include "utility/Logger.h"
 #include "utility/Random.h"
 
+#include <algorithm>
 #include <numbers>
+
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 using namespace Logger;
 
@@ -14,6 +20,11 @@ ParticleManager* ParticleManager::instance = nullptr;
 ParticleManager* ParticleManager::GetInstance() {
 	if (!instance)instance = new ParticleManager();
 	return instance;
+}
+
+void ParticleManager::Finalize() {
+	delete instance;
+	instance = nullptr;
 }
 
 void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
@@ -38,7 +49,13 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 }
 
 void ParticleManager::Update(float deltaTime) {
-	assert(camera_);
+	if (!camera_) { return; }
+
+	// 登録済みエミッタの自動発生(エミッタの寿命はシーン側が握る)
+	for (ParticleEmitter* emitter : emitters_) {
+		emitter->Update(deltaTime);
+	}
+
 	const Matrix4x4& view = camera_->GetViewMatrix();
 	const Matrix4x4& proj = camera_->GetProjectionMatrix();
 	Matrix4x4 cameraMatrix = camera_->GetWorldMatrix();
@@ -46,6 +63,12 @@ void ParticleManager::Update(float deltaTime) {
 	// instancing 用のWVP行列を作る
 
 	Matrix4x4 viewProjectionMatrix = view * proj;
+
+	Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(std::numbers::pi_v<float>);
+	Matrix4x4 billboardMatrix = backToFrontMatrix * cameraMatrix;
+	billboardMatrix.m[3][0] = 0.0f; // 平行移動成分はいらない
+	billboardMatrix.m[3][1] = 0.0f;
+	billboardMatrix.m[3][2] = 0.0f;
 
 	for (auto& [name, group] : particleGroups_) {
 		uint32_t numInstance = 0;
@@ -57,32 +80,32 @@ void ParticleManager::Update(float deltaTime) {
 				continue;
 			}
 
+			// シミュレーションは全パーティクルに行う(インスタンス描画上限とは無関係)
+			particleIterator->velocity += particleIterator->acceleration * deltaTime;
+			particleIterator->transform.translate += particleIterator->velocity * deltaTime;
+
+			// 寿命の進行度(0→1)で色とスケールを線形補間
+			float t = particleIterator->currentTime / particleIterator->lifeTime;
+			Vector4 color = {
+				particleIterator->startColor.x + (particleIterator->endColor.x - particleIterator->startColor.x) * t,
+				particleIterator->startColor.y + (particleIterator->endColor.y - particleIterator->startColor.y) * t,
+				particleIterator->startColor.z + (particleIterator->endColor.z - particleIterator->startColor.z) * t,
+				particleIterator->startColor.w + (particleIterator->endColor.w - particleIterator->startColor.w) * t,
+			};
+			particleIterator->transform.scale =
+				particleIterator->baseScale * (1.0f + (particleIterator->endScaleRatio - 1.0f) * t);
+
+			// 上限を超えた分はシミュレーションのみ行い描画しない
 			if (numInstance < kNumMaxInstance) {
-				
-
-				switch (particleIterator->moveType) {
-				case ParticleMoveType::Normal:
-					particleIterator->transform.translate.x += particleIterator->velocity.x * deltaTime;
-					particleIterator->transform.translate.y += particleIterator->velocity.y * deltaTime;
-					particleIterator->transform.translate.z += particleIterator->velocity.z * deltaTime;
-				}
-
-				Matrix4x4 backToFrontMatrix = Matrix4x4::RotateY(std::numbers::pi_v<float>);
-				Matrix4x4 billboardMatrix = backToFrontMatrix * cameraMatrix;
-				billboardMatrix.m[3][0] = 0.0f; // 平行移動成分はいらない
-				billboardMatrix.m[3][1] = 0.0f;
-				billboardMatrix.m[3][2] = 0.0f;
-				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(particleIterator->transform.rotate.z + 0.0f);
-				Matrix4x4 worldMatrix = 
-					Matrix4x4::Scale(particleIterator->transform.scale) * rotateZMatrix * billboardMatrix * 
+				Matrix4x4 rotateZMatrix = Matrix4x4::RotateZ(particleIterator->transform.rotate.z);
+				Matrix4x4 worldMatrix =
+					Matrix4x4::Scale(particleIterator->transform.scale) * rotateZMatrix * billboardMatrix *
 					Matrix4x4::Translate(particleIterator->transform.translate);
 				Matrix4x4 worldViewProjectionMatrix = worldMatrix * viewProjectionMatrix;
 
 				group.instancingData[numInstance].wvp = worldViewProjectionMatrix;
 				group.instancingData[numInstance].world = worldMatrix;
-				group.instancingData[numInstance].color = particleIterator->color;
-				float alpha = 1.0f - (particleIterator->currentTime / particleIterator->lifeTime);
-				group.instancingData[numInstance].color.w = alpha;
+				group.instancingData[numInstance].color = color;
 				++numInstance;
 			}
 			++particleIterator; // 次のイテレータに進める
@@ -120,8 +143,8 @@ void ParticleManager::Draw() {
 	}
 }
 
-void ParticleManager::CreateParticleGroup(const std::string name, const std::string textureFilePath, BlendMode blendMode) {
-	assert(particleGroups_.find(name) == particleGroups_.end() && "ParticleGroup already exists");
+void ParticleManager::CreateParticleGroup(const std::string& name, const std::string& textureFilePath, BlendMode blendMode) {
+	if (particleGroups_.contains(name)) { return; } // 登録済みなら何もしない(冪等)
 
 	TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
@@ -135,9 +158,14 @@ void ParticleManager::CreateParticleGroup(const std::string name, const std::str
 	particleGroups_.emplace(name, std::move(group));
 }
 
-void ParticleManager::Emit(const std::string name, const Vector3& position, const ParticleConfig& config, uint32_t count) {
+void ParticleManager::RegisterEffect(const std::string& name, const std::string& textureFilePath, const ParticleConfig& config, BlendMode blendMode) {
+	CreateParticleGroup(name, textureFilePath, blendMode);
+	particleGroups_.at(name).defaultConfig = config;
+}
+
+void ParticleManager::Emit(const std::string& name, const Vector3& position, const ParticleConfig& config, uint32_t count) {
 	auto itGroup = particleGroups_.find(name);
-	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Call CreateParticleGroup first.");
+	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Create ParticleEmitter or call RegisterEffect first.");
 
 	ParticleGroup& group = itGroup->second;
 
@@ -145,11 +173,12 @@ void ParticleManager::Emit(const std::string name, const Vector3& position, cons
 		Particle p{};
 
 		p.transform.translate = position;
-		p.transform.scale = {
+		p.baseScale = {
 			Random::GetFloat(config.minScale.x,config.maxScale.x),
 			Random::GetFloat(config.minScale.y,config.maxScale.y),
 			Random::GetFloat(config.minScale.z,config.maxScale.z)
 		};
+		p.transform.scale = p.baseScale;
 		p.transform.rotate = {
 			Random::GetFloat(config.minRotate.x,config.maxRotate.x),
 			Random::GetFloat(config.minRotate.y,config.maxRotate.y),
@@ -160,14 +189,78 @@ void ParticleManager::Emit(const std::string name, const Vector3& position, cons
 			Random::GetFloat(config.minVelocity.y,config.maxVelocity.y),
 			Random::GetFloat(config.minVelocity.z,config.maxVelocity.z)
 		};
-		p.color = config.startColor;
+		p.acceleration = config.acceleration;
+		p.startColor = config.startColor;
+		p.endColor = config.endColor;
+		p.endScaleRatio = config.endScaleRatio;
+		p.lifeTime = Random::GetFloat(config.lifeTimeMin, config.lifeTimeMax);
 		p.currentTime = 0.0f;
-		p.moveType = config.moveType;
-		p.lifeTime = config.lifeTime;
-		
 
 		group.particles.push_back(p);
 	}
+}
+
+void ParticleManager::Emit(const std::string& name, const Vector3& position, uint32_t count) {
+	auto itGroup = particleGroups_.find(name);
+	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Call RegisterEffect first.");
+
+	Emit(name, position, itGroup->second.defaultConfig, count);
+}
+
+void ParticleManager::RegisterEmitter(ParticleEmitter* emitter) {
+	emitters_.push_back(emitter);
+}
+
+void ParticleManager::UnregisterEmitter(ParticleEmitter* emitter) {
+	emitters_.erase(std::remove(emitters_.begin(), emitters_.end(), emitter), emitters_.end());
+}
+
+void ParticleManager::DrawImGui() {
+#ifdef USE_IMGUI
+	if (ImGui::CollapsingHeader("Groups")) {
+		for (auto& [name, group] : particleGroups_) {
+			ImGui::PushID(name.c_str());
+			if (ImGui::TreeNode(name.c_str())) {
+				ImGui::Text("alive: %d / draw: %u (max %u)",
+					static_cast<int>(group.particles.size()), group.instanceCount, kNumMaxInstance);
+				ImGui::SeparatorText("defaultConfig");
+				DrawConfigImGui(group.defaultConfig);
+				ImGui::TreePop();
+			}
+			ImGui::PopID();
+		}
+	}
+	if (ImGui::CollapsingHeader("Emitters")) {
+		int id = 0;
+		for (ParticleEmitter* emitter : emitters_) {
+			ImGui::PushID(id++);
+			if (ImGui::TreeNode(emitter->GetGroupName().c_str())) {
+				emitter->DrawImGui();
+				ImGui::TreePop();
+			}
+			ImGui::PopID();
+		}
+	}
+#endif
+}
+
+void ParticleManager::DrawConfigImGui(ParticleConfig& config) {
+#ifdef USE_IMGUI
+	ImGui::DragFloat3("minScale", &config.minScale.x, 0.01f);
+	ImGui::DragFloat3("maxScale", &config.maxScale.x, 0.01f);
+	ImGui::DragFloat3("minRotate", &config.minRotate.x, 0.01f);
+	ImGui::DragFloat3("maxRotate", &config.maxRotate.x, 0.01f);
+	ImGui::DragFloat3("minVelocity", &config.minVelocity.x, 0.01f);
+	ImGui::DragFloat3("maxVelocity", &config.maxVelocity.x, 0.01f);
+	ImGui::DragFloat3("acceleration", &config.acceleration.x, 0.01f);
+	ImGui::DragFloat("lifeTimeMin", &config.lifeTimeMin, 0.01f, 0.0f, 60.0f);
+	ImGui::DragFloat("lifeTimeMax", &config.lifeTimeMax, 0.01f, 0.0f, 60.0f);
+	ImGui::ColorEdit4("startColor", &config.startColor.x);
+	ImGui::ColorEdit4("endColor", &config.endColor.x);
+	ImGui::DragFloat("endScaleRatio", &config.endScaleRatio, 0.01f, 0.0f, 10.0f);
+#else
+	(void)config;
+#endif
 }
 
 void ParticleManager::CreateInstancingResource(ParticleGroup& group) {

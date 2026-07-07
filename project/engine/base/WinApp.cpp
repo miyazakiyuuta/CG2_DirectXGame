@@ -108,7 +108,12 @@ void WinApp::Initialize() {
 		nullptr);							  // オプション
 
 	// ウィンドウを表示する
+#ifdef USE_IMGUI
+	// Debugはエディタとして使うため最大化で起動する(WM_SIZE経由でスワップチェーンが実サイズに追従する)
+	ShowWindow(hwnd_, SW_SHOWMAXIMIZED);
+#else
 	ShowWindow(hwnd_, SW_SHOW);
+#endif
 
 }
 

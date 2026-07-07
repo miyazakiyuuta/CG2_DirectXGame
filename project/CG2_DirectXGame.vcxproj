@@ -60,17 +60,17 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
-    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(SolutionDir)externals;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
-    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(SolutionDir)externals;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)..\generated\outputs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\generated\obj\$(ProjectName)\$(Configuration)\</IntDir>
-    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)externals\DirectXTex;$(SolutionDir)externals\imgui;$(SolutionDir)externals;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -149,9 +149,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>imgui.lib</AdditionalDependencies>
+      <AdditionalDependencies>DirectXTex.lib;assimp-vc143-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration />
-      <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;$(ProjectDir)externals\assimp\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
@@ -169,12 +169,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\3d\SkyCylinder.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
+    <ClCompile Include="engine\debug\TransformGizmo.cpp" />
+    <ClCompile Include="engine\debug\EditorPanels.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
     <ClCompile Include="engine\3d\Skeleton.cpp" />
     <ClCompile Include="engine\debug\DebugSphere.cpp" />
     <ClCompile Include="engine\effect\CylinderManager.cpp" />
     <ClCompile Include="engine\scene\BaseScene.cpp" />
     <ClCompile Include="engine\3d\Camera.cpp" />
+    <ClCompile Include="engine\base\CrashDump.cpp" />
     <ClCompile Include="engine\base\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="engine\base\DirectXCommon.cpp" />
     <ClCompile Include="engine\3d\DebugCamera.cpp" />
@@ -200,6 +203,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\effect\ParticleManager.cpp" />
     <ClCompile Include="application\scene\SceneFactory.cpp" />
     <ClCompile Include="engine\scene\SceneManager.cpp" />
+    <ClCompile Include="engine\scene\SceneSerializer.cpp" />
     <ClCompile Include="engine\2d\Sprite.cpp" />
     <ClCompile Include="engine\2d\SpriteCommon.cpp" />
     <ClCompile Include="engine\base\SrvManager.cpp" />
@@ -250,19 +254,22 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\3d\SkyCylinder.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
+    <ClInclude Include="engine\debug\TransformGizmo.h" />
+    <ClInclude Include="engine\debug\EditorPanels.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
     <ClInclude Include="engine\3d\Animation.h" />
     <ClInclude Include="engine\3d\Skeleton.h" />
     <ClInclude Include="engine\debug\DebugSphere.h" />
     <ClInclude Include="engine\effect\CylinderManager.h" />
     <ClInclude Include="engine\effect\IPostEffect.h" />
-    <ClInclude Include="engine\effect\Particle.h" />
+    <ClInclude Include="engine\effect\GPUParticle.h" />
     <ClInclude Include="engine\effect\ParticleConfig.h" />
     <ClInclude Include="engine\math\mathFunction.h" />
     <ClInclude Include="engine\math\Quaternion.h" />
     <ClInclude Include="engine\scene\AbstractSceneFactory.h" />
     <ClInclude Include="engine\scene\BaseScene.h" />
     <ClInclude Include="engine\3d\Camera.h" />
+    <ClInclude Include="engine\base\CrashDump.h" />
     <ClInclude Include="engine\base\D3DResourceLeakChecker.h" />
     <ClInclude Include="engine\base\DirectXCommon.h" />
     <ClInclude Include="engine\3d\DebugCamera.h" />
@@ -273,8 +280,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\scene\SceneFactory.h" />
     <ClInclude Include="engine\scene\ITransition.h" />
     <ClInclude Include="engine\scene\SceneManager.h" />
+    <ClInclude Include="engine\scene\SceneSerializer.h" />
+    <ClInclude Include="engine\scene\EditorObject.h" />
     <ClInclude Include="application\scene\TitleScene.h" />
     <ClInclude Include="engine\math\Transform.h" />
+    <ClInclude Include="engine\math\Serialization.h" />
     <ClInclude Include="engine\math\Vector2.h" />
     <ClInclude Include="engine\base\ResourceObject.h" />
     <ClInclude Include="engine\audio\SoundManager.h" />

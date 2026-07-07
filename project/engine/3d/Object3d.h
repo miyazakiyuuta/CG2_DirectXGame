@@ -55,6 +55,7 @@ public: // セッター&ゲッター
 	}
 
 	// getter
+	Transform& GetTransform() { return transform_; }
 	const Vector3& GetScale() const { return transform_.scale; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }

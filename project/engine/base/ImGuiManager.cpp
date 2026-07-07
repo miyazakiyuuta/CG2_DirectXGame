@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx12.h>
+#include <ImGuizmo.h>
 #endif
 
 void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] DirectXCommon* dxCommon, [[maybe_unused]]  SrvManager* srvManager) {
@@ -17,6 +18,7 @@ void ImGuiManager::Initialize([[maybe_unused]] WinApp* winApp, [[maybe_unused]] 
 
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // Docking機能を有効にする
+	io.ConfigWindowsMoveFromTitleBarOnly = true;        // ギズモ等のドラッグでウィンドウが動かないようタイトルバーのみで移動
 
 	// ImGuiのスタイルを設定
 	ImGui::StyleColorsDark();
@@ -52,6 +54,8 @@ void ImGuiManager::Begin() {
 	ImGui_ImplWin32_NewFrame();
 	ImGui_ImplDX12_NewFrame();
 	ImGui::NewFrame();
+	// ImGuizmoは毎フレームImGui::NewFrame()直後の初期化が必須
+	ImGuizmo::BeginFrame();
 #endif
 }
 
@@ -71,21 +75,5 @@ void ImGuiManager::Draw() {
 	commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 	// 描画コマンドを発行
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
-
-	D3D12_VIEWPORT viewport{};
-	viewport.Width = static_cast<float>(winApp_->kClientWidth);
-	viewport.Height = static_cast<float>(winApp_->kClientHeight);
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
-	commandList->RSSetViewports(1, &viewport);
-
-	D3D12_RECT scissorRect{};
-	scissorRect.left = 0;
-	scissorRect.top = 0;
-	scissorRect.right = winApp_->kClientWidth;
-	scissorRect.bottom = winApp_->kClientHeight;
-	commandList->RSSetScissorRects(1, &scissorRect);
 #endif
 }
