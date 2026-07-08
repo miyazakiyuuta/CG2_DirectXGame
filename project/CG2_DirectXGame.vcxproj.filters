@@ -10,6 +10,21 @@
     <Filter Include="engine\3d">
       <UniqueIdentifier>{1e272a26-0318-4a99-b18b-5484475e1719}</UniqueIdentifier>
     </Filter>
+    <Filter Include="engine\3d\Model">
+      <UniqueIdentifier>{028e4561-cbe0-4348-9c18-537aaf5e3287}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\3d\Animation">
+      <UniqueIdentifier>{e710ad7e-6c1b-49d2-b35b-4a97605d6a22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\3d\Object3d">
+      <UniqueIdentifier>{583d0626-385b-48b5-b51c-67d007d5317c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\3d\Camera">
+      <UniqueIdentifier>{bb74ae50-25ae-406f-9648-64f336139cbc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\3d\Sky">
+      <UniqueIdentifier>{4a40597b-1916-4d39-85cc-2faeb00fa9b5}</UniqueIdentifier>
+    </Filter>
     <Filter Include="engine\audio">
       <UniqueIdentifier>{9cbddca9-fd66-495f-a098-7b41aceaf125}</UniqueIdentifier>
     </Filter>
@@ -85,11 +100,11 @@
     <Filter Include="engine\effect\io">
       <UniqueIdentifier>{8ac1ad87-f9d9-4254-a3a8-15055f69ed19}</UniqueIdentifier>
     </Filter>
-    <Filter Include="resources\shaders\debug\common">
-      <UniqueIdentifier>{59454bca-ea85-4b53-9004-3c196211909c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="engine\base">
       <UniqueIdentifier>{e815b939-80d2-42df-aa0a-83880413fbfb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders\common">
+      <UniqueIdentifier>{59454bca-ea85-4b53-9004-3c196211909c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -124,37 +139,37 @@
       <Filter>engine\2d</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\DebugCamera.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Camera</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Object3dCommon.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Object3d</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Object3d.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Object3d</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Model.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\ModelCommon.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\ModelManager.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Camera.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Camera</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\AnimationPlayer.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Animation</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Skeleton.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Animation</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\Skybox.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Sky</Filter>
     </ClCompile>
     <ClCompile Include="engine\3d\SkyCylinder.cpp">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Sky</Filter>
     </ClCompile>
     <ClCompile Include="engine\audio\SoundManager.cpp">
       <Filter>engine\audio</Filter>
@@ -303,40 +318,40 @@
       <Filter>engine\2d</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\DebugCamera.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Camera</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Object3dCommon.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Object3d</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Object3d.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Object3d</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Model.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\ModelCommon.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\ModelManager.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Model</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Camera.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Camera</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Animation.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Animation</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\AnimationPlayer.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Animation</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Skeleton.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Animation</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\Skybox.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Sky</Filter>
     </ClInclude>
     <ClInclude Include="engine\3d\SkyCylinder.h">
-      <Filter>engine\3d</Filter>
+      <Filter>engine\3d\Sky</Filter>
     </ClInclude>
     <ClInclude Include="engine\audio\SoundManager.h">
       <Filter>engine\audio</Filter>
@@ -526,7 +541,7 @@
       <Filter>resources\shaders\debug</Filter>
     </None>
     <None Include="resources\shaders\GammaCorrection.hlsli">
-      <Filter>resources\shaders\debug\common</Filter>
+      <Filter>resources\shaders\common</Filter>
     </None>
     <None Include="resources\shaders\SkyCylinder.hlsli">
       <Filter>resources\shaders\sky</Filter>
@@ -576,7 +591,7 @@
       <Filter>resources\shaders\debug</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\Skinning.CS.hlsl">
-      <Filter>resources\shaders\debug\common</Filter>
+      <Filter>resources\shaders\common</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\InitializeParticle.CS.hlsl">
       <Filter>resources\shaders\particle\gpu</Filter>
@@ -588,10 +603,10 @@
       <Filter>resources\shaders\particle\gpu</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\Random.hlsl">
-      <Filter>resources\shaders\debug\common</Filter>
+      <Filter>resources\shaders\common</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\RandomGenerator.hlsl">
-      <Filter>resources\shaders\debug\common</Filter>
+      <Filter>resources\shaders\common</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\UpdateParticle.CS.hlsl">
       <Filter>resources\shaders\particle\gpu</Filter>
