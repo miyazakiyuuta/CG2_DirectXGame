@@ -38,6 +38,9 @@ private:
 	// editorObjects_からシーン保存/読込の対象一覧を作る
 	std::vector<SceneSerializer::Entry> BuildSerializeEntries() const;
 
+	// 描画に使うカメラ(デバッグカメラON中はそちらを返す)
+	Camera* GetActiveCamera() const;
+
 	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧と選択状態
 	std::vector<EditorObject> editorObjects_;
 	int selectedIndex_ = -1; // -1 = 選択なし

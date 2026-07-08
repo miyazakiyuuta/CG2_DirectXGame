@@ -15,6 +15,7 @@
 #include "effect/EffectManager.h"
 #include "effect/DepthBasedOutline.h"
 
+#include <algorithm>
 #include <numbers>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -54,7 +55,7 @@ void GamePlayScene::Initialize() {
 	sparkEmitter_->SetEmitInterval(0.1f);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
-	debugCamera_->Initialize();
+	debugCamera_->Initialize(camera_.get());
 
 	// TextureManager からテクスチャを読み込む
 	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
@@ -134,6 +135,30 @@ void GamePlayScene::Finalize() {
 
 void GamePlayScene::Update(float deltaTime) {
 
+	// F1でデバッグカメラON/OFF(ImGuiのDebug Cameraウィンドウでも切替可)
+	if (Input::GetInstance()->IsTriggerKey(DIK_F1)) {
+		debugCamera_->SetActive(!debugCamera_->IsActive());
+	}
+#ifdef USE_IMGUI
+	// Fキーで選択中オブジェクトへフォーカス(Sceneビュー上でのみ反応)
+	if (debugCamera_->IsActive() && selectedIndex_ >= 0 &&
+		Input::GetInstance()->IsSceneViewHovered() && Input::GetInstance()->IsTriggerKey(DIK_F)) {
+		const Transform* target = editorObjects_[selectedIndex_].transform;
+		float radius = (std::max)({ target->scale.x, target->scale.y, target->scale.z });
+		debugCamera_->FocusOn(target->translate, radius);
+	}
+#endif
+	debugCamera_->Update(deltaTime);
+
+	// デバッグカメラON中は描画に使うカメラを差し替える(ゲームカメラのTransformは汚さない)
+	Camera* activeCamera = GetActiveCamera();
+	ParticleManager::GetInstance()->SetCamera(activeCamera);
+	object3d_->SetCamera(activeCamera);
+	skyCylinder_->SetCamera(activeCamera);
+	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
+		static_cast<DepthBasedOutline*>(effect)->SetCamera(activeCamera);
+	}
+
 	skyCylinder_->Update();
 
 	camera_->Update();
@@ -167,7 +192,7 @@ void GamePlayScene::Draw() {
 
 	object3d_->Draw();
 
-	DebugRenderer::GetInstance()->RenderAll(*camera_);
+	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
 }
 
 void GamePlayScene::DrawImGui() {
@@ -192,10 +217,15 @@ void GamePlayScene::DrawImGui() {
 	EditorPanels::DrawInspector(editorObjects_, selectedIndex_);
 	ImGui::End();
 
+	// デバッグカメラの切替・速度・感度
+	debugCamera_->DrawImGui();
+
 	// Sceneビューのクリックで選択を更新し、選択中の対象にギズモを表示
-	TransformGizmo::PickBySceneClick(*camera_, editorObjects_, selectedIndex_);
+	// (デバッグカメラON中はその視点で描画されているため、ピック・ギズモも同じカメラで行う)
+	Camera* activeCamera = GetActiveCamera();
+	TransformGizmo::PickBySceneClick(*activeCamera, editorObjects_, selectedIndex_);
 	if (selectedIndex_ >= 0) {
-		TransformGizmo::Manipulate(*camera_, editorObjects_[selectedIndex_]);
+		TransformGizmo::Manipulate(*activeCamera, editorObjects_[selectedIndex_]);
 	}
 
 #endif
@@ -209,6 +239,10 @@ std::vector<SceneSerializer::Entry> GamePlayScene::BuildSerializeEntries() const
 		entries.push_back({ object.name, object.transform });
 	}
 	return entries;
+}
+
+Camera* GamePlayScene::GetActiveCamera() const {
+	return debugCamera_->IsActive() ? debugCamera_->GetCamera() : camera_.get();
 }
 
 GamePlayScene::GamePlayScene() = default;

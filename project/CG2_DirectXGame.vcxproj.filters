@@ -13,9 +13,6 @@
     <Filter Include="engine\audio">
       <UniqueIdentifier>{9cbddca9-fd66-495f-a098-7b41aceaf125}</UniqueIdentifier>
     </Filter>
-    <Filter Include="engine\base">
-      <UniqueIdentifier>{e815b939-80d2-42df-aa0a-83880413fbfb}</UniqueIdentifier>
-    </Filter>
     <Filter Include="engine\debug">
       <UniqueIdentifier>{be50750c-87e1-49d1-b04b-f91960087a58}</UniqueIdentifier>
     </Filter>
@@ -90,6 +87,9 @@
     </Filter>
     <Filter Include="resources\shaders\debug\common">
       <UniqueIdentifier>{59454bca-ea85-4b53-9004-3c196211909c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\base">
+      <UniqueIdentifier>{e815b939-80d2-42df-aa0a-83880413fbfb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
