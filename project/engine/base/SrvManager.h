@@ -5,11 +5,15 @@
 class SrvManager {
 public:
 	static SrvManager* GetInstance();
+	static void Finalize();
 
 	void Initialize(DirectXCommon* dxCommon);
 
 	bool CanAllocate() const;
 	uint32_t Allocate();
+
+	// 最大SRV数(最大テクスチャ枚数)
+	static const uint32_t kMaxSRVCount;
 
 	ID3D12DescriptorHeap* GetDescriptorHeap()const { return descriptorHeap_.Get(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(uint32_t index);
@@ -36,8 +40,6 @@ private:
 
 	DirectXCommon* dxCommon_ = nullptr;
 
-	// 最大SRV数(最大テクスチャ枚数)
-	static const uint32_t kMaxSRVCount;
 	// SRV用のデスクリプタサイズ
 	uint32_t descriptorSize_ = 0;
 	// SRV用デスクリプタヒープ

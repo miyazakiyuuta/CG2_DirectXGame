@@ -9,6 +9,11 @@ SrvManager* SrvManager::GetInstance() {
 	return instance;
 }
 
+void SrvManager::Finalize() {
+	delete instance;
+	instance = nullptr;
+}
+
 void SrvManager::Initialize(DirectXCommon* dxCommon) {
 	dxCommon_ = dxCommon;
 	// デスクリプタヒープの生成

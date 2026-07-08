@@ -9,7 +9,7 @@ public:
 	ShutterTransition();
 
 	void Initialize() override;
-	void Update() override;
+	void Update(float deltaTime) override;
 	void Draw() override;
 
 	bool IsReadyToChange() const override { return isClosed_; }

@@ -11,7 +11,7 @@ public:
 	BlindTransition();
 
 	void Initialize() override;
-	void Update() override;
+	void Update(float deltaTime) override;
 	void Draw() override;
 
 	bool IsReadyToChange() const override { return isClosed_; }
@@ -24,7 +24,7 @@ private:
 
 	static constexpr int kStripCount = 8;
 	std::vector<std::unique_ptr<Sprite>> sprites_;
-	float fadeSpeed_ = 0.025f;
+	float fadeSpeed_ = 1.5f; // アルファ変化量[/秒](旧: 0.025/フレーム × 60fps)
 	float timer_ = 0.0f;
 	float stripDelay_ = 0.1f;
 };

@@ -10,7 +10,8 @@ public: // メンバ関数
 
 	virtual void Finalize();
 
-	virtual void Update();
+	// deltaTimeは前フレームからの実経過時間[秒]
+	virtual void Update(float deltaTime);
 
 	virtual void Draw();
 

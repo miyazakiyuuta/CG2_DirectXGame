@@ -1,7 +1,8 @@
 #include "3d/Object3dCommon.h"
+#include "3d/Object3d.h"
 #include "base/SrvManager.h"
 #include "utility/Logger.h"
-#include <iostream>
+#include <algorithm>
 #include <numbers>
 
 using namespace Logger;
@@ -11,6 +12,11 @@ Object3dCommon* Object3dCommon::instance = nullptr;
 Object3dCommon* Object3dCommon::GetInstance() {
 	if (!instance)instance = new Object3dCommon();
 	return instance;
+}
+
+void Object3dCommon::Finalize() {
+	delete instance;
+	instance = nullptr;
 }
 
 void Object3dCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
@@ -37,7 +43,7 @@ void Object3dCommon::CommonDrawSetting() {
 
 void Object3dCommon::SkinningDrawSetting() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-	commandList->SetGraphicsRootSignature(skinningRootSignature_.Get());
+	commandList->SetGraphicsRootSignature(rootSignature_.Get()); // 通常描画と同一のルートシグネチャを共用
 	commandList->SetPipelineState(skinningPipelineState_.Get());
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
@@ -46,6 +52,47 @@ void Object3dCommon::ComputeDispatchSetting() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 	commandList->SetComputeRootSignature(computeRootSignature_.Get());
 	commandList->SetPipelineState(computePipelineState_.Get());
+}
+
+void Object3dCommon::RegisterObject(Object3d* object) {
+	objects_.push_back(object);
+}
+
+void Object3dCommon::UnregisterObject(Object3d* object) {
+	objects_.erase(std::remove(objects_.begin(), objects_.end(), object), objects_.end());
+}
+
+void Object3dCommon::DispatchSkinningAll() {
+	// スキン付きで描画準備が済んでいるオブジェクトだけ集める
+	std::vector<Object3d*> skinnedObjects;
+	for (Object3d* object : objects_) {
+		if (object->HasSkin()) {
+			skinnedObjects.push_back(object);
+		}
+	}
+	if (skinnedObjects.empty()) { return; }
+
+	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
+
+	ComputeDispatchSetting();
+	for (Object3d* object : skinnedObjects) {
+		object->DispatchSkinning(commandList);
+	}
+
+	// CSの書き込み完了を待ちつつ、スキン済み頂点を頂点バッファとして読める状態へまとめて遷移する。
+	// (バッファはExecuteCommandLists完了時にCOMMONへ戻るため、毎フレームこの遷移でよい)
+	std::vector<D3D12_RESOURCE_BARRIER> barriers;
+	barriers.reserve(skinnedObjects.size());
+	for (Object3d* object : skinnedObjects) {
+		D3D12_RESOURCE_BARRIER barrier{};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Transition.pResource = object->GetSkinnedVertexResource();
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+		barriers.push_back(barrier);
+	}
+	commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE Object3dCommon::GetEnvironmentSrvHandle() const {
@@ -142,99 +189,6 @@ void Object3dCommon::CreateRootSignature() {
 	// バイナリを元に生成
 	ID3D12Device* device = dxCommon_->GetDevice();
 	hr = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
-	assert(SUCCEEDED(hr));
-}
-
-void Object3dCommon::CreateSkinningRootSignature() {
-	// RootSignature作成
-	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
-	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	D3D12_DESCRIPTOR_RANGE srvRange[1] = {};
-	srvRange[0].BaseShaderRegister = 0; // 0から始まる
-	srvRange[0].NumDescriptors = 1;
-	srvRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRVを使う
-	srvRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
-
-	D3D12_DESCRIPTOR_RANGE paletteRange[1] = {};
-	paletteRange[0].BaseShaderRegister = 0; // t0
-	paletteRange[0].NumDescriptors = 1;
-	paletteRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-
-	D3D12_DESCRIPTOR_RANGE envRange[1] = {};
-	envRange[0].BaseShaderRegister = 1;
-	envRange[0].NumDescriptors = 1;
-	envRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	envRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-	// RootParameter作成。PixelShaderのMaterialとVertexShaderのTransform
-	D3D12_ROOT_PARAMETER rootParameters[9] = {};
-	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-	rootParameters[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド (PS)
-
-	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // VertexShaderで使う
-	rootParameters[1].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド (VS)
-
-	rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // DescriptorTableを使う
-	rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-	rootParameters[2].DescriptorTable.pDescriptorRanges = srvRange; // Tableの中身の配列を指定
-	rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(srvRange); // Tableで利用する数
-
-	rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-	rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-	rootParameters[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
-
-	rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[4].Descriptor.ShaderRegister = 2;
-
-	rootParameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[5].Descriptor.ShaderRegister = 3;
-
-	rootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[6].Descriptor.ShaderRegister = 4;
-
-	rootParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // VS で使用
-	rootParameters[7].DescriptorTable.pDescriptorRanges = paletteRange;
-	rootParameters[7].DescriptorTable.NumDescriptorRanges = 1;
-
-	rootParameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[8].DescriptorTable.pDescriptorRanges = envRange;
-	rootParameters[8].DescriptorTable.NumDescriptorRanges = _countof(envRange);
-
-	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
-	staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // バイリニアフィルタ
-	staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 0~1の範囲外をリピート
-	staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER; // 比較しない
-	staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX; // ありったけのMipmapを使う
-	staticSamplers[0].ShaderRegister = 0; // レジスタ番号0を使う
-	staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-
-	rootSignatureDesc.pStaticSamplers = staticSamplers;
-	rootSignatureDesc.NumStaticSamplers = _countof(staticSamplers);
-
-	rootSignatureDesc.pParameters = rootParameters; // ルートパラメータ配列へのポインタ
-	rootSignatureDesc.NumParameters = _countof(rootParameters); // 配列の長さ
-
-	// シリアライズしてバイナリにする
-	Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob = nullptr;
-	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
-	HRESULT hr;
-	hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
-	if (FAILED(hr)) {
-		Log(reinterpret_cast<char*>(errorBlob->GetBufferPointer()));
-		assert(false);
-	}
-	// バイナリを元に生成
-	ID3D12Device* device = dxCommon_->GetDevice();
-	hr = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&skinningRootSignature_));
 	assert(SUCCEEDED(hr));
 }
 
@@ -401,7 +355,7 @@ void Object3dCommon::CreateGraphicsPipelineState() {
 }
 
 void Object3dCommon::CreateSkinningGraphicsPipelineState() {
-	CreateSkinningRootSignature();
+	// ルートシグネチャは通常描画と完全に同じ内容のため共用する(CreateGraphicsPipelineStateで作成済み)
 
 	//D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
 	std::array<D3D12_INPUT_ELEMENT_DESC, 3> inputElementDescs{};
@@ -446,7 +400,7 @@ void Object3dCommon::CreateSkinningGraphicsPipelineState() {
 	assert(pixelShaderBlob != nullptr);
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
-	pipelineStateDesc.pRootSignature = skinningRootSignature_.Get(); // RootSignature
+	pipelineStateDesc.pRootSignature = rootSignature_.Get(); // 通常描画と共用のRootSignature
 	pipelineStateDesc.InputLayout = inputLayoutDesc; // InputLayout
 	pipelineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(),vertexShaderBlob->GetBufferSize() }; // VertexShader
 	pipelineStateDesc.PS = { pixelShaderBlob->GetBufferPointer(),pixelShaderBlob->GetBufferSize() }; // PixelShader

@@ -2,6 +2,7 @@
 
 #ifdef USE_IMGUI
 #include "3d/Camera.h"
+#include "base/WinApp.h"
 #include "io/Input.h"
 #include "math/Matrix4x4.h"
 
@@ -41,8 +42,8 @@ void TransformGizmo::PickBySceneClick(const Camera& camera, const std::vector<Ed
 	}
 
 	// スクリーン座標 → NDC(-1〜+1)。除数はGetSceneMousePosが返す仮想解像度と対
-	float ndcX = (mouseX / 1280.0f) * 2.0f - 1.0f;
-	float ndcY = 1.0f - (mouseY / 720.0f) * 2.0f;
+	float ndcX = (mouseX / static_cast<float>(WinApp::kClientWidth)) * 2.0f - 1.0f;
+	float ndcY = 1.0f - (mouseY / static_cast<float>(WinApp::kClientHeight)) * 2.0f;
 
 	// near平面(z=0)とfar平面(z=1)の点をviewProj逆行列でワールドへ戻し、カメラ発のレイを作る
 	Matrix4x4 invViewProj = camera.GetViewProjectionMatrix().Inverse();

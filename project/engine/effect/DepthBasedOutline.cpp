@@ -24,9 +24,13 @@ void DepthBasedOutline::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     paramData_->debugView = debugView_;
     paramData_->pad0 = paramData_->pad1 = 0.0f;
 
-    // 深度SRV（手順2で追加したメソッド）
+    // 深度SRVのスロットだけ確保しておく(実際のSRVはSetDepthResourceで作る)
     depthSrvIndex_ = srvManager_->Allocate();
-    srvManager_->CreateDepthSrv(depthSrvIndex_, dxCommon_->GetDepthStencilResource());
+}
+
+void DepthBasedOutline::SetDepthResource(ID3D12Resource* depthResource) {
+    depthResource_ = depthResource;
+    srvManager_->CreateDepthSrv(depthSrvIndex_, depthResource_);
 }
 
 void DepthBasedOutline::Update(float /*deltaTime*/) {
@@ -44,8 +48,9 @@ void DepthBasedOutline::SetProjectionInverse(const Matrix4x4& m) {
 }
 
 void DepthBasedOutline::Draw(uint32_t srcSrvIndex) {
+    if (!depthResource_) { return; } // SetDepthResource前に呼ばれたら何もしない
     auto cl = dxCommon_->GetCommandList();
-    ID3D12Resource* depth = dxCommon_->GetDepthStencilResource();
+    ID3D12Resource* depth = depthResource_;
 
     // 深度を読める状態へ
     D3D12_RESOURCE_BARRIER b{};
@@ -77,12 +82,6 @@ void DepthBasedOutline::DrawImGui() {
     bool dbg = debugView_ != 0;
     if (ImGui::Checkbox("Debug (edge weight)", &dbg)) { debugView_ = dbg ? 1 : 0; }
 #endif
-}
-
-void DepthBasedOutline::OnResize() {
-    if (!srvManager_ || !dxCommon_) { return; }
-    // 同じスロットに、今の深度リソースを指すSRVを作り直す（Allocateし直さない）
-    srvManager_->CreateDepthSrv(depthSrvIndex_, dxCommon_->GetDepthStencilResource());
 }
 
 void DepthBasedOutline::CreateRootSignature() {

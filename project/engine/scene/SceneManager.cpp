@@ -8,9 +8,23 @@ SceneManager* SceneManager::GetInstance() {
 	return instance;
 }
 
-void SceneManager::Update() {
+void SceneManager::Finalize() {
+	if (instance) {
+		// 最期のシーンの終了と解放
+		if (instance->scene_) {
+			instance->scene_->Finalize();
+			instance->scene_.reset();
+		}
+		instance->nextScene_.reset();
+		instance->transition_.reset();
+	}
+	delete instance;
+	instance = nullptr;
+}
+
+void SceneManager::Update(float deltaTime) {
 	if (transition_) {
-		transition_->Update();
+		transition_->Update(deltaTime);
 		if (!isSceneChanged_ && transition_->IsReadyToChange()) {
 			if (scene_) { scene_->Finalize(); }
 
@@ -38,8 +52,8 @@ void SceneManager::Update() {
 		}
 	}
 
-	if (scene_) { scene_->Update(); }
-} 
+	if (scene_) { scene_->Update(deltaTime); }
+}
 
 void SceneManager::Draw() {
 	if (scene_) { 
@@ -53,11 +67,6 @@ void SceneManager::DrawImGui() {
 	if (scene_) {
 		scene_->DrawImGui();
 	}
-}
-
-SceneManager::~SceneManager() {
-	// 最期のシーンの終了と解放
-	scene_->Finalize();
 }
 
 void SceneManager::ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition) {

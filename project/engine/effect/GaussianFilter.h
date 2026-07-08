@@ -11,10 +11,6 @@ class GaussianFilter : public ConvolutionEffect {
 public:
     GaussianFilter() { name = "GaussianFilter"; }
 
-    // 中間RTが使うRTVスロット番号。AddEffectの前に必ず設定する。
-    // 既存：0,1=swapchain / 2=scene / 3,4=pingPong → 空きは5以降。
-    void SetIntermediateRtvIndex(uint32_t index) { intermediateRtvIndex_ = index; }
-
     bool     IsSeparable() const override { return true; }
     uint32_t RenderFirstPass(uint32_t srcSrvIndex) override; // 横
     void     Draw(uint32_t srcSrvIndex) override;            // 縦
@@ -44,7 +40,6 @@ private:
     GaussianParam* mappedV_ = nullptr;
 
     std::unique_ptr<RenderTarget> intermediate_; // 横の結果（縦の入力）
-    uint32_t intermediateRtvIndex_ = 5;
 
     // ImGuiで編集するCPU側の値
     int   kernelRadius_ = 3;    // 7x7

@@ -10,6 +10,11 @@ DebugRenderer* DebugRenderer::GetInstance() {
 	return instance;
 }
 
+void DebugRenderer::Finalize() {
+	delete instance;
+	instance = nullptr;
+}
+
 void DebugRenderer::Initialize(DirectXCommon* dxCommon) {
 	dxCommon_ = dxCommon;
 	auto device = dxCommon_->GetDevice();
@@ -50,8 +55,8 @@ void DebugRenderer::Initialize(DirectXCommon* dxCommon) {
 	D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
 	device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
 
-	IDxcBlob* vsBlob = dxCommon_->CompileShader(L"resources/shaders/Debug.VS.hlsl", L"vs_6_0");
-	IDxcBlob* psBlob = dxCommon_->CompileShader(L"resources/shaders/Debug.PS.hlsl", L"ps_6_0");
+	Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"resources/shaders/Debug.VS.hlsl", L"vs_6_0");
+	Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"resources/shaders/Debug.PS.hlsl", L"ps_6_0");
 
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },

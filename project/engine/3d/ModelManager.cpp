@@ -13,6 +13,8 @@ ModelManager* ModelManager::GetInstance() {
 }
 
 void ModelManager::Finalize() {
+	delete instance;
+	instance = nullptr;
 }
 
 void ModelManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {

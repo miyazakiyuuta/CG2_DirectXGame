@@ -17,7 +17,8 @@ public:
     void Draw(uint32_t srcSrvIndex) override;
     void DrawImGui() override;
 
-    void OnResize();
+    // サンプリングする深度バッファを設定する(シーンRT専用深度。Frameworkが登録直後に呼ぶ)
+    void SetDepthResource(ID3D12Resource* depthResource);
 
     // 毎フレームのprojInverseはCameraから自動取得（ポインタは1回設定すればOK）
     void SetCamera(const Camera* camera) { camera_ = camera; }
@@ -44,8 +45,9 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource>      paramResource_;
     OutlineParam* paramData_ = nullptr;
 
-    uint32_t      depthSrvIndex_ = 0;
-    const Camera* camera_ = nullptr;
+    uint32_t        depthSrvIndex_ = 0;
+    ID3D12Resource* depthResource_ = nullptr; // シーンRTの専用深度(所有はRenderTarget側)
+    const Camera*   camera_ = nullptr;
 
     // ImGui調整値
     Vector3 lineColor_ = { 0.0f, 0.0f, 0.0f };

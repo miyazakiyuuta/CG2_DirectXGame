@@ -1,9 +1,15 @@
 #include "Logger.h"
+#include <Windows.h>
 #include <debugapi.h>
 #include <filesystem> // ファイルやディレクトリに関する操作を行うライブラリ
+#include <format>
 #include <fstream> // ファイルに書いたり読んだりするライブラリ
 #include <chrono> // 時間を扱うライブラリ
 
+namespace {
+    // ログファイルの実体。ヘッダに置くと翻訳単位ごとに別物ができてしまうため.cpp内に置く
+    std::ofstream logStream;
+}
 
 void Logger::Initialize() {
 
@@ -13,7 +19,7 @@ void Logger::Initialize() {
     // 現在時刻を取得(UTC時刻)
     std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
     // ログファイルの名前にコンマ何秒はいらないので、削って秒にする
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds> 
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>
         nowSeconds = std::chrono::time_point_cast<std::chrono::seconds>(now);
     // 日本時間(PCの設定時間)に変換
     std::chrono::zoned_time localTime{
@@ -35,4 +41,9 @@ void Logger::Finalize() {
 
 void Logger::Log(const std::string& message) {
 	OutputDebugStringA(message.c_str());
+	// クラッシュ直前のログも残るよう、毎回書き込んでflushする
+	if (logStream.is_open()) {
+		logStream << message;
+		logStream.flush();
+	}
 }

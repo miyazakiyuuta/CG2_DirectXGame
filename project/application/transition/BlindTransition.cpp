@@ -23,14 +23,17 @@ void BlindTransition::Initialize() {
 	}
 }
 
-void BlindTransition::Update() {
+void BlindTransition::Update(float deltaTime) {
+	// フレームレートに依存しないよう、実経過時間ぶんだけ進める
+	const float fadeStep = fadeSpeed_ * deltaTime;
+
 	if (!isClosed_) {
-		timer_ += fadeSpeed_;
+		timer_ += fadeStep;
 		for (int i = 0; i < kStripCount; ++i) {
 			// タイマーがi番目の開始タイミングを超えたらフェード開始
 			if (timer_ >= i * stripDelay_) {
 				Vector4 color = sprites_[i]->GetColor();
-				color.w += fadeSpeed_;
+				color.w += fadeStep;
 				if (color.w >= 1.0f) {
 					color.w = 1.0f;
 				}
@@ -43,13 +46,13 @@ void BlindTransition::Update() {
 			timer_ = 0.0f;
 		}
 	} else if (!isOpened_) {
-		timer_ += fadeSpeed_;
+		timer_ += fadeStep;
 
 		for (int i = kStripCount - 1; i >= 0; --i) {
 			int reverseI = kStripCount - 1 - i;
 			if (timer_ >= reverseI * stripDelay_) {
 				Vector4 color = sprites_[i]->GetColor();
-				color.w -= fadeSpeed_;
+				color.w -= fadeStep;
 				if (color.w <= 0.0f) {
 					color.w = 0.0f;
 				}

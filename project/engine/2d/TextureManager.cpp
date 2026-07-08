@@ -1,5 +1,6 @@
 #include "2d/TextureManager.h"
 #include "utility/StringUtility.h"
+#include "utility/Logger.h"
 #include "base/SrvManager.h"
 
 using namespace StringUtility;
@@ -15,19 +16,21 @@ TextureManager* TextureManager::GetInstance() {
 }
 
 void TextureManager::Finalize() {
+	delete instance;
+	instance = nullptr;
 }
 
 void TextureManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
 	srvManager_ = srvManager;
 	// SRVの数と同数
-	textureDatas_.reserve(DirectXCommon::kMaxSRVCount);
+	textureDatas_.reserve(SrvManager::kMaxSRVCount);
 
 	CreateDefaultTexture();
 }
 
 void TextureManager::LoadTexture(const std::string& filePath) {
-	
+
 	if (filePath.empty()) { // 空パスなら何もしない
 		return;
 	}
@@ -48,6 +51,11 @@ void TextureManager::LoadTexture(const std::string& filePath) {
 		hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
 	}
 	assert(SUCCEEDED(hr));
+	if (FAILED(hr)) {
+		// Releaseではassertが消えるため、読めない場合は登録せずログだけ残す(参照側は白テクスチャへフォールバック)
+		Logger::Log("[TextureManager] Failed to load texture: " + filePath + "\n");
+		return;
+	}
 
 	DirectX::ScratchImage mipImages{};
 
@@ -89,6 +97,11 @@ void TextureManager::ReloadTexture(const std::string& filePath) {
 		? DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image)
 		: DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
 	assert(SUCCEEDED(hr));
+	if (FAILED(hr)) {
+		// 読み直しに失敗した場合は既存のテクスチャを維持する
+		Logger::Log("[TextureManager] Failed to reload texture: " + filePath + "\n");
+		return;
+	}
 
 	DirectX::ScratchImage mipImages{};
 	if (DirectX::IsCompressed(image.GetMetadata().format)) {
@@ -113,18 +126,31 @@ void TextureManager::ReloadTexture(const std::string& filePath) {
 const DirectX::TexMetadata& TextureManager::GetMetaData(const std::string& filePath) {
 	auto it = textureDatas_.find(filePath);
 	assert(it != textureDatas_.end());
+	if (it == textureDatas_.end()) {
+		// 未ロード(またはロード失敗)なら白テクスチャで代用してクラッシュを避ける
+		Logger::Log("[TextureManager] GetMetaData: not loaded, fallback to white: " + filePath + "\n");
+		return textureDatas_.at(kDefaultTextureName).metadata;
+	}
 	return it->second.metadata;
 }
 
 uint32_t TextureManager::GetSrvIndex(const std::string& filePath) {
 	auto it = textureDatas_.find(filePath);
 	assert(it != textureDatas_.end());
+	if (it == textureDatas_.end()) {
+		Logger::Log("[TextureManager] GetSrvIndex: not loaded, fallback to white: " + filePath + "\n");
+		return textureDatas_.at(kDefaultTextureName).srvIndex;
+	}
 	return it->second.srvIndex;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvHandleGPU(const std::string& filePath) {
 	auto it = textureDatas_.find(filePath);
 	assert(it != textureDatas_.end());
+	if (it == textureDatas_.end()) {
+		Logger::Log("[TextureManager] GetSrvHandleGPU: not loaded, fallback to white: " + filePath + "\n");
+		return textureDatas_.at(kDefaultTextureName).srvHandleGPU;
+	}
 	return it->second.srvHandleGPU;
 }
 

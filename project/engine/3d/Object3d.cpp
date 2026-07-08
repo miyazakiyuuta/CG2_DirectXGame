@@ -1,31 +1,46 @@
 #include "Object3d.h"
 #include "base/SrvManager.h"
 #include "Object3dCommon.h"
-#include "Model.h"
 #include "ModelManager.h"
 #include "Camera.h"
-#include "debug/debugRenderer.h"
+#include "debug/DebugRenderer.h"
+#include "utility/Logger.h"
 
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
 	dxCommon_ = object3dCommon_->GetDxCommon();
-	
+
 	camera_ = object3dCommon_->GetDefaultCamera();// デフォルトカメラをセットする
 	transform_ = { {1.0f,1.0f,1.0f},{0.0f,0.0f,0.0f},{0.0f,0.0f,0.0f} };
-	
+
 	CreateMaterialData();
 	CreateTransformationMatrixData();
 	CreateDirectionalLightData();
+
+	// スキニング一括ディスパッチの対象として登録する(解除はデストラクタ)
+	object3dCommon_->RegisterObject(this);
 }
 
-void Object3d::Update() {
+Object3d::~Object3d() {
+	if (object3dCommon_) {
+		object3dCommon_->UnregisterObject(this);
+	}
+}
+
+bool Object3d::HasSkin() const {
+	return model_ && model_->HasSkin() && skinInstance_.created;
+}
+
+void Object3d::Update(float deltaTime) {
 
 	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
 
 	if (model_ && animationPlayer_) {
-		animationPlayer_->Update(1.0f / 60.0f, skeleton_);
+		animationPlayer_->Update(deltaTime, skeleton_);
 		UpdateSkeleton(skeleton_);
-		model_->Update(skeleton_);
+		if (HasSkin()) {
+			UpdatePalette();
+		}
 	}
 
 	Matrix4x4 finalWorldMatrix = worldMatrix;
@@ -38,25 +53,39 @@ void Object3d::Update() {
 	} else {
 		transformationMatrixData_->WVP = finalWorldMatrix;
 	}
-	
+
+}
+
+void Object3d::UpdatePalette() {
+	const auto& inverseBindPoseMatrices = model_->GetSkinClusterShared().inverseBindPoseMatrices;
+	for (size_t jointIndex = 0; jointIndex < skeleton_.joints.size(); ++jointIndex) {
+		assert(jointIndex < inverseBindPoseMatrices.size());
+		skinInstance_.mappedPalette[jointIndex].skeletonSpaceMatrix =
+			inverseBindPoseMatrices[jointIndex] * skeleton_.joints[jointIndex].skeletonSpaceMatrix;
+		skinInstance_.mappedPalette[jointIndex].skeletonSpaceInverseTransposeMatrix =
+			skinInstance_.mappedPalette[jointIndex].skeletonSpaceMatrix.Inverse().Transpose();
+	}
+}
+
+void Object3d::DispatchSkinning(ID3D12GraphicsCommandList* commandList) {
+	if (!HasSkin()) { return; }
+	const auto& shared = model_->GetSkinClusterShared();
+	commandList->SetComputeRootConstantBufferView(0, shared.skinningInformationResource->GetGPUVirtualAddress());
+	commandList->SetComputeRootDescriptorTable(1, skinInstance_.paletteSrvHandle.second); // t0: 個体別パレット
+	commandList->SetComputeRootDescriptorTable(2, shared.inputVertexSrvHandle.second);    // t1: 共有の入力頂点
+	commandList->SetComputeRootDescriptorTable(3, shared.influenceSrvHandle.second);      // t2: 共有のインフルエンス
+	commandList->SetComputeRootDescriptorTable(4, skinInstance_.uavHandle.second);        // u0: 個体別スキン済み頂点
+	commandList->Dispatch(UINT(model_->GetModelData().vertices.size() + 1023) / 1024, 1, 1);
 }
 
 void Object3d::Draw() {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 
-	if (model_) {
-		if (!model_->GetSkinCluster().inverseBindPoseMatrices.empty()) {
-			Object3dCommon::GetInstance()->ComputeDispatchSetting();
-			commandList->SetComputeRootConstantBufferView(0, model_->GetSkinCluster().skinningInformationResource->GetGPUVirtualAddress());
-			commandList->SetComputeRootDescriptorTable(1, model_->GetSkinCluster().paletteSrvHandle.second);
-			commandList->SetComputeRootDescriptorTable(2, model_->GetSkinCluster().inputVertexSrvHandle.second);
-			commandList->SetComputeRootDescriptorTable(3, model_->GetSkinCluster().influenceSrvHandle.second);
-			commandList->SetComputeRootDescriptorTable(4, model_->GetSkinCluster().uavHandle.second);
-			commandList->Dispatch(UINT(model_->GetModelData().vertices.size() + 1023) / 1024, 1, 1);
-			Object3dCommon::GetInstance()->SkinningDrawSetting();
-		} else {
-			Object3dCommon::GetInstance()->CommonDrawSetting();
-		}
+	// スキニング計算はObject3dCommon::DispatchSkinningAllが描画前に済ませている
+	if (HasSkin()) {
+		Object3dCommon::GetInstance()->SkinningDrawSetting();
+	} else {
+		Object3dCommon::GetInstance()->CommonDrawSetting();
 	}
 
 	// マテリアルCBufferの場所を設定
@@ -64,7 +93,7 @@ void Object3d::Draw() {
 
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
-	
+
 	// 平行光源CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(3, directionalLightResource_->GetGPUVirtualAddress());
 
@@ -79,11 +108,18 @@ void Object3d::Draw() {
 
 	// 3Dモデルが割り当てられていれば描画する
 	if (model_) {
-		if (!model_->GetSkinCluster().inverseBindPoseMatrices.empty()) {
-			auto* srvManager = object3dCommon_->GetSrvManager();
-			commandList->SetGraphicsRootDescriptorTable(7, srvManager->GetGPUDescriptorHandle(model_->GetSkinCluster().paletteSrvIndex));
+		if (HasSkin()) {
+			commandList->SetGraphicsRootDescriptorTable(7, skinInstance_.paletteSrvHandle.second);
+
+			// 個体別のスキン済み頂点で描画する
+			D3D12_VERTEX_BUFFER_VIEW skinnedVBV{};
+			skinnedVBV.BufferLocation = skinInstance_.skinnedVertexResource->GetGPUVirtualAddress();
+			skinnedVBV.SizeInBytes = static_cast<UINT>(sizeof(Model::VertexData) * model_->GetModelData().vertices.size());
+			skinnedVBV.StrideInBytes = sizeof(Model::VertexData);
+			model_->Draw(&skinnedVBV);
+		} else {
+			model_->Draw();
 		}
-		model_->Draw();
 		//DrawDebugSkeleton();
 	}
 }
@@ -104,21 +140,34 @@ void Object3d::SetModel(const std::string& filePath) {
 	// モデルを検索してセットする
 	model_ = ModelManager::GetInstance()->FindModel(filePath);
 	assert(model_ && "Model not found. filePath key mismatch.");
+	if (!model_) {
+		// Releaseではassertが消えるため、見つからない場合はログを残して何も描画しない
+		Logger::Log("[Object3d] Model not found: " + filePath + " (LoadModel is missing or path mismatch)\n");
+		skinInstance_.created = false;
+		animationPlayer_.reset();
+		return;
+	}
 
 	const std::map<std::string, Animation>& animations = model_->GetAnimations();
 
-	if (model_ && !animations.empty()) {
+	if (!animations.empty()) {
 		if (!animationPlayer_) {
 			animationPlayer_ = std::make_unique<AnimationPlayer>();
 		}
-		//animationPlayer_->SetAnimation(&animations.begin()->second, true); // アニメーション開始は指定する
 
-		// モデルのNode階層からスケルトンを生成
+		// モデルのNode階層からスケルトンを生成(ポーズは個体別なのでスケルトンも個体別)
 		skeleton_ = CreateSkeleton(model_->GetModelData().rootNode);
-
-		model_->CreateSkinCluster(skeleton_);
 	} else {
 		animationPlayer_.reset();
+	}
+
+	if (model_->HasSkin() && !animations.empty()) {
+		// 共有部(形・ウェイト)はモデルに1つ、個体部(パレット・スキン済み頂点)はこのオブジェクト用に作る
+		model_->EnsureSkinClusterShared(skeleton_);
+		model_->CreateSkinClusterInstance(skinInstance_, skeleton_);
+	} else {
+		// スキン無しモデルに差し替えた場合は以前のスキン資産を使わない
+		skinInstance_.created = false;
 	}
 }
 

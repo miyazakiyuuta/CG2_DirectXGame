@@ -18,11 +18,11 @@ void GaussianFilter::InitializeParam() {
     mappedV_->direction = 1; // 縦
     UpdateParams();          // K/σ/intensityの初期値を両方へ
 
-    // 中間RT（横パスの描画先 兼 縦パスの入力）
+    // 中間RT（横パスの描画先 兼 縦パスの入力）。RTVスロットは自動採番で確保
     intermediate_ = std::make_unique<RenderTarget>();
     intermediate_->Create(
         dxCommon_->GetDevice(), srvManager_,
-        dxCommon_->GetRTVCPUDescriptorHandle(intermediateRtvIndex_),
+        dxCommon_->GetRTVCPUDescriptorHandle(dxCommon_->AllocateRtvIndex()),
         WinApp::kClientWidth, WinApp::kClientHeight);
 }
 

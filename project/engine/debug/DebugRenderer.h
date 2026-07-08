@@ -12,6 +12,7 @@ class DebugRenderer {
 public:
 
 	static DebugRenderer* GetInstance();
+	static void Finalize();
 
 	void Initialize(DirectXCommon* dxCommon);
 

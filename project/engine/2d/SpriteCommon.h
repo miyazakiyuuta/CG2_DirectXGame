@@ -7,6 +7,7 @@ class SrvManager;
 class SpriteCommon {
 public:
 	static SpriteCommon* GetInstance();
+	static void Finalize();
 
 public: // メンバ関数
 	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);

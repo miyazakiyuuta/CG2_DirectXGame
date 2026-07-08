@@ -9,14 +9,14 @@ class EffectManager;
 class SceneManager {
 public:
 	static SceneManager* GetInstance();
+	// 最終シーンの終了処理とシングルトンの破棄(Framework::Finalizeが呼ぶ)
+	static void Finalize();
 
-	void Update();
+	void Update(float deltaTime);
 
 	void Draw();
 
 	void DrawImGui();
-
-	~SceneManager();
 
 	void ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition = nullptr);
 

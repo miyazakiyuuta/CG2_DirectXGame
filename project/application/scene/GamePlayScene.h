@@ -23,9 +23,9 @@ public:
 	void Initialize() override;
 
 	void Finalize() override;
-	
-	void Update() override;
-	
+
+	void Update(float deltaTime) override;
+
 	void Draw() override;
 
 	void DrawImGui() override;

@@ -55,8 +55,8 @@ void DebugGrid::Initialize(DirectXCommon* dxCommon, float gridSize, uint32_t sub
 	device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
 
 	// シェーダーコンパイル
-	IDxcBlob* vsBlob = dxCommon_->CompileShader(L"resources/shaders/DebugSphere.VS.hlsl", L"vs_6_0");
-	IDxcBlob* psBlob = dxCommon_->CompileShader(L"resources/shaders/DebugSphere.PS.hlsl", L"ps_6_0");
+	Microsoft::WRL::ComPtr<IDxcBlob> vsBlob = dxCommon_->CompileShader(L"resources/shaders/DebugSphere.VS.hlsl", L"vs_6_0");
+	Microsoft::WRL::ComPtr<IDxcBlob> psBlob = dxCommon_->CompileShader(L"resources/shaders/DebugSphere.PS.hlsl", L"ps_6_0");
 
 	// PSOの作成
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};

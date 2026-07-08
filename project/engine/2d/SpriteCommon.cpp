@@ -12,6 +12,11 @@ SpriteCommon* SpriteCommon::GetInstance() {
 	return instance;
 }
 
+void SpriteCommon::Finalize() {
+	delete instance;
+	instance = nullptr;
+}
+
 void SpriteCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
 	srvManager_ = srvManager;

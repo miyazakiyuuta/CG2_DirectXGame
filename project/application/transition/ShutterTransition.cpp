@@ -23,19 +23,24 @@ void ShutterTransition::Initialize() {
 	//sprite_->SetTextureSize({ 512.0f,512.0f });
 }
 
-void ShutterTransition::Update() {
+void ShutterTransition::Update(float deltaTime) {
+	// 移動速度[px/秒](旧: 10px/フレーム × 60fps)
+	const float speed = 600.0f * deltaTime;
+	// 全開位置。720の直書きだと解像度変更時に開き切らなくなる
+	const float openedHeight = -static_cast<float>(WinApp::kClientHeight);
+
 	if (!isClosed_) {
 
 		if (shutterHeight_ >= 0.0f) {
 			shutterHeight_ = 0.0f;
 			isClosed_ = true;
 		}
-		shutterHeight_ += 10.0f;
+		shutterHeight_ += speed;
 	} else if (!isOpened_) {
-		shutterHeight_ -= 10.0f;
+		shutterHeight_ -= speed;
 
-		if (shutterHeight_ <= -720.0f) {
-			shutterHeight_ = -720.0f;
+		if (shutterHeight_ <= openedHeight) {
+			shutterHeight_ = openedHeight;
 			isOpened_ = true;
 		}
 	}

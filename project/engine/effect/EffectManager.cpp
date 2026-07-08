@@ -7,17 +7,16 @@
 #endif
 
 void EffectManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager,
-    uint32_t rtvIndex0, uint32_t rtvIndex1, uint32_t width, uint32_t height) {
+    uint32_t width, uint32_t height) {
     dxCommon_ = dxCommon;
     srvManager_ = srvManager;
 
-    pingPong_[0] = std::make_unique<RenderTarget>();
-    pingPong_[0]->Create(dxCommon->GetDevice(), srvManager,
-        dxCommon->GetRTVCPUDescriptorHandle(rtvIndex0), width, height);
-
-    pingPong_[1] = std::make_unique<RenderTarget>();
-    pingPong_[1]->Create(dxCommon->GetDevice(), srvManager,
-        dxCommon->GetRTVCPUDescriptorHandle(rtvIndex1), width, height);
+    // ピンポン用RTVスロットは自動採番で確保する(手動採番による衝突を防ぐ)
+    for (int i = 0; i < 2; ++i) {
+        pingPong_[i] = std::make_unique<RenderTarget>();
+        pingPong_[i]->Create(dxCommon->GetDevice(), srvManager,
+            dxCommon->GetRTVCPUDescriptorHandle(dxCommon->AllocateRtvIndex()), width, height);
+    }
 }
 
 void EffectManager::AddEffect(std::unique_ptr<IPostEffect> effect) {

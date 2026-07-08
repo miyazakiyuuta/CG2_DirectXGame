@@ -5,18 +5,28 @@
 #include "math/Vector4.h"
 #include "math/Transform.h"
 #include "3d/AnimationPlayer.h"
+#include "3d/Model.h"
 #include "3d/Skeleton.h"
 
+#include <memory>
+#include <optional>
+
 class Object3dCommon;
-class Model;
 class Camera;
 
 // 3Dオブジェクト
 class Object3d {
 public: // メンバ関数
 	void Initialize(Object3dCommon* object3dCommon);
-	void Update();
+	void Update(float deltaTime);
 	void Draw();
+	~Object3d();
+
+	// スキン付きモデルを描画できる状態か(Object3dCommonのスキニング一括ディスパッチが見る)
+	bool HasSkin() const;
+	// スキニングCSを積む(Object3dCommon::DispatchSkinningAllから呼ばれる。直接呼ぶ必要はない)
+	void DispatchSkinning(ID3D12GraphicsCommandList* commandList);
+	ID3D12Resource* GetSkinnedVertexResource() const { return skinInstance_.skinnedVertexResource.Get(); }
 
 	void PlayAnimation(const std::string& name, bool loop = true, float blendDuration = 0.2f);
 	void StopAnimation(float blendDuration = 0.0f) {
@@ -126,6 +136,8 @@ private: // メンバ関数
 	void CreateMaterialData();
 	void CreateTransformationMatrixData();
 	void CreateDirectionalLightData();
+	// スケルトンの現在ポーズを個体別パレットへ書き込む
+	void UpdatePalette();
 	void DrawDebugSkeleton();
 
 private: // メンバ変数
@@ -150,4 +162,6 @@ private: // メンバ変数
 
 	std::unique_ptr<AnimationPlayer> animationPlayer_;
 	Skeleton skeleton_;
+	// スキニングの個体別資産(パレット・スキン済み頂点)。共有部はModelが持つ
+	Model::SkinClusterInstance skinInstance_;
 };

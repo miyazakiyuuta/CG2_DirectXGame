@@ -30,9 +30,9 @@ void Game::Finalize() {
 	Framework::Finalize();
 }
 
-void Game::Update() {
-	Framework::Update();
-	SceneManager::GetInstance()->Update();
+void Game::Update(float deltaTime) {
+	Framework::Update(deltaTime);
+	SceneManager::GetInstance()->Update(deltaTime);
 }
 
 void Game::Draw() {

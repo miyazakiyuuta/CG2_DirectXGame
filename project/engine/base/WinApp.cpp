@@ -7,8 +7,6 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
-#pragma comment(lib, "winmm.lib")
-
 WinApp* WinApp::instance = nullptr;
 
 bool WinApp::isResized_ = false;
@@ -71,9 +69,6 @@ LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 void WinApp::Initialize() {
-	// システムタイマーの分解能を上げる
-	timeBeginPeriod(1);
-
 	HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
 
 	// ウィンドウプロシージャ
@@ -118,20 +113,24 @@ void WinApp::Initialize() {
 }
 
 void WinApp::Finalize() {
-	CloseWindow(hwnd_);
+	// CloseWindowは最小化するだけなので、破棄はDestroyWindowで行う
+	DestroyWindow(hwnd_);
+	UnregisterClass(wc_.lpszClassName, wc_.hInstance);
 	CoUninitialize();
+
+	delete instance;
+	instance = nullptr;
 }
 bool WinApp::ProcessMessage() {
 	MSG msg{};
 
-	// Windowにメッセージが来てたら最優先で処理させる
-	if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+	// 溜まっているメッセージを全て処理する(1件だけだとマウス移動などでキューが詰まり入力が遅延する)
+	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+		if (msg.message == WM_QUIT) {
+			return true;
+		}
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-	}
-
-	if(msg.message == WM_QUIT) {
-		return true;
 	}
 
 	return false;

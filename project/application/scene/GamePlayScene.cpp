@@ -95,8 +95,6 @@ void GamePlayScene::Initialize() {
 	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
 	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
-	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
-
 	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧。
 	// オブジェクトを追加したらここに1行足すだけで全機能に反映される。
 	// SkyCylinderは全天を覆うため、Cameraは実体が見えないためクリック選択の対象外
@@ -134,7 +132,7 @@ void GamePlayScene::Initialize() {
 void GamePlayScene::Finalize() {
 }
 
-void GamePlayScene::Update() {
+void GamePlayScene::Update(float deltaTime) {
 
 	skyCylinder_->Update();
 
@@ -157,7 +155,7 @@ void GamePlayScene::Update() {
 		sparkEmitter_->EmitAt(object3d_->GetTranslate(), 30);
 	}
 
-	object3d_->Update();
+	object3d_->Update(deltaTime);
 
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
 

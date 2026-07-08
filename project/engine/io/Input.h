@@ -18,6 +18,7 @@ public:
 
 public:
 	static Input* GetInstance();
+	static void Finalize();
 
 	void Initialize(WinApp* winApp);
 	void Update();

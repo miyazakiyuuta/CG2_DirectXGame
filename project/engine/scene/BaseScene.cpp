@@ -8,7 +8,8 @@ void BaseScene::Finalize() {
 
 }
 
-void BaseScene::Update() {
+void BaseScene::Update(float deltaTime) {
+	(void)deltaTime;
 }
 
 void BaseScene::Draw() {

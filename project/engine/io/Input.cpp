@@ -13,6 +13,15 @@ Input* Input::GetInstance() {
 	return instance_;
 }
 
+void Input::Finalize() {
+	if (instance_) {
+		if (instance_->keyboard_) { instance_->keyboard_->Unacquire(); }
+		if (instance_->mouse_) { instance_->mouse_->Unacquire(); }
+	}
+	delete instance_;
+	instance_ = nullptr;
+}
+
 void Input::Initialize(WinApp* winApp) {
 	winApp_ = winApp;
 
@@ -216,8 +225,9 @@ bool Input::GetSceneMousePos(float& outX, float& outY) const {
 		return false;
 	}
 
-	outX = (localX / sceneImageSize_.x) * 1280.0f;
-	outY = (localY / sceneImageSize_.y) * 720.0f;
+	// ゲーム解像度(シーンRTのサイズ)へ変換。1280x720の直書きだと解像度変更時に壊れる
+	outX = (localX / sceneImageSize_.x) * static_cast<float>(WinApp::kClientWidth);
+	outY = (localY / sceneImageSize_.y) * static_cast<float>(WinApp::kClientHeight);
 	return true;
 }
 #endif

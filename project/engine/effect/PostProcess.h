@@ -8,6 +8,7 @@ class SrvManager;
 class PostProcess {
 public:
 	static PostProcess* GetInstance();
+	static void Finalize();
 
 	void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager);
 

@@ -4,8 +4,12 @@
 #include "3d/Skeleton.h"
 #include "2d/TextureManager.h"
 #include "base/SrvManager.h"
+#include "utility/Logger.h"
+#include <algorithm>
 #include <cassert>
+#include <format>
 #include <fstream>
+#include <sstream>
 
 void Model::Initialize(ModelCommon* modelCommon, const std::string& directoryPath, const std::string& filename) {
 	modelCommon_ = modelCommon;
@@ -21,43 +25,18 @@ void Model::Initialize(ModelCommon* modelCommon, const std::string& directoryPat
 		modelData_.material.textureFilePath = TextureManager::kDefaultTextureName;
 	}
 
-	// .objの参照しているテクスチャファイル読み込み
+	// モデルの参照しているテクスチャファイル読み込み(読めなければGetSrvIndexが白テクスチャへフォールバックする)
 	TextureManager::GetInstance()->LoadTexture(modelData_.material.textureFilePath);
 	modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(modelData_.material.textureFilePath);
-	
-	if (TextureManager::GetInstance()->GetSrvHandleGPU(modelData_.material.textureFilePath).ptr != 0) {
-		// 読み込んだテクスチャの番号を取得
-		modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(modelData_.material.textureFilePath);
-	} else {
-		modelData_.material.srvIndex = TextureManager::GetInstance()->GetSrvIndex(TextureManager::kDefaultTextureName);
-	}
-	
 }
 
-void Model::Update(const Skeleton& skeleton) {
-	if (skinCluster_.inverseBindPoseMatrices.empty()) {
-		return;
-	}
-	for (size_t jointIndex = 0; jointIndex < skeleton.joints.size(); ++jointIndex) {
-		assert(jointIndex < skinCluster_.inverseBindPoseMatrices.size());
-		skinCluster_.mappedPalette[jointIndex].skeletonSpaceMatrix =
-			skinCluster_.inverseBindPoseMatrices[jointIndex] * skeleton.joints[jointIndex].skeletonSpaceMatrix;
-		skinCluster_.mappedPalette[jointIndex].skeletonSpaceInverseTransposeMatrix =
-			skinCluster_.mappedPalette[jointIndex].skeletonSpaceMatrix.Inverse().Transpose();
-	}
-}
-
-void Model::Draw() {
+void Model::Draw(const D3D12_VERTEX_BUFFER_VIEW* overrideVertexBufferView) {
 	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
 	auto* srvManager = modelCommon_->GetSrvManager();
 
-	bool isSkinned = !skinCluster_.inverseBindPoseMatrices.empty();
-	if (isSkinned) {
-		D3D12_VERTEX_BUFFER_VIEW skinnedVBV{};
-		skinnedVBV.BufferLocation = skinCluster_.skinnedVertexResource->GetGPUVirtualAddress();
-		skinnedVBV.SizeInBytes = static_cast<UINT>(sizeof(VertexData) * modelData_.vertices.size());
-		skinnedVBV.StrideInBytes = sizeof(VertexData);
-		commandList->IASetVertexBuffers(0, 1, &skinnedVBV);
+	// 個体別のスキン済み頂点が指定されていればそちらを使う
+	if (overrideVertexBufferView) {
+		commandList->IASetVertexBuffers(0, 1, overrideVertexBufferView);
 	} else {
 		commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	}
@@ -120,64 +99,42 @@ std::map<std::string, Animation> Model::LoadAnimationFile(const std::string& dir
 	return animations;
 }
 
-void Model::CreateSkinCluster(const Skeleton& skeleton) {
-	auto device = dxCommon_->GetDevice();
+void Model::EnsureSkinClusterShared(const Skeleton& skeleton) {
+	if (skinClusterShared_.built) { return; } // 構築済みなら何もしない(冪等)
 	auto srvManager = modelCommon_->GetSrvManager();
 
-	// palette用のResourceを確保
-	skinCluster_.paletteResource = dxCommon_->CreateBufferResource(sizeof(WellForGPU) * skeleton.joints.size());
-	WellForGPU* mappedPalette = nullptr;
-	skinCluster_.paletteResource->Map(0, nullptr, reinterpret_cast<void**>(&mappedPalette));
-	skinCluster_.mappedPalette = { mappedPalette,skeleton.joints.size() };
-	skinCluster_.paletteSrvIndex = srvManager->Allocate();
-
-	skinCluster_.paletteSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.paletteSrvIndex);
-	skinCluster_.paletteSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.paletteSrvIndex);
-
-	// palette用のsrvを作成。StructuredBufferでアクセスできるようにする
-	srvManager->CreateSRVForStructuredBuffer(
-		skinCluster_.paletteSrvIndex,
-		skinCluster_.paletteResource.Get(),
-		static_cast<UINT>(skeleton.joints.size()),
-		sizeof(WellForGPU)
-	);
-
 	// influence用のResourceを確保。頂点ごとにinfluence情報を追加できるようにする
-	skinCluster_.influenceResource = dxCommon_->CreateBufferResource(sizeof(VertexInfluence) * modelData_.vertices.size());
+	skinClusterShared_.influenceResource = dxCommon_->CreateBufferResource(sizeof(VertexInfluence) * modelData_.vertices.size());
 	VertexInfluence* mappedInfluence = nullptr;
-	skinCluster_.influenceResource->Map(0, nullptr, reinterpret_cast<void**>(&mappedInfluence));
+	skinClusterShared_.influenceResource->Map(0, nullptr, reinterpret_cast<void**>(&mappedInfluence));
 	std::memset(mappedInfluence, 0, sizeof(VertexInfluence) * modelData_.vertices.size());
-	skinCluster_.mappedInfluence = { mappedInfluence,modelData_.vertices.size() };
+	skinClusterShared_.mappedInfluence = { mappedInfluence,modelData_.vertices.size() };
 
-	// Influence用のVBVを作成
-	skinCluster_.influenceBufferView.BufferLocation = skinCluster_.influenceResource->GetGPUVirtualAddress();
-	skinCluster_.influenceBufferView.SizeInBytes = static_cast<UINT>(sizeof(VertexInfluence) * modelData_.vertices.size());
-	skinCluster_.influenceBufferView.StrideInBytes = sizeof(VertexInfluence);
 	// influence用SRVの作成
-	skinCluster_.influenceSrvIndex = srvManager->Allocate();
-	skinCluster_.influenceSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.influenceSrvIndex);
-	skinCluster_.influenceSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.influenceSrvIndex);
+	skinClusterShared_.influenceSrvIndex = srvManager->Allocate();
+	skinClusterShared_.influenceSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinClusterShared_.influenceSrvIndex);
+	skinClusterShared_.influenceSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinClusterShared_.influenceSrvIndex);
 	srvManager->CreateSRVForStructuredBuffer(
-		skinCluster_.influenceSrvIndex,
-		skinCluster_.influenceResource.Get(),
+		skinClusterShared_.influenceSrvIndex,
+		skinClusterShared_.influenceResource.Get(),
 		static_cast<UINT>(modelData_.vertices.size()),
 		sizeof(VertexInfluence)
 	);
 
 	// inputVertex用SRVの作成
-	skinCluster_.inputVertexSrvIndex = srvManager->Allocate();
-	skinCluster_.inputVertexSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.inputVertexSrvIndex);
-	skinCluster_.inputVertexSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.inputVertexSrvIndex);
+	skinClusterShared_.inputVertexSrvIndex = srvManager->Allocate();
+	skinClusterShared_.inputVertexSrvHandle.first = srvManager->GetCPUDescriptorHandle(skinClusterShared_.inputVertexSrvIndex);
+	skinClusterShared_.inputVertexSrvHandle.second = srvManager->GetGPUDescriptorHandle(skinClusterShared_.inputVertexSrvIndex);
 	srvManager->CreateSRVForStructuredBuffer(
-		skinCluster_.inputVertexSrvIndex,
+		skinClusterShared_.inputVertexSrvIndex,
 		vertexResource_.Get(),
 		static_cast<UINT>(modelData_.vertices.size()),
 		sizeof(VertexData)
 	);
 
 	// InverseBindPoseMatrixを格納する場所を作成して、単位行列で埋める
-	skinCluster_.inverseBindPoseMatrices.resize(skeleton.joints.size());
-	for (auto& matrix : skinCluster_.inverseBindPoseMatrices) {
+	skinClusterShared_.inverseBindPoseMatrices.resize(skeleton.joints.size());
+	for (auto& matrix : skinClusterShared_.inverseBindPoseMatrices) {
 		matrix = Matrix4x4::Identity();
 	}
 
@@ -187,9 +144,9 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 			continue;
 		}
 		// (*it).secondにはjointのindexが入っているので、該当のindexのinverseBindPoseMatrixを代入
-		skinCluster_.inverseBindPoseMatrices[(*it).second] = jointWeight.second.inverseBindPoseMatrix;
+		skinClusterShared_.inverseBindPoseMatrices[(*it).second] = jointWeight.second.inverseBindPoseMatrix;
 		for (const auto& vertexWeight : jointWeight.second.vertexWeights) {
-			auto& currentInfluence = skinCluster_.mappedInfluence[vertexWeight.vertexIndex]; // 該当のvertexIndexのinfluence情報を参照しておく
+			auto& currentInfluence = skinClusterShared_.mappedInfluence[vertexWeight.vertexIndex]; // 該当のvertexIndexのinfluence情報を参照しておく
 			for (uint32_t index = 0; index < kNumMaxInfluence; ++index) { // 空いているところに入れる
 				if (currentInfluence.weights[index] == 0.0f) { // weight==0が空いている状態なので、その場所にweightとjointのindexを代入
 					currentInfluence.weights[index] = vertexWeight.weight;
@@ -199,10 +156,45 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 			}
 		}
 	}
-	
-	/*skinCluster_.skinnedVertexResource = dxCommon_->CreateBufferResource(
-		sizeof(VertexData) * modelData_.vertices.size());*/
 
+	// 頂点数(モデル定数)のCB
+	skinClusterShared_.skinningInformationResource = dxCommon_->CreateBufferResource(sizeof(SkinningInformation));
+	SkinningInformation* skinningInfo = nullptr;
+	skinClusterShared_.skinningInformationResource->Map(0, nullptr, reinterpret_cast<void**>(&skinningInfo));
+	skinningInfo->numVertices = static_cast<uint32_t>(modelData_.vertices.size());
+
+	skinClusterShared_.built = true;
+}
+
+void Model::CreateSkinClusterInstance(SkinClusterInstance& instance, const Skeleton& skeleton) {
+	auto device = dxCommon_->GetDevice();
+	auto srvManager = modelCommon_->GetSrvManager();
+
+	// SRV/UAVスロットは初回のみ確保し、以降は同じスロットにビューを作り直す(SetModelし直してもリークしない)
+	if (!instance.srvAllocated) {
+		instance.paletteSrvIndex = srvManager->Allocate();
+		instance.uavIndex = srvManager->Allocate();
+		instance.srvAllocated = true;
+	}
+
+	// palette用のResourceを確保(ポーズは個体ごとに違うため個体別)
+	instance.paletteResource = dxCommon_->CreateBufferResource(sizeof(WellForGPU) * skeleton.joints.size());
+	WellForGPU* mappedPalette = nullptr;
+	instance.paletteResource->Map(0, nullptr, reinterpret_cast<void**>(&mappedPalette));
+	instance.mappedPalette = { mappedPalette,skeleton.joints.size() };
+
+	instance.paletteSrvHandle.first = srvManager->GetCPUDescriptorHandle(instance.paletteSrvIndex);
+	instance.paletteSrvHandle.second = srvManager->GetGPUDescriptorHandle(instance.paletteSrvIndex);
+
+	// palette用のsrvを作成。StructuredBufferでアクセスできるようにする
+	srvManager->CreateSRVForStructuredBuffer(
+		instance.paletteSrvIndex,
+		instance.paletteResource.Get(),
+		static_cast<UINT>(skeleton.joints.size()),
+		sizeof(WellForGPU)
+	);
+
+	// スキン済み頂点の出力先(CSがUAVとして書き、描画が頂点バッファとして読む)
 	D3D12_HEAP_PROPERTIES heapProps{};
 	heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -214,25 +206,19 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 	resourceDesc.MipLevels = 1;
 	resourceDesc.SampleDesc.Count = 1;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // ← これが重要
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // UAVとして書き込むため必須
 
-	HRESULT hr = dxCommon_->GetDevice()->CreateCommittedResource(
+	HRESULT hr = device->CreateCommittedResource(
 		&heapProps,
 		D3D12_HEAP_FLAG_NONE,
 		&resourceDesc,
 		D3D12_RESOURCE_STATE_COMMON,
 		nullptr,
-		IID_PPV_ARGS(&skinCluster_.skinnedVertexResource));
+		IID_PPV_ARGS(&instance.skinnedVertexResource));
 	assert(SUCCEEDED(hr));
 
-	skinCluster_.skinningInformationResource = dxCommon_->CreateBufferResource(sizeof(SkinningInformation));
-	SkinningInformation* skinningInfo = nullptr;
-	skinCluster_.skinningInformationResource->Map(0, nullptr, reinterpret_cast<void**>(&skinningInfo));
-	skinningInfo->numVertices = static_cast<uint32_t>(modelData_.vertices.size());
-
-	skinCluster_.uavIndex = srvManager->Allocate();
-	skinCluster_.uavHandle.first = srvManager->GetCPUDescriptorHandle(skinCluster_.uavIndex);
-	skinCluster_.uavHandle.second = srvManager->GetGPUDescriptorHandle(skinCluster_.uavIndex);
+	instance.uavHandle.first = srvManager->GetCPUDescriptorHandle(instance.uavIndex);
+	instance.uavHandle.second = srvManager->GetGPUDescriptorHandle(instance.uavIndex);
 
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -243,7 +229,9 @@ void Model::CreateSkinCluster(const Skeleton& skeleton) {
 	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 	uavDesc.Buffer.StructureByteStride = sizeof(VertexData);
 
-	device->CreateUnorderedAccessView(skinCluster_.skinnedVertexResource.Get(), nullptr, &uavDesc, skinCluster_.uavHandle.first);
+	device->CreateUnorderedAccessView(instance.skinnedVertexResource.Get(), nullptr, &uavDesc, instance.uavHandle.first);
+
+	instance.created = true;
 }
 
 Model::MaterialData Model::LoadMaterialTemplateFile(const std::string& directoryPath, const std::string& filename) {
@@ -276,7 +264,15 @@ Model::ModelData Model::LoadModelFile(const std::string& directoryPath, const st
 	const aiScene* scene = importer.ReadFile(filePath.c_str(), aiProcess_FlipWindingOrder | aiProcess_FlipUVs);
 	assert(scene->HasMeshes()); // メッシュがないのは対応しない
 
-	for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
+	// 現状は1モデル=1メッシュ前提(マテリアルを複数使うモデルは自動的に複数メッシュへ分割されるため未対応)。
+	// 複数あった場合は先頭メッシュのみ採用し、警告を残して気付けるようにする
+	if (scene->mNumMeshes > 1) {
+		Logger::Log(std::format(
+			"[Model] Warning: '{}' has {} meshes. Multi-mesh is not supported yet; only mesh 0 will be used.\n",
+			filePath, scene->mNumMeshes));
+	}
+
+	for (uint32_t meshIndex = 0; meshIndex < std::min(scene->mNumMeshes, 1u); ++meshIndex) {
 		aiMesh* mesh = scene->mMeshes[meshIndex];
 		assert(mesh->HasNormals()); // 法線がないMeshは非対応
 		assert(mesh->HasTextureCoords(0)); // TexcoordがないMeshは非対応

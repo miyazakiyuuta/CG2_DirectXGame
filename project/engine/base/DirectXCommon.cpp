@@ -8,7 +8,6 @@
 #include <format>
 #include <dxcapi.h>
 #include <vector>
-#include <thread>
 
 #include "DirectXTex.h"
 #include "d3dx12.h"
@@ -21,19 +20,28 @@ using namespace Microsoft::WRL;
 using namespace Logger;
 using namespace StringUtility;
 
-const uint32_t DirectXCommon::kMaxSRVCount = 512;
-
 DirectXCommon* DirectXCommon::instance = nullptr;
 DirectXCommon* DirectXCommon::GetInstance() {
 	if (!instance)instance = new DirectXCommon();
 	return instance;
 }
 
+void DirectXCommon::Finalize() {
+	delete instance;
+	instance = nullptr;
+}
+
+DirectXCommon::~DirectXCommon() {
+	if (fenceEvent_) {
+		CloseHandle(fenceEvent_);
+		fenceEvent_ = nullptr;
+	}
+}
+
 void DirectXCommon::Initialize(WinApp* winApp) {
 	assert(winApp);
 	winApp_ = winApp;
-	
-	InitializeFixFPS();
+
 	InitializeDevice();
 	InitializeCommand();
 	CreateSwapChain();
@@ -45,6 +53,20 @@ void DirectXCommon::Initialize(WinApp* winApp) {
 	InitializeViewportRect();
 	InitializeScissorRect();
 	CreateDXCCompiler();
+
+	// 固定で使うスロットの直後から自動採番を始める(RTV: 0,1=スワップチェーン / DSV: 0=メイン深度)
+	nextRtvIndex_ = kBackBufferCount;
+	nextDsvIndex_ = 1;
+}
+
+uint32_t DirectXCommon::AllocateRtvIndex() {
+	assert(nextRtvIndex_ < kMaxRtvCount);
+	return nextRtvIndex_++;
+}
+
+uint32_t DirectXCommon::AllocateDsvIndex() {
+	assert(nextDsvIndex_ < kMaxDsvCount);
+	return nextDsvIndex_++;
 }
 
 void DirectXCommon::PreDraw() {
@@ -114,8 +136,6 @@ void DirectXCommon::PostDraw() {
 		// イベント待つ
 		WaitForSingleObject(fenceEvent_, INFINITE);
 	}
-
-	UpdateFixFPS();
 
 	// 次のフレーム用のコマンドリストを準備
 	hr = commandAllocator_->Reset();
@@ -190,14 +210,13 @@ void DirectXCommon::ResizeSwapChain(int width, int height) {
 		dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
 }
 
-IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
+Microsoft::WRL::ComPtr<IDxcBlob> DirectXCommon::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
 	/*hlslファイルを読む*/
 
 	// これからシェーダーをコンパイルする旨をログに出す
-	//Log(ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}\n", filePath, profile)));
 	Log(ConvertString(std::format(L"Begin CompileShader, path:{}, profile:{}\n", filePath, profile)));
-	// hlslファイルを読む
-	IDxcBlobEncoding* shaderSource = nullptr;
+	// hlslファイルを読む(ComPtrで受けてリークを防ぐ)
+	ComPtr<IDxcBlobEncoding> shaderSource = nullptr;
 	hr_ = dxcUtils_->LoadFile(filePath.c_str(), nullptr, &shaderSource);
 	// 読めなかったら止める
 	assert(SUCCEEDED(hr_));
@@ -213,18 +232,20 @@ IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar
 		filePath.c_str(), // コンパイル対象のhlslファイル名
 		L"-E", L"main", // エントリーポイントの指定。基本的にmain以外にはしない
 		L"-T", profile, // ShaderProfileの設定
-		L"-Zi", L"-Qembed_debug", // デバッグ用の情報を埋め込む
-		L"-Od", // 最適化を外しておく
 		L"-Zpr", // メモリレイアウトは行優先
 		L"-I", L"resources/shaders",
+#ifdef _DEBUG
+		L"-Zi", L"-Qembed_debug", // デバッグ用の情報を埋め込む
+		L"-Od", // Debugのみ最適化を外す(他構成はDXC既定の最適化を効かせる)
+#endif
 	};
 	// 実際にShaderをコンパイルする
-	IDxcResult* shaderResult = nullptr;
+	ComPtr<IDxcResult> shaderResult = nullptr;
 	hr_ = dxcCompiler_->Compile(
 		&shaderSourceBuffer, // 読み込んだファイル
 		arguments, // コンパイルオプション
 		_countof(arguments), // コンパイルオプションの数
-		includeHandler_, // includeが含まれた諸々
+		includeHandler_.Get(), // includeが含まれた諸々
 		IID_PPV_ARGS(&shaderResult) // コンパイル結果
 	);
 	// コンパイルエラーではなくdxcが起動できないなど致命的な状況
@@ -233,7 +254,7 @@ IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar
 	/*警告・エラーがでていないか確認する*/
 
 	// 警告・エラーが出てたらログに出して止める
-	IDxcBlobUtf8* shaderError = nullptr;
+	ComPtr<IDxcBlobUtf8> shaderError = nullptr;
 	shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
 	if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
 		Log(shaderError->GetStringPointer());
@@ -244,7 +265,7 @@ IDxcBlob* DirectXCommon::CompileShader(const std::wstring& filePath, const wchar
 	/*Compile結果を受け取って返す*/
 
 	// コンパイル結果から実行用のバイナリ部分を取得
-	IDxcBlob* shaderBlob = nullptr;
+	ComPtr<IDxcBlob> shaderBlob = nullptr;
 	HRESULT hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
 	assert(SUCCEEDED(hr));
 	// 成功したログを出す
@@ -472,7 +493,7 @@ void DirectXCommon::InitializeDevice() {
 		// エラー時に止まる
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
 		// 警告時に止まる
-		//infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
 
 		// 抑制するメッセージのID
 		D3D12_MESSAGE_ID denyIds[] = {
@@ -551,10 +572,10 @@ void DirectXCommon::CreateDescriptorHeaps() {
 	descriptorSizeRTV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 	// デスクリプタヒープ作成
-	// RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので、ShaderVisibleはfalse
-	rtvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16, false);
-	// DSV用のヒープでディスクリプタの数は1。DSVはShader内で触るものではないので、ShaderVisibleはfalse
-	dsvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+	// RTVはShader内で触るものではないので、ShaderVisibleはfalse
+	rtvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, kMaxRtvCount, false);
+	// DSVはShader内で触るものではないので、ShaderVisibleはfalse
+	dsvDescriptorHeap_ = CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, kMaxDsvCount, false);
 }
 
 void DirectXCommon::InitializeRenderTargetView() {
@@ -671,36 +692,4 @@ D3D12_GPU_DESCRIPTOR_HANDLE DirectXCommon::GetGPUDescriptorHandle(const Microsof
 	handleGPU.ptr += (descriptorSize * index);
 	return handleGPU;
 }
-
-void DirectXCommon::InitializeFixFPS() {
-	// 現在時間を記録する
-	reference_ = std::chrono::steady_clock::now();
-}
-
-void DirectXCommon::UpdateFixFPS() {
-	// 1/60秒ぴったりの時間
-	const std::chrono::microseconds kMinTime(uint64_t(1000000.0f / 60.0f));
-	// 1/60秒わずかに短い時間
-	const std::chrono::microseconds kMinCheckTime(uint64_t(1000000.0f / 65.0f));
-
-	// 現在時間を取得
-	std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-	// 前回記録した時間からの経過時間を取得する
-	std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - reference_);
-
-	// 1/60秒(よりわずかに短い時間)経っていない場合
-	if(elapsed < kMinCheckTime) {
-		// 1/60秒経過するまで微小なスリープを繰り返す
-		while(std::chrono::steady_clock::now() - reference_ < kMinTime) {
-			// 1マイクロ秒スリープ
-			std::this_thread::sleep_for(std::chrono::microseconds(1));
-		}
-	}
-	// 現在の時間を記録する
-	reference_ = std::chrono::steady_clock::now();
-}
-
-
-
-
 

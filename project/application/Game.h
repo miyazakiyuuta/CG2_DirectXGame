@@ -11,7 +11,7 @@ public: // メンバ関数
 	void Finalize() override;
 
 	// 毎フレーム更新
-	void Update() override;
+	void Update(float deltaTime) override;
 
 	// 描画
 	void Draw() override;

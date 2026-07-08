@@ -7,7 +7,6 @@
 #include <dxcapi.h>
 #include <array>
 #include <string>
-#include <chrono>
 
 class WinApp;
 
@@ -18,6 +17,8 @@ public:
 
 	// 初期化
 	void Initialize(WinApp* winApp);
+	// 終了(シングルトンの破棄)
+	static void Finalize();
 
 	// 描画前処理
 	void PreDraw();
@@ -27,7 +28,7 @@ public:
 	void ResizeSwapChain(int width, int height);
 
 	// シェーダーのコンパイル
-	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
+	Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(const std::wstring& filePath, const wchar_t* profile);
 
 	/// <summary>
 	/// バッファリソースの生成
@@ -53,15 +54,15 @@ public:
 	// 転送用などで、今詰んでいるコマンドを即実行して完了まで待つ
 	void ExecuteCommandListAndWait();
 
-	// 最大SRV数(最大テクスチャ枚数)
-	static const uint32_t kMaxSRVCount;
+	// RTV/DSVのスロットを確保する(SrvManager::Allocateと同じ自動採番方式。手動採番による衝突を防ぐ)
+	uint32_t AllocateRtvIndex();
+	uint32_t AllocateDsvIndex();
 
 	/* getter */
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVCPUDescriptorHandle(uint32_t index);
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVCPUDescriptorHandle(uint32_t index);
-	ID3D12GraphicsCommandList* GetCommandList() { return commandList_.Get(); }
-	ID3D12Device* GetDevice() const { return device_.Get(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_.Get(); }
+	ID3D12Device* GetDevice() const { return device_.Get(); }
 	size_t GetSwapChainResourceNum()const { return swapChainResources_.size(); }
 	ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
 
@@ -101,11 +102,7 @@ private:
 	/// </summary>
 	static D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& descriptorHeap, uint32_t descriptorSize, uint32_t index);
 
-	// FPS固定初期化
-	void InitializeFixFPS();
-	// FPS固定更新
-	void UpdateFixFPS();
-	
+	~DirectXCommon();
 
 private:
 	static DirectXCommon* instance;
@@ -136,6 +133,12 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_ = nullptr;
 	const uint32_t kBackBufferCount = 2;
+	// RTV/DSVヒープの上限(CreateDescriptorHeapsの確保数と揃える)
+	static const uint32_t kMaxRtvCount = 16;
+	static const uint32_t kMaxDsvCount = 8;
+	// 自動採番の次スロット(スワップチェーン2枚と深度1枚は初期化時に固定で使う)
+	uint32_t nextRtvIndex_ = 0;
+	uint32_t nextDsvIndex_ = 0;
 	// SwapChainからResourceを引っ張ってくる
 	//Microsoft::WRL::ComPtr<ID3D12Resource> swapChainResources[2] = { nullptr };
 	// RTVを2つ作るのでディスクリプタを2つ用意
@@ -155,19 +158,13 @@ private:
 	// シザリング矩形
 	D3D12_RECT scissorRect_;
 	// DXCユーティリティ
-	IDxcUtils* dxcUtils_ = nullptr;
+	Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils_ = nullptr;
 	// DXCコンパイラ
-	IDxcCompiler3* dxcCompiler_ = nullptr;
+	Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler_ = nullptr;
 	// デフォルトインクルードハンドラ
-	IDxcIncludeHandler* includeHandler_ = nullptr;
-	//static IDxcIncludeHandler* includeHandler_;
+	Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler_ = nullptr;
 
 	// TransitionBarrierの設定
 	D3D12_RESOURCE_BARRIER barrier_{};
-
-	// 記録時間(FPS固定用)
-	std::chrono::steady_clock::time_point reference_;
-
-	
 };
 

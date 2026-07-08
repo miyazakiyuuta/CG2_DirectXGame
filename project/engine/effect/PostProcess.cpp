@@ -11,6 +11,11 @@ PostProcess* PostProcess::GetInstance() {
 	return instance;
 }
 
+void PostProcess::Finalize() {
+	delete instance;
+	instance = nullptr;
+}
+
 void PostProcess::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
 	srvManager_ = srvManager;

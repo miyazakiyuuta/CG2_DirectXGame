@@ -4,6 +4,8 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 
+#include <vector>
+
 static const uint32_t kMaxPointLights = 16;
 
 struct PointLight {
@@ -34,11 +36,13 @@ struct PointLightArray {
 };
 
 class SrvManager;
+class Object3d;
 
 // 3Dオブジェクト共通部
 class Object3dCommon {
 public:
 	static Object3dCommon* GetInstance();
+	static void Finalize();
 
 
 public: // メンバ関数
@@ -47,6 +51,14 @@ public: // メンバ関数
 	void CommonDrawSetting();
 	void SkinningDrawSetting();
 	void ComputeDispatchSetting();
+
+	// Object3dがInitialize/デストラクタで自動的に呼ぶ(直接呼ぶ必要はない)
+	void RegisterObject(Object3d* object);
+	void UnregisterObject(Object3d* object);
+
+	// 登録済みオブジェクトのスキニング計算をまとめて実行する(Frameworkがシーン描画前に呼ぶ)。
+	// 計算完了と頂点バッファとして読める状態への遷移バリアもここで張る
+	void DispatchSkinningAll();
 
 public:
 	// setter
@@ -63,9 +75,8 @@ public:
 	D3D12_GPU_DESCRIPTOR_HANDLE GetEnvironmentSrvHandle() const;
 
 private:
-	// ルートシグネチャの作成
+	// ルートシグネチャの作成(通常/スキニングのパイプラインで共用)
 	void CreateRootSignature();
-	void CreateSkinningRootSignature();
 	void CreateComputeRootSignature();
 	// グラフィクスパイプラインの生成
 	void CreateGraphicsPipelineState();
@@ -86,7 +97,6 @@ private: // メンバ変数
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState_ = nullptr;
 
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> skinningRootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> skinningPipelineState_ = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> computeRootSignature_ = nullptr;
@@ -101,5 +111,8 @@ private: // メンバ変数
 	SpotLight* spotLightData_ = nullptr;
 
 	uint32_t environmentSrvIndex_ = 0;
+
+	// 生成中のObject3d一覧(所有はしない)。スキニング一括ディスパッチに使う
+	std::vector<Object3d*> objects_;
 };
 

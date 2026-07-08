@@ -2,8 +2,7 @@
 #include "scene/AbstractSceneFactory.h"
 #include "base/ImGuiManager.h"
 #include "base/RenderTarget.h"
-#include "effect/EffectManager.h"   // 追加
-
+#include "effect/EffectManager.h"
 
 #include <memory>
 #include <wrl/client.h>
@@ -16,15 +15,15 @@
 // ゲーム全体
 class Framework {
 public: // メンバ関数
-	
+
 	// 初期化
 	virtual void Initialize();
 
 	// 終了
 	virtual void Finalize();
 
-	// 毎フレーム更新
-	virtual void Update();
+	// 毎フレーム更新(deltaTimeは前フレームからの実経過時間[秒])
+	virtual void Update(float deltaTime);
 
 	// 描画
 	virtual void Draw();

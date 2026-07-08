@@ -166,6 +166,11 @@ void ParticleManager::RegisterEffect(const std::string& name, const std::string&
 void ParticleManager::Emit(const std::string& name, const Vector3& position, const ParticleConfig& config, uint32_t count) {
 	auto itGroup = particleGroups_.find(name);
 	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Create ParticleEmitter or call RegisterEffect first.");
+	if (itGroup == particleGroups_.end()) {
+		// Releaseではassertが消えるため、未登録グループはログを残して無視する
+		Log("[ParticleManager] Emit: group not found: " + name + "\n");
+		return;
+	}
 
 	ParticleGroup& group = itGroup->second;
 
@@ -203,6 +208,10 @@ void ParticleManager::Emit(const std::string& name, const Vector3& position, con
 void ParticleManager::Emit(const std::string& name, const Vector3& position, uint32_t count) {
 	auto itGroup = particleGroups_.find(name);
 	assert(itGroup != particleGroups_.end() && "ParticleGroup not found. Call RegisterEffect first.");
+	if (itGroup == particleGroups_.end()) {
+		Log("[ParticleManager] Emit: group not found: " + name + "\n");
+		return;
+	}
 
 	Emit(name, position, itGroup->second.defaultConfig, count);
 }
