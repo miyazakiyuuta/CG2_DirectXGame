@@ -11,6 +11,7 @@
 #include "debug/DebugRenderer.h"
 #include "effect/PostProcess.h"
 #include "effect/ParticleManager.h"
+#include "effect/GPUParticleManager.h"
 #include "effect/Monochrome.h"
 #include "effect/Vignette.h"
 #include "effect/BoxFilter.h"
@@ -52,6 +53,8 @@ void Framework::Initialize() {
 	PostProcess::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	ParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
+
+	GPUParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
@@ -101,6 +104,7 @@ void Framework::Finalize() {
 	imGuiManager_.reset();
 #endif
 
+	GPUParticleManager::GetInstance()->Finalize();
 	ParticleManager::GetInstance()->Finalize();
 	SoundManager::GetInstance()->Finalize();
 	DebugRenderer::Finalize();
@@ -163,6 +167,7 @@ void Framework::Run() {
 
 		// パーティクルの更新(シーン更新でカメラが確定した後)
 		ParticleManager::GetInstance()->Update(deltaTime);
+		GPUParticleManager::GetInstance()->Update(deltaTime);
 		// 描画
 
 		// リサイズ検知
@@ -179,11 +184,14 @@ void Framework::Run() {
 
 		// スキニングの計算はシーン描画の前にまとめて行う(計算完了のバリアもここで張る)
 		Object3dCommon::GetInstance()->DispatchSkinningAll();
+		// GPUパーティクルの発生・更新CSも同様にシーン描画前にまとめてDispatchする
+		GPUParticleManager::GetInstance()->DispatchAll();
 
 		sceneRenderTarget_->BeginRender(commandList);
 		Draw();
 		// パーティクルは半透明なので不透明オブジェクトの後に描く
 		ParticleManager::GetInstance()->Draw();
+		GPUParticleManager::GetInstance()->Draw();
 		sceneRenderTarget_->EndRender(commandList);
 
 		effectManager_->Update(deltaTime);

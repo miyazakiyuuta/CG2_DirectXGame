@@ -217,6 +217,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\3d\Skybox.cpp" />
     <ClCompile Include="engine\base\RenderTarget.cpp" />
     <ClCompile Include="engine\effect\GPUParticleEmitter.cpp" />
+    <ClCompile Include="engine\effect\GPUParticleManager.cpp" />
     <ClCompile Include="engine\effect\PostProcess.cpp" />
     <ClCompile Include="engine\effect\Monochrome.cpp" />
     <ClCompile Include="engine\effect\Vignette.cpp" />
@@ -263,6 +264,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\effect\CylinderManager.h" />
     <ClInclude Include="engine\effect\IPostEffect.h" />
     <ClInclude Include="engine\effect\GPUParticle.h" />
+    <ClInclude Include="engine\effect\GPUParticleConfig.h" />
+    <ClInclude Include="engine\effect\GPUParticleManager.h" />
     <ClInclude Include="engine\effect\ParticleConfig.h" />
     <ClInclude Include="engine\math\mathFunction.h" />
     <ClInclude Include="engine\math\Quaternion.h" />
@@ -361,6 +364,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
     <None Include="resources\shaders\Particle.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="resources\shaders\GPUParticle.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

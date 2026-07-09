@@ -228,6 +228,9 @@
     <ClCompile Include="engine\effect\GPUParticleEmitter.cpp">
       <Filter>engine\effect\GPUParticle</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\GPUParticleManager.cpp">
+      <Filter>engine\effect\GPUParticle</Filter>
+    </ClCompile>
     <ClCompile Include="engine\effect\PostProcess.cpp">
       <Filter>engine\effect\PostEffect</Filter>
     </ClCompile>
@@ -419,6 +422,12 @@
     <ClInclude Include="engine\effect\GPUParticleEmitter.h">
       <Filter>engine\effect\GPUParticle</Filter>
     </ClInclude>
+    <ClInclude Include="engine\effect\GPUParticleManager.h">
+      <Filter>engine\effect\GPUParticle</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\GPUParticleConfig.h">
+      <Filter>engine\effect\GPUParticle</Filter>
+    </ClInclude>
     <ClInclude Include="engine\effect\PostProcess.h">
       <Filter>engine\effect\PostEffect</Filter>
     </ClInclude>
@@ -524,6 +533,9 @@
     </None>
     <None Include="resources\shaders\Particle.hlsli">
       <Filter>resources\shaders\particle</Filter>
+    </None>
+    <None Include="resources\shaders\GPUParticle.hlsli">
+      <Filter>resources\shaders\particle\gpu</Filter>
     </None>
     <None Include="resources\shaders\Cylinder.hlsli">
       <Filter>resources\shaders\geometry</Filter>

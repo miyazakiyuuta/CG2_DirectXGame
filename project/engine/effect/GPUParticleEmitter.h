@@ -1,75 +1,47 @@
 #pragma once
-#include "effect/GPUParticle.h"
-#include "base/DirectXCommon.h"
-#include "base/SrvManager.h"
-#include "3d/Camera.h"
-#include <d3d12.h>
-#include <wrl.h>
+#include "math/Vector3.h"
+#include "effect/GPUParticleConfig.h"
+#include <string>
+#include <cstdint>
 
+// GPUパーティクルの発生装置。生成するだけでグループ作成とManagerへの登録が済み、
+// isActiveの間はfrequency(秒)ごとにGPU上のEmit CSがcount個ずつ自動発生させる。
+// パラメータのCBV書き込みと射出タイミング判定はGPUParticleManagerが毎フレーム行うので
+// シーンからUpdateを呼ぶ必要はない。1グループにつきエミッタは1つを想定。
 class GPUParticleEmitter {
 public:
-    void Initialize();
-	void Update(float deltaTime);
-    void Draw(Camera* camera);
+	GPUParticleEmitter(const std::string& groupName, const std::string& textureFilePath,
+		const GPUParticleConfig& config);
 
-    void SetTexture(uint32_t srvIndex) { textureSrvIndex_ = srvIndex; }
+	~GPUParticleEmitter();
+
+	// GPUParticleManagerに登録して参照してもらうためコピー不可
+	GPUParticleEmitter(const GPUParticleEmitter&) = delete;
+	GPUParticleEmitter& operator=(const GPUParticleEmitter&) = delete;
+
+	void DrawImGui();
+
+	void SetPosition(const Vector3& position) { position_ = position; }
+	void SetRadius(float radius) { radius_ = radius; }
+	void SetEmitCount(uint32_t count) { emitCount_ = count; }
+	void SetFrequency(float seconds) { frequency_ = seconds; }
+	void SetActive(bool active) { isActive_ = active; }
+	void SetConfig(const GPUParticleConfig& config) { config_ = config; }
+
+	const Vector3& GetPosition() const { return position_; }
+	float GetRadius() const { return radius_; }
+	uint32_t GetEmitCount() const { return emitCount_; }
+	float GetFrequency() const { return frequency_; }
+	bool IsActive() const { return isActive_; }
+	GPUParticleConfig& GetConfig() { return config_; }
+	const std::string& GetGroupName() const { return groupName_; }
 
 private:
-
-    struct Material {
-        Vector4 color;
-        int enableLighting;
-        float padding[3];
-        Matrix4x4 uvTransform;
-    };
-
-
-    void CreateResource();
-    void CreateCSPipelineState();
-    void CreateEmitCSPipelineState();
-	void CreateUpdateCSPipelineState();
-    void CreateDrawPipelineState();
-    void CreatePerViewBuffer();
-    void CreateMaterialBuffer();
-    void CreateEmitterBuffer();
-	void CreatePerFrameBuffer();
-    void InitializeParticles(); // CSで初期化
-	void EmitParticles(); // CSで射出
-	void UpdateParticles(); // CSで更新
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> particleResource_;
-
-    uint32_t srvIndex_ = 0;
-    uint32_t uavIndex_ = 0;
-    uint32_t freeCounterUavIndex_ = 0;
-    uint32_t textureSrvIndex_ = 0;
-
-    static const uint32_t kMaxParticles = 1024;
-
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureCS_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateCS_;
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureDraw_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateDraw_;
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureEmitCS_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateEmitCS_;
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignatureUpdateCS_;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineStateUpdateCS_;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_;
-    PerView* perViewData_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
-    Material* materialData_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> emitterResource_;
-    EmitterSphere* emitterSphere_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> perFrameResource_;
-    PerFrame* perFrameData_ = nullptr;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> freeCounterResource_;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource> freeListResource_;
-    uint32_t freeListUavIndex_ = 0;
+	std::string groupName_;
+	GPUParticleConfig config_;
+	Vector3 position_{};
+	float radius_ = 1.0f;       // 射出半径(位置を中心とした±radiusの範囲に発生)
+	uint32_t emitCount_ = 100;  // 1回の発生数
+	float frequency_ = 0.1f;    // 発生間隔(秒)
+	bool isActive_ = true;
 };
-

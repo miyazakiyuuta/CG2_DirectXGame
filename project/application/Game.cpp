@@ -7,6 +7,7 @@
 #include "scene/SceneManager.h"
 #include "io/Input.h"
 #include "effect/ParticleManager.h"
+#include "effect/GPUParticleManager.h"
 
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -91,6 +92,7 @@ void Game::DrawUI() {
 
     ImGui::Begin("Particle");
     ParticleManager::GetInstance()->DrawImGui();
+    GPUParticleManager::GetInstance()->DrawImGui();
     ImGui::End();
 
 	SceneManager::GetInstance()->DrawImGui(); // シーン固有UIの描画
