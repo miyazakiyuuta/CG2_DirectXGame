@@ -1,5 +1,6 @@
 #pragma once
 #include "stage/StageData.h"
+#include "scene/EditorObject.h"
 
 #include <memory>
 #include <string>
@@ -28,6 +29,13 @@ public:
 
 	// 描画に使うカメラを差し替える(構築済みの全オブジェクトへも反映)
 	void SetCamera(Camera* camera);
+
+	/// <summary>
+	/// Hierarchy/Inspector/ギズモ用の一覧を作る。
+	/// transformはdata_.objectsの要素を直接指す(StageDataが唯一の編集対象)ため、
+	/// data_.objectsを構造変更(追加/削除/Reload)したら必ず作り直すこと
+	/// </summary>
+	std::vector<EditorObject> BuildEditorObjects();
 
 	StageData& GetData() { return data_; }
 	const StageData& GetData() const { return data_; }

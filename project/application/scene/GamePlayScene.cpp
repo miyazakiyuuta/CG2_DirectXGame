@@ -125,25 +125,8 @@ void GamePlayScene::Initialize() {
 	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
 	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
 
-	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧。
-	// オブジェクトを追加したらここに1行足すだけで全機能に反映される。
-	// SkyCylinderは全天を覆うため、Cameraは実体が見えないためクリック選択の対象外
-	editorObjects_.clear();
-	editorObjects_.push_back({ "Sphere", &object3d_->GetTransform(), true });
-	editorObjects_.push_back({ "SkyCylinder", &skyCylinder_->GetTransform(), false });
-	editorObjects_.push_back({ "Camera", &camera_->GetTransform(), false });
-	editorObjects_.back().scaleEditable = false; // カメラのscaleはビュー行列を歪ませるため編集させない
-	selectedIndex_ = -1;
-
-#ifdef USE_IMGUI
-	// 型別のInspector追加UI(ImGui呼び出しを含むためDebug構成のみ)
-	editorObjects_.back().drawInspector = [this]() {
-		float fovY = camera_->GetFovY();
-		if (ImGui::DragFloat("FovY", &fovY, 0.01f)) {
-			camera_->SetFovY(fovY);
-		}
-	};
-#endif
+	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧を構築
+	RebuildEditorObjects();
 
 	// 保存済みのシーン配置があれば復元(無ければ上の初期値のまま)
 	SceneSerializer::Load(kScenePath, BuildSerializeEntries());
@@ -265,13 +248,42 @@ void GamePlayScene::DrawImGui() {
 }
 
 std::vector<SceneSerializer::Entry> GamePlayScene::BuildSerializeEntries() const {
-	// エディタ一覧がそのまま保存対象(一覧が唯一の定義箇所になる)
+	// 固定オブジェクトだけが保存対象。ステージ分はstage.jsonの管轄なのでここには含めない
 	std::vector<SceneSerializer::Entry> entries;
-	entries.reserve(editorObjects_.size());
-	for (const EditorObject& object : editorObjects_) {
-		entries.push_back({ object.name, object.transform });
+	entries.reserve(fixedEditorObjectCount_);
+	for (size_t i = 0; i < fixedEditorObjectCount_; ++i) {
+		entries.push_back({ editorObjects_[i].name, editorObjects_[i].transform });
 	}
 	return entries;
+}
+
+void GamePlayScene::RebuildEditorObjects() {
+	// C++直書きの固定オブジェクト。追加したらここに1行足すだけで全機能に反映される。
+	// SkyCylinderは全天を覆うため、Cameraは実体が見えないためクリック選択の対象外
+	editorObjects_.clear();
+	editorObjects_.push_back({ "Sphere", &object3d_->GetTransform(), true });
+	editorObjects_.push_back({ "SkyCylinder", &skyCylinder_->GetTransform(), false });
+	editorObjects_.push_back({ "Camera", &camera_->GetTransform(), false });
+	editorObjects_.back().scaleEditable = false; // カメラのscaleはビュー行列を歪ませるため編集させない
+
+#ifdef USE_IMGUI
+	// 型別のInspector追加UI(ImGui呼び出しを含むためDebug構成のみ)
+	editorObjects_.back().drawInspector = [this]() {
+		float fovY = camera_->GetFovY();
+		if (ImGui::DragFloat("FovY", &fovY, 0.01f)) {
+			camera_->SetFovY(fovY);
+		}
+	};
+#endif
+	fixedEditorObjectCount_ = editorObjects_.size();
+
+	// ステージ分を後ろへ連結(transformはStageData直指し。編集はStage::Updateが実体へ反映する)
+	std::vector<EditorObject> stageObjects = stage_->BuildEditorObjects();
+	editorObjects_.insert(editorObjects_.end(),
+		std::make_move_iterator(stageObjects.begin()), std::make_move_iterator(stageObjects.end()));
+
+	// 一覧が変わったので選択は解除(古いindexは別物を指しうる)
+	selectedIndex_ = -1;
 }
 
 Camera* GamePlayScene::GetActiveCamera() const {
