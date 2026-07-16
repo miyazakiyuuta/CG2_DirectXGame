@@ -64,6 +64,9 @@
     <Filter Include="application\transition">
       <UniqueIdentifier>{cea26394-fce5-4997-b932-50bc42687fb1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\stage">
+      <UniqueIdentifier>{3b1f7a52-8c94-4e6d-a1c7-52e9d0b4f8a1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resources">
       <UniqueIdentifier>{7d4111bf-edf7-429d-a130-b3f728e2ef09}</UniqueIdentifier>
     </Filter>
@@ -128,6 +131,12 @@
     </ClCompile>
     <ClCompile Include="application\transition\BlindTransition.cpp">
       <Filter>application\transition</Filter>
+    </ClCompile>
+    <ClCompile Include="application\stage\Stage.cpp">
+      <Filter>application\stage</Filter>
+    </ClCompile>
+    <ClCompile Include="application\stage\StageSerializer.cpp">
+      <Filter>application\stage</Filter>
     </ClCompile>
     <ClCompile Include="engine\2d\SpriteCommon.cpp">
       <Filter>engine\2d</Filter>
@@ -310,6 +319,15 @@
     </ClInclude>
     <ClInclude Include="application\transition\BlindTransition.h">
       <Filter>application\transition</Filter>
+    </ClInclude>
+    <ClInclude Include="application\stage\Stage.h">
+      <Filter>application\stage</Filter>
+    </ClInclude>
+    <ClInclude Include="application\stage\StageData.h">
+      <Filter>application\stage</Filter>
+    </ClInclude>
+    <ClInclude Include="application\stage\StageSerializer.h">
+      <Filter>application\stage</Filter>
     </ClInclude>
     <ClInclude Include="engine\2d\SpriteCommon.h">
       <Filter>engine\2d</Filter>

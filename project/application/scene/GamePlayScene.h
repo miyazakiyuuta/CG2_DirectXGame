@@ -11,6 +11,7 @@
 class Camera;
 class DebugCamera;
 class Object3d;
+class Stage;
 class Skybox;
 class DebugGrid;
 class GPUParticleEmitter;
@@ -49,6 +50,9 @@ private:
 	std::unique_ptr<DebugCamera> debugCamera_;
 
 	std::unique_ptr<Object3d> object3d_;
+
+	// stage.jsonから構築するステージ配置(静的オブジェクト群)
+	std::unique_ptr<Stage> stage_;
 
 	std::unique_ptr<Skybox> skybox_;
 

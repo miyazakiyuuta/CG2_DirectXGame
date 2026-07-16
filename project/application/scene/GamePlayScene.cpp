@@ -12,6 +12,7 @@
 #include "effect/GPUParticleEmitter.h"
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
+#include "stage/Stage.h"
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
@@ -28,6 +29,8 @@
 namespace {
 	// シーン配置の保存先(作業ディレクトリ=プロジェクト直下からの相対パス)
 	const std::string kScenePath = "resources/scenes/GamePlayScene.json";
+	// ステージデータの置き場所(「エディタで作ってゲームが読む」パイプラインの受け渡しファイル)
+	const std::string kStagePath = "resources/scenes/stage.json";
 }
 
 void GamePlayScene::Initialize() {
@@ -92,6 +95,11 @@ void GamePlayScene::Initialize() {
 	ModelManager::GetInstance()->LoadModel("human/sneakWalk.gltf");
 	ModelManager::GetInstance()->LoadModel("human/human_re.gltf");
 	ModelManager::GetInstance()->LoadModel("Frog/Frog.gltf");
+
+	// ステージ配置をstage.jsonから構築(必要なモデルはStage側がロードする)
+	stage_ = std::make_unique<Stage>();
+	stage_->SetCamera(camera_.get());
+	stage_->LoadFromFile(kStagePath);
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
@@ -176,6 +184,7 @@ void GamePlayScene::Update(float deltaTime) {
 	ParticleManager::GetInstance()->SetCamera(activeCamera);
 	GPUParticleManager::GetInstance()->SetCamera(activeCamera);
 	object3d_->SetCamera(activeCamera);
+	stage_->SetCamera(activeCamera);
 	skyCylinder_->SetCamera(activeCamera);
 	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
 		static_cast<DepthBasedOutline*>(effect)->SetCamera(activeCamera);
@@ -203,6 +212,7 @@ void GamePlayScene::Update(float deltaTime) {
 	}
 
 	object3d_->Update(deltaTime);
+	stage_->Update(deltaTime);
 
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
 
@@ -212,6 +222,7 @@ void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
 	skyCylinder_->Draw();
 
+	stage_->Draw();
 	object3d_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
