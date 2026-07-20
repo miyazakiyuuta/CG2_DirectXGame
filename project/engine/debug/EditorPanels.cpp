@@ -5,9 +5,13 @@
 
 void EditorPanels::DrawHierarchy(const std::vector<EditorObject>& objects, int& selectedIndex) {
 	for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
+		// Selectableはラベル文字列がIDになるため、同名オブジェクトが並ぶと選択が壊れる。
+		// 添字ベースのIDで囲んで名前の重複を許容する
+		ImGui::PushID(i);
 		if (ImGui::Selectable(objects[i].name.c_str(), selectedIndex == i)) {
 			selectedIndex = i;
 		}
+		ImGui::PopID();
 	}
 }
 

@@ -3,6 +3,10 @@
 #include "3d/ModelCommon.h"
 #include "base/SrvManager.h"
 
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
+
 ModelManager* ModelManager::instance = nullptr;
 
 ModelManager* ModelManager::GetInstance() {
@@ -46,6 +50,36 @@ void ModelManager::LoadModel(const std::string& filePath) {
 
 	// 相対パスをキーにしてmapコンテナに収納する
 	models_.insert(std::make_pair(filePath, std::move(model)));
+}
+
+std::vector<std::string> ModelManager::ScanModelFiles() const {
+	std::vector<std::string> files;
+
+	// LoadModelの相対パス基準と同じ場所を走査する(作業ディレクトリ=プロジェクト直下が前提)
+	const std::filesystem::path root = "resources";
+	if (!std::filesystem::exists(root)) {
+		return files;
+	}
+
+	for (const std::filesystem::directory_entry& entry : std::filesystem::recursive_directory_iterator(root)) {
+		if (!entry.is_regular_file()) {
+			continue;
+		}
+
+		// 拡張子は大文字小文字を区別せず判定する(".OBJ"のようなファイルも拾う)
+		std::string extension = entry.path().extension().string();
+		std::transform(extension.begin(), extension.end(), extension.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		if (extension != ".obj" && extension != ".gltf") {
+			continue;
+		}
+
+		// "resources\human\walk.gltf" → "human/walk.gltf"(LoadModelのキーと同じ区切り文字にする)
+		files.push_back(std::filesystem::relative(entry.path(), root).generic_string());
+	}
+
+	std::sort(files.begin(), files.end());
+	return files;
 }
 
 Model* ModelManager::FindModel(const std::string& filePath) {

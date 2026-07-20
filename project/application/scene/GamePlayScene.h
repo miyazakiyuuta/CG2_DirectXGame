@@ -5,6 +5,7 @@
 
 #include <d3d12.h>
 #include <cstdint>
+#include <string>
 #include <vector>
 #include <memory>
 
@@ -46,12 +47,23 @@ private:
 	// 描画に使うカメラ(デバッグカメラON中はそちらを返す)
 	Camera* GetActiveCamera() const;
 
+#ifdef USE_IMGUI
+	// resources配下のモデル一覧を取り直す(選択中のパスは一覧が変わっても可能なら維持する)
+	void RescanModelFiles();
+#endif
+
 	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧と選択状態
 	std::vector<EditorObject> editorObjects_;
 	int selectedIndex_ = -1; // -1 = 選択なし
 	// 先頭からこの個数分がC++直書きの固定オブジェクト(GamePlayScene.jsonの保存対象)。
 	// 以降はステージ分(stage.jsonの管轄なのでシーン保存には含めない)
 	size_t fixedEditorObjectCount_ = 0;
+
+#ifdef USE_IMGUI
+	// エディタのモデル選択Comboに出す一覧(resources配下のスキャン結果)と、Addで使う選択位置
+	std::vector<std::string> modelFiles_;
+	int addModelIndex_ = 0;
+#endif
 
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;

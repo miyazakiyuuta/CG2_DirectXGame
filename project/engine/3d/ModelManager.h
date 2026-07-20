@@ -2,6 +2,8 @@
 #include "base/DirectXCommon.h"
 #include <memory>
 #include <map>
+#include <string>
+#include <vector>
 #include <DirectXPackedVector.h>
 
 class Model;
@@ -30,6 +32,12 @@ public:
 	/// <param name="filePath">モデルファイルのパス</param>
 	/// <returns></returns>
 	Model* FindModel(const std::string& filePath);
+
+	/// <summary>
+	/// resources配下のモデルファイル(.obj/.gltf)を列挙する(エディタのモデル選択UI用)
+	/// </summary>
+	/// <returns>LoadModelへそのまま渡せる相対パスのソート済み一覧(例:"fence/fence.obj")</returns>
+	std::vector<std::string> ScanModelFiles() const;
 
 private:
 	static ModelManager* instance;

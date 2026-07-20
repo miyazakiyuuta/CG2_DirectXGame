@@ -14,7 +14,14 @@ bool Stage::LoadFromFile(const std::string& path) {
 }
 
 void Stage::Rebuild() {
-	// 作り直しなので既存の実体は全て破棄する
+	// 既存の実体は即deleteせず墓場へ退避する。ImGuiのボタン処理等、描画コマンド記録後に
+	// Rebuildされた場合、このフレームのコマンドリストが古い実体の定数バッファを参照済みのため、
+	// ここでdeleteするとOBJECT_DELETED_WHILE_STILL_IN_USEでGPU実行が壊れる
+	for (std::unique_ptr<Object3d>& object : objects_) {
+		if (object) {
+			graveyard_.push_back(std::move(object));
+		}
+	}
 	objects_.clear();
 	objects_.reserve(data_.objects.size());
 
@@ -40,6 +47,9 @@ void Stage::Rebuild() {
 }
 
 void Stage::Update(float deltaTime) {
+	// 前フレームのコマンドはPostDrawのフェンス待ちで実行完了済みなので、退避分をここで破棄する
+	graveyard_.clear();
+
 	for (size_t i = 0; i < objects_.size(); ++i) {
 		if (objects_[i]) {
 			// StageDataが唯一の編集対象(Source of Truth)。エディタでの変更を毎フレーム実体へ反映する
@@ -53,6 +63,55 @@ void Stage::Draw() {
 	for (const std::unique_ptr<Object3d>& object : objects_) {
 		if (object) {
 			object->Draw();
+		}
+	}
+}
+
+size_t Stage::AddObject(StageData::ObjectData objectData) {
+	objectData.name = MakeUniqueName(objectData.name);
+	data_.objects.push_back(std::move(objectData));
+	Rebuild();
+	return data_.objects.size() - 1;
+}
+
+size_t Stage::DuplicateObject(size_t index) {
+	StageData::ObjectData copied = data_.objects[index];
+	copied.name = MakeUniqueName(copied.name);
+	// Hierarchy上で元の隣に並ぶよう直後へ挿入する
+	data_.objects.insert(data_.objects.begin() + index + 1, std::move(copied));
+	Rebuild();
+	return index + 1;
+}
+
+void Stage::RemoveObject(size_t index) {
+	data_.objects.erase(data_.objects.begin() + index);
+	Rebuild();
+}
+
+void Stage::SetObjectModel(size_t index, const std::string& model) {
+	data_.objects[index].model = model;
+	// 新モデルのロードはRebuild内のLoadModelが、古い実体の安全な破棄はgraveyard機構が行う
+	Rebuild();
+}
+
+std::string Stage::MakeUniqueName(const std::string& base) const {
+	auto exists = [this](const std::string& name) {
+		for (const StageData::ObjectData& objectData : data_.objects) {
+			if (objectData.name == name) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	if (!exists(base)) {
+		return base;
+	}
+	// 空き番号が見つかるまで加算する(オブジェクト数は有限なので必ず終わる)
+	for (int i = 1;; ++i) {
+		std::string candidate = base + "_" + std::to_string(i);
+		if (!exists(candidate)) {
+			return candidate;
 		}
 	}
 }
