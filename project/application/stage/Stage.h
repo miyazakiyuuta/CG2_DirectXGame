@@ -53,6 +53,13 @@ public:
 	/// </summary>
 	void SetObjectModel(size_t index, const std::string& model);
 
+	/// <summary>
+	/// index番のオブジェクトの無効フラグを切り替える(trueで実体を破棄、falseで再生成)。
+	/// SetObjectModelと同じく構造変更ではないため、一覧の作り直しは不要。
+	/// ただしEditorObjectのdisabled/pickableの表示状態は呼び出し側が更新すること
+	/// </summary>
+	void SetObjectDisabled(size_t index, bool disabled);
+
 	void Update(float deltaTime);
 	void Draw();
 

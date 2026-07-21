@@ -357,10 +357,15 @@ void GamePlayScene::RebuildEditorObjects() {
 		std::make_move_iterator(stageObjects.begin()), std::make_move_iterator(stageObjects.end()));
 
 #ifdef USE_IMGUI
-	// ステージ分にはモデル差し替えComboを付ける(StageはImGui非依存のまま、UIは登録側=シーンが持つ)。
-	// モデル差し替えは構造変更ではないためこの一覧は作り直し不要で、選択もそのまま維持される
+	// ステージ分にはモデル差し替えComboと無効フラグ切替を付ける
+	// (StageはImGui非依存のまま、UIは登録側=シーンが持つ)。
+	// どちらも構造変更ではないためこの一覧は作り直し不要で、選択もそのまま維持される
 	for (size_t i = fixedEditorObjectCount_; i < editorObjects_.size(); ++i) {
 		const size_t stageObjectIndex = i - fixedEditorObjectCount_;
+		editorObjects_[i].onSetDisabled = [this, i, stageObjectIndex](bool disabled) {
+			stage_->SetObjectDisabled(stageObjectIndex, disabled);
+			editorObjects_[i].pickable = !disabled; // 実体が消えるのでクリック選択の対象からも外す
+		};
 		editorObjects_[i].drawInspector = [this, stageObjectIndex]() {
 			// 参照ではなくコピーで持つ(SetObjectModelが元の文字列を書き換えるため)
 			const std::string current = stage_->GetData().objects[stageObjectIndex].model;
