@@ -3,6 +3,7 @@
 #include "math/Serialization.h"
 #include "utility/Logger.h"
 
+#include <filesystem>
 #include <fstream>
 
 using json = nlohmann::json;
@@ -55,6 +56,48 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 
 	stageData = std::move(loaded);
 	Logger::Log("StageSerializer::Load: loaded: " + path +
+	            " (" + std::to_string(stageData.objects.size()) + " objects)\n");
+	return true;
+}
+
+bool StageSerializer::Save(const std::string& path, const StageData& stageData) {
+	json root;
+	root["objects"] = json::array();
+	for (const StageData::ObjectData& objectData : stageData.objects) {
+		json object = {
+			{ "type", "static" },
+			{ "name", objectData.name },
+			{ "model", objectData.model },
+			{ "transform", objectData.transform }, // Serialization.h の to_json が自動で効く
+		};
+		// 省略可能フィールドは既定値なら書かない(Save→Loadのラウンドトリップでデータが一致する)
+		if (objectData.disabled) {
+			object["disabled"] = objectData.disabled;
+		}
+		if (objectData.hasCollider) {
+			object["collider"] = {
+				{ "type", objectData.collider.type },
+				{ "center", objectData.collider.center },
+				{ "size", objectData.collider.size },
+			};
+		}
+		root["objects"].push_back(std::move(object));
+	}
+
+	// 保存先ディレクトリが無ければ作る(初回Save対策)
+	std::filesystem::path filePath(path);
+	if (filePath.has_parent_path()) {
+		std::error_code ec;
+		std::filesystem::create_directories(filePath.parent_path(), ec);
+	}
+
+	std::ofstream file(path);
+	if (!file) {
+		Logger::Log("StageSerializer::Save: failed to open: " + path + "\n");
+		return false;
+	}
+	file << root.dump(4); // インデント付き(人間が読める形式)で書き出す
+	Logger::Log("StageSerializer::Save: saved: " + path +
 	            " (" + std::to_string(stageData.objects.size()) + " objects)\n");
 	return true;
 }

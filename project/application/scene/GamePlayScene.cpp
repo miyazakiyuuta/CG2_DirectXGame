@@ -26,6 +26,7 @@
 #include "debug/EditorPanels.h"
 #include "debug/TransformGizmo.h"
 #include "math/Matrix4x4.h"
+#include "stage/StageSerializer.h"
 #endif
 
 namespace {
@@ -276,6 +277,19 @@ void GamePlayScene::DrawImGui() {
 		RebuildEditorObjects(); // 選択解除もここで行われる
 	}
 	ImGui::EndDisabled();
+
+	// ステージ配置のファイル操作。Reloadはstage.jsonの内容で上書き(未保存の編集は破棄される)
+	ImGui::SeparatorText("Stage File");
+	if (ImGui::Button("Save##stage")) {
+		StageSerializer::Save(kStagePath, stage_->GetData());
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Reload##stage")) {
+		// 失敗時(JSON破損等)はLoadFromFileが現状維持するので、一覧の作り直しも不要
+		if (stage_->LoadFromFile(kStagePath)) {
+			RebuildEditorObjects(); // 構造変更でTransformポインタが無効になるため必須(選択解除も行われる)
+		}
+	}
 
 	ImGui::SeparatorText("Scene File");
 	if (ImGui::Button("Save")) {
