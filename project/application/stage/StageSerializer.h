@@ -5,7 +5,8 @@
 
 // stage.json <-> StageData の変換を担当するシリアライザ。
 // JSON形式: {"objects":[{"type":"static", "name":..., "model":..., "transform":{...},
-//            "disabled":(省略可), "collider":(省略可)}, ...]}
+//            "disabled":(省略可), "collider":(省略可)}, ...],
+//            "rail":(省略可), "camera":{"fovY":..., "railSpeed":..., "backDistance":...}(省略可)}
 namespace StageSerializer {
 	/// <summary>
 	/// ステージデータファイルを読み込む。

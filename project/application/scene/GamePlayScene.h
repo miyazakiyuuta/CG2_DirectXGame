@@ -9,9 +9,11 @@
 #include <vector>
 #include <memory>
 
+class ActionInput;
 class Camera;
 class DebugCamera;
 class Object3d;
+class Player;
 class Stage;
 class Skybox;
 class DebugGrid;
@@ -47,6 +49,11 @@ private:
 	// 描画に使うカメラ(デバッグカメラON中はそちらを返す)
 	Camera* GetActiveCamera() const;
 
+	// stage.jsonのカメラ調整値(FovY/railSpeed/backDistance)をライブ値へ反映する(Apply)。
+	// hasCameraがfalse(camera項目の無い旧stage.json)なら何もしない。
+	// 初回LoadFromFile後とReload成功後に呼ぶ。逆方向(Capture)はSaveボタン側で行う
+	void ApplyCameraFromStage();
+
 #ifdef USE_IMGUI
 	// resources配下のモデル一覧を取り直す(選択中のパスは一覧が変わっても可能なら維持する)
 	void RescanModelFiles();
@@ -73,6 +80,15 @@ private:
 	float railDistance_ = 0.0f;
 	float railSpeed_ = 10.0f;
 	bool railCameraActive_ = true;
+
+	// カメラをプレイヤーの何m後方に置くか。railDistance_はプレイヤーの進行度で、
+	// カメラはプレイヤーの座標系(接線基準)を forward×この値 だけ下がった位置に派生させる。
+	// レール基準点を1つに統一することで、カーブでも画面内の自機位置が固定される
+	float cameraBackDistance_ = 10.0f;
+
+	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
+	std::unique_ptr<ActionInput> actionInput_;
+	std::unique_ptr<Player> player_;
 
 	std::unique_ptr<Object3d> object3d_;
 

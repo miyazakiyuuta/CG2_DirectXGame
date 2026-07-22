@@ -54,6 +54,23 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 		if (root.contains("rail")) {
 			root.at("rail").get_to(loaded.rail);
 		}
+
+		// カメラ調整値(省略可能。無ければhasCamera=falseでシーンはApplyしない)。
+		// フィールドも1個ずつ省略可(無い項目は構造体デフォルトのまま)。colliderのat()一括より
+		// 緩いのは、手編集ミス1項目で全体を失敗させない+将来のフィールド追加で旧ファイルを壊さないため
+		if (root.contains("camera")) {
+			const json& camera = root.at("camera");
+			loaded.hasCamera = true;
+			if (camera.contains("fovY")) {
+				camera.at("fovY").get_to(loaded.camera.fovY);
+			}
+			if (camera.contains("railSpeed")) {
+				camera.at("railSpeed").get_to(loaded.camera.railSpeed);
+			}
+			if (camera.contains("backDistance")) {
+				camera.at("backDistance").get_to(loaded.camera.backDistance);
+			}
+		}
 	} catch (const json::exception& e) {
 		// 壊れたJSON・キー欠損でも落とさずログだけ残す(手編集ミス対策)
 		Logger::Log("StageSerializer::Load: parse error: " + path + ": " + e.what() + "\n");
@@ -93,6 +110,15 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 	// レール制御点も省略可能フィールドの流儀(既定値=空なら書かない)に合わせる
 	if (!stageData.rail.empty()) {
 		root["rail"] = stageData.rail;
+	}
+
+	// カメラ調整値(hasCameraのときだけ書く。Save→Loadのラウンドトリップでデータが一致する)
+	if (stageData.hasCamera) {
+		root["camera"] = {
+			{ "fovY", stageData.camera.fovY },
+			{ "railSpeed", stageData.camera.railSpeed },
+			{ "backDistance", stageData.camera.backDistance },
+		};
 	}
 
 	// 保存先ディレクトリが無ければ作る(初回Save対策)

@@ -67,6 +67,12 @@
     <Filter Include="application\stage">
       <UniqueIdentifier>{3b1f7a52-8c94-4e6d-a1c7-52e9d0b4f8a1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\input">
+      <UniqueIdentifier>{a7c31e88-4b2d-4f6a-9c15-8e0d3b6a2f47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="application\player">
+      <UniqueIdentifier>{5e9d20c4-1f7b-4a83-b6d2-93c8a4e17f05}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resources">
       <UniqueIdentifier>{7d4111bf-edf7-429d-a130-b3f728e2ef09}</UniqueIdentifier>
     </Filter>
@@ -131,6 +137,12 @@
     </ClCompile>
     <ClCompile Include="application\transition\BlindTransition.cpp">
       <Filter>application\transition</Filter>
+    </ClCompile>
+    <ClCompile Include="application\input\ActionInput.cpp">
+      <Filter>application\input</Filter>
+    </ClCompile>
+    <ClCompile Include="application\player\Player.cpp">
+      <Filter>application\player</Filter>
     </ClCompile>
     <ClCompile Include="application\stage\Stage.cpp">
       <Filter>application\stage</Filter>
@@ -322,6 +334,12 @@
     </ClInclude>
     <ClInclude Include="application\transition\BlindTransition.h">
       <Filter>application\transition</Filter>
+    </ClInclude>
+    <ClInclude Include="application\input\ActionInput.h">
+      <Filter>application\input</Filter>
+    </ClInclude>
+    <ClInclude Include="application\player\Player.h">
+      <Filter>application\player</Filter>
     </ClInclude>
     <ClInclude Include="application\stage\Stage.h">
       <Filter>application\stage</Filter>

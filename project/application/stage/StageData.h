@@ -27,9 +27,22 @@ struct StageData {
 		ColliderData collider;      // hasColliderがtrueのときのみ有効
 	};
 
+	// カメラ調整値。ランタイムの所有者はシーン(GamePlayScene)で、ここはデータの器。
+	// 各デフォルトはランタイム側の初期値と一致させること(camera項目の無い旧stage.jsonとの互換のため)
+	struct CameraData {
+		float fovY = 0.45f;         // Camera::fovY_の初期値(Camera.cpp)と一致
+		float railSpeed = 10.0f;    // GamePlayScene::railSpeed_の初期値と一致
+		float backDistance = 10.0f; // GamePlayScene::cameraBackDistance_の初期値と一致
+	};
+
 	// 配置オブジェクトのリスト
 	std::vector<ObjectData> objects;
 
 	// レール制御点(CatmullRomSpline用)。ゲーム座標系ネイティブ。空=レールなし
 	std::vector<Vector3> rail;
+
+	// カメラ調整値(省略可)。hasCamera=falseならstage.jsonに未記載で、
+	// シーンはApplyせずライブ値を保つ(「ファイルに無ければ何もしない」の流儀)
+	bool hasCamera = false;
+	CameraData camera;
 };

@@ -184,6 +184,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\base\Framework.cpp" />
     <ClCompile Include="application\Game.cpp" />
     <ClCompile Include="application\scene\GamePlayScene.cpp" />
+    <ClCompile Include="application\input\ActionInput.cpp" />
+    <ClCompile Include="application\player\Player.cpp" />
     <ClCompile Include="application\stage\Stage.cpp" />
     <ClCompile Include="application\stage\StageSerializer.cpp" />
     <ClCompile Include="engine\base\ImGuiManager.cpp" />
@@ -284,6 +286,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\math\Vector4.h" />
     <ClInclude Include="engine\base\Framework.h" />
     <ClInclude Include="application\scene\GamePlayScene.h" />
+    <ClInclude Include="application\input\ActionInput.h" />
+    <ClInclude Include="application\player\Player.h" />
     <ClInclude Include="application\stage\Stage.h" />
     <ClInclude Include="application\stage\StageData.h" />
     <ClInclude Include="application\stage\StageSerializer.h" />

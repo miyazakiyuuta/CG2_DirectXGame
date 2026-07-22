@@ -13,6 +13,8 @@
 #include "3d/Object3d.h"
 #include "3d/Skybox.h"
 #include "stage/Stage.h"
+#include "input/ActionInput.h"
+#include "player/Player.h"
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
@@ -104,6 +106,15 @@ void GamePlayScene::Initialize() {
 	stage_ = std::make_unique<Stage>();
 	stage_->SetCamera(camera_.get());
 	stage_->LoadFromFile(kStagePath);
+	// カメラ調整値を反映(読み込み失敗時はhasCamera=falseの初期データなので何も起きない)
+	ApplyCameraFromStage();
+
+	// プレイヤー(位置は「レール距離+ローカルオフセット」分解。レールはステージ構築後に渡す)
+	actionInput_ = std::make_unique<ActionInput>();
+	player_ = std::make_unique<Player>();
+	player_->Initialize(actionInput_.get());
+	player_->SetCamera(camera_.get());
+	player_->SetRail(&stage_->GetRail());
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
@@ -177,6 +188,7 @@ void GamePlayScene::Update(float deltaTime) {
 	GPUParticleManager::GetInstance()->SetCamera(activeCamera);
 	object3d_->SetCamera(activeCamera);
 	stage_->SetCamera(activeCamera);
+	player_->SetCamera(activeCamera);
 	skyCylinder_->SetCamera(activeCamera);
 	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
 		static_cast<DepthBasedOutline*>(effect)->SetCamera(activeCamera);
@@ -184,7 +196,10 @@ void GamePlayScene::Update(float deltaTime) {
 
 	skyCylinder_->Update();
 
-	// レールカメラ: レール上を等速で進み、進行方向(接線)を向く。
+	// レールカメラ: railDistance_はプレイヤーの進行度。カメラはプレイヤーの座標系を
+	// 接線方向にcameraBackDistance_だけ下がった位置に置き、接線の向きで進行方向を向く。
+	// rail(d-後方距離)を評価せずforwardで直接下がるのが肝(カメラとプレイヤーが同一の
+	// レール座標系を共有し、カーブでも画面内の自機位置が数学的に固定される)。
 	// camera_->Update()より前にTransformを書き、同フレームのview行列へ反映させる
 	if (railCameraActive_) {
 		const CatmullRomSpline& rail = stage_->GetRail();
@@ -193,11 +208,11 @@ void GamePlayScene::Update(float deltaTime) {
 			// 終端はループ(デバッグで周回し続けられるように)
 			railDistance_ = std::fmod(railDistance_, rail.GetTotalLength());
 
-			camera_->SetTranslate(rail.GetPositionByDistance(railDistance_));
+			Vector3 tangent = rail.GetTangentByDistance(railDistance_);
+			camera_->SetTranslate(rail.GetPositionByDistance(railDistance_) - tangent * cameraBackDistance_);
 
 			// 接線→オイラー角。回転規約(行ベクトル×Rx→Ry→Rz)では
 			// forward = (cos(pitch)·sin(yaw), -sin(pitch), cos(pitch)·cos(yaw)) なので逆算する
-			Vector3 tangent = rail.GetTangentByDistance(railDistance_);
 			float yaw = std::atan2(tangent.x, tangent.z);
 			float pitch = std::atan2(-tangent.y, std::sqrt(tangent.x * tangent.x + tangent.z * tangent.z));
 			camera_->SetRotate({ pitch, yaw, 0.0f }); // バンク(roll)はしない
@@ -222,6 +237,10 @@ void GamePlayScene::Update(float deltaTime) {
 	if (Input::GetInstance()->IsTriggerKey(DIK_3)) {
 		sparkEmitter_->EmitAt(object3d_->GetTranslate(), 30);
 	}
+
+	// プレイヤーはレール上のrailDistance_地点そのもの(進行はレールカメラ側で行うため供給のみ)
+	player_->SetRailDistance(railDistance_);
+	player_->Update(deltaTime);
 
 	object3d_->Update(deltaTime);
 	stage_->Update(deltaTime);
@@ -253,6 +272,7 @@ void GamePlayScene::Draw() {
 
 	stage_->Draw();
 	object3d_->Draw();
+	player_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
 }
@@ -319,12 +339,18 @@ void GamePlayScene::DrawImGui() {
 	// ステージ配置のファイル操作。Reloadはstage.jsonの内容で上書き(未保存の編集は破棄される)
 	ImGui::SeparatorText("Stage File");
 	if (ImGui::Button("Save##stage")) {
-		StageSerializer::Save(kStagePath, stage_->GetData());
+		// Capture: カメラ調整値のライブ値をStageDataへ書き戻してから保存する
+		// (Save=Capture+書き出し。所有者はシーンなので、Camera APIを呼ぶのはここ)
+		StageData& data = stage_->GetData();
+		data.hasCamera = true;
+		data.camera = { camera_->GetFovY(), railSpeed_, cameraBackDistance_ };
+		StageSerializer::Save(kStagePath, data);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Reload##stage")) {
 		// 失敗時(JSON破損等)はLoadFromFileが現状維持するので、一覧の作り直しも不要
 		if (stage_->LoadFromFile(kStagePath)) {
+			ApplyCameraFromStage(); // カメラ調整値もファイルの内容へ戻す
 			RebuildEditorObjects(); // 構造変更でTransformポインタが無効になるため必須(選択解除も行われる)
 		}
 	}
@@ -338,6 +364,7 @@ void GamePlayScene::DrawImGui() {
 		railDistance_ = 0.0f; // 周回を待たずに先頭から確認し直す用
 	}
 	ImGui::DragFloat("Speed", &railSpeed_, 0.1f, 0.0f, 100.0f, "%.1f m/s");
+	ImGui::DragFloat("Camera Back", &cameraBackDistance_, 0.1f, 0.0f, 50.0f, "%.1f m");
 	ImGui::Text("Distance: %.1f / %.1f m", railDistance_, stage_->GetRail().GetTotalLength());
 
 	ImGui::SeparatorText("Scene File");
@@ -358,6 +385,9 @@ void GamePlayScene::DrawImGui() {
 
 	// デバッグカメラの切替・速度・感度
 	debugCamera_->DrawImGui();
+
+	// プレイヤーのオフセット・速度・アクション押下状態
+	player_->DrawImGui();
 
 	// Sceneビューのクリックで選択を更新し、選択中の対象にギズモを表示
 	// (デバッグカメラON中はその視点で描画されているため、ピック・ギズモも同じカメラで行う)
@@ -432,6 +462,16 @@ void GamePlayScene::RebuildEditorObjects() {
 
 	// 一覧が変わったので選択は解除(古いindexは別物を指しうる)
 	selectedIndex_ = -1;
+}
+
+void GamePlayScene::ApplyCameraFromStage() {
+	const StageData& data = stage_->GetData();
+	if (!data.hasCamera) {
+		return; // camera項目の無い旧stage.json。ライブ値をデフォルトへ巻き戻さない
+	}
+	camera_->SetFovY(data.camera.fovY);
+	railSpeed_ = data.camera.railSpeed;
+	cameraBackDistance_ = data.camera.backDistance;
 }
 
 Camera* GamePlayScene::GetActiveCamera() const {
