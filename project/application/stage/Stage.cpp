@@ -44,6 +44,10 @@ void Stage::Rebuild() {
 		}
 		objects_.push_back(std::move(object));
 	}
+
+	// レール曲線も「データ→実体」の一部としてここで再構築する。
+	// Reload(ファイル読み+Rebuild)や将来のPlay in Editor(Capture+Rebuild)でも自動で追従する
+	rail_.SetControlPoints(data_.rail);
 }
 
 void Stage::Update(float deltaTime) {

@@ -17,7 +17,7 @@ struct StageData {
 	};
 
 	// 静的配置オブジェクト1個分のデータ(type="static")
-	// spawn(敵出現)やrail(制御点)はレール実装時にここへ追加する
+	// spawn(敵出現)は敵実装時にここへ追加する
 	struct ObjectData {
 		std::string name;           // エディタ上での表示名
 		std::string model;          // ModelManagerへ渡すモデルパス(resourcesからの相対。例:"fence/fence.obj")
@@ -29,4 +29,7 @@ struct StageData {
 
 	// 配置オブジェクトのリスト
 	std::vector<ObjectData> objects;
+
+	// レール制御点(CatmullRomSpline用)。ゲーム座標系ネイティブ。空=レールなし
+	std::vector<Vector3> rail;
 };

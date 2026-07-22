@@ -12,6 +12,21 @@ inline Vector3 Lerp(const Vector3& v1, const Vector3& v2, float t) {
 	};
 }
 
+// Catmull-Romスプライン補間（4制御点で p1→p2 間を補間する）
+// t は区間内の割合(0〜1)。p0/p3 は両隣の制御点で、曲線の傾き（接線）を決めるために使う
+inline Vector3 CatmullRomInterpolation(const Vector3& p0, const Vector3& p1, const Vector3& p2, const Vector3& p3, float t) {
+	float t2 = t * t;  // t^2
+	float t3 = t2 * t; // t^3
+
+	// 標準形: 0.5 * (2p1 + (-p0+p2)t + (2p0-5p1+4p2-p3)t^2 + (-p0+3p1-3p2+p3)t^3)
+	Vector3 e3 = -p0 + p1 * 3.0f - p2 * 3.0f + p3; // t^3 の係数
+	Vector3 e2 = p0 * 2.0f - p1 * 5.0f + p2 * 4.0f - p3; // t^2 の係数
+	Vector3 e1 = -p0 + p2; // t の係数
+	Vector3 e0 = p1 * 2.0f; // 定数項
+
+	return (e3 * t3 + e2 * t2 + e1 * t + e0) * 0.5f;
+}
+
 // Quaternion用の球面線形補間
 inline Quaternion Slerp(const Quaternion& q1, const Quaternion& q2, float t) {
     // 内積を求める（2つの回転の角度差を判定するため）

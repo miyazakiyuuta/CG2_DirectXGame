@@ -282,6 +282,9 @@
     <ClCompile Include="engine\math\Matrix4x4.cpp">
       <Filter>engine\math</Filter>
     </ClCompile>
+    <ClCompile Include="engine\math\CatmullRomSpline.cpp">
+      <Filter>engine\math</Filter>
+    </ClCompile>
     <ClCompile Include="engine\scene\BaseScene.cpp">
       <Filter>engine\scene</Filter>
     </ClCompile>
@@ -489,6 +492,9 @@
       <Filter>engine\math</Filter>
     </ClInclude>
     <ClInclude Include="engine\math\Matrix4x4.h">
+      <Filter>engine\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\math\CatmullRomSpline.h">
       <Filter>engine\math</Filter>
     </ClInclude>
     <ClInclude Include="engine\math\Vector2.h">

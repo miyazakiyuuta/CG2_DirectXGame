@@ -68,6 +68,12 @@ private:
 	std::unique_ptr<Camera> camera_ = nullptr;
 	std::unique_ptr<DebugCamera> debugCamera_;
 
+	// レールカメラ: レール上の現在距離[m]と速度[m/s]。
+	// activeがfalseの間はゲームカメラのTransformを上書きしない(ギズモ/Inspectorでの編集用)
+	float railDistance_ = 0.0f;
+	float railSpeed_ = 10.0f;
+	bool railCameraActive_ = true;
+
 	std::unique_ptr<Object3d> object3d_;
 
 	// stage.jsonから構築するステージ配置(静的オブジェクト群)

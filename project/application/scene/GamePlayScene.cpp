@@ -19,6 +19,7 @@
 #include "effect/DepthBasedOutline.h"
 
 #include <algorithm>
+#include <cmath>
 #include <numbers>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -183,6 +184,26 @@ void GamePlayScene::Update(float deltaTime) {
 
 	skyCylinder_->Update();
 
+	// レールカメラ: レール上を等速で進み、進行方向(接線)を向く。
+	// camera_->Update()より前にTransformを書き、同フレームのview行列へ反映させる
+	if (railCameraActive_) {
+		const CatmullRomSpline& rail = stage_->GetRail();
+		if (rail.GetTotalLength() > 0.0f) {
+			railDistance_ += railSpeed_ * deltaTime;
+			// 終端はループ(デバッグで周回し続けられるように)
+			railDistance_ = std::fmod(railDistance_, rail.GetTotalLength());
+
+			camera_->SetTranslate(rail.GetPositionByDistance(railDistance_));
+
+			// 接線→オイラー角。回転規約(行ベクトル×Rx→Ry→Rz)では
+			// forward = (cos(pitch)·sin(yaw), -sin(pitch), cos(pitch)·cos(yaw)) なので逆算する
+			Vector3 tangent = rail.GetTangentByDistance(railDistance_);
+			float yaw = std::atan2(tangent.x, tangent.z);
+			float pitch = std::atan2(-tangent.y, std::sqrt(tangent.x * tangent.x + tangent.z * tangent.z));
+			camera_->SetRotate({ pitch, yaw, 0.0f }); // バンク(roll)はしない
+		}
+	}
+
 	camera_->Update();
 	camera_->TransferToGPU();
 	if (Input::GetInstance()->IsTriggerKey(DIK_0)) {
@@ -207,6 +228,23 @@ void GamePlayScene::Update(float deltaTime) {
 
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
 
+	// レール曲線の可視化(stage.json手編集→Reloadの確認用)。曲線=赤の折れ線、制御点=黄の球
+	const CatmullRomSpline& rail = stage_->GetRail();
+	const std::vector<Vector3>& railPoints = rail.GetControlPoints();
+	if (railPoints.size() >= 2) {
+		// 1区間16分割でサンプリングして折れ線として描く
+		const int division = static_cast<int>(railPoints.size() - 1) * 16;
+		Vector3 prevPos = rail.GetPosition(0.0f);
+		for (int i = 1; i <= division; ++i) {
+			float t = static_cast<float>(i) / static_cast<float>(division);
+			Vector3 pos = rail.GetPosition(t);
+			DebugRenderer::GetInstance()->AddLine(prevPos, pos, { 1.0f,0.2f,0.2f,1.0f });
+			prevPos = pos;
+		}
+	}
+	for (const Vector3& point : railPoints) {
+		DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
+	}
 }
 
 void GamePlayScene::Draw() {
@@ -290,6 +328,17 @@ void GamePlayScene::DrawImGui() {
 			RebuildEditorObjects(); // 構造変更でTransformポインタが無効になるため必須(選択解除も行われる)
 		}
 	}
+
+	// レールカメラの操作。毎フレームゲームカメラを上書きするため、
+	// 配置編集(ギズモ/Inspector)したいときはここでOFFにする
+	ImGui::SeparatorText("Rail Camera");
+	ImGui::Checkbox("Active##railCamera", &railCameraActive_);
+	ImGui::SameLine();
+	if (ImGui::Button("Reset##railCamera")) {
+		railDistance_ = 0.0f; // 周回を待たずに先頭から確認し直す用
+	}
+	ImGui::DragFloat("Speed", &railSpeed_, 0.1f, 0.0f, 100.0f, "%.1f m/s");
+	ImGui::Text("Distance: %.1f / %.1f m", railDistance_, stage_->GetRail().GetTotalLength());
 
 	ImGui::SeparatorText("Scene File");
 	if (ImGui::Button("Save")) {

@@ -48,6 +48,12 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 
 			loaded.objects.push_back(std::move(objectData));
 		}
+
+		// レール制御点(省略可能。無ければ空=レールなし)。
+		// vector<Vector3>はnlohmannが要素ごとにSerialization.hのADLフックを呼ぶので変換コード不要
+		if (root.contains("rail")) {
+			root.at("rail").get_to(loaded.rail);
+		}
 	} catch (const json::exception& e) {
 		// 壊れたJSON・キー欠損でも落とさずログだけ残す(手編集ミス対策)
 		Logger::Log("StageSerializer::Load: parse error: " + path + ": " + e.what() + "\n");
@@ -82,6 +88,11 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 			};
 		}
 		root["objects"].push_back(std::move(object));
+	}
+
+	// レール制御点も省略可能フィールドの流儀(既定値=空なら書かない)に合わせる
+	if (!stageData.rail.empty()) {
+		root["rail"] = stageData.rail;
 	}
 
 	// 保存先ディレクトリが無ければ作る(初回Save対策)
