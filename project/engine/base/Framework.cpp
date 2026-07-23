@@ -18,6 +18,7 @@
 #include "effect/GaussianFilter.h"
 #include "effect/RadialBlur.h"
 #include "effect/DepthBasedOutline.h"
+#include "effect/LuminanceBasedOutline.h"
 #include "effect/Dissolve.h"
 #include "effect/Noise.h"
 #include "scene/SceneManager.h"
@@ -78,6 +79,7 @@ void Framework::Initialize() {
 	effectManager_->AddEffect(std::make_unique<Vignette>());
 	effectManager_->AddEffect(std::make_unique<BoxFilter>());
 	effectManager_->AddEffect(std::make_unique<GaussianFilter>());
+	effectManager_->AddEffect(std::make_unique<LuminanceBasedOutline>());
 	auto outline = std::make_unique<DepthBasedOutline>();
 	auto* outlinePtr = outline.get();
 	effectManager_->AddEffect(std::move(outline));

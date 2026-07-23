@@ -161,6 +161,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClCompile Include="application\transition\BlindTransition.cpp" />
     <ClCompile Include="engine\effect\DepthBasedOutline.cpp" />
+    <ClCompile Include="engine\effect\LuminanceBasedOutline.cpp" />
     <ClCompile Include="engine\effect\Dissolve.cpp" />
     <ClCompile Include="engine\effect\Noise.cpp" />
     <ClCompile Include="engine\effect\BoxFilter.cpp" />
@@ -184,6 +185,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\base\Framework.cpp" />
     <ClCompile Include="application\Game.cpp" />
     <ClCompile Include="application\scene\GamePlayScene.cpp" />
+    <ClCompile Include="application\scene\PostEffectDemoScene.cpp" />
     <ClCompile Include="application\input\ActionInput.cpp" />
     <ClCompile Include="application\player\Player.cpp" />
     <ClCompile Include="application\stage\Stage.cpp" />
@@ -252,6 +254,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClInclude Include="application\transition\BlindTransition.h" />
     <ClInclude Include="engine\effect\DepthBasedOutline.h" />
+    <ClInclude Include="engine\effect\LuminanceBasedOutline.h" />
     <ClInclude Include="engine\effect\Dissolve.h" />
     <ClInclude Include="engine\effect\Noise.h" />
     <ClInclude Include="engine\effect\BoxFilter.h" />
@@ -286,6 +289,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\math\Vector4.h" />
     <ClInclude Include="engine\base\Framework.h" />
     <ClInclude Include="application\scene\GamePlayScene.h" />
+    <ClInclude Include="application\scene\PostEffectDemoScene.h" />
     <ClInclude Include="application\input\ActionInput.h" />
     <ClInclude Include="application\player\Player.h" />
     <ClInclude Include="application\stage\Stage.h" />
@@ -405,6 +409,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="resources\shaders\Dissolve.PS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\LuminanceBasedOutline.PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Development|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>

@@ -129,6 +129,9 @@
     <ClCompile Include="application\scene\TitleScene.cpp">
       <Filter>application\scene</Filter>
     </ClCompile>
+    <ClCompile Include="application\scene\PostEffectDemoScene.cpp">
+      <Filter>application\scene</Filter>
+    </ClCompile>
     <ClCompile Include="application\scene\SceneFactory.cpp">
       <Filter>application\scene</Filter>
     </ClCompile>
@@ -264,6 +267,9 @@
     <ClCompile Include="engine\effect\Vignette.cpp">
       <Filter>engine\effect\PostEffect</Filter>
     </ClCompile>
+    <ClCompile Include="engine\effect\LuminanceBasedOutline.cpp">
+      <Filter>engine\effect\PostEffect</Filter>
+    </ClCompile>
     <ClCompile Include="engine\effect\BoxFilter.cpp">
       <Filter>engine\effect\PostEffect</Filter>
     </ClCompile>
@@ -324,6 +330,9 @@
       <Filter>application\scene</Filter>
     </ClInclude>
     <ClInclude Include="application\scene\TitleScene.h">
+      <Filter>application\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="application\scene\PostEffectDemoScene.h">
       <Filter>application\scene</Filter>
     </ClInclude>
     <ClInclude Include="application\scene\SceneFactory.h">
@@ -480,6 +489,9 @@
       <Filter>engine\effect\PostEffect</Filter>
     </ClInclude>
     <ClInclude Include="engine\effect\Vignette.h">
+      <Filter>engine\effect\PostEffect</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\LuminanceBasedOutline.h">
       <Filter>engine\effect\PostEffect</Filter>
     </ClInclude>
     <ClInclude Include="engine\effect\BoxFilter.h">
@@ -681,6 +693,9 @@
       <Filter>resources\shaders\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\Vignette.PS.hlsl">
+      <Filter>resources\shaders\postprocess</Filter>
+    </FxCompile>
+    <FxCompile Include="resources\shaders\LuminanceBasedOutline.PS.hlsl">
       <Filter>resources\shaders\postprocess</Filter>
     </FxCompile>
     <FxCompile Include="resources\shaders\BoxFilter.PS.hlsl">

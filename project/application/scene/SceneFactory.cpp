@@ -2,6 +2,7 @@
 #include "scene/BaseScene.h"
 #include "scene/TitleScene.h"
 #include "scene/GamePlayScene.h"
+#include "scene/PostEffectDemoScene.h"
 
 std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneName) {
 	std::unique_ptr<BaseScene> newScene = nullptr;
@@ -10,6 +11,8 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
 		newScene = std::make_unique<TitleScene>();
 	} else if (sceneName == "GAMEPLAY") {
 		newScene = std::make_unique<GamePlayScene>();
+	} else if (sceneName == "POSTEFFECTDEMO") {
+		newScene = std::make_unique<PostEffectDemoScene>();
 	}
 
 	return newScene;
