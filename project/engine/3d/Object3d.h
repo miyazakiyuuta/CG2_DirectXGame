@@ -10,6 +10,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 class Object3dCommon;
 class Camera;
@@ -45,6 +47,17 @@ public: // メンバ関数
 	void RestartAnimation() {
 		if (animationPlayer_) animationPlayer_->Restart();
 	}
+
+	/// <summary>
+	/// 別のObject3dのJointに追従させる(武器を手に持たせる等)。
+	/// 以降このオブジェクトのtransform_は「親Jointから見たローカル変換」として扱われ、
+	/// 親のアニメーションに自動で追従する。
+	/// 親のUpdateがこのオブジェクトのUpdateより先に呼ばれている必要がある
+	/// (親の「今フレームのポーズ」を読むため。1フレーム遅れると武器だけ手から遅れて見える)
+	/// </summary>
+	/// <param name="parent">追従先のObject3d。nullptrで解除</param>
+	/// <param name="jointName">追従先のJoint名(例:"mixamorig:RightHand")</param>
+	void SetJointParent(const Object3d* parent, const std::string& jointName);
 
 public: // セッター&ゲッター
 	// setter
@@ -102,8 +115,32 @@ public: // セッター&ゲッター
 	}
 	// 指定したボーン名のワールド行列を取得（見つからなければnullopt）
 	std::optional<Matrix4x4> GetBoneWorldMatrix(const std::string& boneName) const;
-	// 位置だけ欲しい場合のショートカット
+	// 位置だけ欲しい場合のショートカット。
+	// 注意: mixamoのようなリグではHandのJointは「手首」にあり、握り位置(手のひら)ではない。
+	// 手に物を持たせたり手から何かを出す場合は GetJointAttachPosition を使う
 	std::optional<Vector3> GetBoneWorldPosition(const std::string& boneName) const;
+
+	/// <summary>
+	/// ジョイントに物を取り付けるための行列。
+	/// GetBoneWorldMatrixと違い、リグ内部の単位スケール(glTFのArmatureが持つ0.01など)を
+	/// 取り除き、代わりにこのオブジェクト自身のスケールを乗せてある。
+	/// SetJointParent が内部で使うものと同一なので、武器のオフセットと
+	/// パーティクルの発生位置に同じ数値を渡せば同じ場所になる
+	/// </summary>
+	std::optional<Matrix4x4> GetJointAttachMatrix(const std::string& boneName) const;
+
+	/// <summary>
+	/// ジョイントのローカルオフセットからワールド座標を求める(手のひらの位置など)
+	/// </summary>
+	/// <param name="localOffset">ジョイントから見たオフセット[m]。
+	/// mixamoのHandなら+Yが指先方向なので、{0, 0.07f, 0.02f} 程度で手のひらに乗る</param>
+	std::optional<Vector3> GetJointAttachPosition(const std::string& boneName, const Vector3& localOffset) const;
+	// 直近のUpdateで確定したワールド行列(ジョイント追従の結果もここに入っている)
+	const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
+	// スケルトン(デバッグ表示用)。アニメーションを持たないモデルではjointsが空
+	const Skeleton& GetSkeleton() const { return skeleton_; }
+	// ジョイント名の一覧(ImGuiの選択UI用)。jointMapのキーなので名前順に並ぶ
+	std::vector<std::string> GetJointNames() const;
 
 private: // メンバ構造体
 
@@ -138,7 +175,6 @@ private: // メンバ関数
 	void CreateDirectionalLightData();
 	// スケルトンの現在ポーズを個体別パレットへ書き込む
 	void UpdatePalette();
-	void DrawDebugSkeleton();
 
 private: // メンバ変数
 
@@ -155,7 +191,14 @@ private: // メンバ変数
 	Material* materialData_ = nullptr;
 	
 	Transform transform_;
-	
+	// Updateで確定したワールド行列。ジョイント追従中は「ローカル変換×親Jointのワールド行列」。
+	// GetBoneWorldMatrix/デバッグ表示が同じ行列を参照できるよう保持しておく
+	Matrix4x4 worldMatrix_ = Matrix4x4::Identity();
+
+	// ジョイント追従(武器の装備など)。未設定ならnullptr
+	const Object3d* jointParent_ = nullptr;
+	std::string jointParentName_;
+
 	Camera* camera_ = nullptr;
 
 	Model* model_ = nullptr;

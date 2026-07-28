@@ -3,8 +3,41 @@
 #include "Object3dCommon.h"
 #include "ModelManager.h"
 #include "Camera.h"
-#include "debug/DebugRenderer.h"
 #include "utility/Logger.h"
+
+namespace {
+	/// <summary>
+	/// ジョイントのワールド行列から「リグ内部の単位スケール」を取り除き、
+	/// 代わりに親オブジェクト自身のスケールを乗せた行列を作る。
+	///
+	/// glTFのArmatureノードはDCCツールの単位差を吸収するスケール(mixamo由来なら0.01など)を
+	/// 持つことがあり、これはジョイントのワールド行列にそのまま含まれる。
+	/// 素直に子へ掛けると装備品が1/100に縮んでしまうため、基底ベクトルを正規化して
+	/// 回転と位置だけを受け継ぐ。こうすると装備品の見た目の大きさは
+	/// 「装備品自身のスケール × 親オブジェクトのスケール」だけで決まり、リグの単位に左右されない
+	/// </summary>
+	Matrix4x4 MakeAttachMatrix(const Matrix4x4& jointWorldMatrix, const Vector3& ownerScale) {
+		const float ownerScales[3] = { ownerScale.x, ownerScale.y, ownerScale.z };
+
+		Matrix4x4 result = jointWorldMatrix;
+		for (int row = 0; row < 3; ++row) {
+			const Vector3 axis{
+				jointWorldMatrix.m[row][0],
+				jointWorldMatrix.m[row][1],
+				jointWorldMatrix.m[row][2]
+			};
+			const float length = axis.Length();
+			if (length <= 0.0f) {
+				continue; // 潰れた軸は触らない(0除算回避)
+			}
+			const float factor = ownerScales[row] / length;
+			result.m[row][0] *= factor;
+			result.m[row][1] *= factor;
+			result.m[row][2] *= factor;
+		}
+		return result;
+	}
+}
 
 void Object3d::Initialize(Object3dCommon* object3dCommon) {
 	object3dCommon_ = object3dCommon;
@@ -43,7 +76,17 @@ void Object3d::Update(float deltaTime) {
 		}
 	}
 
+	// ジョイント追従中は自分のTransformを「親Jointから見たローカル変換」として扱う。
+	// 行ベクトル規約なので ローカル×親 の順(スケルトン内の joint×world と同じ並び)。
+	// 親が今フレームのUpdateを済ませていない場合は1フレーム古いポーズになる
+	if (jointParent_) {
+		if (std::optional<Matrix4x4> parentMatrix = jointParent_->GetBoneWorldMatrix(jointParentName_)) {
+			worldMatrix = worldMatrix * MakeAttachMatrix(*parentMatrix, jointParent_->GetScale());
+		}
+	}
+
 	Matrix4x4 finalWorldMatrix = worldMatrix;
+	worldMatrix_ = finalWorldMatrix;
 
 	transformationMatrixData_->World = finalWorldMatrix;
 	transformationMatrixData_->WorldInverseTranspose = finalWorldMatrix.Inverse().Transpose();
@@ -120,7 +163,6 @@ void Object3d::Draw() {
 		} else {
 			model_->Draw();
 		}
-		//DrawDebugSkeleton();
 	}
 }
 
@@ -171,6 +213,20 @@ void Object3d::SetModel(const std::string& filePath) {
 	}
 }
 
+void Object3d::SetJointParent(const Object3d* parent, const std::string& jointName) {
+	jointParent_ = parent;
+	jointParentName_ = jointName;
+}
+
+std::vector<std::string> Object3d::GetJointNames() const {
+	std::vector<std::string> names;
+	names.reserve(skeleton_.jointMap.size());
+	for (const auto& [name, index] : skeleton_.jointMap) {
+		names.push_back(name);
+	}
+	return names;
+}
+
 std::optional<Matrix4x4> Object3d::GetBoneWorldMatrix(const std::string& boneName) const {
 	if (!model_) return std::nullopt;
 
@@ -179,11 +235,10 @@ std::optional<Matrix4x4> Object3d::GetBoneWorldMatrix(const std::string& boneNam
 
 	const Joint& joint = skeleton_.joints[it->second];
 
-	// スケルトン空間 → ワールド空間
-	Matrix4x4 worldMatrix = Matrix4x4::Affine(
-		transform_.scale, transform_.rotate, transform_.translate);
-
-	return joint.skeletonSpaceMatrix * worldMatrix;
+	// スケルトン空間 → ワールド空間。
+	// worldMatrix_は直近のUpdateで確定した値なので、このオブジェクト自身が
+	// さらに別のJointへ追従していてもその結果が正しく乗る
+	return joint.skeletonSpaceMatrix * worldMatrix_;
 }
 
 std::optional<Vector3> Object3d::GetBoneWorldPosition(const std::string& boneName) const {
@@ -192,6 +247,21 @@ std::optional<Vector3> Object3d::GetBoneWorldPosition(const std::string& boneNam
 
 	// 行列の平行移動成分を取り出す
 	return Vector3{ mat->m[3][0], mat->m[3][1], mat->m[3][2] };
+}
+
+std::optional<Matrix4x4> Object3d::GetJointAttachMatrix(const std::string& boneName) const {
+	std::optional<Matrix4x4> jointWorldMatrix = GetBoneWorldMatrix(boneName);
+	if (!jointWorldMatrix) return std::nullopt;
+
+	return MakeAttachMatrix(*jointWorldMatrix, transform_.scale);
+}
+
+std::optional<Vector3> Object3d::GetJointAttachPosition(const std::string& boneName, const Vector3& localOffset) const {
+	std::optional<Matrix4x4> attachMatrix = GetJointAttachMatrix(boneName);
+	if (!attachMatrix) return std::nullopt;
+
+	// スケールを正規化済みの行列なので、localOffsetはそのままメートルとして効く
+	return attachMatrix->Transform(localOffset);
 }
 
 void Object3d::CreateMaterialData() {
@@ -235,26 +305,5 @@ void Object3d::CreateDirectionalLightData() {
 	directionalLightData_->intensity = 1.0f;
 }
 
-void Object3d::DrawDebugSkeleton() {
-	if (!model_ || !camera_)return;
-
-	Matrix4x4 worldMatrix = Matrix4x4::Affine(transform_.scale, transform_.rotate, transform_.translate);
-	std::vector<Vector3> jointPositions;
-	for (const Joint& joint : skeleton_.joints) {
-		// 骨のワールド行列
-		Matrix4x4 jointWorldMatrix = joint.skeletonSpaceMatrix * worldMatrix;
-
-		Vector3 jointWorldPos = {
-			jointWorldMatrix.m[3][0],
-			jointWorldMatrix.m[3][1],
-			jointWorldMatrix.m[3][2]
-		};
-
-		jointPositions.push_back(jointWorldPos);
-	}
-	float radius = 0.05f;
-	Vector4 color = { 0.0f,0.0f,0.0f,1.0f };
-	for (auto pos : jointPositions) {
-		DebugRenderer::GetInstance()->AddSphere(pos, radius, color);
-	}
-}
+// 骨のデバッグ表示は engine/debug/SkeletonDebug へ移動した
+// (線・ローカル軸・名前まで扱うため、Object3dの責務から切り離している)

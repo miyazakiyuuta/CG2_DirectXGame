@@ -169,6 +169,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\3d\SkyCylinder.cpp" />
     <ClCompile Include="engine\debug\DebugRenderer.cpp" />
     <ClCompile Include="engine\debug\DebugGrid.cpp" />
+    <ClCompile Include="engine\debug\SkeletonDebug.cpp" />
     <ClCompile Include="engine\debug\TransformGizmo.cpp" />
     <ClCompile Include="engine\debug\EditorPanels.cpp" />
     <ClCompile Include="engine\3d\AnimationPlayer.cpp" />
@@ -183,6 +184,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\3d\DebugCamera.cpp" />
     <ClCompile Include="engine\base\Framework.cpp" />
     <ClCompile Include="application\Game.cpp" />
+    <ClCompile Include="application\scene\CG4DemoScene.cpp" />
     <ClCompile Include="application\scene\GamePlayScene.cpp" />
     <ClCompile Include="application\input\ActionInput.cpp" />
     <ClCompile Include="application\player\Player.cpp" />
@@ -260,6 +262,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\3d\SkyCylinder.h" />
     <ClInclude Include="engine\debug\DebugRenderer.h" />
     <ClInclude Include="engine\debug\DebugGrid.h" />
+    <ClInclude Include="engine\debug\SkeletonDebug.h" />
     <ClInclude Include="engine\debug\TransformGizmo.h" />
     <ClInclude Include="engine\debug\EditorPanels.h" />
     <ClInclude Include="engine\3d\AnimationPlayer.h" />
@@ -285,6 +288,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\math\Matrix4x4.h" />
     <ClInclude Include="engine\math\Vector4.h" />
     <ClInclude Include="engine\base\Framework.h" />
+    <ClInclude Include="application\scene\CG4DemoScene.h" />
     <ClInclude Include="application\scene\GamePlayScene.h" />
     <ClInclude Include="application\input\ActionInput.h" />
     <ClInclude Include="application\player\Player.h" />

@@ -379,9 +379,12 @@ void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	// アルファは「上書き」ではなく「既存を残す」。DestBlendAlpha=ZEROだと寿命末期の
+	// alpha=0がシーンRTのアルファに書き込まれ、Debug構成でシーンRTをImGui::Imageで
+	// 表示する際にそこが透けて暗い穴に見えてしまう(Development/Releaseは直描きなので出ない)
 	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 
 	// ブレンドモード
 	switch (blendMode) {

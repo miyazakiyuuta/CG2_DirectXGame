@@ -123,6 +123,9 @@
     <ClCompile Include="application\Game.cpp">
       <Filter>application</Filter>
     </ClCompile>
+    <ClCompile Include="application\scene\CG4DemoScene.cpp">
+      <Filter>application\scene</Filter>
+    </ClCompile>
     <ClCompile Include="application\scene\GamePlayScene.cpp">
       <Filter>application\scene</Filter>
     </ClCompile>
@@ -228,6 +231,9 @@
     <ClCompile Include="engine\debug\DebugRenderer.cpp">
       <Filter>engine\debug</Filter>
     </ClCompile>
+    <ClCompile Include="engine\debug\SkeletonDebug.cpp">
+      <Filter>engine\debug</Filter>
+    </ClCompile>
     <ClCompile Include="engine\debug\TransformGizmo.cpp">
       <Filter>engine\debug</Filter>
     </ClCompile>
@@ -319,6 +325,9 @@
   <ItemGroup>
     <ClInclude Include="application\Game.h">
       <Filter>application</Filter>
+    </ClInclude>
+    <ClInclude Include="application\scene\CG4DemoScene.h">
+      <Filter>application\scene</Filter>
     </ClInclude>
     <ClInclude Include="application\scene\GamePlayScene.h">
       <Filter>application\scene</Filter>
@@ -432,6 +441,9 @@
       <Filter>engine\debug</Filter>
     </ClInclude>
     <ClInclude Include="engine\debug\DebugRenderer.h">
+      <Filter>engine\debug</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\debug\SkeletonDebug.h">
       <Filter>engine\debug</Filter>
     </ClInclude>
     <ClInclude Include="engine\debug\TransformGizmo.h">

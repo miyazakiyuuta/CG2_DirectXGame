@@ -543,9 +543,12 @@ void GPUParticleManager::CreateDrawPipeline() {
 	blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 	blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+	// アルファは「上書き」ではなく「既存を残す」。DestBlendAlpha=ZEROだと寿命末期の
+	// alpha=0がシーンRTのアルファに書き込まれ、Debug構成でシーンRTをImGui::Imageで
+	// 表示する際にそこが透けて暗い穴に見えてしまう(Development/Releaseは直描きなので出ない)
 	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
