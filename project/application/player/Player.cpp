@@ -55,6 +55,22 @@ void Player::Update(float deltaTime) {
 		worldPosition_ = { offset_.x, offset_.y, 0.0f };
 	}
 
+	// ステージコライダーとの接触判定。ワールド位置が確定した後に行う。
+	// 規模が小さいので総当たり(空間分割は敵・弾が増えてから検討する)
+	hitCount_ = 0;
+	if (stageColliders_) {
+		for (const AABB& aabb : *stageColliders_) {
+			if (IsCollision(aabb, worldPosition_, collisionRadius_)) {
+				++hitCount_;
+			}
+		}
+	}
+	isHit_ = hitCount_ > 0;
+
+	// 「エディタで置いたコライダーがゲームの当たり判定として効いている」ことを
+	// 画面上で分かるようにする(接触中は赤)
+	object3d_->SetColor(isHit_ ? Vector4{ 1.0f, 0.3f, 0.3f, 1.0f } : Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+
 	object3d_->SetTranslate(worldPosition_);
 	object3d_->Update(deltaTime);
 }
@@ -70,6 +86,17 @@ void Player::DrawImGui() {
 	ImGui::Text("World: (%.1f, %.1f, %.1f)", worldPosition_.x, worldPosition_.y, worldPosition_.z);
 	ImGui::DragFloat("Move Speed", &moveSpeed_, 0.1f, 0.0f, 50.0f, "%.1f m/s");
 	ImGui::DragFloat2("Offset Limit", &offsetLimit_.x, 0.1f, 0.0f, 20.0f);
+
+	// ステージコライダーとの接触状態(stage.jsonのcolliderがゲームに効いている証拠)
+	ImGui::SeparatorText("Collision");
+	ImGui::DragFloat("Radius", &collisionRadius_, 0.05f, 0.0f, 10.0f, "%.2f m");
+	const size_t colliderCount = stageColliders_ ? stageColliders_->size() : 0;
+	ImGui::Text("Stage Colliders: %zu", colliderCount);
+	if (isHit_) {
+		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Hit: YES (%d)", hitCount_);
+	} else {
+		ImGui::Text("Hit: no");
+	}
 
 	// Shoot/Boostは⑨時点では定義のみ(動作なし)。マッピング確認用に押下状態だけ見せる
 	ImGui::SeparatorText("Actions (mapping check)");

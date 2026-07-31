@@ -73,6 +73,9 @@
     <Filter Include="application\player">
       <UniqueIdentifier>{5e9d20c4-1f7b-4a83-b6d2-93c8a4e17f05}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\enemy">
+      <UniqueIdentifier>{b4f60a17-9d3e-42c8-8a51-6f27e0d9b3c6}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resources">
       <UniqueIdentifier>{7d4111bf-edf7-429d-a130-b3f728e2ef09}</UniqueIdentifier>
     </Filter>
@@ -143,6 +146,9 @@
     </ClCompile>
     <ClCompile Include="application\player\Player.cpp">
       <Filter>application\player</Filter>
+    </ClCompile>
+    <ClCompile Include="application\enemy\EnemySpawner.cpp">
+      <Filter>application\enemy</Filter>
     </ClCompile>
     <ClCompile Include="application\stage\Stage.cpp">
       <Filter>application\stage</Filter>
@@ -341,6 +347,9 @@
     <ClInclude Include="application\player\Player.h">
       <Filter>application\player</Filter>
     </ClInclude>
+    <ClInclude Include="application\enemy\EnemySpawner.h">
+      <Filter>application\enemy</Filter>
+    </ClInclude>
     <ClInclude Include="application\stage\Stage.h">
       <Filter>application\stage</Filter>
     </ClInclude>
@@ -513,6 +522,9 @@
       <Filter>engine\math</Filter>
     </ClInclude>
     <ClInclude Include="engine\math\CatmullRomSpline.h">
+      <Filter>engine\math</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\math\Collision.h">
       <Filter>engine\math</Filter>
     </ClInclude>
     <ClInclude Include="engine\math\Vector2.h">

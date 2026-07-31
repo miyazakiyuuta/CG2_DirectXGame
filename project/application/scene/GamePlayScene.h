@@ -12,6 +12,7 @@
 class ActionInput;
 class Camera;
 class DebugCamera;
+class EnemySpawner;
 class Object3d;
 class Player;
 class Stage;
@@ -89,6 +90,14 @@ private:
 	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
 	std::unique_ptr<ActionInput> actionInput_;
 	std::unique_ptr<Player> player_;
+
+	// ステージコライダーとプレイヤー判定球のデバッグ表示(全構成。ImGuiのチェックボックスで切替)
+	bool showColliders_ = true;
+	// SpawnPoint(敵の発生地点)のデバッグ表示
+	bool showSpawnPoints_ = true;
+
+	// stage.jsonのSpawnPointから敵を発生させる(進行度トリガー)
+	std::unique_ptr<EnemySpawner> enemySpawner_;
 
 	std::unique_ptr<Object3d> object3d_;
 

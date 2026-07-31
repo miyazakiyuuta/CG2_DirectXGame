@@ -23,16 +23,30 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 		json root = json::parse(file);
 		for (const json& object : root.at("objects")) {
 			const std::string type = object.at("type").get<std::string>();
-			// 当面はstaticのみ対応。spawn(敵出現)等はレール実装時に追加する
-			if (type != "static") {
+			// 未知のtypeは読み飛ばす(将来の形式で保存されたファイルでも落とさない)
+			if (type != "static" && type != "spawn") {
 				Logger::Log("StageSerializer::Load: unsupported type '" + type + "' (skipped)\n");
 				continue;
 			}
 
 			StageData::ObjectData objectData;
+			objectData.type = (type == "spawn")
+				? StageData::ObjectType::Spawn
+				: StageData::ObjectType::Static;
 			objectData.name = object.at("name").get<std::string>();
-			objectData.model = object.at("model").get<std::string>();
+			// spawnは敵の種別からモデルが決まるためmodelを持たない(省略可)
+			if (object.contains("model")) {
+				object.at("model").get_to(objectData.model);
+			}
 			object.at("transform").get_to(objectData.transform); // Serialization.h のADLフックが効く
+
+			// 敵の発生地点の情報(省略時は既定値のまま)
+			if (object.contains("enemy")) {
+				object.at("enemy").get_to(objectData.enemy);
+			}
+			if (object.contains("railDistance")) {
+				object.at("railDistance").get_to(objectData.railDistance);
+			}
 
 			// 以下は省略可能なフィールド(無ければ既定値のまま)
 			if (object.contains("disabled")) {
@@ -87,12 +101,19 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 	json root;
 	root["objects"] = json::array();
 	for (const StageData::ObjectData& objectData : stageData.objects) {
+		const bool isSpawn = objectData.type == StageData::ObjectType::Spawn;
 		json object = {
-			{ "type", "static" },
+			{ "type", isSpawn ? "spawn" : "static" },
 			{ "name", objectData.name },
-			{ "model", objectData.model },
 			{ "transform", objectData.transform }, // Serialization.h の to_json が自動で効く
 		};
+		if (isSpawn) {
+			// 敵の種別と発生する進行度。モデルは種別から決まるので書かない
+			object["enemy"] = objectData.enemy;
+			object["railDistance"] = objectData.railDistance;
+		} else {
+			object["model"] = objectData.model;
+		}
 		// 省略可能フィールドは既定値なら書かない(Save→Loadのラウンドトリップでデータが一致する)
 		if (objectData.disabled) {
 			object["disabled"] = objectData.disabled;

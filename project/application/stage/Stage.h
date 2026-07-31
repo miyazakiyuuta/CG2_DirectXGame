@@ -2,6 +2,7 @@
 #include "stage/StageData.h"
 #include "scene/EditorObject.h"
 #include "math/CatmullRomSpline.h"
+#include "math/Collision.h"
 
 #include <memory>
 #include <string>
@@ -81,6 +82,13 @@ public:
 	// data_.railを書き換えたらRebuild()を呼ぶまで反映されない点に注意
 	const CatmullRomSpline& GetRail() const { return rail_; }
 
+	/// <summary>
+	/// 当たり判定用のワールド空間AABB一覧(コライダー設定のあるオブジェクトのみ)。
+	/// エディタでの移動に追従させるためUpdateで毎フレーム作り直す。
+	/// 無効フラグ(disabled)のオブジェクトは実体と同様に除外される
+	/// </summary>
+	const std::vector<AABB>& GetWorldColliders() const { return worldColliders_; }
+
 	Stage();
 	~Stage();
 
@@ -88,9 +96,15 @@ private:
 	// baseが既存オブジェクト名と重複する場合、"base_1" "base_2" と加算して空き名を返す
 	std::string MakeUniqueName(const std::string& base) const;
 
+	// data_.objectsのcollider(オブジェクト中心からのオフセット)とTransformから
+	// worldColliders_を作り直す。Rebuild(構造変更)とUpdate(ライブ編集)の両方から呼ぶ
+	void UpdateWorldColliders();
+
 	StageData data_;
 	// data_.railから構築したレール曲線(Rebuildで再構築される)
 	CatmullRomSpline rail_;
+	// 当たり判定用のワールドAABB。data_.objectsとは要素数が異なる(コライダー付きのみ)
+	std::vector<AABB> worldColliders_;
 	Camera* camera_ = nullptr;
 	// data_.objectsと同じ並びのランタイム実体(disabledの要素はnullptr。indexで対応が取れる)
 	std::vector<std::unique_ptr<Object3d>> objects_;

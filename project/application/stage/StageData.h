@@ -16,15 +16,30 @@ struct StageData {
 		Vector3 size = { 1.0f, 1.0f, 1.0f };   // 各軸の大きさ
 	};
 
-	// 静的配置オブジェクト1個分のデータ(type="static")
-	// spawn(敵出現)は敵実装時にここへ追加する
+	// 配置オブジェクトの種別。文字列比較を各所に散らさないため列挙で持ち、
+	// JSONとの相互変換はStageSerializerに閉じ込める
+	enum class ObjectType {
+		Static, // 静的配置(地形・建造物など)。モデルをその場に置くだけ
+		Spawn,  // 敵の発生地点。モデルは持たず、種別(enemy)と発生する進行度(railDistance)を持つ
+	};
+
+	// 配置オブジェクト1個分のデータ。
+	// StaticとSpawnを別配列に分けず1つのobjects[]で扱うことで、Hierarchy/Inspector/ギズモ/
+	// 追加・複製・削除・無効フラグといったエディタ機能がそのまま両方に効く
 	struct ObjectData {
+		ObjectType type = ObjectType::Static;
 		std::string name;           // エディタ上での表示名
 		std::string model;          // ModelManagerへ渡すモデルパス(resourcesからの相対。例:"fence/fence.obj")
 		Transform transform;        // ゲーム座標系ネイティブ(変換なしでそのまま使う)
 		bool disabled = false;      // trueなら実体を生成しない(データとしては保持する)
 		bool hasCollider = false;   // コライダーが設定されているか
 		ColliderData collider;      // hasColliderがtrueのときのみ有効
+
+		// --- type==Spawn のときのみ有効 ---
+		// 敵の種別。EnemySpawnerが「種別→モデル」に対応付ける(データにモデルパスを持たせない)
+		std::string enemy = "frog";
+		// この進行度[m]をプレイヤーが超えたら発生する。出現位置はtransform.translate
+		float railDistance = 0.0f;
 	};
 
 	// カメラ調整値。ランタイムの所有者はシーン(GamePlayScene)で、ここはデータの器。

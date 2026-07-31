@@ -15,6 +15,7 @@
 #include "stage/Stage.h"
 #include "input/ActionInput.h"
 #include "player/Player.h"
+#include "enemy/EnemySpawner.h"
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
@@ -115,6 +116,14 @@ void GamePlayScene::Initialize() {
 	player_->Initialize(actionInput_.get());
 	player_->SetCamera(camera_.get());
 	player_->SetRail(&stage_->GetRail());
+	// 当たり判定の相手。StageのメンバはReload/Rebuildでも実体のアドレスが変わらないため
+	// 一度渡せば以降も有効(中身だけが作り直される)
+	player_->SetStageColliders(&stage_->GetWorldColliders());
+
+	// stage.jsonのSpawnPointを取り込む(Reload時も同じ経路で作り直す)
+	enemySpawner_ = std::make_unique<EnemySpawner>();
+	enemySpawner_->SetCamera(camera_.get());
+	enemySpawner_->BuildFromStage(stage_->GetData());
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
@@ -189,6 +198,7 @@ void GamePlayScene::Update(float deltaTime) {
 	object3d_->SetCamera(activeCamera);
 	stage_->SetCamera(activeCamera);
 	player_->SetCamera(activeCamera);
+	enemySpawner_->SetCamera(activeCamera);
 	skyCylinder_->SetCamera(activeCamera);
 	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
 		static_cast<DepthBasedOutline*>(effect)->SetCamera(activeCamera);
@@ -206,7 +216,12 @@ void GamePlayScene::Update(float deltaTime) {
 		if (rail.GetTotalLength() > 0.0f) {
 			railDistance_ += railSpeed_ * deltaTime;
 			// 終端はループ(デバッグで周回し続けられるように)
+			const float previousDistance = railDistance_;
 			railDistance_ = std::fmod(railDistance_, rail.GetTotalLength());
+			// 一周して進行度が巻き戻ったら敵も未発生に戻す(周回するたび同じ敵が出る)
+			if (railDistance_ < previousDistance) {
+				enemySpawner_->Reset();
+			}
 
 			Vector3 tangent = rail.GetTangentByDistance(railDistance_);
 			camera_->SetTranslate(rail.GetPositionByDistance(railDistance_) - tangent * cameraBackDistance_);
@@ -238,12 +253,17 @@ void GamePlayScene::Update(float deltaTime) {
 		sparkEmitter_->EmitAt(object3d_->GetTranslate(), 30);
 	}
 
+	object3d_->Update(deltaTime);
+	// プレイヤーより先に更新する: Stage::Updateがワールドコライダーを作り直すため、
+	// この順なら同フレームの編集(ギズモ移動等)がそのまま当たり判定に反映される
+	stage_->Update(deltaTime);
+
 	// プレイヤーはレール上のrailDistance_地点そのもの(進行はレールカメラ側で行うため供給のみ)
 	player_->SetRailDistance(railDistance_);
 	player_->Update(deltaTime);
 
-	object3d_->Update(deltaTime);
-	stage_->Update(deltaTime);
+	// 進行度がSpawnPointのrailDistanceを超えたら敵が発生する
+	enemySpawner_->Update(railDistance_, deltaTime);
 
 	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
 
@@ -264,6 +284,37 @@ void GamePlayScene::Update(float deltaTime) {
 	for (const Vector3& point : railPoints) {
 		DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
 	}
+
+	// ステージコライダーの可視化(stage.jsonのcolliderが当たり判定になっていることの確認用)。
+	// 通常=緑、プレイヤーが接触中は全体を赤にして当たった瞬間が分かるようにする
+	if (showColliders_) {
+		const Vector4 colliderColor = player_->IsHit()
+			? Vector4{ 1.0f, 0.2f, 0.2f, 1.0f }
+			: Vector4{ 0.2f, 1.0f, 0.4f, 1.0f };
+		for (const AABB& aabb : stage_->GetWorldColliders()) {
+			const Vector3 center = (aabb.min + aabb.max) * 0.5f;
+			const Vector3 size = aabb.max - aabb.min;
+			DebugRenderer::GetInstance()->AddBox3D(center, size, colliderColor);
+		}
+		// プレイヤーの判定形状(球)も出して、どこで当たるかを見えるようにする
+		DebugRenderer::GetInstance()->AddSphere(
+			player_->GetWorldPosition(), player_->GetCollisionRadius(), colliderColor);
+	}
+
+	// SpawnPoint(敵の発生地点)の可視化。未発生=黄、発生済み=グレー。
+	// 「レール上のどの進行度で出るか」が分かるよう、発生地点とレール上の該当点を線で結ぶ
+	if (showSpawnPoints_) {
+		for (const EnemySpawner::SpawnPoint& spawnPoint : enemySpawner_->GetSpawnPoints()) {
+			const Vector4 color = spawnPoint.spawned
+				? Vector4{ 0.5f, 0.5f, 0.5f, 1.0f }
+				: Vector4{ 1.0f, 0.9f, 0.2f, 1.0f };
+			const Vector3& position = spawnPoint.transform.translate;
+			DebugRenderer::GetInstance()->AddBox3D(position, { 2.0f, 2.0f, 2.0f }, color);
+			DebugRenderer::GetInstance()->AddSphere(position, 0.6f, color);
+			DebugRenderer::GetInstance()->AddLine(
+				position, rail.GetPositionByDistance(spawnPoint.railDistance), color);
+		}
+	}
 }
 
 void GamePlayScene::Draw() {
@@ -273,6 +324,7 @@ void GamePlayScene::Draw() {
 	stage_->Draw();
 	object3d_->Draw();
 	player_->Draw();
+	enemySpawner_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
 }
@@ -323,6 +375,24 @@ void GamePlayScene::DrawImGui() {
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
+	// 敵の発生地点を追加する。staticと同じobjects[]に入るのでHierarchy・ギズモがそのまま使える
+	if (ImGui::Button("Add Spawn")) {
+		StageData::ObjectData objectData;
+		objectData.type = StageData::ObjectType::Spawn;
+		objectData.name = "spawn";
+		objectData.enemy = EnemySpawner::EnemyTypes().front();
+		// 発生タイミングの既定は「今の進行度の少し先」。置いた直後に発生してしまうのを避ける
+		objectData.railDistance = railDistance_ + 10.0f;
+		const Transform& cameraTransform = GetActiveCamera()->GetTransform();
+		Vector3 forward = Matrix4x4::Rotate(cameraTransform.rotate).Transform({ 0.0f, 0.0f, 1.0f });
+		objectData.transform.translate = cameraTransform.translate + forward * 10.0f;
+
+		size_t newIndex = stage_->AddObject(std::move(objectData));
+		enemySpawner_->BuildFromStage(stage_->GetData());
+		RebuildEditorObjects();
+		selectedIndex_ = static_cast<int>(fixedEditorObjectCount_ + newIndex);
+	}
+	ImGui::SameLine();
 	ImGui::BeginDisabled(!stageObjectSelected);
 	if (ImGui::Button("Duplicate")) {
 		size_t newIndex = stage_->DuplicateObject(stageIndex);
@@ -351,6 +421,7 @@ void GamePlayScene::DrawImGui() {
 		// 失敗時(JSON破損等)はLoadFromFileが現状維持するので、一覧の作り直しも不要
 		if (stage_->LoadFromFile(kStagePath)) {
 			ApplyCameraFromStage(); // カメラ調整値もファイルの内容へ戻す
+			enemySpawner_->BuildFromStage(stage_->GetData()); // SpawnPointもファイルの内容で作り直す
 			RebuildEditorObjects(); // 構造変更でTransformポインタが無効になるため必須(選択解除も行われる)
 		}
 	}
@@ -362,10 +433,26 @@ void GamePlayScene::DrawImGui() {
 	ImGui::SameLine();
 	if (ImGui::Button("Reset##railCamera")) {
 		railDistance_ = 0.0f; // 周回を待たずに先頭から確認し直す用
+		enemySpawner_->Reset(); // 敵も未発生に戻し、発生の瞬間を何度でも確認できるようにする
 	}
 	ImGui::DragFloat("Speed", &railSpeed_, 0.1f, 0.0f, 100.0f, "%.1f m/s");
 	ImGui::DragFloat("Camera Back", &cameraBackDistance_, 0.1f, 0.0f, 50.0f, "%.1f m");
 	ImGui::Text("Distance: %.1f / %.1f m", railDistance_, stage_->GetRail().GetTotalLength());
+
+	// 当たり判定の可視化切替(コライダーのワイヤーボックス+プレイヤーの判定球)
+	ImGui::SeparatorText("Collision");
+	ImGui::Checkbox("Show Colliders", &showColliders_);
+	ImGui::Text("Active Colliders: %zu", stage_->GetWorldColliders().size());
+
+	// SpawnPointの可視化と発生状況(進行度トリガーが効いていることの確認用)
+	ImGui::SeparatorText("Spawn Points");
+	ImGui::Checkbox("Show Spawn Points", &showSpawnPoints_);
+	ImGui::SameLine();
+	if (ImGui::Button("Respawn")) {
+		enemySpawner_->Reset();
+	}
+	ImGui::Text("Spawned: %zu / %zu",
+		enemySpawner_->GetSpawnedCount(), enemySpawner_->GetSpawnPoints().size());
 
 	ImGui::SeparatorText("Scene File");
 	if (ImGui::Button("Save")) {
@@ -444,10 +531,34 @@ void GamePlayScene::RebuildEditorObjects() {
 		editorObjects_[i].onSetDisabled = [this, i, stageObjectIndex](bool disabled) {
 			stage_->SetObjectDisabled(stageObjectIndex, disabled);
 			editorObjects_[i].pickable = !disabled; // 実体が消えるのでクリック選択の対象からも外す
+			// SpawnPointの無効化も同じ意味(データは残すがゲームには出さない)にするため作り直す
+			enemySpawner_->BuildFromStage(stage_->GetData());
 		};
 		editorObjects_[i].drawInspector = [this, stageObjectIndex]() {
+			StageData::ObjectData& data = stage_->GetData().objects[stageObjectIndex];
+
+			if (data.type == StageData::ObjectType::Spawn) {
+				// 敵の発生地点: モデルではなく「種別」と「発生する進行度」を編集する。
+				// 位置はtransform(ギズモ)で置く。どちらもSave/Reloadの往復に乗る
+				ImGui::TextUnformatted("Type: Spawn (enemy spawn point)");
+				if (ImGui::BeginCombo("Enemy", data.enemy.c_str())) {
+					for (const std::string& type : EnemySpawner::EnemyTypes()) {
+						if (ImGui::Selectable(type.c_str(), type == data.enemy) && type != data.enemy) {
+							data.enemy = type;
+							enemySpawner_->BuildFromStage(stage_->GetData()); // 種別変更を即反映
+						}
+					}
+					ImGui::EndCombo();
+				}
+				if (ImGui::DragFloat("RailDistance", &data.railDistance, 0.5f, 0.0f,
+					stage_->GetRail().GetTotalLength(), "%.1f m")) {
+					enemySpawner_->BuildFromStage(stage_->GetData());
+				}
+				return; // spawnにモデル選択・コライダーは不要
+			}
+
 			// 参照ではなくコピーで持つ(SetObjectModelが元の文字列を書き換えるため)
-			const std::string current = stage_->GetData().objects[stageObjectIndex].model;
+			const std::string current = data.model;
 			if (ImGui::BeginCombo("Model", current.c_str())) {
 				for (const std::string& file : modelFiles_) {
 					if (ImGui::Selectable(file.c_str(), file == current) && file != current) {
@@ -455,6 +566,17 @@ void GamePlayScene::RebuildEditorObjects() {
 					}
 				}
 				ImGui::EndCombo();
+			}
+
+			// コライダー編集。StageDataを直接書き換えるので、既存のSave/Reloadの往復に
+			// そのまま乗る(Serializerはcollider読み書き済み)。判定への反映はStage::Updateが行う。
+			// 要素数を変えない編集なのでeditorObjects_の作り直しは不要
+			StageData::ObjectData& objectData = stage_->GetData().objects[stageObjectIndex];
+			ImGui::Checkbox("Collider", &objectData.hasCollider);
+			if (objectData.hasCollider) {
+				// AABBは軸平行のためTransformのrotateは判定に影響しない(Stage::UpdateWorldColliders)
+				ImGui::DragFloat3("C.Center", &objectData.collider.center.x, 0.05f);
+				ImGui::DragFloat3("C.Size", &objectData.collider.size.x, 0.05f, 0.0f, 1000.0f);
 			}
 		};
 	}

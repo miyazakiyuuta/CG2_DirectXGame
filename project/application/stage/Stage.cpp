@@ -5,6 +5,8 @@
 #include "3d/Object3d.h"
 #include "3d/Object3dCommon.h"
 
+#include <cmath>
+
 bool Stage::LoadFromFile(const std::string& path) {
 	if (!StageSerializer::Load(path, data_)) {
 		return false;
@@ -26,8 +28,9 @@ void Stage::Rebuild() {
 	objects_.reserve(data_.objects.size());
 
 	for (const StageData::ObjectData& objectData : data_.objects) {
-		// 無効フラグ付きはデータとして保持しつつ実体を作らない(indexはdata_.objectsと揃える)
-		if (objectData.disabled) {
+		// 無効フラグ付きはデータとして保持しつつ実体を作らない(indexはdata_.objectsと揃える)。
+		// 敵の発生地点(Spawn)もここでは実体を持たない(生成の責任はEnemySpawner側)
+		if (objectData.disabled || objectData.type == StageData::ObjectType::Spawn) {
 			objects_.push_back(nullptr);
 			continue;
 		}
@@ -48,6 +51,43 @@ void Stage::Rebuild() {
 	// レール曲線も「データ→実体」の一部としてここで再構築する。
 	// Reload(ファイル読み+Rebuild)や将来のPlay in Editor(Capture+Rebuild)でも自動で追従する
 	rail_.SetControlPoints(data_.rail);
+
+	// 当たり判定もデータから導かれる実体の一部。Rebuild直後のフレームで
+	// 判定が1フレーム空にならないよう、ここでも作っておく
+	UpdateWorldColliders();
+}
+
+void Stage::UpdateWorldColliders() {
+	worldColliders_.clear();
+
+	for (size_t i = 0; i < data_.objects.size(); ++i) {
+		const StageData::ObjectData& objectData = data_.objects[i];
+		// コライダー未設定と、無効フラグで実体を持たないものは判定対象外
+		// (見えていないものに当たると理不尽なため、描画と判定の有無を一致させる)
+		if (!objectData.hasCollider || objectData.disabled) {
+			continue;
+		}
+
+		// AABBは軸平行なので回転を表現できない。translateとscaleのみ適用し、
+		// rotateは意図的に無視する(回転が必要になったらOBBを別途用意すること)
+		const Transform& transform = objectData.transform;
+		const Vector3 center = {
+			transform.translate.x + objectData.collider.center.x * transform.scale.x,
+			transform.translate.y + objectData.collider.center.y * transform.scale.y,
+			transform.translate.z + objectData.collider.center.z * transform.scale.z,
+		};
+		// sizeは「各軸の大きさ」なので、中心から広げる量は半分
+		const Vector3 halfSize = {
+			std::abs(objectData.collider.size.x * transform.scale.x) * 0.5f,
+			std::abs(objectData.collider.size.y * transform.scale.y) * 0.5f,
+			std::abs(objectData.collider.size.z * transform.scale.z) * 0.5f,
+		};
+
+		AABB aabb;
+		aabb.min = center - halfSize;
+		aabb.max = center + halfSize;
+		worldColliders_.push_back(aabb);
+	}
 }
 
 void Stage::Update(float deltaTime) {
@@ -61,6 +101,10 @@ void Stage::Update(float deltaTime) {
 			objects_[i]->Update(deltaTime);
 		}
 	}
+
+	// ギズモやInspectorでの編集を当たり判定にも即座に反映する
+	// (Save/Reloadを挟まずその場で確認できる)
+	UpdateWorldColliders();
 }
 
 void Stage::Draw() {

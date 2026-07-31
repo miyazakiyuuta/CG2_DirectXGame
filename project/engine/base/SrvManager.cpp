@@ -1,6 +1,11 @@
 #include "SrvManager.h"
 
-const uint32_t SrvManager::kMaxSRVCount = 512;
+// TODO(2026-08): Allocate()に解放機構(フリーリスト)が無く、Object3dを作り直すたびに
+// スキニング用のSRV/UAVが2枠ずつ返らないまま消費される。
+// Stage::RebuildやEnemySpawnerの作り直しでスキンモデルを再生成すると枠が減り続けるため、
+// 当面は上限を大きく取って実用上到達しないようにしている(4096枠 ≒ 400回以上の編集操作に耐える)。
+// 恒久対応はSrvManagerにFree()を設け、SkinClusterInstanceの破棄時に返却すること
+const uint32_t SrvManager::kMaxSRVCount = 4096;
 
 SrvManager* SrvManager::instance = nullptr;
 
