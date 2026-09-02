@@ -7,10 +7,25 @@
 #pragma comment(lib,"mfreadwrite.lib")
 #pragma comment(lib,"mfuuid.lib")
 
+#include <format>
+#include <limits>
+#include <string_view>
+
+#include "utility/Logger.h"
 #include "utility/StringUtility.h"
 
 using namespace Microsoft::WRL;
 using namespace StringUtility;
+
+namespace {
+	void LogSoundError(std::string_view operation, const std::string& filename, HRESULT result) {
+		Logger::Log(std::format(
+			"[SoundManager] {} failed: {} (HRESULT=0x{:08X})\n",
+			operation,
+			filename,
+			static_cast<uint32_t>(result)));
+	}
+}
 
 SoundManager* SoundManager::instance = nullptr;
 
@@ -124,11 +139,15 @@ void SoundManager::Update(float deltaTime) {
 	}
 }
 
-SoundData SoundManager::LoadFile(const std::string& filename) {
+std::shared_ptr<const SoundData> SoundManager::LoadFile(const std::string& filename) {
 
 	auto it = soundCache_.find(filename);
 	if (it != soundCache_.end()) {
 		return it->second;
+	}
+	if (filename.empty()) {
+		LogSoundError("LoadFile", filename, E_INVALIDARG);
+		return nullptr;
 	}
 
 	// フルパスをワイド文字列に変換
@@ -138,27 +157,54 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 	// SourceReader作成
 	ComPtr<IMFSourceReader> pReader;
 	result = MFCreateSourceReaderFromURL(filePathW.c_str(), nullptr, &pReader);
-	assert(SUCCEEDED(result) && "MFCreateSourceReaderFromURL failed: ファイルが存在しないか形式が非対応");
+	if (FAILED(result)) {
+		LogSoundError("MFCreateSourceReaderFromURL", filename, result);
+		return nullptr;
+	}
 
 	// PCM形式にフォーマット指定する
 	ComPtr<IMFMediaType> pPCMType;
-	MFCreateMediaType(&pPCMType);
-	pPCMType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-	pPCMType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+	result = MFCreateMediaType(&pPCMType);
+	if (FAILED(result)) {
+		LogSoundError("MFCreateMediaType", filename, result);
+		return nullptr;
+	}
+	result = pPCMType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+	if (FAILED(result)) {
+		LogSoundError("IMFMediaType::SetGUID(MF_MT_MAJOR_TYPE)", filename, result);
+		return nullptr;
+	}
+	result = pPCMType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM);
+	if (FAILED(result)) {
+		LogSoundError("IMFMediaType::SetGUID(MF_MT_SUBTYPE)", filename, result);
+		return nullptr;
+	}
 	result = pReader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, nullptr, pPCMType.Get());
-	assert(SUCCEEDED(result));
+	if (FAILED(result)) {
+		LogSoundError("IMFSourceReader::SetCurrentMediaType", filename, result);
+		return nullptr;
+	}
 
 	// 実際にセットされたメディアタイプを取得する
 	ComPtr<IMFMediaType> pOutType;
-	pReader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pOutType);
+	result = pReader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &pOutType);
+	if (FAILED(result)) {
+		LogSoundError("IMFSourceReader::GetCurrentMediaType", filename, result);
+		return nullptr;
+	}
 
 	// Waveフォーマットを取得する
 	WAVEFORMATEX* waveFormat = nullptr;
-	MFCreateWaveFormatExFromMFMediaType(pOutType.Get(), &waveFormat, nullptr);
+	result = MFCreateWaveFormatExFromMFMediaType(pOutType.Get(), &waveFormat, nullptr);
+	if (FAILED(result) || waveFormat == nullptr) {
+		LogSoundError("MFCreateWaveFormatExFromMFMediaType", filename, FAILED(result) ? result : E_FAIL);
+		return nullptr;
+	}
 
 	// コンテナに格納する音声データ
-	SoundData soundData = {};
-	soundData.wfex = *waveFormat;
+	auto soundData = std::make_shared<SoundData>();
+	soundData->sourceFilename = filename;
+	soundData->wfex = *waveFormat;
 	
 	// 生成したWaveフォーマットを解放
 	CoTaskMemFree(waveFormat);
@@ -170,26 +216,54 @@ SoundData SoundManager::LoadFile(const std::string& filename) {
 		LONGLONG llTimeStamp = 0;
 		// サンプルを読み込む
 		result = pReader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &streamIndex, &flags, &llTimeStamp, &pSample);
+		if (FAILED(result)) {
+			LogSoundError("IMFSourceReader::ReadSample", filename, result);
+			return nullptr;
+		}
+		if (flags & MF_SOURCE_READERF_ERROR) {
+			LogSoundError("IMFSourceReader::ReadSample", filename, E_FAIL);
+			return nullptr;
+		}
 		// ストリームの末尾に達したら抜ける
 		if (flags & MF_SOURCE_READERF_ENDOFSTREAM) break;
 
 		if (pSample) {
 			ComPtr<IMFMediaBuffer> pBuffer;
 			// サンプルに含まれるサウンドデータのバッファを人つなぎにして取得
-			pSample->ConvertToContiguousBuffer(&pBuffer);
+			result = pSample->ConvertToContiguousBuffer(&pBuffer);
+			if (FAILED(result)) {
+				LogSoundError("IMFSample::ConvertToContiguousBuffer", filename, result);
+				return nullptr;
+			}
 
 			BYTE* pData = nullptr; // データ読み取り用ポインタ
 			DWORD maxLength = 0, currentLength = 0;
 			// バッファ読み込み用にロック
-			pBuffer->Lock(&pData, &maxLength, &currentLength);
+			result = pBuffer->Lock(&pData, &maxLength, &currentLength);
+			if (FAILED(result)) {
+				LogSoundError("IMFMediaBuffer::Lock", filename, result);
+				return nullptr;
+			}
 			// バッファの末尾にデータを追加
-			soundData.buffer.insert(soundData.buffer.end(), pData, pData + currentLength);
-			pBuffer->Unlock();
+			if (currentLength > 0) {
+				soundData->buffer.insert(soundData->buffer.end(), pData, pData + currentLength);
+			}
+			result = pBuffer->Unlock();
+			if (FAILED(result)) {
+				LogSoundError("IMFMediaBuffer::Unlock", filename, result);
+				return nullptr;
+			}
 		}
 	}
 
-	soundCache_[filename] = soundData;
-	return soundData;
+	if (soundData->buffer.empty()) {
+		LogSoundError("DecodeAudio", filename, E_FAIL);
+		return nullptr;
+	}
+
+	std::shared_ptr<const SoundData> cachedSoundData = soundData;
+	soundCache_[filename] = cachedSoundData;
+	return cachedSoundData;
 }
 
 void SoundManager::Unload(const std::string& filename) {
@@ -200,8 +274,22 @@ void SoundManager::UnloadAll() {
 	soundCache_.clear();
 }
 
-SoundManager::SoundHandle SoundManager::PlayWave(const SoundData& soundData, bool loop, SoundCategory category) {
-	if (soundData.buffer.empty()) return InvalidHandle;
+SoundManager::SoundHandle SoundManager::PlayWave(std::shared_ptr<const SoundData> soundData, bool loop, SoundCategory category) {
+	const std::string filename = soundData && !soundData->sourceFilename.empty()
+		? soundData->sourceFilename
+		: "<unknown>";
+	if (!soundData) {
+		LogSoundError("PlayWave", filename, E_POINTER);
+		return InvalidHandle;
+	}
+	if (soundData->buffer.empty() || soundData->buffer.size() > (std::numeric_limits<UINT32>::max)()) {
+		LogSoundError("PlayWave", filename, E_INVALIDARG);
+		return InvalidHandle;
+	}
+	if (!xAudio2_) {
+		LogSoundError("PlayWave", filename, E_UNEXPECTED);
+		return InvalidHandle;
+	}
 
 	auto callbackPtr = std::make_unique<VoiceCallback>();
 	VoiceCallback* rawCallback = callbackPtr.get();
@@ -212,31 +300,54 @@ SoundManager::SoundHandle SoundManager::PlayWave(const SoundData& soundData, boo
 	// 出力先をカテゴリに応じて切り替える
 	IXAudio2SubmixVoice* targetSubmix =
 		(category == SoundCategory::BGM) ? bgmSubmixVoice_ : seSubmixVoice_;
+	if (!targetSubmix) {
+		LogSoundError("PlayWave", filename, E_UNEXPECTED);
+		return InvalidHandle;
+	}
 
 	XAUDIO2_SEND_DESCRIPTOR sendDesc = { 0, targetSubmix };
 	XAUDIO2_VOICE_SENDS sendList = { 1, &sendDesc };
 
 	HRESULT result = xAudio2_->CreateSourceVoice(
-		&pSourceVoice, &soundData.wfex,
+		&pSourceVoice, &soundData->wfex,
 		0, XAUDIO2_DEFAULT_FREQ_RATIO, rawCallback,
 		&sendList); // ← 出力先を指定
-	assert(SUCCEEDED(result));
+	if (FAILED(result) || pSourceVoice == nullptr) {
+		LogSoundError("IXAudio2::CreateSourceVoice", filename, FAILED(result) ? result : E_FAIL);
+		if (pSourceVoice) {
+			pSourceVoice->DestroyVoice();
+		}
+		return InvalidHandle;
+	}
 
 	// 再生する波形データの設定
 	XAUDIO2_BUFFER buf{};
-	buf.pAudioData = soundData.buffer.data();
-	buf.AudioBytes = static_cast<UINT32>(soundData.buffer.size());
+	buf.pAudioData = soundData->buffer.data();
+	buf.AudioBytes = static_cast<UINT32>(soundData->buffer.size());
 	buf.Flags = XAUDIO2_END_OF_STREAM;
 	buf.LoopCount = loop ? XAUDIO2_LOOP_INFINITE : 0;
 
 	// 波形データの再生
 	result = pSourceVoice->SubmitSourceBuffer(&buf);
-	assert(SUCCEEDED(result) && "SubmitSourceBuffer failed");
+	if (FAILED(result)) {
+		LogSoundError("IXAudio2SourceVoice::SubmitSourceBuffer", filename, result);
+		pSourceVoice->DestroyVoice();
+		return InvalidHandle;
+	}
 	result = pSourceVoice->Start();
-	assert(SUCCEEDED(result) && "Start failed");
+	if (FAILED(result)) {
+		LogSoundError("IXAudio2SourceVoice::Start", filename, result);
+		pSourceVoice->DestroyVoice();
+		return InvalidHandle;
+	}
 
 	SoundHandle handle = nextHandle_++;
-	activeVoices_.push_back({ handle, pSourceVoice, std::move(callbackPtr) });
+	ActiveVoice activeVoice{};
+	activeVoice.handle = handle;
+	activeVoice.pVoice = pSourceVoice;
+	activeVoice.callback = std::move(callbackPtr);
+	activeVoice.soundData = std::move(soundData);
+	activeVoices_.push_back(std::move(activeVoice));
 	return handle;
 }
 

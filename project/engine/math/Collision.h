@@ -36,3 +36,18 @@ inline bool IsCollision(const AABB& aabb, const Vector3& sphereCenter, float sph
 	const Vector3 diff = closest - sphereCenter;
 	return diff.LengthSquared() <= sphereRadius * sphereRadius;
 }
+
+/// <summary>
+/// 球同士の交差判定(自弾と敵の判定に使う)
+/// </summary>
+/// <param name="centerA">球Aの中心(ワールド空間)</param>
+/// <param name="radiusA">球Aの半径</param>
+/// <param name="centerB">球Bの中心(ワールド空間)</param>
+/// <param name="radiusB">球Bの半径</param>
+/// <returns>交差していれば true</returns>
+inline bool IsCollision(const Vector3& centerA, float radiusA, const Vector3& centerB, float radiusB) {
+	// 中心間距離が半径の和以下なら交差。AABB版と同じく平方根を避けて二乗で比較する
+	const Vector3 diff = centerB - centerA;
+	const float radiusSum = radiusA + radiusB;
+	return diff.LengthSquared() <= radiusSum * radiusSum;
+}

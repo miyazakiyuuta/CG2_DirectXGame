@@ -186,6 +186,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\scene\GamePlayScene.cpp" />
     <ClCompile Include="application\input\ActionInput.cpp" />
     <ClCompile Include="application\player\Player.cpp" />
+    <ClCompile Include="application\bullet\BulletManager.cpp" />
     <ClCompile Include="application\enemy\EnemySpawner.cpp" />
     <ClCompile Include="application\stage\Stage.cpp" />
     <ClCompile Include="application\stage\StageSerializer.cpp" />
@@ -216,6 +217,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\utility\Random.cpp" />
     <ClCompile Include="engine\utility\StringUtility.cpp" />
     <ClCompile Include="engine\2d\TextureManager.cpp" />
+    <ClCompile Include="application\scene\ResultScene.cpp" />
+    <ClCompile Include="application\ui\NumberSprite.cpp" />
     <ClCompile Include="application\scene\TitleScene.cpp" />
     <ClCompile Include="engine\base\WinApp.cpp" />
     <ClCompile Include="application\transition\ShutterTransition.cpp" />
@@ -290,6 +293,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\scene\GamePlayScene.h" />
     <ClInclude Include="application\input\ActionInput.h" />
     <ClInclude Include="application\player\Player.h" />
+    <ClInclude Include="application\bullet\Bullet.h" />
+    <ClInclude Include="application\bullet\BulletManager.h" />
     <ClInclude Include="application\enemy\EnemySpawner.h" />
     <ClInclude Include="application\stage\Stage.h" />
     <ClInclude Include="application\stage\StageData.h" />
@@ -299,6 +304,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\scene\SceneManager.h" />
     <ClInclude Include="engine\scene\SceneSerializer.h" />
     <ClInclude Include="engine\scene\EditorObject.h" />
+    <ClInclude Include="application\scene\ResultScene.h" />
+    <ClInclude Include="application\ui\NumberSprite.h" />
     <ClInclude Include="application\scene\TitleScene.h" />
     <ClInclude Include="engine\math\Transform.h" />
     <ClInclude Include="engine\math\Serialization.h" />

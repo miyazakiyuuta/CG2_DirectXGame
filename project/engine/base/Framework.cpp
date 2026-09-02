@@ -127,11 +127,14 @@ void Framework::Finalize() {
 }
 
 void Framework::Update(float deltaTime) {
-	(void)deltaTime;
 	if (WinApp::GetInstance()->ProcessMessage()) {
 		// ゲームループを抜ける
 		isEndRequest_ = true;
 	}
+
+	// 再生の終わったソースボイスの破棄とフェード処理はSoundManager::Updateが行う。
+	// 呼ばないとPlayWaveのたびにボイスが溜まり続ける(射撃SEは毎秒約8回鳴る)
+	SoundManager::GetInstance()->Update(deltaTime);
 
 	Input::GetInstance()->Update();
 }

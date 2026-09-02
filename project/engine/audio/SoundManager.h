@@ -10,9 +10,12 @@
 #include <cassert>
 #include <unordered_map>
 #include <cmath>
+#include <cstdint>
 
 // 音声データ
 struct SoundData {
+	// 読み込み元ファイル名（エラーログ用）
+	std::string sourceFilename;
 	// 波形フォーマット
 	WAVEFORMATEX wfex;
 	// バッファ
@@ -36,10 +39,10 @@ public:
 		SE
 	};
 
-	SoundData LoadFile(const std::string& filename); // wavファイル読み込み
+	std::shared_ptr<const SoundData> LoadFile(const std::string& filename); // 音声ファイル読み込み
 	void Unload(const std::string& filename); // 特定ファイルをキャッシュから削除
 	void UnloadAll(); // 全キャッシュ削除
-	SoundHandle PlayWave(const SoundData& soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
+	SoundHandle PlayWave(std::shared_ptr<const SoundData> soundData, bool loop = false, SoundCategory category = SoundCategory::SE); // 再生
 
 	void StopWave(SoundHandle handle);
 	void FadeIn(SoundHandle handle, float duration);  // durationは秒
@@ -74,6 +77,7 @@ private:
 		SoundHandle handle = InvalidHandle;
 		IXAudio2SourceVoice* pVoice = nullptr;
 		std::unique_ptr<VoiceCallback> callback;
+		std::shared_ptr<const SoundData> soundData; // XAudio2が参照中のPCMを保持
 		float fadeTargetVolume = 1.0f; // 目標音量
 		float fadeSpeed = 0.0f; // 1秒あたりの変化量（0.0fはフェードなし）
 		bool  stopOnFadeOut = false; // フェードアウト完了後に停止するか
@@ -89,6 +93,6 @@ private:
 
 	uint32_t nextHandle_ = 1;
 
-	std::unordered_map<std::string, SoundData> soundCache_;
+	std::unordered_map<std::string, std::shared_ptr<const SoundData>> soundCache_;
 };
 
