@@ -159,6 +159,9 @@
     <ClCompile Include="application\ui\NumberSprite.cpp">
       <Filter>application\ui</Filter>
     </ClCompile>
+    <ClCompile Include="application\ui\Reticle.cpp">
+      <Filter>application\ui</Filter>
+    </ClCompile>
     <ClCompile Include="application\bullet\BulletManager.cpp">
       <Filter>application\bullet</Filter>
     </ClCompile>
@@ -366,6 +369,9 @@
       <Filter>application\player</Filter>
     </ClInclude>
     <ClInclude Include="application\ui\NumberSprite.h">
+      <Filter>application\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="application\ui\Reticle.h">
       <Filter>application\ui</Filter>
     </ClInclude>
     <ClInclude Include="application\bullet\Bullet.h">

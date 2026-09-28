@@ -219,6 +219,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="engine\2d\TextureManager.cpp" />
     <ClCompile Include="application\scene\ResultScene.cpp" />
     <ClCompile Include="application\ui\NumberSprite.cpp" />
+    <ClCompile Include="application\ui\Reticle.cpp" />
     <ClCompile Include="application\scene\TitleScene.cpp" />
     <ClCompile Include="engine\base\WinApp.cpp" />
     <ClCompile Include="application\transition\ShutterTransition.cpp" />
@@ -306,6 +307,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\scene\EditorObject.h" />
     <ClInclude Include="application\scene\ResultScene.h" />
     <ClInclude Include="application\ui\NumberSprite.h" />
+    <ClInclude Include="application\ui\Reticle.h" />
     <ClInclude Include="application\scene\TitleScene.h" />
     <ClInclude Include="engine\math\Transform.h" />
     <ClInclude Include="engine\math\Serialization.h" />

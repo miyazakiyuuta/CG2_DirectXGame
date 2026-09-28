@@ -16,6 +16,7 @@ class DebugCamera;
 class EnemySpawner;
 class NumberSprite;
 class Player;
+class Reticle;
 class Sprite;
 class Stage;
 class Skybox;
@@ -67,6 +68,8 @@ private:
 	// スプライトは深度OFF・αブレンドONなので3Dの上にそのまま重なる
 	void InitializeHud();
 	void UpdateHud();
+	// 被弾の画面着色を進める。ヒットストップ中も演出は動かすので実dtで呼ぶこと
+	void UpdateDamageEffect(float deltaTime);
 	void DrawHud();
 
 	// stage.jsonのカメラ調整値(FovY/railSpeed/backDistance)をライブ値へ反映する(Apply)。
@@ -103,6 +106,7 @@ private:
 
 	// レール終端の扱い(A-5)。falseなら終端でクリア、trueなら先頭へ戻って周回する。
 	// 周回はゲームの仕様ではなく、配置編集中に同じ区間を何度も確認するためのデバッグ用
+	//bool railLoop_ = true;
 	bool railLoop_ = false;
 
 	// 結果シーンへの遷移を要求済みか。立っている間はゲーム進行を止める
@@ -118,6 +122,11 @@ private:
 	float shakeTimer_ = 0.0f;
 	float shakeDuration_ = 0.35f;
 	float shakeStrength_ = 0.5f; // 最大振幅[m]
+	// 画面の着色: 被弾直後だけ画面の縁を赤くする。実装済みのポストエフェクト(Vignette)へ
+	// 残り時間を流し込むだけで、このシーンは新しいPSOもシェーダも持たない
+	float damageEffectTimer_ = 0.0f;
+	float damageEffectDuration_ = 0.45f;
+	float damageVignettePower_ = 0.85f; // 被弾直後の濃さ(Vignetteのintensityは0〜1)
 
 	// カメラをプレイヤーの何m後方に置くか。railDistance_はプレイヤーの進行度で、
 	// カメラはプレイヤーの座標系(接線基準)を forward×この値 だけ下がった位置に派生させる。
@@ -129,16 +138,21 @@ private:
 	std::unique_ptr<Player> player_;
 
 	// 自弾のプール。所有者はシーン(Playerには参照だけ渡す)。
-	// 敵側(A-4)や敵弾(A-5)からも一覧を読むため、撃つ側ではなくシーンが持つ
 	std::unique_ptr<BulletManager> bulletManager_;
-	// 狙点と弾道のデバッグ表示(レティクル(A-2)が入るまでの確認用)。
-	// DebugRendererは全構成で描画されるため、既定はfalse(紹介動画への映り込みを防ぐ)
+	// 敵弾のプール。自弾と同じクラスで、違いはBulletManager::Profile(見た目・音・速さ)だけ。
+	// 撃つのはEnemySpawner、当たり判定はPlayer、所有はシーンという分担にしてある
+	std::unique_ptr<BulletManager> enemyBulletManager_;
+	// 狙点と弾道のデバッグ表示
 	bool showAimLine_ = false;
 
 	// ステージコライダーとプレイヤー判定球のデバッグ表示(全構成。ImGuiのチェックボックスで切替)
+	// 既定はOFF: デバッグ描画はDebugRendererが全構成で描くため、ONのままだと
+	// 紹介動画やRelease配布にも緑の判定ボックスが映り込む
 	bool showColliders_ = false;
 	// SpawnPoint(敵の発生地点)のデバッグ表示
 	bool showSpawnPoints_ = false;
+	// ワールドグリッドとレール曲線(赤の折れ線・黄の制御点)のデバッグ表示
+	bool showRail_ = false;
 
 	// stage.jsonのSpawnPointから敵を発生させる(進行度トリガー)
 	std::unique_ptr<EnemySpawner> enemySpawner_;
@@ -159,6 +173,9 @@ private:
 
 	// スコア表示(画面右上)。撃破数から導出するので、加算のための状態は持たない
 	std::unique_ptr<NumberSprite> scoreNumber_;
+
+	// 照準(レティクル)。狙点はPlayerが持っているので、これは表示だけを担当する
+	std::unique_ptr<Reticle> reticle_;
 
 	// stage.jsonから構築するステージ配置(静的オブジェクト群)
 	std::unique_ptr<Stage> stage_;

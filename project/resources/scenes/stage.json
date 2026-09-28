@@ -163,19 +163,19 @@
             "collider": {
                 "center": {
                     "x": 0.0,
-                    "y": 1.0,
-                    "z": -0.30000001192092896
+                    "y": 0.65,
+                    "z": 0.0
                 },
                 "size": {
-                    "x": 1.899999976158142,
-                    "y": 2.0,
-                    "z": 2.299999952316284
+                    "x": 1.3,
+                    "y": 1.3,
+                    "z": 1.4
                 },
                 "type": "AABB"
             },
             "disabled": true,
-            "model": "frog/Frog.gltf",
-            "name": "frog",
+            "model": "boulder/boulder.obj",
+            "name": "boulder",
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -183,9 +183,9 @@
                     "z": 0.0
                 },
                 "scale": {
-                    "x": 3.0,
-                    "y": 3.0,
-                    "z": 3.0
+                    "x": 4.0,
+                    "y": 4.0,
+                    "z": 4.0
                 },
                 "translate": {
                     "x": -5.099999904632568,
@@ -199,18 +199,18 @@
             "collider": {
                 "center": {
                     "x": 0.0,
-                    "y": 1.0,
-                    "z": -0.30000001192092896
+                    "y": 0.65,
+                    "z": 0.0
                 },
                 "size": {
-                    "x": 1.899999976158142,
-                    "y": 2.0,
-                    "z": 4.800000190734863
+                    "x": 1.3,
+                    "y": 1.3,
+                    "z": 1.4
                 },
                 "type": "AABB"
             },
-            "model": "frog/Frog.gltf",
-            "name": "frog_1",
+            "model": "boulder/boulder.obj",
+            "name": "boulder_1",
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -218,9 +218,9 @@
                     "z": 0.0
                 },
                 "scale": {
-                    "x": 3.000000238418579,
-                    "y": 3.0,
-                    "z": 3.000000238418579
+                    "x": 4.0,
+                    "y": 4.0,
+                    "z": 4.0
                 },
                 "translate": {
                     "x": 12.788067817687988,
@@ -234,18 +234,18 @@
             "collider": {
                 "center": {
                     "x": 0.0,
-                    "y": 1.0,
-                    "z": -0.30000001192092896
+                    "y": 0.65,
+                    "z": 0.0
                 },
                 "size": {
-                    "x": 1.899999976158142,
-                    "y": 2.0,
-                    "z": 2.299999952316284
+                    "x": 1.3,
+                    "y": 1.3,
+                    "z": 1.4
                 },
                 "type": "AABB"
             },
-            "model": "frog/Frog.gltf",
-            "name": "frog_2",
+            "model": "boulder/boulder.obj",
+            "name": "boulder_2",
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -253,9 +253,9 @@
                     "z": 0.0
                 },
                 "scale": {
-                    "x": 3.0,
-                    "y": 3.0,
-                    "z": 3.0
+                    "x": 4.0,
+                    "y": 4.0,
+                    "z": 4.0
                 },
                 "translate": {
                     "x": -16.0,
@@ -269,18 +269,18 @@
             "collider": {
                 "center": {
                     "x": 0.0,
-                    "y": 1.0,
-                    "z": -0.30000001192092896
+                    "y": 0.65,
+                    "z": 0.0
                 },
                 "size": {
-                    "x": 1.899999976158142,
-                    "y": 2.0,
-                    "z": 2.299999952316284
+                    "x": 1.3,
+                    "y": 1.3,
+                    "z": 1.4
                 },
                 "type": "AABB"
             },
-            "model": "frog/Frog.gltf",
-            "name": "frog_3",
+            "model": "boulder/boulder.obj",
+            "name": "boulder_3",
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -288,9 +288,9 @@
                     "z": 0.0
                 },
                 "scale": {
-                    "x": 3.000000238418579,
-                    "y": 3.0,
-                    "z": 3.000000238418579
+                    "x": 4.0,
+                    "y": 4.0,
+                    "z": 4.0
                 },
                 "translate": {
                     "x": 5.876415252685547,
@@ -408,9 +408,9 @@
                     "z": 1.0
                 },
                 "translate": {
-                    "x": 9.196756362915039,
-                    "y": 5.181904315948486,
-                    "z": 50.20000076293945
+                    "x": 7.7,
+                    "y": 6.1,
+                    "z": 40.7
                 }
             },
             "type": "spawn"
@@ -431,9 +431,9 @@
                     "z": 1.0
                 },
                 "translate": {
-                    "x": -15.100000381469727,
-                    "y": 6.400000095367432,
-                    "z": 57.099998474121094
+                    "x": -12.2,
+                    "y": 9.0,
+                    "z": 68.0
                 }
             },
             "type": "spawn"
@@ -454,9 +454,618 @@
                     "z": 1.0
                 },
                 "translate": {
-                    "x": -3.299999952316284,
+                    "x": 0.4,
+                    "y": 8.6,
+                    "z": 89.6
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_7",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 6.6,
+                    "y": -2.1,
+                    "z": 118.2
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_8",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 10.0,
+                    "y": -1.4,
+                    "z": 137.8
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_9",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 7.7,
+                    "y": -1.0,
+                    "z": 157.6
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_10",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 1.3,
+                    "y": -1.2,
+                    "z": 176.6
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_11",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -5.7,
+                    "y": -1.8,
+                    "z": 195.3
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_12",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -9.8,
+                    "y": -2.7,
+                    "z": 214.8
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_13",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -8.3,
+                    "y": -3.8,
+                    "z": 234.7
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_14",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -2.4,
+                    "y": -4.5,
+                    "z": 253.7
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_15",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 4.7,
+                    "y": -4.9,
+                    "z": 272.4
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_16",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 9.4,
+                    "y": -4.9,
+                    "z": 291.8
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_17",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 8.9,
+                    "y": -4.3,
+                    "z": 311.7
+                }
+            },
+            "type": "static"
+        },
+        {
+            "model": "terrain.obj",
+            "name": "terrain_18",
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 3.5,
+                    "y": -3.5,
+                    "z": 330.9
+                }
+            },
+            "type": "static"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_3",
+            "railDistance": 130.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 7.0,
+                    "y": 8.6,
+                    "z": 137.9
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_4",
+            "railDistance": 160.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 1.8,
                     "y": 9.0,
-                    "z": 91.80000305175781
+                    "z": 167.2
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_5",
+            "railDistance": 160.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 7.8,
+                    "y": 9.0,
+                    "z": 167.2
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_6",
+            "railDistance": 195.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -7.1,
+                    "y": 8.0,
+                    "z": 200.1
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_7",
+            "railDistance": 203.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -11.8,
+                    "y": 7.6,
+                    "z": 207.9
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_8",
+            "railDistance": 211.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -6.8,
+                    "y": 7.2,
+                    "z": 215.8
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_9",
+            "railDistance": 240.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -8.8,
+                    "y": 5.8,
+                    "z": 244.3
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_10",
+            "railDistance": 240.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -2.8,
+                    "y": 5.8,
+                    "z": 244.3
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_11",
+            "railDistance": 280.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 4.6,
+                    "y": 5.0,
+                    "z": 282.0
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_12",
+            "railDistance": 280.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 10.6,
+                    "y": 5.0,
+                    "z": 282.0
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_13",
+            "railDistance": 320.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 3.9,
+                    "y": 6.1,
+                    "z": 320.5
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_14",
+            "railDistance": 130.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 13.0,
+                    "y": 8.6,
+                    "z": 137.7
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "frog",
+            "name": "spawn_15",
+            "railDistance": 240.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": -5.8,
+                    "y": 8.8,
+                    "z": 244.5
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_16",
+            "railDistance": 280.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 7.6,
+                    "y": 8.0,
+                    "z": 281.9
+                }
+            },
+            "type": "spawn"
+        },
+        {
+            "enemy": "sword",
+            "name": "spawn_17",
+            "railDistance": 320.0,
+            "transform": {
+                "rotate": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                },
+                "scale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                },
+                "translate": {
+                    "x": 9.6,
+                    "y": 6.1,
+                    "z": 322.2
                 }
             },
             "type": "spawn"
@@ -492,6 +1101,66 @@
             "x": 0.0,
             "y": 5.0,
             "z": 100.0
+        },
+        {
+            "x": 7.1,
+            "y": 6.0,
+            "z": 120.0
+        },
+        {
+            "x": 10.0,
+            "y": 6.7,
+            "z": 140.0
+        },
+        {
+            "x": 7.1,
+            "y": 7.0,
+            "z": 160.0
+        },
+        {
+            "x": 0.0,
+            "y": 6.7,
+            "z": 180.0
+        },
+        {
+            "x": -7.1,
+            "y": 6.0,
+            "z": 200.0
+        },
+        {
+            "x": -10.0,
+            "y": 5.0,
+            "z": 220.0
+        },
+        {
+            "x": -7.1,
+            "y": 4.0,
+            "z": 240.0
+        },
+        {
+            "x": -0.0,
+            "y": 3.3,
+            "z": 260.0
+        },
+        {
+            "x": 7.1,
+            "y": 3.0,
+            "z": 280.0
+        },
+        {
+            "x": 10.0,
+            "y": 3.3,
+            "z": 300.0
+        },
+        {
+            "x": 7.1,
+            "y": 4.0,
+            "z": 320.0
+        },
+        {
+            "x": 0.0,
+            "y": 5.0,
+            "z": 340.0
         }
     ]
 }

@@ -9,24 +9,15 @@
 #include <imgui.h>
 #endif
 
-namespace {
-	// 弾の仮モデル。半径0.5のsphereなので、判定半径に合わせるならscaleは radius/0.5
-	const std::string kBulletModel = "sphere.obj";
-	// 弾の色(ライティングを切って自発光のように見せる)
-	const Vector4 kBulletColor = { 0.4f, 1.0f, 1.0f, 1.0f };
+void BulletManager::Initialize(size_t capacity, const Profile& profile) {
+	// 見た目・音・速さの設定はここで丸ごと受け取る(以降はprofile_だけを見る)
+	profile_ = profile;
 
-	// 発射音。連射が速いのでカテゴリ音量とは別に個別で絞る
-	// (SEカテゴリを下げると爆発音まで小さくなるため)
-	const std::string kShotSound = "resources/sounds/shot.mp3";
-	constexpr float kShotVolume = 0.35f;
-}
-
-void BulletManager::Initialize(size_t capacity) {
 	// 読み込み済みなら早期returnするので重複ロードにはならない
-	ModelManager::GetInstance()->LoadModel(kBulletModel);
+	ModelManager::GetInstance()->LoadModel(profile_.model);
 
 	// 発射音はSoundManagerのキャッシュと共有する
-	shotSound_ = SoundManager::GetInstance()->LoadFile(kShotSound);
+	shotSound_ = SoundManager::GetInstance()->LoadFile(profile_.shotSound);
 
 	bullets_.assign(capacity, Bullet{});
 
@@ -37,12 +28,12 @@ void BulletManager::Initialize(size_t capacity) {
 	for (size_t i = 0; i < capacity; ++i) {
 		std::unique_ptr<Object3d> object = std::make_unique<Object3d>();
 		object->Initialize(Object3dCommon::GetInstance());
-		object->SetModel(kBulletModel);
+		object->SetModel(profile_.model);
 		// sphere.objは半径0.5なので、判定半径と見た目を一致させる倍率にする
-		const float scale = radius_ * 2.0f;
+		const float scale = profile_.radius * 2.0f;
 		object->SetScale({ scale, scale, scale });
 		object->SetEnableLighting(false); // 陰影を付けず、光っている弾に見せる
-		object->SetColor(kBulletColor);
+		object->SetColor(profile_.color);
 		if (camera_) {
 			object->SetCamera(camera_);
 		}
@@ -65,8 +56,8 @@ void BulletManager::Fire(const Vector3& position, const Vector3& direction) {
 		if (velocity.LengthSquared() < 1.0e-6f) {
 			return;
 		}
-		bullet.velocity = velocity.Normalize() * speed_;
-		bullet.lifeTime = lifeTime_;
+		bullet.velocity = velocity.Normalize() * profile_.speed;
+		bullet.lifeTime = profile_.lifeTime;
 		bullet.active = true;
 
 		// 発射フレームから正しい位置に出るよう、実体の座標もここで合わせる
@@ -78,7 +69,7 @@ void BulletManager::Fire(const Vector3& position, const Vector3& direction) {
 		if (shotSound_) {
 			const SoundManager::SoundHandle handle =
 				SoundManager::GetInstance()->PlayWave(shotSound_, false, SoundManager::SoundCategory::SE);
-			SoundManager::GetInstance()->SetVolume(handle, kShotVolume);
+			SoundManager::GetInstance()->SetVolume(handle, profile_.shotVolume);
 		}
 		return;
 	}
@@ -108,7 +99,7 @@ void BulletManager::Update(float deltaTime) {
 		if (stageColliders_) {
 			bool hitTerrain = false;
 			for (const AABB& aabb : *stageColliders_) {
-				if (IsCollision(aabb, bullet.position, radius_)) {
+				if (IsCollision(aabb, bullet.position, profile_.radius)) {
 					hitTerrain = true;
 					break;
 				}
@@ -158,19 +149,20 @@ void BulletManager::Kill(size_t index) {
 
 void BulletManager::DrawImGui() {
 #ifdef USE_IMGUI
-	ImGui::Begin("Bullet");
+	ImGui::Begin(profile_.debugName.c_str());
 	// Aliveがプール上限に張り付いていたら、発射しても撃てていない状態
 	ImGui::Text("Alive: %zu / %zu", aliveCount_, bullets_.size());
 	ImGui::Text("Fired: %d  TerrainHit: %d", firedCount_, terrainHitCount_);
 
 	ImGui::SeparatorText("Parameters");
 	// 変更は次に発射する弾から効く(飛行中の弾のvelocityは発射時に確定済み)
-	ImGui::DragFloat("Speed", &speed_, 1.0f, 1.0f, 500.0f, "%.0f m/s");
-	ImGui::DragFloat("Life Time", &lifeTime_, 0.05f, 0.05f, 10.0f, "%.2f s");
-	ImGui::Text("Range: %.0f m", speed_ * lifeTime_); // 速度×寿命=射程。調整の目安に出す
-	if (ImGui::DragFloat("Radius", &radius_, 0.01f, 0.01f, 5.0f, "%.2f m")) {
+	ImGui::DragFloat("Speed", &profile_.speed, 1.0f, 1.0f, 500.0f, "%.0f m/s");
+	ImGui::DragFloat("Life Time", &profile_.lifeTime, 0.05f, 0.05f, 10.0f, "%.2f s");
+	// 速度×寿命=射程。調整の目安に出す
+	ImGui::Text("Range: %.0f m", profile_.speed * profile_.lifeTime);
+	if (ImGui::DragFloat("Radius", &profile_.radius, 0.01f, 0.01f, 5.0f, "%.2f m")) {
 		// 判定半径を変えたら見た目も合わせる(sphere.objは半径0.5)
-		const float scale = radius_ * 2.0f;
+		const float scale = profile_.radius * 2.0f;
 		for (std::unique_ptr<Object3d>& object : objects_) {
 			object->SetScale({ scale, scale, scale });
 		}

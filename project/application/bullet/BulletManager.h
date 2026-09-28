@@ -1,9 +1,11 @@
 #pragma once
 #include "bullet/Bullet.h"
 #include "math/Collision.h"
+#include "math/Vector4.h"
 
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
 class Camera;
@@ -22,10 +24,35 @@ struct SoundData;
 class BulletManager {
 public:
 	/// <summary>
+	/// 弾の「性格」。自弾と敵弾で変わる分だけをまとめたもの。
+	/// なぜ敵弾用のクラスを派生させないか: プール・地形判定・描画は自弾と完全に同一で、
+	/// 違うのは見た目・音・速さというデータだけなので、型ではなくデータで分ける
+	/// (パーティクルのParticleConfigと同じ「汎用システム+パラメータ駆動」の考え方)。
+	/// 既定値は自弾の設定そのものなので、自弾側は何も渡さなくてよい
+	/// </summary>
+	struct Profile {
+		// 仮モデル。半径0.5のsphereを前提に、判定半径からscaleを決める
+		std::string model = "sphere.obj";
+		// 弾の色(ライティングを切って自発光のように見せる)
+		Vector4 color = { 0.4f, 1.0f, 1.0f, 1.0f };
+		// 発射音。連射が速いのでカテゴリ音量とは別に個別で絞る
+		// (SEカテゴリを下げると爆発音まで小さくなるため)
+		std::string shotSound = "resources/sounds/shot.mp3";
+		float shotVolume = 0.35f;
+		float speed = 80.0f;   // 初速[m/s]
+		float lifeTime = 2.0f; // 寿命[秒](速度×寿命=射程)
+		float radius = 0.3f;   // 判定半径[m]。見た目のscaleと合わせる
+		// ImGuiウィンドウ名。自弾と敵弾で必ず変えること:
+		// 同名のBeginは1枚のウィンドウに合体し、同じラベルのスライダーがID衝突を起こす
+		std::string debugName = "Bullet";
+	};
+
+	/// <summary>
 	/// プールを確保する。ここでcapacity個のObject3dをまとめて生成し、以降は生成しない
 	/// </summary>
 	/// <param name="capacity">同時に存在できる弾数。超過分の発射は無視される</param>
-	void Initialize(size_t capacity = 64);
+	/// <param name="profile">見た目・音・速さの設定。省略すると自弾の設定になる</param>
+	void Initialize(size_t capacity = 64, const Profile& profile = {});
 
 	/// <summary>
 	/// 空きスロットを1つ使って発射する。空きが無ければ何もしない
@@ -64,8 +91,8 @@ public:
 	/// </summary>
 	void Kill(size_t index);
 
-	// 判定半径(自弾→敵の判定でも同じ値を使う)
-	float GetRadius() const { return radius_; }
+	// 判定半径(自弾→敵・敵弾→自機の判定でも同じ値を使う)
+	float GetRadius() const { return profile_.radius; }
 
 	BulletManager();
 	~BulletManager();
@@ -84,10 +111,8 @@ private:
 	// ヘッダにxaudio2.hを引き込まないようSoundDataは前方宣言のまま持つ
 	std::shared_ptr<const SoundData> shotSound_;
 
-	// --- 全弾共通のパラメータ(ImGuiで調整する) ---
-	float speed_ = 80.0f;    // 初速[m/s]
-	float lifeTime_ = 2.0f;  // 寿命[秒](= 射程160m)
-	float radius_ = 0.3f;    // 判定半径[m]。見た目のscaleと合わせる
+	// 全弾共通のパラメータ(Initializeで受け取り、ImGuiで調整する)
+	Profile profile_;
 
 	// ImGui表示用の統計(今フレームの生存数と、通算の発射数・地形ヒット数)
 	size_t aliveCount_ = 0;

@@ -15,6 +15,11 @@
 #endif
 
 namespace {
+	// 自機モデル。実寸 約5.4 x 1.3 x 3.7(幅/高さ/奥行き)、機首が+Z
+	const std::string kModel = "player/spaceship.obj";
+	// 幅を約1.1mにして、判定半径(0.5m)と見た目の大きさを揃える
+	constexpr float kModelScale = 0.2f;
+
 	// 被弾音。撃破音より控えめにして、爆発と重なっても濁らないようにする
 	const std::string kDamageSound = "resources/sounds/damage.mp3";
 	constexpr float kDamageVolume = 0.6f;
@@ -27,29 +32,30 @@ void Player::Initialize(ActionInput* actionInput) {
 	hp_ = maxHp_;
 	invincibleTimer_ = 0.0f;
 
-	// 仮モデル(読み込み済みなら早期returnするので重複ロードにはならない)
-	ModelManager::GetInstance()->LoadModel("sphere.obj");
+	ModelManager::GetInstance()->LoadModel(kModel);
 
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(Object3dCommon::GetInstance());
-	object3d_->SetModel("sphere.obj");
-	object3d_->SetScale({ 0.5f, 0.5f, 0.5f });
+	object3d_->SetModel(kModel);
+	object3d_->SetScale({ kModelScale, kModelScale, kModelScale });
 
 	// 被弾音はSoundManagerのキャッシュと共有する
 	damageSound_ = SoundManager::GetInstance()->LoadFile(kDamageSound);
 }
 
 void Player::Update(float deltaTime) {
-	// 入力→オフセット移動(アクション層経由。DIK_やXInputはここでは見ない)
+	// 入力をオフセット移動に
 	offset_.x += actionInput_->GetMoveX() * moveSpeed_ * deltaTime;
 	offset_.y += actionInput_->GetMoveY() * moveSpeed_ * deltaTime;
-	// 可動範囲はオフセットのクランプで制限する
+	// 可動範囲をオフセットのクランプで制限する
 	offset_.x = std::clamp(offset_.x, -offsetLimit_.x, offsetLimit_.x);
 	offset_.y = std::clamp(offset_.y, -offsetLimit_.y, offsetLimit_.y);
 
 	if (rail_ && rail_->GetTotalLength() > 0.0f) {
 		// レール座標系(前/右/上)を接線とワールド上方向から作る
-		Vector3 forward, right, up;
+		Vector3 forward;
+		Vector3 right;
+		Vector3 up;
 		ComputeRailFrame(railDistance_, forward, right, up);
 		forward_ = forward;
 
@@ -102,6 +108,10 @@ void Player::Update(float deltaTime) {
 		TakeDamage(1);
 	}
 
+	// 敵弾との当たり判定。無敵時間を消化した後に行うので、
+	// 被弾直後の無敵中に飛んできた弾はダメージにならない(弾自体は消える)
+	UpdateEnemyBulletCollision();
+
 	// 射撃。銃口と狙点が確定した後に行う(発射方向がこの2点から決まるため)
 	UpdateShooting(deltaTime);
 
@@ -145,6 +155,34 @@ void Player::UpdateShooting(float deltaTime) {
 		direction = forward_;
 	}
 	bulletManager_->Fire(muzzlePosition_, direction);
+}
+
+void Player::UpdateEnemyBulletCollision() {
+	if (!enemyBulletManager_) {
+		return; // 敵弾が存在しない(エディタ単体での確認時など)
+	}
+
+	const std::vector<Bullet>& bullets = enemyBulletManager_->GetBullets();
+	const float bulletRadius = enemyBulletManager_->GetRadius();
+
+	// 総当たり。敵弾も最大64発なので空間分割は要らない(自弾→敵の判定と同じ規模)
+	for (size_t i = 0; i < bullets.size(); ++i) {
+		if (!bullets[i].active) {
+			continue;
+		}
+		if (!IsCollision(worldPosition_, collisionRadius_, bullets[i].position, bulletRadius)) {
+			continue;
+		}
+
+		// 当たった弾は無敵中でも消す。残すと無敵が切れた瞬間に同じ弾で食らい直し、
+		// 「避けたのに当たった」ように見える
+		enemyBulletManager_->Kill(i);
+		// 複数発が同じフレームに当たってもTakeDamage側の無敵で1回にまとめられる
+		if (!IsDead() && !IsInvincible()) {
+			++enemyBulletHitCount_;
+		}
+		TakeDamage(1);
+	}
 }
 
 void Player::TakeDamage(int amount) {
@@ -208,6 +246,8 @@ void Player::DrawImGui() {
 	ImGui::DragFloat("Radius", &collisionRadius_, 0.05f, 0.0f, 10.0f, "%.2f m");
 	const size_t colliderCount = stageColliders_ ? stageColliders_->size() : 0;
 	ImGui::Text("Stage Colliders: %zu", colliderCount);
+	// 敵弾で何回食らったか(敵の攻撃が自機に効いていることの確認用)
+	ImGui::Text("Enemy Bullet Hits: %d", enemyBulletHitCount_);
 	if (isHit_) {
 		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Hit: YES (%d)", hitCount_);
 	} else {

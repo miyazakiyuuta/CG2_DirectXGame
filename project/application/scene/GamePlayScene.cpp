@@ -20,11 +20,13 @@
 #include "enemy/EnemySpawner.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
+#include "ui/Reticle.h"
 #include "scene/ResultScene.h"
 #include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
 #include "effect/DepthBasedOutline.h"
+#include "effect/Vignette.h"
 #include "scene/SceneManager.h"
 #include "transition/BlindTransition.h"
 
@@ -172,6 +174,24 @@ void GamePlayScene::Initialize() {
 	enemySpawner_->SetBulletManager(bulletManager_.get());
 	enemySpawner_->BuildFromStage(stage_->GetData());
 
+	// 敵弾。自弾と同じBulletManagerの2個目で、違いはProfile(見た目・音・速さ)だけ。
+	// 撃つのはEnemySpawner、当たったかを見るのはPlayerで、ここは所有と配線だけを持つ
+	enemyBulletManager_ = std::make_unique<BulletManager>();
+	BulletManager::Profile enemyBulletProfile;
+	enemyBulletProfile.color = { 1.0f, 0.5f, 0.15f, 1.0f }; // 自弾(水色)と一目で区別できる暖色
+	// 自弾(80m/s)より遅くする: 見てから避けられる速さでないと、撃たれること自体が理不尽になる。
+	// 半径0.5と自機0.5の和=1.0mに対し1フレームの移動は0.5m(60fps)なのですり抜けない
+	enemyBulletProfile.speed = 30.0f;
+	enemyBulletProfile.lifeTime = 5.0f; // 射程150m(遠くの敵の弾も自機まで届く)
+	enemyBulletProfile.radius = 0.5f;   // 自弾より大きく、飛んでくるのが分かるサイズ
+	enemyBulletProfile.shotVolume = 0.18f; // 敵の数だけ鳴るので自弾より控える
+	enemyBulletProfile.debugName = "Enemy Bullet"; // 自弾のウィンドウと分ける(同名は合体する)
+	enemyBulletManager_->Initialize(64, enemyBulletProfile);
+	enemyBulletManager_->SetCamera(camera_.get());
+	enemyBulletManager_->SetStageColliders(&stage_->GetWorldColliders());
+	enemySpawner_->SetEnemyBulletManager(enemyBulletManager_.get());
+	player_->SetEnemyBulletManager(enemyBulletManager_.get());
+
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
 	uint32_t envSrvIndex = TextureManager::GetInstance()->GetSrvIndex(envMapPath);
@@ -248,6 +268,10 @@ void GamePlayScene::InitializeHud() {
 			- controlsSize.y * controlsScale - kControlsMarginY * uiScale });
 	controlsSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 0.75f }); // 主張しすぎないよう少し透かす
 
+	// 照準。位置は毎フレーム狙点から決まるので、ここでは組み立てるだけ
+	reticle_ = std::make_unique<Reticle>();
+	reticle_->Initialize();
+
 	// スコアは右上。桁数固定なので右端から逆算して左上座標を決める
 	const float digitWidth = kScoreDigitWidth * uiScale;
 	const float digitGap = kScoreDigitGap * uiScale;
@@ -264,6 +288,37 @@ int GamePlayScene::GetScore() const {
 	return static_cast<int>(enemySpawner_->GetDefeatedCount()) * kScorePerEnemy;
 }
 
+void GamePlayScene::UpdateDamageEffect(float deltaTime) {
+	// 被弾から一定時間だけ、画面の縁を赤く染める。
+	// 「実装済みのポストエフェクトをゲームの状況へ繋ぐ」だけなので、
+	// このシーンが持つのはタイマーと濃さの2値だけで済んでいる
+	IPostEffect* effect = effectManager_->FindEffect("Vignette");
+	if (!effect) {
+		return; // 登録が外れていても落とさない(演出は無くてもゲームは成立する)
+	}
+
+	if (damageEffectTimer_ > 0.0f) {
+		damageEffectTimer_ = (std::max)(damageEffectTimer_ - deltaTime, 0.0f);
+	}
+	const float ratio = damageEffectDuration_ > 0.0f
+		? std::clamp(damageEffectTimer_ / damageEffectDuration_, 0.0f, 1.0f)
+		: 0.0f;
+
+	// 残り0で効果ごと切る。シーンを出るときに掛かりっぱなしにならないよう、
+	// ON/OFFの判断もこの関数に閉じ込めている
+	effect->enabled = ratio > 0.0f;
+	if (!effect->enabled) {
+		return;
+	}
+
+	Vignette* vignette = static_cast<Vignette*>(effect);
+	vignette->SetColor({ 1.0f, 0.0f, 0.0f }); // 被弾=赤
+	vignette->SetIntensity(damageVignettePower_ * ratio); // 直後が最も濃く、時間で抜ける
+	vignette->SetRadius(0.22f);   // 中心寄りから染めて、被弾が一目で分かる濃さにする
+	vignette->SetSoftness(0.55f); // 境目を出さずに中心へ向けて薄くする
+	vignette->SetPower(1.4f);
+}
+
 void GamePlayScene::UpdateHud() {
 	// 残っているマスは白、失ったマスは暗い赤。個数ではなく色で減少を見せる
 	for (size_t i = 0; i < hpSprites_.size(); ++i) {
@@ -276,6 +331,11 @@ void GamePlayScene::UpdateHud() {
 	controlsSprite_->Update();
 	scoreNumber_->SetValue(GetScore());
 	scoreNumber_->Update();
+
+	// 照準。狙点は弾と共有している点なので、レティクルの位置＝弾の到達点になる。
+	// 描画に使っているカメラで投影する(デバッグカメラON中はそちらの見え方に合わせる)
+	reticle_->SetLockedOn(enemySpawner_->IsAimedAt(player_->GetAimPoint()));
+	reticle_->Update(player_->GetAimPoint(), *GetActiveCamera());
 }
 
 void GamePlayScene::DrawHud() {
@@ -289,6 +349,7 @@ void GamePlayScene::DrawHud() {
 	}
 	controlsSprite_->Draw();
 	scoreNumber_->Draw(); // 数字画像が未配置なら何も描かない
+	reticle_->Draw();     // 狙点がカメラ背面なら何も描かない
 }
 
 void GamePlayScene::RequestResult(const std::string& sceneName) {
@@ -341,6 +402,7 @@ void GamePlayScene::Update(float deltaTime) {
 	stage_->SetCamera(activeCamera);
 	player_->SetCamera(activeCamera);
 	bulletManager_->SetCamera(activeCamera);
+	enemyBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
 	skyCylinder_->SetCamera(activeCamera);
 	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
@@ -370,6 +432,7 @@ void GamePlayScene::Update(float deltaTime) {
 					if (railDistance_ < previousDistance) {
 						enemySpawner_->Reset();
 						bulletManager_->Clear(); // 前周の弾がレール先頭に取り残されないようにする
+						enemyBulletManager_->Clear();
 					}
 				} else if (railDistance_ >= rail.GetTotalLength()) {
 					// レール終端に到達 = クリア条件(A-5)。
@@ -427,8 +490,15 @@ void GamePlayScene::Update(float deltaTime) {
 
 	// 進行度がSpawnPointのrailDistanceを超えたら敵が発生する。
 	// 弾の更新後に呼ぶことで、弾が今フレーム分進んだ位置で被弾判定できる
+	// 進行方向は狙点への向きで代用する(狙点はレールの少し先の点なので、実質レールの接線)。
+	// 射撃型の敵が自機を追い越して背後から撃つのを防ぐために渡している
 	enemySpawner_->Update(railDistance_, gameDelta, player_->GetWorldPosition(),
-		player_->GetCollisionRadius());
+		player_->GetCollisionRadius(),
+		Vector3::Normalized(player_->GetAimPoint() - player_->GetWorldPosition()));
+
+	// 敵弾の更新は敵の更新後。こうすると、このフレームに発射された弾もその場で1フレーム分進み、
+	// 発射の瞬間だけ敵に張り付いて見えることがない(自弾とPlayerの順番と同じ考え方)
+	enemyBulletManager_->Update(gameDelta);
 
 	// 敵との接触ダメージ(A-5)。接触の判定は敵側、無敵時間の管理はPlayer側にあるので、
 	// シーンは「触れていたら殴る」という繋ぎ込みだけを持つ。
@@ -442,6 +512,7 @@ void GamePlayScene::Update(float deltaTime) {
 	if (player_->GetHp() < hpBeforeUpdate) {
 		hitStopTimer_ = hitStopDuration_;
 		shakeTimer_ = shakeDuration_;
+		damageEffectTimer_ = damageEffectDuration_;
 	}
 
 	// HPが尽きたらゲームオーバー(A-5)。クリア判定はレール終端側にある
@@ -452,12 +523,18 @@ void GamePlayScene::Update(float deltaTime) {
 	// HUDの色と頂点を更新(HPが確定した後)
 	UpdateHud();
 
-	DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
+	// 被弾の画面着色。ヒットストップで止めたくないので実dt(deltaTime)を渡す
+	UpdateDamageEffect(deltaTime);
 
-	// レール曲線の可視化(stage.json手編集→Reloadの確認用)。曲線=赤の折れ線、制御点=黄の球
+	if (showRail_) {
+		DebugRenderer::GetInstance()->AddGrid({ 0.0f,0.0f,0.0f }, 10.0f, 20, { 1.0f,1.0f,1.0f,0.5f });
+	}
+
+	// レール曲線の可視化(stage.json手編集→Reloadの確認用)。曲線=赤の折れ線、制御点=黄の球。
+	// railは下のSpawnPoint表示でも使うので、参照の取得はチェックの外で行う
 	const CatmullRomSpline& rail = stage_->GetRail();
 	const std::vector<Vector3>& railPoints = rail.GetControlPoints();
-	if (railPoints.size() >= 2) {
+	if (showRail_ && railPoints.size() >= 2) {
 		// 1区間16分割でサンプリングして折れ線として描く
 		const int division = static_cast<int>(railPoints.size() - 1) * 16;
 		Vector3 prevPos = rail.GetPosition(0.0f);
@@ -468,8 +545,10 @@ void GamePlayScene::Update(float deltaTime) {
 			prevPos = pos;
 		}
 	}
-	for (const Vector3& point : railPoints) {
-		DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
+	if (showRail_) {
+		for (const Vector3& point : railPoints) {
+			DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
+		}
 	}
 
 	// ステージコライダーの可視化(stage.jsonのcolliderが当たり判定になっていることの確認用)。
@@ -521,6 +600,7 @@ void GamePlayScene::Draw() {
 	stage_->Draw();
 	player_->Draw();
 	bulletManager_->Draw();
+	enemyBulletManager_->Draw();
 	enemySpawner_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
@@ -635,6 +715,7 @@ void GamePlayScene::DrawImGui() {
 		railDistance_ = 0.0f; // 周回を待たずに先頭から確認し直す用
 		enemySpawner_->Reset(); // 敵も未発生に戻し、発生の瞬間を何度でも確認できるようにする
 		bulletManager_->Clear(); // 飛行中の弾も消す(先頭に戻った瞬間の状態を揃える)
+		enemyBulletManager_->Clear();
 	}
 	// ONにすると終端で先頭へ戻る(クリア遷移せずに配置を何度も見たいとき用)
 	ImGui::Checkbox("Loop (debug)", &railLoop_);
@@ -653,9 +734,12 @@ void GamePlayScene::DrawImGui() {
 	ImGui::DragFloat("Hit Stop", &hitStopDuration_, 0.005f, 0.0f, 0.5f, "%.3f s");
 	ImGui::DragFloat("Shake Time", &shakeDuration_, 0.01f, 0.0f, 2.0f, "%.2f s");
 	ImGui::DragFloat("Shake Power", &shakeStrength_, 0.05f, 0.0f, 5.0f, "%.2f m");
+	ImGui::DragFloat("Flash Time", &damageEffectDuration_, 0.01f, 0.0f, 2.0f, "%.2f s");
+	ImGui::SliderFloat("Flash Power", &damageVignettePower_, 0.0f, 1.0f, "%.2f");
 	if (ImGui::Button("Test Damage")) {
 		hitStopTimer_ = hitStopDuration_;
 		shakeTimer_ = shakeDuration_;
+		damageEffectTimer_ = damageEffectDuration_;
 	}
 	if (ImGui::Button("Force Clear")) {
 		RequestResult("CLEAR");
@@ -668,6 +752,7 @@ void GamePlayScene::DrawImGui() {
 	// 当たり判定の可視化切替(コライダーのワイヤーボックス+プレイヤーの判定球)
 	ImGui::SeparatorText("Collision");
 	ImGui::Checkbox("Show Colliders", &showColliders_);
+	ImGui::Checkbox("Show Rail", &showRail_);
 	ImGui::Text("Active Colliders: %zu", stage_->GetWorldColliders().size());
 	// 銃口→狙点の線と狙点の球(レティクル実装前に弾道を確認するため)
 	ImGui::Checkbox("Show Aim Line", &showAimLine_);
@@ -706,6 +791,9 @@ void GamePlayScene::DrawImGui() {
 
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
+
+	// 敵弾も同じUI(ウィンドウ名だけProfileで分けてある)
+	enemyBulletManager_->DrawImGui();
 
 	// 敵の生存数・撃破数・HP・移動のパラメータ
 	enemySpawner_->DrawImGui();

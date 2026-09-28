@@ -15,7 +15,7 @@ struct SoundData;
 
 // 自機。ワールド座標を直接持たず「レール上の距離 + レール断面内のローカルオフセット(x,y)」で
 // 位置を表し、毎フレーム ワールド位置 = レール基準点 + 右×x + 上×y を合成する。
-// なぜ: カメラ・照準(⑪)・衝突(⑩)がすべてこの分解を前提にするため
+// なぜ: カメラ・照準・衝突がすべてこの分解を前提にするため
 // (ワールド直持ちで作ると後で作り直しになる)。
 // レール進行度の所有はシーン側(進行度=ステージの時間軸で敵スポーン等も使う)。
 // SetRailDistance で毎フレーム供給を受ける。
@@ -25,7 +25,7 @@ public:
 	void Update(float deltaTime);
 	void Draw();
 
-	// "Player"ウィンドウにオフセット・速度・アクション押下状態を表示する(Debug構成のみ)
+	// "Player"ウィンドウにオフセット・速度・アクション押下状態を表示
 	void DrawImGui();
 
 	void SetCamera(Camera* camera);
@@ -47,7 +47,15 @@ public:
 	void SetBulletManager(BulletManager* bulletManager) { bulletManager_ = bulletManager; }
 
 	/// <summary>
-	/// ダメージを受ける(A-5)。無敵時間中と死亡後は何も起きない。
+	/// 敵弾の一覧の取得元。シーンが所有する実体を指すだけ(所有しない)。
+	/// nullptrなら敵弾では被弾しない。
+	/// 判定をここ(撃たれる側)に置く理由: 無敵時間の管理がTakeDamageの1箇所に閉じているため、
+	/// 当たった瞬間にそのまま適用できる(自弾→敵の判定をEnemySpawnerが持つのと同じ向き)
+	/// </summary>
+	void SetEnemyBulletManager(BulletManager* bulletManager) { enemyBulletManager_ = bulletManager; }
+
+	/// <summary>
+	/// ダメージを受ける。無敵時間中と死亡後は何も起きない。
 	/// 地形との接触はUpdate内で自分に適用し、敵との接触はシーンがここを呼ぶ
 	/// </summary>
 	/// <param name="amount">減らすHP量</param>
@@ -55,9 +63,9 @@ public:
 
 	int GetHp() const { return hp_; }
 	int GetMaxHp() const { return maxHp_; }
-	// HPが尽きたか(シーンがゲームオーバー判定に使う)
+	// HPが尽きたか
 	bool IsDead() const { return hp_ <= 0; }
-	// 無敵時間中か(点滅表示と多重ダメージの抑止に使う)
+	// 無敵時間中か
 	bool IsInvincible() const { return invincibleTimer_ > 0.0f; }
 
 	float GetRailDistance() const { return railDistance_; }
@@ -66,13 +74,13 @@ public:
 	const Vector3& GetWorldPosition() const { return worldPosition_; }
 
 	/// <summary>
-	/// 弾が向かう狙点(ワールド座標)。A-2のレティクルはこの点をスクリーン投影して描く。
+	/// 弾が向かう狙点(ワールド座標)。レティクルはこの点をスクリーン投影して描く。
 	/// 同じ点を弾とレティクルで共有することで、両者が必ず一致する
 	/// </summary>
 	const Vector3& GetAimPoint() const { return aimPoint_; }
 	// 銃口(弾の発射位置)。撃った瞬間のマズルフラッシュ等もここを使う
 	const Vector3& GetMuzzlePosition() const { return muzzlePosition_; }
-	// 今フレームでステージと接触しているか(可視化の色分け等に使う)
+	// 今フレームでステージと接触しているか
 	bool IsHit() const { return isHit_; }
 	float GetCollisionRadius() const { return collisionRadius_; }
 
@@ -90,6 +98,10 @@ private:
 	// 射撃入力を読み、クールタイムを消化していれば1発撃つ。
 	// worldPosition_と狙点が確定した後に呼ぶこと
 	void UpdateShooting(float deltaTime);
+
+	// 敵弾との当たり判定。当たった弾を消してTakeDamageを呼ぶ。
+	// ワールド位置が確定した後、無敵時間を消化した後に呼ぶこと
+	void UpdateEnemyBulletCollision();
 
 	ActionInput* actionInput_ = nullptr;
 	const CatmullRomSpline* rail_ = nullptr;
@@ -113,9 +125,10 @@ private:
 	bool isHit_ = false;
 	int hitCount_ = 0;
 
-	// --- HPと無敵時間(A-5) ---
+	// --- HPと無敵時間 ---
 	// 発生時のHP。Initializeでhp_へ複製する(ImGuiでMax HPを変えた値がリトライ時に効く)
 	int maxHp_ = 3;
+	//int maxHp_ = 30;
 	int hp_ = 3;
 	// 被弾後に無敵になる時間[秒]と残り時間。
 	// なぜ要るか: 地形は接触している間ずっと当たり続けるため、
@@ -128,9 +141,13 @@ private:
 	// --- 射撃(A-1) ---
 	// 弾の発射先(シーンが所有。所有しない)
 	BulletManager* bulletManager_ = nullptr;
+	// 敵弾の一覧の取得元(シーンが所有。所有しない)
+	BulletManager* enemyBulletManager_ = nullptr;
+	// 敵弾で被弾した通算回数(ImGui表示用。無敵で弾かれた分は数えない)
+	int enemyBulletHitCount_ = 0;
 	// 今フレームの狙点と銃口(Updateで算出し、弾の方向とレティクルが共有する)
-	Vector3 aimPoint_ = { 0.0f, 0.0f, 0.0f };
-	Vector3 muzzlePosition_ = { 0.0f, 0.0f, 0.0f };
+	Vector3 aimPoint_ = { 0.0f, 0.0f, 0.0f }; // 狙点(ワールド座標)
+	Vector3 muzzlePosition_ = { 0.0f, 0.0f, 0.0f }; // 弾の出所
 	// 今フレームの前方向(レール接線)。レール終端では狙点が手前にクランプされるため、
 	// 発射方向が縮退・反転したときのフォールバックに使う
 	Vector3 forward_ = { 0.0f, 0.0f, 1.0f };
