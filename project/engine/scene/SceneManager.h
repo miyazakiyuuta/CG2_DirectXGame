@@ -14,7 +14,11 @@ public:
 
 	void Update(float deltaTime);
 
+	// シーンの描画(遷移は含まない)
 	void Draw();
+
+	// 遷移の描画。画面全体を覆うものなので、パーティクルも描き終えた最後に呼ぶ(Framework::Runが呼ぶ)
+	void DrawTransition();
 
 	void DrawImGui();
 

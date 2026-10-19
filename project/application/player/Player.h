@@ -4,6 +4,7 @@
 #include "math/Collision.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 class ActionInput;
@@ -27,6 +28,11 @@ public:
 
 	// "Player"ウィンドウにオフセット・速度・アクション押下状態を表示
 	void DrawImGui();
+
+	// 自機モデルのパスと表示スケール。タイトル画面の演出も同じ見た目で出すため公開する
+	// (モデルを差し替えるときはPlayer.cppの1箇所を直せば、ゲームとタイトルの両方に反映される)
+	static const std::string& ModelPath();
+	static float ModelScale();
 
 	void SetCamera(Camera* camera);
 	void SetRail(const CatmullRomSpline* rail) { rail_ = rail; }

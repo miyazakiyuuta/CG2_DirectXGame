@@ -216,6 +216,17 @@ void ParticleManager::Emit(const std::string& name, const Vector3& position, uin
 	Emit(name, position, itGroup->second.defaultConfig, count);
 }
 
+void ParticleManager::ClearParticles(const std::string& name) {
+	auto itGroup = particleGroups_.find(name);
+	if (itGroup == particleGroups_.end()) {
+		return; // 未登録なら消す粒も無い
+	}
+	itGroup->second.particles.clear();
+	// 描画数も0へ戻す。Updateはカメラが無いと数え直さずに戻るので、
+	// 残しておくと次にカメラが渡されるまで、消したはずの粒を前の描画数のまま描いてしまう
+	itGroup->second.instanceCount = 0;
+}
+
 void ParticleManager::RegisterEmitter(ParticleEmitter* emitter) {
 	emitters_.push_back(emitter);
 }

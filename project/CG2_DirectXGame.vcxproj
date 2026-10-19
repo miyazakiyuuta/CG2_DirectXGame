@@ -277,6 +277,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="engine\effect\GPUParticleConfig.h" />
     <ClInclude Include="engine\effect\GPUParticleManager.h" />
     <ClInclude Include="engine\effect\ParticleConfig.h" />
+    <ClInclude Include="engine\math\Easing.h" />
     <ClInclude Include="engine\math\mathFunction.h" />
     <ClInclude Include="engine\math\Quaternion.h" />
     <ClInclude Include="engine\scene\AbstractSceneFactory.h" />

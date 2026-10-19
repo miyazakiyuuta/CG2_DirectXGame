@@ -317,6 +317,9 @@ void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 	vignette->SetRadius(0.22f);   // 中心寄りから染めて、被弾が一目で分かる濃さにする
 	vignette->SetSoftness(0.55f); // 境目を出さずに中心へ向けて薄くする
 	vignette->SetPower(1.4f);
+	// 縦横の補正なし(画面の形に沿った楕円)。Vignetteは全シーン共有で、他のシーン(タイトルの暗転など)が
+	// 変えた値のまま来ることがあるので、使う側が毎回すべての値を決める
+	vignette->SetAspect(1.0f);
 }
 
 void GamePlayScene::UpdateHud() {

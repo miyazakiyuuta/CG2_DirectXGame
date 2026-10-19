@@ -41,6 +41,10 @@ public:
 	// RegisterEffectで登録した既定configで発生させる
 	void Emit(const std::string& name, const Vector3& position, uint32_t count);
 
+	// グループの生きている粒をすべて消す(グループ自体は残る)。
+	// 粒はワールド座標で残り続けるので、シーンを抜けるときに呼ばないと、次のシーンのカメラで描かれてしまう
+	void ClearParticles(const std::string& name);
+
 	void DrawImGui();
 
 	// ParticleConfig編集用の共通UI(USE_IMGUI未定義時は何もしない)

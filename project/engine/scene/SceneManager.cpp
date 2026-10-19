@@ -56,9 +56,12 @@ void SceneManager::Update(float deltaTime) {
 }
 
 void SceneManager::Draw() {
-	if (scene_) { 
+	if (scene_) {
 		scene_->Draw(); }
-	if (transition_) { 
+}
+
+void SceneManager::DrawTransition() {
+	if (transition_) {
 		transition_->Draw();
 	}
 }
