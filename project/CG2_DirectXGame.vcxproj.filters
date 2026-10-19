@@ -572,6 +572,9 @@
     <ClInclude Include="engine\math\Quaternion.h">
       <Filter>engine\math</Filter>
     </ClInclude>
+    <ClInclude Include="engine\math\Easing.h">
+      <Filter>engine\math</Filter>
+    </ClInclude>
     <ClInclude Include="engine\math\mathFunction.h">
       <Filter>engine\math</Filter>
     </ClInclude>

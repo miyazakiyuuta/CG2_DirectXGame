@@ -8,7 +8,14 @@ class Sprite;
 
 class BlindTransition : public ITransition {
 public:
-	BlindTransition();
+	// 遷移を始めるときの帯の状態
+	enum class StartState {
+		Open,   // 透明から始め、帯を閉じてからシーンを切り替える(従来の動き)
+		Closed, // 閉じ切った(真っ黒の)状態から始め、すぐにシーンを切り替えて開く。
+		        // 呼び出し側のシーンが自前の演出で画面を真っ黒にしてから使う
+	};
+
+	explicit BlindTransition(StartState startState = StartState::Open);
 
 	void Initialize() override;
 	void Update(float deltaTime) override;

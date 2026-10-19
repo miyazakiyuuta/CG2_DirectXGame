@@ -25,6 +25,14 @@ namespace {
 	constexpr float kDamageVolume = 0.6f;
 }
 
+const std::string& Player::ModelPath() {
+	return kModel;
+}
+
+float Player::ModelScale() {
+	return kModelScale;
+}
+
 void Player::Initialize(ActionInput* actionInput) {
 	actionInput_ = actionInput;
 

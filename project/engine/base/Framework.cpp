@@ -195,6 +195,9 @@ void Framework::Run() {
 		// パーティクルは半透明なので不透明オブジェクトの後に描く
 		ParticleManager::GetInstance()->Draw();
 		GPUParticleManager::GetInstance()->Draw();
+		// 遷移は画面全体を覆うので、パーティクルより後に描く。
+		// 先に描くと、遷移の帯は深度を書かないため、次のシーンのパーティクルが帯の上に透けて見える
+		SceneManager::GetInstance()->DrawTransition();
 		sceneRenderTarget_->EndRender(commandList);
 
 		effectManager_->Update(deltaTime);
