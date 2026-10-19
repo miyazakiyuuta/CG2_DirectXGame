@@ -351,6 +351,7 @@ void EnemySpawner::Reset() {
 	for (SpawnPoint& spawnPoint : spawnPoints_) {
 		spawnPoint.spawned = false;
 	}
+	defeatedCount_ = 0;
 }
 
 void EnemySpawner::Draw() {

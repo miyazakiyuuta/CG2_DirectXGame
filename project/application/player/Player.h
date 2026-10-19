@@ -84,6 +84,13 @@ public:
 	bool IsHit() const { return isHit_; }
 	float GetCollisionRadius() const { return collisionRadius_; }
 
+	/// <summary>
+	/// スタート時点の状態に初期化
+	/// 設定値は戻さない
+	/// Initializeの後に呼ぶこと。シーンのResetボタンからも呼ぶ
+	/// </summary>
+	void Reset();
+
 	Player();
 	~Player();
 
@@ -126,10 +133,10 @@ private:
 	int hitCount_ = 0;
 
 	// --- HPと無敵時間 ---
-	// 発生時のHP。Initializeでhp_へ複製する(ImGuiでMax HPを変えた値がリトライ時に効く)
+	// 最大HP（上限）で、発生時のHPも兼ねる
+	// Resetでhp_に複製するので、ImGuiで変えた値が次のプレイに効く
 	int maxHp_ = 3;
-	//int maxHp_ = 30;
-	int hp_ = 3;
+	int hp_ = 0;
 	// 被弾後に無敵になる時間[秒]と残り時間。
 	// なぜ要るか: 地形は接触している間ずっと当たり続けるため、
 	// 無いと1回の接触で毎フレームHPが減り、一瞬で溶ける
@@ -138,7 +145,7 @@ private:
 	// 無敵中の点滅周期[秒]。この半分の間だけ描画する
 	float blinkInterval_ = 0.1f;
 
-	// --- 射撃(A-1) ---
+	// --- 射撃 ---
 	// 弾の発射先(シーンが所有。所有しない)
 	BulletManager* bulletManager_ = nullptr;
 	// 敵弾の一覧の取得元(シーンが所有。所有しない)

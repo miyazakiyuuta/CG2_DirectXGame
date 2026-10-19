@@ -380,6 +380,10 @@ void GamePlayScene::Update(float deltaTime) {
 		gameDelta = 0.0f;
 	}
 
+	if (mode_ == Mode::Edit) {
+		gameDelta = 0.0f; // 編集モード中はゲーム進行を止める(カメラ・HUD・パーティクルは動く)
+	}
+
 	// F1でデバッグカメラON/OFF(ImGuiのDebug Cameraウィンドウでも切替可)
 	if (Input::GetInstance()->IsTriggerKey(DIK_F1)) {
 		debugCamera_->SetActive(!debugCamera_->IsActive());
@@ -419,9 +423,8 @@ void GamePlayScene::Update(float deltaTime) {
 	if (railCameraActive_) {
 		const CatmullRomSpline& rail = stage_->GetRail();
 		if (rail.GetTotalLength() > 0.0f) {
-			// 結果表示を要求した後は前進を止める(トランジションが閉じる間もここは走り続けるため)。
 			// カメラのTransform更新は止めない: 止めると凍結中のフレームでビューが更新されなくなる
-			if (!resultRequested_) {
+			if (!resultRequested_ && mode_ == Mode::Play) {
 				railDistance_ += railSpeed_ * gameDelta;
 
 				if (railLoop_) {
@@ -500,10 +503,10 @@ void GamePlayScene::Update(float deltaTime) {
 	// 発射の瞬間だけ敵に張り付いて見えることがない(自弾とPlayerの順番と同じ考え方)
 	enemyBulletManager_->Update(gameDelta);
 
-	// 敵との接触ダメージ(A-5)。接触の判定は敵側、無敵時間の管理はPlayer側にあるので、
+	// 敵との接触ダメージ。接触の判定は敵側、無敵時間の管理はPlayer側にあるので、
 	// シーンは「触れていたら殴る」という繋ぎ込みだけを持つ。
 	// 地形との接触はPlayer::Updateが自分で適用している
-	if (!resultRequested_ && enemySpawner_->IsPlayerHit()) {
+	if (!resultRequested_ && enemySpawner_->IsPlayerHit() && mode_ == Mode::Play) {
 		player_->TakeDamage(1);
 	}
 
@@ -516,7 +519,7 @@ void GamePlayScene::Update(float deltaTime) {
 	}
 
 	// HPが尽きたらゲームオーバー(A-5)。クリア判定はレール終端側にある
-	if (!resultRequested_ && player_->IsDead()) {
+	if (!resultRequested_ && player_->IsDead() && mode_ == Mode::Play) {
 		RequestResult("GAMEOVER");
 	}
 
@@ -712,10 +715,7 @@ void GamePlayScene::DrawImGui() {
 	ImGui::Checkbox("Active##railCamera", &railCameraActive_);
 	ImGui::SameLine();
 	if (ImGui::Button("Reset##railCamera")) {
-		railDistance_ = 0.0f; // 周回を待たずに先頭から確認し直す用
-		enemySpawner_->Reset(); // 敵も未発生に戻し、発生の瞬間を何度でも確認できるようにする
-		bulletManager_->Clear(); // 飛行中の弾も消す(先頭に戻った瞬間の状態を揃える)
-		enemyBulletManager_->Clear();
+		ResetGameState();
 	}
 	// ONにすると終端で先頭へ戻る(クリア遷移せずに配置を何度も見たいとき用)
 	ImGui::Checkbox("Loop (debug)", &railLoop_);
@@ -725,6 +725,17 @@ void GamePlayScene::DrawImGui() {
 
 	// 勝敗まわり(A-5)。遷移待ちの間はゲーム進行が止まっていることをここで確認できる
 	ImGui::SeparatorText("Game");
+	ImGui::BeginDisabled(mode_ == Mode::Play);
+	if(ImGui::Button("Play")) {
+		EnterPlay();
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine();
+	ImGui::BeginDisabled(mode_ == Mode::Edit);
+	if (ImGui::Button("Stop")) {
+		EnterEdit();
+	}
+	ImGui::EndDisabled();
 	ImGui::Text("HP: %d / %d", player_->GetHp(), player_->GetMaxHp());
 	ImGui::Text("Result: %s", resultRequested_ ? "requested (frozen)" : "playing");
 	ImGui::Checkbox("Show HUD", &showHud_);
@@ -915,6 +926,30 @@ void GamePlayScene::ApplyCameraFromStage() {
 	camera_->SetFovY(data.camera.fovY);
 	railSpeed_ = data.camera.railSpeed;
 	cameraBackDistance_ = data.camera.backDistance;
+}
+
+void GamePlayScene::ResetGameState() {
+	railDistance_ = 0.0f;
+	player_->Reset();
+	enemySpawner_->Reset(); // 敵も未発生に戻す
+	bulletManager_->Clear(); // 飛行中の弾も消す
+	enemyBulletManager_->Clear();
+
+	// シーンが持つ状態
+	resultRequested_ = false;
+	hitStopTimer_ = 0.0f;
+	shakeTimer_ = 0.0f;
+	damageEffectTimer_ = 0.0f;
+}
+
+void GamePlayScene::EnterPlay() {
+	ResetGameState();
+	mode_ = Mode::Play;
+}
+
+void GamePlayScene::EnterEdit() {
+	ResetGameState();
+	mode_ = Mode::Edit;
 }
 
 Camera* GamePlayScene::GetActiveCamera() const {

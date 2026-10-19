@@ -43,6 +43,13 @@ public:
 	~GamePlayScene() override;
 
 private:
+
+	enum class Mode {
+		Play,   // ゲーム進行中
+		Edit,   // エディタモード(ギズモ/Inspector/保存)
+	};
+
+
 	// editorObjects_からシーン保存/読込の対象一覧を作る
 	std::vector<SceneSerializer::Entry> BuildSerializeEntries() const;
 
@@ -77,10 +84,24 @@ private:
 	// 初回LoadFromFile後とReload成功後に呼ぶ。逆方向(Capture)はSaveボタン側で行う
 	void ApplyCameraFromStage();
 
+	// Resetボタン・Play・Stopで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
+	// 開始時の状態に戻す・設定は残す
+	void ResetGameState();
+
+	// エディタのPlayボタンから呼ぶ。ゲーム状態を開始時に戻してからPlayに入る
+	// (途中からの再開ではない)。配置と設定は残る。
+	void EnterPlay();
+
+	// エディタのStopボタンから呼ぶ。ゲーム状態を開始時に戻してからEditに入る
+	// (Play中に行った配置、設定は残る)。ゲームの進行は止まる。
+	void EnterEdit();
+
 #ifdef USE_IMGUI
 	// resources配下のモデル一覧を取り直す(選択中のパスは一覧が変わっても可能なら維持する)
 	void RescanModelFiles();
 #endif
+
+	Mode mode_ = Mode::Play;
 
 	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧と選択状態
 	std::vector<EditorObject> editorObjects_;
@@ -104,7 +125,7 @@ private:
 	float railSpeed_ = 10.0f;
 	bool railCameraActive_ = true;
 
-	// レール終端の扱い(A-5)。falseなら終端でクリア、trueなら先頭へ戻って周回する。
+	// レール終端の扱い。falseなら終端でクリア、trueなら先頭へ戻って周回する。
 	// 周回はゲームの仕様ではなく、配置編集中に同じ区間を何度も確認するためのデバッグ用
 	//bool railLoop_ = true;
 	bool railLoop_ = false;
@@ -113,8 +134,8 @@ private:
 	bool resultRequested_ = false;
 
 	// --- 被弾時の演出 ---
-	// ヒットストップ: 残っている間、ゲーム進行へ渡すdtを0にする。
-	// タイマー自体と画面の揺れは実dtで進めるので、止まった画面が震える
+	// ヒットストップ: 残っている間、ゲーム進行へ渡すdeltaTimeを0にする。
+	// タイマー自体と画面の揺れは実deltaTimeで進めるので、止まった画面が震える
 	float hitStopTimer_ = 0.0f;
 	float hitStopDuration_ = 0.08f;
 	// 画面の揺れ: 残り時間に比例して振幅が減衰する。

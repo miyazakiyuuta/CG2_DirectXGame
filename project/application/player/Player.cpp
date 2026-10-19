@@ -28,10 +28,6 @@ namespace {
 void Player::Initialize(ActionInput* actionInput) {
 	actionInput_ = actionInput;
 
-	// HPは満タンから始める(リトライはシーンごと作り直すため、ここが唯一の初期化点)
-	hp_ = maxHp_;
-	invincibleTimer_ = 0.0f;
-
 	ModelManager::GetInstance()->LoadModel(kModel);
 
 	object3d_ = std::make_unique<Object3d>();
@@ -41,6 +37,9 @@ void Player::Initialize(ActionInput* actionInput) {
 
 	// 被弾音はSoundManagerのキャッシュと共有する
 	damageSound_ = SoundManager::GetInstance()->LoadFile(kDamageSound);
+
+	// 状態の初期化はReset()に集約
+	Reset();
 }
 
 void Player::Update(float deltaTime) {
@@ -272,6 +271,16 @@ void Player::DrawImGui() {
 
 void Player::SetCamera(Camera* camera) {
 	object3d_->SetCamera(camera);
+}
+
+void Player::Reset() {
+	// ImGui で調整する設定値は戻さない(Stop のたびに調整が消えると、遊びながら調整する意味がなくなるため)
+	// メンバを足したら、状態か設定かを決め、状態ならここに足すこと
+	offset_ = { 0.0f, 0.0f };
+	hp_ = maxHp_; 
+	invincibleTimer_ = 0.0f;
+	enemyBulletHitCount_ = 0; // 敵弾で何回食らったかのカウンタをリセット(ImGui表示用)
+	shootCooldown_ = 0.0f;
 }
 
 Player::Player() = default;
