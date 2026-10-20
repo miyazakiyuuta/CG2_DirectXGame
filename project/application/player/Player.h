@@ -39,6 +39,11 @@ public:
 	// レール上の距離[m]。シーンが毎フレーム供給する(カメラ位置+前方オフセット)
 	void SetRailDistance(float distance) { railDistance_ = distance; }
 
+	// 被弾と射撃を受け付けるか。シーンが毎フレーム供給する(エディタのEditモード中はfalse)。
+	// Playerはシーンのモードを知らず、「被弾してよいか/撃ってよいか」という自分の言葉で受け取る
+	void SetDamageEnabled(bool enabled) { damageEnabled_ = enabled; }
+	void SetShootEnabled(bool enabled) { shootEnabled_ = enabled; }
+
 	/// <summary>
 	/// 当たり判定の相手(ステージのワールドAABB一覧)を渡す。
 	/// Stageが所有する実体を指すだけなのでコピーしない(毎フレーム作り直されるため)。
@@ -61,7 +66,7 @@ public:
 	void SetEnemyBulletManager(BulletManager* bulletManager) { enemyBulletManager_ = bulletManager; }
 
 	/// <summary>
-	/// ダメージを受ける。無敵時間中と死亡後は何も起きない。
+	/// ダメージを受ける。無敵時間中・死亡後・外から被弾を無効にされている間は何も起きない。
 	/// 地形との接触はUpdate内で自分に適用し、敵との接触はシーンがここを呼ぶ
 	/// </summary>
 	/// <param name="amount">減らすHP量</param>
@@ -116,6 +121,10 @@ private:
 	// ワールド位置が確定した後、無敵時間を消化した後に呼ぶこと
 	void UpdateEnemyBulletCollision();
 
+	// 今、被弾を受け付けるか(死亡後・無敵中・外から無効にされている間はfalse)。
+	// 被弾を受け付けない理由を1箇所に集約し、TakeDamageと被弾回数の数え方がずれないようにする
+	bool CanTakeDamage() const { return !IsDead() && !IsInvincible() && damageEnabled_; }
+
 	ActionInput* actionInput_ = nullptr;
 	const CatmullRomSpline* rail_ = nullptr;
 
@@ -150,6 +159,9 @@ private:
 	float invincibleTimer_ = 0.0f;
 	// 無敵中の点滅周期[秒]。この半分の間だけ描画する
 	float blinkInterval_ = 0.1f;
+	// 被弾の許可(SetDamageEnabledで外から渡される)。
+	// 状態でも設定でもない「外からの許可」なので、Reset()では戻さない
+	bool damageEnabled_ = true;
 
 	// --- 射撃 ---
 	// 弾の発射先(シーンが所有。所有しない)
@@ -175,6 +187,9 @@ private:
 	// IsTriggerではなくIsPress+クールタイムで撃つ(RTはアナログ値で瞬間判定が無いため)
 	float shootInterval_ = 0.12f;
 	float shootCooldown_ = 0.0f;
+	// 射撃の許可(SetShootEnabledで外から渡される)。
+	// 状態でも設定でもない「外からの許可」なので、Reset()では戻さない
+	bool shootEnabled_ = true;
 
 	// 被弾音。SoundManagerのキャッシュと共有し、再生中のPCMを有効に保つ
 	std::shared_ptr<const SoundData> damageSound_;

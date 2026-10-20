@@ -488,6 +488,12 @@ void GamePlayScene::Update(float deltaTime) {
 
 	// プレイヤーはレール上のrailDistance_地点そのもの(進行はレールカメラ側で行うため供給のみ)
 	player_->SetRailDistance(railDistance_);
+	// 被弾と射撃の許可。モードをPlayerの言葉(被弾してよいか/撃ってよいか)に翻訳して渡す。
+	// 正しい値を持つのはmode_の1箇所だけにしたいので、切り替え時ではなく毎フレーム渡す
+	// (初期モードがEnterPlay/EnterEditを通らなくても、Resetの呼び順に関係なく正しい値になる。
+	// SetRailDistanceと同じ作法)
+	player_->SetDamageEnabled(mode_ == Mode::Play);
+	player_->SetShootEnabled(mode_ == Mode::Play);
 	player_->Update(gameDelta);
 
 	// プレイヤーの直後に更新する: 同フレームに発射された弾もこのフレーム分だけ進むため、

@@ -145,6 +145,12 @@ void Player::UpdateShooting(float deltaTime) {
 	// クールタイムは撃てない間も消化する(押しっぱなしで一定間隔の連射になる)
 	shootCooldown_ -= deltaTime;
 
+	// 射撃を止められている間(エディタのEditモード)は撃たない。
+	// クールタイムの消化より後に置く: 上と同じ方針で、止められている間もクールタイムは進める
+	if (!shootEnabled_) {
+		return;
+	}
+
 	if (!bulletManager_ || !actionInput_) {
 		return;
 	}
@@ -184,8 +190,9 @@ void Player::UpdateEnemyBulletCollision() {
 		// 当たった弾は無敵中でも消す。残すと無敵が切れた瞬間に同じ弾で食らい直し、
 		// 「避けたのに当たった」ように見える
 		enemyBulletManager_->Kill(i);
-		// 複数発が同じフレームに当たってもTakeDamage側の無敵で1回にまとめられる
-		if (!IsDead() && !IsInvincible()) {
+		// 複数発が同じフレームに当たってもTakeDamage側の無敵で1回にまとめられる。
+		// 判定はTakeDamageの「前」に行う(成功すると無敵になり、後で判定すると常にfalseになるため)
+		if (CanTakeDamage()) {
 			++enemyBulletHitCount_;
 		}
 		TakeDamage(1);
@@ -193,10 +200,10 @@ void Player::UpdateEnemyBulletCollision() {
 }
 
 void Player::TakeDamage(int amount) {
-	// 死亡後の減算と、無敵中の連続被弾は無視する。
+	// 死亡後の減算と、無敵中の連続被弾、外から被弾を無効にされている間(エディタのEditモード)は無視する。
 	// 「誰がダメージを与えたか」に関係なくここ1箇所で弾くので、
-	// 呼び出す側(地形・敵)は無敵時間を意識しなくてよい
-	if (IsDead() || IsInvincible()) {
+	// 呼び出す側(地形・敵)は無敵時間やモードを意識しなくてよい
+	if (!CanTakeDamage()) {
 		return;
 	}
 	hp_ = (std::max)(hp_ - amount, 0);
