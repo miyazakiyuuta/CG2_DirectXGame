@@ -119,9 +119,13 @@ void Reticle::Update(const Vector3& aimPoint, const Camera& camera) {
 	LayoutParts(outlines_, center, uiScale, kOutlineExpand);
 	LayoutParts(fills_, center, uiScale, 0.0f);
 
-	const Vector4& fillColor = lockedOn_ ? kLockedColor : kNormalColor;
+	// 色は状態で決め、濃さだけ外からの倍率(HUDのフェードイン)を掛ける
+	Vector4 fillColor = lockedOn_ ? kLockedColor : kNormalColor;
+	fillColor.w *= alpha_;
+	Vector4 outlineColor = kOutlineColor;
+	outlineColor.w *= alpha_;
 	for (std::unique_ptr<Sprite>& part : outlines_) {
-		part->SetColor(kOutlineColor);
+		part->SetColor(outlineColor);
 		part->Update();
 	}
 	for (std::unique_ptr<Sprite>& part : fills_) {

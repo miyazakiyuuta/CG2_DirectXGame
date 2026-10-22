@@ -39,10 +39,11 @@ public:
 	// レール上の距離[m]。シーンが毎フレーム供給する(カメラ位置+前方オフセット)
 	void SetRailDistance(float distance) { railDistance_ = distance; }
 
-	// 被弾と射撃を受け付けるか。シーンが毎フレーム供給する(エディタのEditモード中はfalse)。
-	// Playerはシーンのモードを知らず、「被弾してよいか/撃ってよいか」という自分の言葉で受け取る
+	// 被弾・射撃・移動を受け付けるか。シーンが毎フレーム供給する(エディタのEditモード中・ゲーム開始のイントロ中はfalse)。
+	// Playerはシーンのモードを知らず、「被弾してよいか/撃ってよいか/動いてよいか」という自分の言葉で受け取る
 	void SetDamageEnabled(bool enabled) { damageEnabled_ = enabled; }
 	void SetShootEnabled(bool enabled) { shootEnabled_ = enabled; }
+	void SetMoveEnabled(bool enabled) { moveEnabled_ = enabled; }
 
 	/// <summary>
 	/// 当たり判定の相手(ステージのワールドAABB一覧)を渡す。
@@ -137,6 +138,9 @@ private:
 	// 画面内の移動速度[m/s]とオフセットの可動範囲(±値でクランプ)
 	float moveSpeed_ = 8.0f;
 	Vector2 offsetLimit_ = { 4.0f, 2.5f };
+	// 移動の許可(SetMoveEnabledで外から渡される)。
+	// 状態でも設定でもない「外からの許可」なので、Reset()では戻さない
+	bool moveEnabled_ = true;
 
 	// --- 当たり判定(ステージコライダーとの接触) ---
 	// 判定形状は球。見た目のscale(0.5)と合わせる

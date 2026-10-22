@@ -1,7 +1,6 @@
 #include "scene/GamePlayScene.h"
 
 #include "io/Input.h"
-#include "base/SrvManager.h"
 #include "base/WinApp.h"
 #include "2d/TextureManager.h"
 #include "2d/Sprite.h"
@@ -18,14 +17,13 @@
 #include "player/Player.h"
 #include "bullet/BulletManager.h"
 #include "enemy/EnemySpawner.h"
+#include "camera/IntroCamera.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
 #include "ui/Reticle.h"
 #include "scene/ResultScene.h"
-#include "3d/SkyCylinder.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
-#include "effect/DepthBasedOutline.h"
 #include "effect/Vignette.h"
 #include "scene/SceneManager.h"
 #include "transition/BlindTransition.h"
@@ -74,6 +72,10 @@ namespace {
 	constexpr float kControlsMarginY = 28.0f;
 	// 操作説明の縮小率。原寸だと画面幅の6割近くを占めて主役になってしまう
 	constexpr float kControlsScale = 0.7f;
+	// 操作説明の濃さ。主張しすぎないよう少し透かす
+	constexpr float kControlsAlpha = 0.75f;
+	// イントロが終わってからHUDが出揃うまでの時間[秒]。HUDが現れること自体が操作開始の合図になる
+	constexpr float kHudFadeInDuration = 0.4f;
 
 	// スコア表示(画面右上)。数字画像は0〜9が等幅で並んだ1枚
 	const std::string kNumberTexture = "resources/ui/numbers.png";
@@ -138,10 +140,8 @@ void GamePlayScene::Initialize() {
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize(camera_.get());
 
-	// SkyCylinderが使うテクスチャ。
 	// モデルとパーティクル用テクスチャは各所有者(Stage/EnemySpawner/BulletManager/Player/
 	// ParticleManager)が自分でロードするため、ここでの先読みは不要
-	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 
 	// ステージ配置をstage.jsonから構築(必要なモデルはStage側がロードする)
 	stage_ = std::make_unique<Stage>();
@@ -200,12 +200,6 @@ void GamePlayScene::Initialize() {
 	skybox_ = std::make_unique<Skybox>();
 	skybox_->Initialize(DirectXCommon::GetInstance(), envMapPath);
 
-	skyCylinder_ = std::make_unique<SkyCylinder>();
-	skyCylinder_->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance(), "resources/uvChecker.png");
-	skyCylinder_->SetCamera(camera_.get());
-	skyCylinder_->GetTransform().scale = { 50.0f, 20.0f, 50.0f };
-	skyCylinder_->GetTransform().translate = { 0.0f,  -5.0f,  0.0f };
-
 #ifdef USE_IMGUI
 	// エディタのモデル選択Comboに出す一覧(実行中にファイルを足したらRescanボタンで取り直す)
 	RescanModelFiles();
@@ -219,12 +213,6 @@ void GamePlayScene::Initialize() {
 
 	effectManager_->FindEffect("Monochrome")->enabled = false;
 	effectManager_->FindEffect("RadialBlur")->enabled = false;
-	//effectManager_->FindEffect("DepthBasedOutline")->enabled = true;
-	if (auto* e = effectManager_->FindEffect("DepthBasedOutline")) {
-		auto* outline = static_cast<DepthBasedOutline*>(e);
-		outline->SetCamera(camera_.get()); // このシーンのアクティブカメラ
-		outline->enabled = true;
-	}
 
 	// HP表示と操作説明(プレイヤーのMax HPを見るのでplayer_の初期化後に呼ぶ)
 	InitializeHud();
@@ -236,6 +224,11 @@ void GamePlayScene::Initialize() {
 	bgmSound_ = SoundManager::GetInstance()->LoadFile(kBgmSound);
 	bgmHandle_ = SoundManager::GetInstance()->PlayWave(
 		bgmSound_, true, SoundManager::SoundCategory::BGM);
+
+	// ゲーム開始のイントロ。タイトルから・結果画面のリトライから・(Debugで)直接起動のどれで入っても
+	// シーンはここで作られるので、開始はこの1箇所で済む(エディタのPlayボタンはEnterPlayが始める)
+	introCamera_ = std::make_unique<IntroCamera>();
+	introCamera_->Start();
 }
 
 void GamePlayScene::InitializeHud() {
@@ -266,7 +259,7 @@ void GamePlayScene::InitializeHud() {
 		kControlsMarginX * uiScale,
 		static_cast<float>(WinApp::kClientHeight)
 			- controlsSize.y * controlsScale - kControlsMarginY * uiScale });
-	controlsSprite_->SetColor({ 1.0f, 1.0f, 1.0f, 0.75f }); // 主張しすぎないよう少し透かす
+	// 色(濃さ)はHUDのフェードインに合わせてUpdateHudで毎フレーム決める
 
 	// 照準。位置は毎フレーム狙点から決まるので、ここでは組み立てるだけ
 	reticle_ = std::make_unique<Reticle>();
@@ -322,28 +315,41 @@ void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 	vignette->SetAspect(1.0f);
 }
 
-void GamePlayScene::UpdateHud() {
+void GamePlayScene::UpdateHud(float deltaTime) {
+	// イントロ中は消しておき、終わったらフェードインさせる。
+	// イントロ中はカメラが自機の後ろにいないので、狙点を投影したレティクルも見当違いの所に出てしまう
+	if (introCamera_->IsPlaying()) {
+		hudAlpha_ = 0.0f;
+	} else {
+		hudAlpha_ = (std::min)(hudAlpha_ + deltaTime / kHudFadeInDuration, 1.0f);
+	}
+
 	// 残っているマスは白、失ったマスは暗い赤。個数ではなく色で減少を見せる
 	for (size_t i = 0; i < hpSprites_.size(); ++i) {
 		const bool remaining = static_cast<int>(i) < player_->GetHp();
-		hpSprites_[i]->SetColor(remaining
+		Vector4 color = remaining
 			? Vector4{ 1.0f, 1.0f, 1.0f, 0.9f }
-			: Vector4{ 0.35f, 0.08f, 0.08f, 0.6f });
+			: Vector4{ 0.35f, 0.08f, 0.08f, 0.6f };
+		color.w *= hudAlpha_;
+		hpSprites_[i]->SetColor(color);
 		hpSprites_[i]->Update();
 	}
+	controlsSprite_->SetColor({ 1.0f, 1.0f, 1.0f, kControlsAlpha * hudAlpha_ });
 	controlsSprite_->Update();
 	scoreNumber_->SetValue(GetScore());
+	scoreNumber_->SetColor({ 1.0f, 1.0f, 1.0f, hudAlpha_ });
 	scoreNumber_->Update();
 
 	// 照準。狙点は弾と共有している点なので、レティクルの位置＝弾の到達点になる。
 	// 描画に使っているカメラで投影する(デバッグカメラON中はそちらの見え方に合わせる)
+	reticle_->SetAlpha(hudAlpha_);
 	reticle_->SetLockedOn(enemySpawner_->IsAimedAt(player_->GetAimPoint()));
 	reticle_->Update(player_->GetAimPoint(), *GetActiveCamera());
 }
 
 void GamePlayScene::DrawHud() {
-	if (!showHud_) {
-		return;
+	if (!showHud_ || hudAlpha_ <= 0.0f) {
+		return; // 透明なら描いても見えない(イントロ中)
 	}
 	// 3D描画の後に呼ぶ。スプライトのPSOは深度OFF・αブレンドONなので手前に重なる
 	SpriteCommon::GetInstance()->CommonDrawSetting();
@@ -370,6 +376,15 @@ void GamePlayScene::Finalize() {
 	// リトライで新しいGamePlaySceneが作られると、そちらのInitializeが鳴らし直す
 	SoundManager::GetInstance()->StopWave(bgmHandle_);
 	bgmHandle_ = 0;
+
+	// パーティクルに渡したカメラはこのシーンと一緒に消えるので、参照を外しておく。
+	// どちらのManagerもFrameworkが毎フレーム更新・描画するため、残すと結果画面で解放済みのカメラを読みに行く
+	// (GPU側はエミッタが消えてもグループは残るので、Drawがカメラを読み続ける)。
+	// 撃破の爆発の粒も消しておく: CPU側はカメラが無いと更新を止め、前の描画数のまま描くので、
+	// 残すと結果画面に止まった爆発が映り、リトライで続きから動き出す(TitleSceneの炎の尾と同じ対処)
+	ParticleManager::GetInstance()->ClearParticles(EnemySpawner::DefeatEffectName());
+	ParticleManager::GetInstance()->SetCamera(nullptr);
+	GPUParticleManager::GetInstance()->SetCamera(nullptr);
 }
 
 void GamePlayScene::Update(float deltaTime) {
@@ -411,12 +426,18 @@ void GamePlayScene::Update(float deltaTime) {
 	bulletManager_->SetCamera(activeCamera);
 	enemyBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
-	skyCylinder_->SetCamera(activeCamera);
-	if (auto* effect = effectManager_->FindEffect("DepthBasedOutline")) {
-		static_cast<DepthBasedOutline*>(effect)->SetCamera(activeCamera);
-	}
 
-	skyCylinder_->Update();
+	// ゲーム開始のイントロ。Enter/パッドSTARTでスキップする(終点はレールカメラと同じなので、止めるだけで定位置へ移る)。
+	// タイトル・結果画面の「決定」に入っているSpace/パッドAを含めないのは、射撃と同じボタンのため
+	// (含めると、スキップして操作できるようになった瞬間に1発撃ってしまう)。
+	// 時間はヒットストップの影響を受けない実dtで進める
+	if (introCamera_->IsPlaying() &&
+		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
+		introCamera_->Stop();
+	}
+	introCamera_->Update(deltaTime);
+	// このフレームでイントロ中か。以降のレール前進・カメラ・Playerへの許可はすべてこの値で判断する
+	const bool introPlaying = introCamera_->IsPlaying();
 
 	// レールカメラ: railDistance_はプレイヤーの進行度。カメラはプレイヤーの座標系を
 	// 接線方向にcameraBackDistance_だけ下がった位置に置き、接線の向きで進行方向を向く。
@@ -426,8 +447,9 @@ void GamePlayScene::Update(float deltaTime) {
 	if (railCameraActive_) {
 		const CatmullRomSpline& rail = stage_->GetRail();
 		if (rail.GetTotalLength() > 0.0f) {
-			// カメラのTransform更新は止めない: 止めると凍結中のフレームでビューが更新されなくなる
-			if (!resultRequested_ && mode_ == Mode::Play) {
+			// カメラのTransform更新は止めない: 止めると凍結中のフレームでビューが更新されなくなる。
+			// イントロ中はレールを進めない(自機は始点に留まる=敵の出現タイミングはイントロの長さに左右されない)
+			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying) {
 				railDistance_ += railSpeed_ * gameDelta;
 
 				if (railLoop_) {
@@ -451,6 +473,20 @@ void GamePlayScene::Update(float deltaTime) {
 			Vector3 tangent = rail.GetTangentByDistance(railDistance_);
 			Vector3 cameraPosition = rail.GetPositionByDistance(railDistance_) - tangent * cameraBackDistance_;
 
+			// 接線→オイラー角。回転規約(行ベクトル×Rx→Ry→Rz)では
+			// forward = (cos(pitch)·sin(yaw), -sin(pitch), cos(pitch)·cos(yaw)) なので逆算する
+			float yaw = std::atan2(tangent.x, tangent.z);
+			float pitch = std::atan2(-tangent.y, std::sqrt(tangent.x * tangent.x + tangent.z * tangent.z));
+			Vector3 cameraRotate = { pitch, yaw, 0.0f }; // バンク(roll)はしない
+
+			// イントロ中は回り込みの軌道で上書きする。見つめるのはレール上の自機の位置
+			// (イントロ中は移動させないのでオフセットは0のまま=レール上の点そのもの)。
+			// 終点は上で求めたレールカメラの値と一致するので、イントロが終わった瞬間に画面が飛ばない
+			if (introPlaying) {
+				introCamera_->ComputePose(rail.GetPositionByDistance(railDistance_), tangent, cameraBackDistance_,
+					cameraPosition, cameraRotate);
+			}
+
 			// 被弾時の画面の揺れ。レール上の基準位置を出した「後」にオフセットを足すだけなので、
 			// レール座標系の計算(自機位置・狙点・敵の判定)には一切影響しない。
 			// 減衰は実dtなので、ヒットストップで止まっている間も震え続ける
@@ -466,12 +502,7 @@ void GamePlayScene::Update(float deltaTime) {
 					+ up * Random::GetFloat(-amplitude, amplitude);
 			}
 			camera_->SetTranslate(cameraPosition);
-
-			// 接線→オイラー角。回転規約(行ベクトル×Rx→Ry→Rz)では
-			// forward = (cos(pitch)·sin(yaw), -sin(pitch), cos(pitch)·cos(yaw)) なので逆算する
-			float yaw = std::atan2(tangent.x, tangent.z);
-			float pitch = std::atan2(-tangent.y, std::sqrt(tangent.x * tangent.x + tangent.z * tangent.z));
-			camera_->SetRotate({ pitch, yaw, 0.0f }); // バンク(roll)はしない
+			camera_->SetRotate(cameraRotate);
 		}
 	}
 
@@ -488,12 +519,14 @@ void GamePlayScene::Update(float deltaTime) {
 
 	// プレイヤーはレール上のrailDistance_地点そのもの(進行はレールカメラ側で行うため供給のみ)
 	player_->SetRailDistance(railDistance_);
-	// 被弾と射撃の許可。モードをPlayerの言葉(被弾してよいか/撃ってよいか)に翻訳して渡す。
-	// 正しい値を持つのはmode_の1箇所だけにしたいので、切り替え時ではなく毎フレーム渡す
+	// 被弾・射撃・移動の許可。モードとイントロをPlayerの言葉(被弾してよいか/撃ってよいか/動いてよいか)に翻訳して渡す。
+	// 正しい値を持つのはmode_とイントロの状態だけにしたいので、切り替え時ではなく毎フレーム渡す
 	// (初期モードがEnterPlay/EnterEditを通らなくても、Resetの呼び順に関係なく正しい値になる。
 	// SetRailDistanceと同じ作法)
-	player_->SetDamageEnabled(mode_ == Mode::Play);
-	player_->SetShootEnabled(mode_ == Mode::Play);
+	const bool controllable = mode_ == Mode::Play && !introPlaying;
+	player_->SetDamageEnabled(controllable);
+	player_->SetShootEnabled(controllable);
+	player_->SetMoveEnabled(controllable);
 	player_->Update(gameDelta);
 
 	// プレイヤーの直後に更新する: 同フレームに発射された弾もこのフレーム分だけ進むため、
@@ -532,8 +565,8 @@ void GamePlayScene::Update(float deltaTime) {
 		RequestResult("GAMEOVER");
 	}
 
-	// HUDの色と頂点を更新(HPが確定した後)
-	UpdateHud();
+	// HUDの色と頂点を更新(HPが確定した後)。フェードインはヒットストップで止めないので実dt
+	UpdateHud(deltaTime);
 
 	// 被弾の画面着色。ヒットストップで止めたくないので実dt(deltaTime)を渡す
 	UpdateDamageEffect(deltaTime);
@@ -607,7 +640,6 @@ void GamePlayScene::Update(float deltaTime) {
 
 void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
-	skyCylinder_->Draw();
 
 	stage_->Draw();
 	player_->Draw();
@@ -745,6 +777,11 @@ void GamePlayScene::DrawImGui() {
 		EnterEdit();
 	}
 	ImGui::EndDisabled();
+	ImGui::SameLine();
+	// イントロの見直し用。Play中でも押せる(中身はPlayと同じく開始時の状態からイントロで始める)
+	if (ImGui::Button("Replay Intro")) {
+		EnterPlay();
+	}
 	ImGui::Text("HP: %d / %d", player_->GetHp(), player_->GetMaxHp());
 	ImGui::Text("Result: %s", resultRequested_ ? "requested (frozen)" : "playing");
 	ImGui::Checkbox("Show HUD", &showHud_);
@@ -809,6 +846,9 @@ void GamePlayScene::DrawImGui() {
 	// プレイヤーのオフセット・速度・射撃/照準・アクション押下状態
 	player_->DrawImGui();
 
+	// イントロの進み具合と軌道の調整値(見直しはGameのReplay Introボタン)
+	introCamera_->DrawImGui();
+
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
 
@@ -841,9 +881,8 @@ std::vector<SceneSerializer::Entry> GamePlayScene::BuildSerializeEntries() const
 
 void GamePlayScene::RebuildEditorObjects() {
 	// C++直書きの固定オブジェクト。追加したらここに1行足すだけで全機能に反映される。
-	// SkyCylinderは全天を覆うため、Cameraは実体が見えないためクリック選択の対象外
+	// Cameraは実体が見えないためクリック選択の対象外
 	editorObjects_.clear();
-	editorObjects_.push_back({ "SkyCylinder", &skyCylinder_->GetTransform(), false });
 	editorObjects_.push_back({ "Camera", &camera_->GetTransform(), false });
 	editorObjects_.back().scaleEditable = false; // カメラのscaleはビュー行列を歪ませるため編集させない
 
@@ -949,11 +988,16 @@ void GamePlayScene::ResetGameState() {
 	hitStopTimer_ = 0.0f;
 	shakeTimer_ = 0.0f;
 	damageEffectTimer_ = 0.0f;
+	// イントロは止めるだけ(始めるのはInitializeとEnterPlay)。
+	// ここで始めると、Stopボタン(Editへ入る)やResetボタンでも再生されてしまう
+	introCamera_->Stop();
 }
 
 void GamePlayScene::EnterPlay() {
 	ResetGameState();
 	mode_ = Mode::Play;
+	// 本番(タイトルやリトライから入ったとき)と同じく、イントロから始める
+	introCamera_->Start();
 }
 
 void GamePlayScene::EnterEdit() {

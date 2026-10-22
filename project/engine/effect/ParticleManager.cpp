@@ -390,9 +390,13 @@ void ParticleManager::CreateGraphicsPipelineState(BlendMode blendMode) {
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	blendDesc.RenderTarget[0].BlendEnable = TRUE;
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	// α(不透明度)は描き込み先の値をそのまま残す(結果α = 0×粒のα + 1×既存のα)。
+	// シーンRTのαは「最終画像の不透明度」で、DebugのSceneビュー(ImGui::Image)はこれで背景と混ぜて表示する。
+	// 粒のαで上書きすると、粒の四角い板の形にαの穴が空き、ImGuiウィンドウの背景が透けて輪郭が見えてしまう
+	// (circle.pngのように黒背景で作った加算用の画像は、黒い部分も不透明なので板全体が描かれる)
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ZERO;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 
 	// ブレンドモード
 	switch (blendMode) {

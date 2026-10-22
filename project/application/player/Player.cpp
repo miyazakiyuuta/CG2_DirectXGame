@@ -51,9 +51,13 @@ void Player::Initialize(ActionInput* actionInput) {
 }
 
 void Player::Update(float deltaTime) {
-	// 入力をオフセット移動に
-	offset_.x += actionInput_->GetMoveX() * moveSpeed_ * deltaTime;
-	offset_.y += actionInput_->GetMoveY() * moveSpeed_ * deltaTime;
+	// 入力をオフセット移動に。止められている間(イントロ中など)は入力を読まない。
+	// deltaTimeを0にして止めないのは、無敵時間やモデルの更新まで止まってしまうため
+	// (「時間を止める」と「操作させない」は別の意味なので、許可フラグで分ける)
+	if (moveEnabled_) {
+		offset_.x += actionInput_->GetMoveX() * moveSpeed_ * deltaTime;
+		offset_.y += actionInput_->GetMoveY() * moveSpeed_ * deltaTime;
+	}
 	// 可動範囲をオフセットのクランプで制限する
 	offset_.x = std::clamp(offset_.x, -offsetLimit_.x, offsetLimit_.x);
 	offset_.y = std::clamp(offset_.y, -offsetLimit_.y, offsetLimit_.y);

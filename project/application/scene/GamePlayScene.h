@@ -14,6 +14,7 @@ class BulletManager;
 class Camera;
 class DebugCamera;
 class EnemySpawner;
+class IntroCamera;
 class NumberSprite;
 class Player;
 class Reticle;
@@ -23,7 +24,6 @@ class Skybox;
 struct SoundData;
 class DebugGrid;
 class GPUParticleEmitter;
-class SkyCylinder;
 
 class GamePlayScene : public BaseScene {
 public:
@@ -74,7 +74,8 @@ private:
 	// HUD(HPブロックと操作説明)を作る/更新する/描く。
 	// スプライトは深度OFF・αブレンドONなので3Dの上にそのまま重なる
 	void InitializeHud();
-	void UpdateHud();
+	// イントロ中は消しておき、終わったらフェードインさせる(操作開始の合図を兼ねる)。透明度は実dtで進める
+	void UpdateHud(float deltaTime);
 	// 被弾の画面着色を進める。ヒットストップ中も演出は動かすので実dtで呼ぶこと
 	void UpdateDamageEffect(float deltaTime);
 	void DrawHud();
@@ -85,10 +86,11 @@ private:
 	void ApplyCameraFromStage();
 
 	// Resetボタン・Play・Stopで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
-	// 開始時の状態に戻す・設定は残す
+	// 開始時の状態に戻す・設定は残す。イントロは止めるだけで、始めるのはInitializeとEnterPlay
+	// (Stop・Resetボタンでは再生しないため)
 	void ResetGameState();
 
-	// エディタのPlayボタンから呼ぶ。ゲーム状態を開始時に戻してからPlayに入る
+	// エディタのPlayボタンから呼ぶ。ゲーム状態を開始時に戻してから、本番と同じくイントロからPlayに入る
 	// (途中からの再開ではない)。配置と設定は残る。
 	void EnterPlay();
 
@@ -154,6 +156,10 @@ private:
 	// レール基準点を1つに統一することで、カーブでも画面内の自機位置が固定される
 	float cameraBackDistance_ = 10.0f;
 
+	// ゲーム開始のカメラ演出(自機の前方斜め上から回り込み、レールカメラの定位置に着いたら操作開始)。
+	// 再生中はレールを進めず、自機の移動・射撃・被弾を止め、HUDを消す
+	std::unique_ptr<IntroCamera> introCamera_;
+
 	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
 	std::unique_ptr<ActionInput> actionInput_;
 	std::unique_ptr<Player> player_;
@@ -191,6 +197,8 @@ private:
 	// 操作説明(画像1枚)。紹介動画の撮影時に消せるようshowHud_で切替
 	std::unique_ptr<Sprite> controlsSprite_;
 	bool showHud_ = true;
+	// HUD全体の透明度(0〜1)。イントロ中は0、終わったら1へフェードインする
+	float hudAlpha_ = 0.0f;
 
 	// スコア表示(画面右上)。撃破数から導出するので、加算のための状態は持たない
 	std::unique_ptr<NumberSprite> scoreNumber_;
@@ -204,7 +212,5 @@ private:
 	std::unique_ptr<Skybox> skybox_;
 
 	std::unique_ptr<GPUParticleEmitter> gpuParticleEmitter_;
-
-	std::unique_ptr<SkyCylinder> skyCylinder_;
 };
 

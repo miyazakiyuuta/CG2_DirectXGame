@@ -79,6 +79,9 @@
     <Filter Include="application\ui">
       <UniqueIdentifier>{9d47f2b0-6c85-4e31-a7d2-1f8b30c95a6e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\camera">
+      <UniqueIdentifier>{6c2e8f41-0b9a-4d57-8e13-a5f7d92c4b08}</UniqueIdentifier>
+    </Filter>
     <Filter Include="application\enemy">
       <UniqueIdentifier>{b4f60a17-9d3e-42c8-8a51-6f27e0d9b3c6}</UniqueIdentifier>
     </Filter>
@@ -161,6 +164,9 @@
     </ClCompile>
     <ClCompile Include="application\ui\Reticle.cpp">
       <Filter>application\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="application\camera\IntroCamera.cpp">
+      <Filter>application\camera</Filter>
     </ClCompile>
     <ClCompile Include="application\bullet\BulletManager.cpp">
       <Filter>application\bullet</Filter>
@@ -373,6 +379,9 @@
     </ClInclude>
     <ClInclude Include="application\ui\Reticle.h">
       <Filter>application\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="application\camera\IntroCamera.h">
+      <Filter>application\camera</Filter>
     </ClInclude>
     <ClInclude Include="application\bullet\Bullet.h">
       <Filter>application\bullet</Filter>

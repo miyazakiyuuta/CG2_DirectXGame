@@ -42,6 +42,12 @@ public:
 	/// </summary>
 	void SetLockedOn(bool lockedOn) { lockedOn_ = lockedOn; }
 
+	/// <summary>
+	/// 全体の透明度の倍率(0〜1)。HUDのフェードイン用。
+	/// 色そのものはUpdateで状態(ロックオン)から決まるので、外からは濃さだけを渡す。Updateより前に呼ぶこと
+	/// </summary>
+	void SetAlpha(float alpha) { alpha_ = alpha; }
+
 	Reticle();
 	~Reticle();
 
@@ -62,4 +68,6 @@ private:
 	// 今フレーム描くか(カメラ背面なら描かない)
 	bool visible_ = false;
 	bool lockedOn_ = false;
+	// 透明度の倍率(SetAlphaで外から渡される)
+	float alpha_ = 1.0f;
 };

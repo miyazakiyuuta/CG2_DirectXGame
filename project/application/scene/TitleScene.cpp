@@ -18,7 +18,6 @@
 #include "scene/SceneManager.h"
 #include "transition/BlindTransition.h"
 #include "effect/EffectManager.h"
-#include "effect/DepthBasedOutline.h"
 #include "effect/Vignette.h"
 #include "effect/ParticleManager.h"
 #include "utility/Random.h"
@@ -97,7 +96,7 @@ namespace {
 	// 出発の演出で真っ黒になった後に進むシーン。ゲームとしては"GAMEPLAY"。
 	// 学内の画面遷移コンテストのデモ中は"TITLE"にして、タイトルからタイトルへ切り替える
 	// (新しいタイトルはオープニングから始まるので、遷移を何度でも見せられる)
-	const std::string kDepartNextScene = "TITLE";
+	const std::string kDepartNextScene = "GAMEPLAY";
 	// 開始入力の時に飛んでいたタイトルの岩を、ディザで消し切るまでの時間[秒]。
 	// 右へよける自機と重なったり、隕石と紛れたりしないよう、すぐに片付ける
 	constexpr float kOldRockFadeOutDuration = 0.2f;
@@ -233,14 +232,6 @@ void TitleScene::Initialize() {
 	// ParticleManagerは渡されたカメラで粒を描く。外すのはFinalize(このシーンのカメラと一緒に消えるため)
 	ParticleManager::GetInstance()->SetCamera(camera_.get());
 
-	// 本編と同じ見た目にするため、輪郭線もONにする。
-	// シーン切替のたびにEffectManagerが全effectをOFFへ戻すので、使うシーンが毎回ONにする
-	if (IPostEffect* effect = effectManager_->FindEffect("DepthBasedOutline")) {
-		auto* outline = static_cast<DepthBasedOutline*>(effect);
-		outline->SetCamera(camera_.get());
-		outline->enabled = true;
-	}
-
 	// --- 文言 ---
 	// Sprite::InitializeはTextureManagerに登録済みのSRVを引くだけなので、先に読み込む
 	TextureManager::GetInstance()->LoadTexture(kTitleTexture);
@@ -288,12 +279,9 @@ void TitleScene::Initialize() {
 }
 
 void TitleScene::Finalize() {
-	// 輪郭線に渡したカメラはこのシーンと一緒に消えるので、参照を外しておく。
-	// EffectManagerはOFFのeffectのUpdateも毎フレーム呼ぶため、残すと解放済みのカメラを読みに行く
-	if (IPostEffect* effect = effectManager_->FindEffect("DepthBasedOutline")) {
-		static_cast<DepthBasedOutline*>(effect)->SetCamera(nullptr);
-	}
-	// パーティクルも同じ理由でカメラを外す。生き残っている炎の尾の粒はこのシーンの座標で出したものなので、
+	// パーティクルに渡したカメラはこのシーンと一緒に消えるので、参照を外しておく
+	// (ParticleManagerはFrameworkが毎フレーム更新するため、残すと解放済みのカメラを読みに行く)。
+	// 生き残っている炎の尾の粒はこのシーンの座標で出したものなので、
 	// 消しておかないと、次のシーンのカメラで描かれて次の画面に混ざる(黒帯が開いていく間に見えてしまう)
 	ParticleManager::GetInstance()->ClearParticles(kTrailEffectName);
 	ParticleManager::GetInstance()->SetCamera(nullptr);
