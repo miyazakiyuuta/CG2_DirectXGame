@@ -317,8 +317,10 @@ void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 
 void GamePlayScene::UpdateHud(float deltaTime) {
 	// イントロ中は消しておき、終わったらフェードインさせる。
-	// イントロ中はカメラが自機の後ろにいないので、狙点を投影したレティクルも見当違いの所に出てしまう
-	if (introCamera_->IsPlaying()) {
+	// イントロ中はカメラが自機の後ろにいないので、狙点を投影したレティクルも見当違いの所に出てしまう。
+	// Edit中も消す: 編集中はHP・スコア・操作説明・レティクルが画面に重なって邪魔になるため
+	// (Playに入るとイントロが始まり、終わった後にこの下のフェードインで戻る)
+	if (introCamera_->IsPlaying() || mode_ == Mode::Edit) {
 		hudAlpha_ = 0.0f;
 	} else {
 		hudAlpha_ = (std::min)(hudAlpha_ + deltaTime / kHudFadeInDuration, 1.0f);
@@ -365,6 +367,23 @@ void GamePlayScene::RequestResult(const std::string& sceneName) {
 	if (resultRequested_) {
 		return; // 遷移は1度きり(SceneManager側も予約中は無視するが、進行停止はこのフラグで行う)
 	}
+
+	// エディタのPlayボタンから始めたプレイは、結果画面へ行かずEditへ戻る
+	// (シーンを作り直すと未保存の配置・調整値・デバッグカメラの位置が消えるため)。
+	// GAMEOVER・CLEAR・Force Clear・Force GameOverの4つの出口はすべてここを通るので、
+	// この1箇所で分岐すれば全部に効く(被弾の入口をTakeDamageに集めたのと同じ考え方)。
+	// ChangeSceneより前に分ける: 一度予約した遷移は、後からフラグを戻しても取り消せないため。
+	// Updateの途中(レール終端・HP0)から呼ばれても安全:
+	// - 敵はRetireEnemiesで退避されるだけで、破棄はEnemySpawner::Updateの冒頭(前フレームのGPU実行完了後)。
+	//   このフレームの描画コマンドはまだ記録前なので、記録済みのコマンドを壊さない
+	// - 以降の被弾・射撃・移動・GAMEOVER判定は、mode_==EditとPlayerへの許可(controllable)で止まる
+	// - このフレームだけgameDeltaがPlayの値のまま残るが、自機は移動を止められ、
+	//   弾はClear済み・敵は退避済みなので、動いて見えるものが無い
+	if (startedFromEditor_) {
+		EnterEdit();
+		return;
+	}
+
 	resultRequested_ = true;
 	// 結果画面へ表示用のスコアを預ける(ChangeSceneはシーン名しか渡せないため)
 	ResultScene::SetScore(GetScore());
@@ -658,6 +677,34 @@ void GamePlayScene::DrawImGui() {
 
 	// Hierarchy: オブジェクト一覧+選択、シーンファイル操作
 	ImGui::Begin("Hierarchy");
+
+	// Play in Editorの操作。エディタで一番使うボタンなので、スクロールしなくても届く先頭に置く
+	ImGui::BeginDisabled(mode_ == Mode::Play);
+	if (ImGui::Button("Play")) {
+		EnterPlay();
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine();
+	ImGui::BeginDisabled(mode_ == Mode::Edit);
+	if (ImGui::Button("Stop")) {
+		EnterEdit();
+	}
+	ImGui::SameLine();
+	// 開始時の状態からイントロでやり直す(イントロの見直しも兼ねる)。
+	// Edit中に押すとPlayと同じ動きになって重複するので、Play中だけ押せるようにする
+	if (ImGui::Button("Restart")) {
+		EnterPlay();
+	}
+	ImGui::EndDisabled();
+	// 今のモードを色付きで出す(ボタンの有効/無効だけだと、どちらのモードか一目で分かりにくいため)
+	ImGui::SameLine();
+	if (mode_ == Mode::Play) {
+		ImGui::TextColored({ 0.3f, 1.0f, 0.4f, 1.0f }, "PLAYING");
+	} else {
+		ImGui::TextColored({ 1.0f, 0.8f, 0.3f, 1.0f }, "EDIT");
+	}
+	ImGui::Separator();
+
 	EditorPanels::DrawHierarchy(editorObjects_, selectedIndex_);
 
 	// ステージオブジェクトの追加/複製/削除(stage.jsonの管轄分のみ。C++直書きの固定オブジェクトは対象外)
@@ -754,10 +801,6 @@ void GamePlayScene::DrawImGui() {
 	// 配置編集(ギズモ/Inspector)したいときはここでOFFにする
 	ImGui::SeparatorText("Rail Camera");
 	ImGui::Checkbox("Active##railCamera", &railCameraActive_);
-	ImGui::SameLine();
-	if (ImGui::Button("Reset##railCamera")) {
-		ResetGameState();
-	}
 	// ONにすると終端で先頭へ戻る(クリア遷移せずに配置を何度も見たいとき用)
 	ImGui::Checkbox("Loop (debug)", &railLoop_);
 	ImGui::DragFloat("Speed", &railSpeed_, 0.1f, 0.0f, 100.0f, "%.1f m/s");
@@ -766,22 +809,6 @@ void GamePlayScene::DrawImGui() {
 
 	// 勝敗まわり(A-5)。遷移待ちの間はゲーム進行が止まっていることをここで確認できる
 	ImGui::SeparatorText("Game");
-	ImGui::BeginDisabled(mode_ == Mode::Play);
-	if(ImGui::Button("Play")) {
-		EnterPlay();
-	}
-	ImGui::EndDisabled();
-	ImGui::SameLine();
-	ImGui::BeginDisabled(mode_ == Mode::Edit);
-	if (ImGui::Button("Stop")) {
-		EnterEdit();
-	}
-	ImGui::EndDisabled();
-	ImGui::SameLine();
-	// イントロの見直し用。Play中でも押せる(中身はPlayと同じく開始時の状態からイントロで始める)
-	if (ImGui::Button("Replay Intro")) {
-		EnterPlay();
-	}
 	ImGui::Text("HP: %d / %d", player_->GetHp(), player_->GetMaxHp());
 	ImGui::Text("Result: %s", resultRequested_ ? "requested (frozen)" : "playing");
 	ImGui::Checkbox("Show HUD", &showHud_);
@@ -798,6 +825,10 @@ void GamePlayScene::DrawImGui() {
 		shakeTimer_ = shakeDuration_;
 		damageEffectTimer_ = damageEffectDuration_;
 	}
+	// Edit中は押せなくする。Edit中は進行中のプレイが無いので、プレイの出口を試す意味がない。
+	// また、タイトルから始めてStopでEditに入った場合はstartedFromEditor_がfalseなので、
+	// 押すと結果画面へ遷移してしまう
+	ImGui::BeginDisabled(mode_ == Mode::Edit);
 	if (ImGui::Button("Force Clear")) {
 		RequestResult("CLEAR");
 	}
@@ -805,6 +836,7 @@ void GamePlayScene::DrawImGui() {
 	if (ImGui::Button("Force GameOver")) {
 		RequestResult("GAMEOVER");
 	}
+	ImGui::EndDisabled();
 
 	// 当たり判定の可視化切替(コライダーのワイヤーボックス+プレイヤーの判定球)
 	ImGui::SeparatorText("Collision");
@@ -846,7 +878,7 @@ void GamePlayScene::DrawImGui() {
 	// プレイヤーのオフセット・速度・射撃/照準・アクション押下状態
 	player_->DrawImGui();
 
-	// イントロの進み具合と軌道の調整値(見直しはGameのReplay Introボタン)
+	// イントロの進み具合と軌道の調整値(見直しはHierarchy先頭のRestartボタン)
 	introCamera_->DrawImGui();
 
 	// 弾の生存数・速度・寿命・判定半径
@@ -989,13 +1021,20 @@ void GamePlayScene::ResetGameState() {
 	shakeTimer_ = 0.0f;
 	damageEffectTimer_ = 0.0f;
 	// イントロは止めるだけ(始めるのはInitializeとEnterPlay)。
-	// ここで始めると、Stopボタン(Editへ入る)やResetボタンでも再生されてしまう
+	// ここで始めると、Stopボタン(Editへ入る)でも再生されてしまう
 	introCamera_->Stop();
 }
 
 void GamePlayScene::EnterPlay() {
 	ResetGameState();
 	mode_ = Mode::Play;
+	// EnterPlayを呼ぶのはエディタのボタン(PlayとRestart)だけなので、ここで立てれば足りる
+	// (本番の開始はInitializeでmode_の初期値Playから始まり、ここを通らない)。
+	// 一度立てたら、このシーンが終わるまで立てたままでよい
+	startedFromEditor_ = true;
+	// Playはゲームカメラ(イントロとレールカメラ)で映す。
+	// デバッグカメラの視点はOFFにしても保たれるので、次にStopしたとき編集していた視点へ戻れる
+	debugCamera_->SetActive(false);
 	// 本番(タイトルやリトライから入ったとき)と同じく、イントロから始める
 	introCamera_->Start();
 }
@@ -1003,6 +1042,12 @@ void GamePlayScene::EnterPlay() {
 void GamePlayScene::EnterEdit() {
 	ResetGameState();
 	mode_ = Mode::Edit;
+	// Editは自由に見回すための編集用の視点、Playはゲームカメラ(イントロとレールカメラ)を使う。
+	// DebugCamera::SetActiveは初回だけゲームカメラの視点から始め、2回目以降は前回の視点を保つので、
+	// Stopすると前回編集していた視点に戻る。
+	// プレイの出口(RequestResult)からUpdateの途中で呼ばれた場合、このフレームの描画カメラは
+	// 決定済みなので、切り替わった視点が使われるのは次のフレームから
+	debugCamera_->SetActive(true);
 }
 
 Camera* GamePlayScene::GetActiveCamera() const {

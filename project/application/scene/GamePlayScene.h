@@ -66,7 +66,8 @@ private:
 	/// <summary>
 	/// 結果シーンへの遷移を要求する(A-5)。2度目以降の呼び出しは無視される。
 	/// 要求後はゲーム進行(レール前進・敵の発生・被弾)を止める:
-	/// トランジションが閉じ切るまで、このシーンのUpdateは走り続けるため
+	/// トランジションが閉じ切るまで、このシーンのUpdateは走り続けるため。
+	/// エディタのPlayボタンから始めたプレイなら、遷移せずEditへ戻る
 	/// </summary>
 	/// <param name="sceneName">"CLEAR" または "GAMEOVER"</param>
 	void RequestResult(const std::string& sceneName);
@@ -85,17 +86,18 @@ private:
 	// 初回LoadFromFile後とReload成功後に呼ぶ。逆方向(Capture)はSaveボタン側で行う
 	void ApplyCameraFromStage();
 
-	// Resetボタン・Play・Stopで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
+	// EnterPlay・EnterEditで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
 	// 開始時の状態に戻す・設定は残す。イントロは止めるだけで、始めるのはInitializeとEnterPlay
-	// (Stop・Resetボタンでは再生しないため)
+	// (Stopでは再生しないため)
 	void ResetGameState();
 
-	// エディタのPlayボタンから呼ぶ。ゲーム状態を開始時に戻してから、本番と同じくイントロからPlayに入る
-	// (途中からの再開ではない)。配置と設定は残る。
+	// エディタのPlay/Restartボタンから呼ぶ。ゲーム状態を開始時に戻してから、本番と同じくイントロからPlayに入る
+	// (途中からの再開ではない)。配置と設定は残る。視点はゲームカメラに戻す
 	void EnterPlay();
 
-	// エディタのStopボタンから呼ぶ。ゲーム状態を開始時に戻してからEditに入る
-	// (Play中に行った配置、設定は残る)。ゲームの進行は止まる。
+	// エディタのStopボタンと、エディタから始めたプレイの出口(RequestResult)から呼ぶ。
+	// ゲーム状態を開始時に戻してからEditに入る(Play中に行った配置、設定は残る)。
+	// ゲームの進行は止まり、視点は編集用のデバッグカメラに切り替わる
 	void EnterEdit();
 
 #ifdef USE_IMGUI
@@ -104,6 +106,11 @@ private:
 #endif
 
 	Mode mode_ = Mode::Play;
+	// このプレイがエディタのPlayボタン(EnterPlay)から始まったか。
+	// trueの間は、プレイの終わり(GAMEOVER/CLEAR)で結果画面へ遷移せずEditに戻る。
+	// ゲームの状態ではなく「どう始まったか」の情報なので、ResetGameStateでは戻さない。
+	// 本番(タイトル・リトライ)はシーンが新しく作られてfalseから始まるので、戻す必要がない
+	bool startedFromEditor_ = false;
 
 	// Hierarchy/Inspector/ギズモ/保存読込が共有するオブジェクト一覧と選択状態
 	std::vector<EditorObject> editorObjects_;
