@@ -276,12 +276,11 @@ private:
 
 	// --- 全種別で共通のパラメータ ---
 	int defeatParticleCount_ = 40; // 撃破時に出すパーティクルの粒数(見た目の調整用)
-	// 敵の攻撃の切り替え(難易度確認とデバッグ用に丸ごと止められる)。
-	// 発表の映像で弾や被弾演出がノイズにならないよう、今は2つとも一時的にOFFにしてある(戻すときはtrueに)
-	bool shootEnabled_ = false; // 撃ってくるか
+	// 敵の攻撃の切り替え(難易度確認とデバッグ用に丸ごと止められる)
+	bool shootEnabled_ = true; // 撃ってくるか
 	// 体当たりしてくるか。OFFの間は、接近型(撃たない種別)がその場に留まり、
 	// どの種別に触れてもダメージにならない(接近の予告音も鳴らさない)
-	bool ramEnabled_ = false;
+	bool ramEnabled_ = true;
 	// 間隔に掛ける乱数の幅(±割合)。0なら同じ種別の敵が全員同じ周期で撃つ
 	float shootIntervalRandom_ = 0.35f;
 	int shotCount_ = 0; // 通算の発射数(ImGui表示用)

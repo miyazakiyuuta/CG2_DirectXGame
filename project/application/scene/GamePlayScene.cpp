@@ -10,7 +10,6 @@
 #include "3d/Object3dCommon.h"
 #include "effect/ParticleManager.h"
 #include "effect/GPUParticleManager.h"
-#include "effect/GPUParticleEmitter.h"
 #include "3d/Skybox.h"
 #include "stage/Stage.h"
 #include "input/ActionInput.h"
@@ -157,24 +156,6 @@ void GamePlayScene::Initialize() {
 	chargeExplosionConfig.endScaleRatio = 0.2f;
 	ParticleManager::GetInstance()->RegisterEffect(
 		kChargeExplosionEffect, "resources/circle.png", chargeExplosionConfig, BlendMode::Add);
-
-	// GPUパーティクルのサンプル: 空間を漂う塵(大量・常時放出はGPU側の担当)
-	// 定常時の生存数 ≈ emitCount × 平均寿命 ÷ frequency = 1000 × 6 ÷ 0.1 = 約6万粒
-	GPUParticleConfig dustConfig;
-	dustConfig.minScale = { 0.05f, 0.05f, 0.05f };
-	dustConfig.maxScale = { 0.15f, 0.15f, 0.15f };
-	dustConfig.minVelocity = { -0.3f, 0.1f, -0.3f };
-	dustConfig.maxVelocity = { 0.3f, 0.8f, 0.3f };
-	dustConfig.lifeTimeMin = 4.0f;
-	dustConfig.lifeTimeMax = 8.0f;
-	dustConfig.startColor = { 0.6f, 0.8f, 1.0f, 0.8f };
-	dustConfig.endColor = { 0.2f, 0.4f, 1.0f, 0.0f };
-	dustConfig.endScaleRatio = 0.5f;
-	gpuParticleEmitter_ = std::make_unique<GPUParticleEmitter>("gpuDust", "resources/circle.png", dustConfig);
-	gpuParticleEmitter_->SetPosition({ 0.0f, 3.0f, 0.0f });
-	gpuParticleEmitter_->SetRadius(15.0f);
-	gpuParticleEmitter_->SetEmitCount(1000);
-	gpuParticleEmitter_->SetFrequency(0.1f);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize(camera_.get());
