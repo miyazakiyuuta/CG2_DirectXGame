@@ -127,13 +127,16 @@ void EnemySpawner::BuildFromStage(const StageData& stageData) {
 	}
 }
 
-void EnemySpawner::UpdateBulletCollision() {
-	if (!bulletManager_) {
+void EnemySpawner::UpdateBulletCollision(BulletManager* bulletManager) {
+	if (!bulletManager) {
 		return; // 弾の供給元が無ければ被弾しない(エディタ単体での確認時など)
 	}
 
-	const std::vector<Bullet>& bullets = bulletManager_->GetBullets();
-	const float bulletRadius = bulletManager_->GetRadius();
+	const std::vector<Bullet>& bullets = bulletManager->GetBullets();
+	const float bulletRadius = bulletManager->GetRadius();
+	// 弾の種類ごとの違いはこの2つの値だけ(通常弾: 1ダメージ・爆発なし / チャージ弾: 大ダメージ・爆発あり)
+	const int damage = bulletManager->GetDamage();
+	const float explosionRadius = bulletManager->GetExplosionRadius();
 
 	// 総当たり。敵は同時数体、弾は最大64発なので空間分割は要らない
 	for (size_t bulletIndex = 0; bulletIndex < bullets.size(); ++bulletIndex) {
@@ -151,13 +154,40 @@ void EnemySpawner::UpdateBulletCollision() {
 			}
 
 			// 当たった弾は消す(貫通させない)。撃破処理はUpdate側でまとめて行う
-			bulletManager_->Kill(bulletIndex);
-			--enemy.hp;
-			if (enemy.hp > 0) {
-				ApplyHpColor(enemy); // 残りHPを色へ反映(撃破時は消えるので不要)
+			bulletManager->Kill(bulletIndex);
+			if (explosionRadius > 0.0f) {
+				Explode(bullet.position, explosionRadius, damage, enemy);
+			} else {
+				ApplyDamage(enemy, damage);
 			}
 			break; // この弾は消費済みなので次の弾へ
 		}
+	}
+}
+
+void EnemySpawner::Explode(const Vector3& center, float radius, int damage, const Enemy& directHit) {
+	// 爆発の範囲を球とし、敵の判定球と重なっていれば巻き込む(弾と敵の判定と同じ球同士の判定)。
+	// 直撃した敵を別扱いにするのは、ImGuiで爆発の半径を弾の半径より小さくしても、
+	// 当たったのにダメージが入らない状態にしないため
+	for (Enemy& enemy : enemies_) {
+		if (enemy.hp <= 0) {
+			continue; // 同フレームに撃破済み
+		}
+		if (&enemy == &directHit || IsCollision(center, radius, enemy.position, ParamsOf(enemy).radius)) {
+			ApplyDamage(enemy, damage);
+		}
+	}
+
+	// 爆発の見た目と音は、弾が消えるときの演出としてBulletManagerが出す(Killを呼んだ時点で出ている)。
+	// ここはダメージ(ゲームのルール)だけを担当し、回数はシーンの手応え演出(揺れ・ヒットストップ)に使う
+	++explosionCount_;
+}
+
+void EnemySpawner::ApplyDamage(Enemy& enemy, int damage) const {
+	// 0未満にはしない(HP0=撃破という意味を、大ダメージでも崩さない)
+	enemy.hp = (std::max)(enemy.hp - damage, 0);
+	if (enemy.hp > 0) {
+		ApplyHpColor(enemy); // 残りHPを色へ反映(撃破時は消えるので不要)
 	}
 }
 
@@ -165,6 +195,9 @@ void EnemySpawner::UpdatePlayerCollision(const Vector3& playerPosition, float pl
 	// 1体でも触れていれば同じ結果(ダメージは無敵時間で1回にまとめられる)なので、
 	// 見つかった時点で打ち切る
 	playerHit_ = false;
+	if (!ramEnabled_) {
+		return; // 体当たりOFF: その場に留まる敵へ自機が突っ込んでもダメージにしない
+	}
 	for (const Enemy& enemy : enemies_) {
 		if (IsCollision(playerPosition, playerRadius, enemy.position, ParamsOf(enemy).radius)) {
 			playerHit_ = true;
@@ -211,6 +244,9 @@ void EnemySpawner::UpdateApproachSound(const Vector3& playerPosition) {
 	if (!approachSound_) {
 		return; // 音声ファイルが無ければ鳴らさない(ゲームは止めない)
 	}
+	if (!ramEnabled_) {
+		return; // 接近音は体当たりの予告なので、体当たりしない間は鳴らさない
+	}
 
 	SoundManager* soundManager = SoundManager::GetInstance();
 	for (Enemy& enemy : enemies_) {
@@ -256,6 +292,73 @@ bool EnemySpawner::IsAimedAt(const Vector3& point) const {
 	return false;
 }
 
+uint32_t EnemySpawner::FindEnemyInCone(const Vector3& origin, const Vector3& direction, float maxAngle,
+	float maxDistance) const {
+	uint32_t bestId = 0;
+	float bestAngle = maxAngle;
+	float bestDistance = maxDistance;
+	for (const Enemy& enemy : enemies_) {
+		if (enemy.hp <= 0) {
+			continue;
+		}
+		const Vector3 toCenter = enemy.position - origin;
+		const float distance = toCenter.Length();
+		if (distance < 1.0e-4f || distance > maxDistance) {
+			continue; // カメラと重なっている・遠すぎる
+		}
+		// 視線と「敵の中心への向き」のなす角(内積=cos)。cosが0以下なら真横より後ろなので対象外
+		const float cosAngle = Vector3::Dot(toCenter, direction) / distance;
+		if (cosAngle <= 0.0f) {
+			continue;
+		}
+		// 敵の見た目の半径(角度)を引いて「視線から敵の縁まで」の角度にする。
+		// 中心で比べると、近くの大きな敵ほど縁は照準に掛かっているのに遠い扱いになってしまう
+		const float centerAngle = std::acos((std::min)(cosAngle, 1.0f));
+		const float angularRadius = std::asin((std::min)(ParamsOf(enemy).radius / distance, 1.0f));
+		const float edgeAngle = (std::max)(centerAngle - angularRadius, 0.0f);
+		if (edgeAngle > bestAngle) {
+			continue;
+		}
+		// 角度が同じ(どちらも照準に掛かっている=0)なら手前の敵を選ぶ
+		if (edgeAngle == bestAngle && distance >= bestDistance) {
+			continue;
+		}
+		bestId = enemy.id;
+		bestAngle = edgeAngle;
+		bestDistance = distance;
+	}
+	return bestId;
+}
+
+bool EnemySpawner::TryGetEnemyPosition(uint32_t enemyId, Vector3& outPosition) const {
+	const Enemy* enemy = FindEnemyById(enemyId);
+	if (!enemy) {
+		return false;
+	}
+	outPosition = enemy->position;
+	return true;
+}
+
+bool EnemySpawner::TryGetEnemySphere(uint32_t enemyId, Vector3& outCenter, float& outRadius) const {
+	const Enemy* enemy = FindEnemyById(enemyId);
+	if (!enemy) {
+		return false;
+	}
+	outCenter = enemy->position;
+	outRadius = ParamsOf(*enemy).radius;
+	return true;
+}
+
+const EnemySpawner::Enemy* EnemySpawner::FindEnemyById(uint32_t enemyId) const {
+	// 番号は1から振っているので、0(なし)を渡すと必ず見つからずnullptrになる
+	for (const Enemy& enemy : enemies_) {
+		if (enemy.id == enemyId && enemy.hp > 0) {
+			return &enemy;
+		}
+	}
+	return nullptr;
+}
+
 void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& playerPosition, float playerRadius,
 	const Vector3& playerForward) {
 	// 前フレームのコマンドはPostDrawのフェンス待ちで実行完了済みなので、退避分をここで破棄する
@@ -269,6 +372,7 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		spawnPoint.spawned = true;
 
 		Enemy enemy;
+		enemy.id = nextEnemyId_++;
 		enemy.typeIndex = TypeIndexOf(spawnPoint.enemy);
 		const TypeParams& params = typeParams_[enemy.typeIndex];
 		enemy.object = std::make_unique<Object3d>();
@@ -293,8 +397,15 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 	}
 
 	// 被弾判定は移動より先に行う。弾は既にこのフレーム分進んだ後なので、
-	// 「弾が到達した位置」と「敵の現在位置」で判定でき、1フレームのズレが出ない
-	UpdateBulletCollision();
+	// 「弾が到達した位置」と「敵の現在位置」で判定でき、1フレームのズレが出ない。
+	// 通常弾とチャージ弾は同じ関数で判定する(違いはダメージと爆発の半径という弾のデータだけ)
+	const int explosionCountBefore = explosionCount_;
+	UpdateBulletCollision(bulletManager_);
+	UpdateBulletCollision(chargeBulletManager_);
+
+	// 撃破音は1フレームに1回まで。巻き込みで何体倒しても、同じ音が重なって割れないようにする。
+	// このフレームに爆発があったなら鳴らさない: 爆発音(チャージ弾が消えるときの音)がもう鳴っているため
+	bool defeatSoundPlayed = explosionCount_ != explosionCountBefore;
 
 	// 撃破された敵を取り除く(実体は墓場へ回して次フレーム冒頭で破棄する)
 	for (size_t i = enemies_.size(); i > 0; --i) {
@@ -308,10 +419,11 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		ParticleManager::GetInstance()->Emit(
 			kDefeatEffect, enemy.position, static_cast<uint32_t>(defeatParticleCount_));
 
-		if (defeatSound_) {
+		if (defeatSound_ && !defeatSoundPlayed) {
 			const SoundManager::SoundHandle handle = SoundManager::GetInstance()->PlayWave(
 				defeatSound_, false, SoundManager::SoundCategory::SE);
 			SoundManager::GetInstance()->SetVolume(handle, kDefeatVolume);
+			defeatSoundPlayed = true;
 		}
 
 		graveyard_.push_back(std::move(enemy.object));
@@ -322,11 +434,13 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 	// 自機へ近づく。ただし種別ごとのkeepDistanceより内側には入らない。
 	// 射撃型はこの距離が遠いので手前で止まって撃ち、接近型は判定半径の和より内側まで
 	// 詰めるので必ず体当たりになる(=どう攻めるかが数値の差だけで決まる)
+	// 体当たりOFFの間、接近型(撃たない種別=体当たり専門)は動かずその場に浮いている的になる
 	for (Enemy& enemy : enemies_) {
 		const TypeParams& params = ParamsOf(enemy);
+		const bool canMove = ramEnabled_ || params.shoot;
 		const Vector3 toPlayer = playerPosition - enemy.position;
 		const float distance = std::sqrt(toPlayer.LengthSquared());
-		if (distance > params.keepDistance && distance > 1.0e-4f) {
+		if (canMove && distance > params.keepDistance && distance > 1.0e-4f) {
 			// 行き過ぎて反転しないよう、残り距離を超えて進まないようにする
 			const float step = (std::min)(params.moveSpeed * deltaTime, distance - params.keepDistance);
 			enemy.position += Vector3::Normalized(toPlayer) * step;
@@ -352,6 +466,7 @@ void EnemySpawner::Reset() {
 		spawnPoint.spawned = false;
 	}
 	defeatedCount_ = 0;
+	explosionCount_ = 0;
 }
 
 void EnemySpawner::Draw() {
@@ -370,7 +485,7 @@ void EnemySpawner::SetCamera(Camera* camera) {
 void EnemySpawner::DrawImGui() {
 #ifdef USE_IMGUI
 	ImGui::Begin("Enemy");
-	ImGui::Text("Alive: %zu  Defeated: %d", enemies_.size(), defeatedCount_);
+	ImGui::Text("Alive: %zu  Defeated: %d  Explosions: %d", enemies_.size(), defeatedCount_, explosionCount_);
 	// 体当たりが成立しているかの確認用(Keep Distanceを判定半径の和より大きくすると触れなくなる)
 	if (playerHit_) {
 		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Touching Player: YES");
@@ -408,9 +523,11 @@ void EnemySpawner::DrawImGui() {
 	ImGui::Checkbox("Shoot Enabled (all types)", &shootEnabled_);
 	ImGui::SameLine();
 	ImGui::Text("Shots: %d", shotCount_);
+	ImGui::Checkbox("Ram Enabled (all types)", &ramEnabled_);
 	ImGui::DragFloat("Interval Random", &shootIntervalRandom_, 0.01f, 0.0f, 0.9f, "%.2f");
 	// 撃破演出の粒数。configそのものは"Particle"ウィンドウ側でライブ編集できる
 	ImGui::DragInt("Defeat Particles", &defeatParticleCount_, 0.5f, 0, 200);
+	// 爆発の半径・ダメージ・見た目(粒数)は弾の性能なので"Charge Bullet"ウィンドウ側にある
 	ImGui::End();
 #endif
 }

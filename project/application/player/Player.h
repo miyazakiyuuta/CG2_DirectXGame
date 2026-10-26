@@ -3,7 +3,9 @@
 #include "math/Vector3.h"
 #include "math/Collision.h"
 
+#include <cstdint>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -59,6 +61,12 @@ public:
 	void SetBulletManager(BulletManager* bulletManager) { bulletManager_ = bulletManager; }
 
 	/// <summary>
+	/// チャージ弾の発射先。通常弾とは別インスタンスで、シーンが所有する(所有しない)。
+	/// nullptrならチャージは溜まらない(長押ししても押した瞬間の通常弾1発だけになる)
+	/// </summary>
+	void SetChargeBulletManager(BulletManager* bulletManager) { chargeBulletManager_ = bulletManager; }
+
+	/// <summary>
 	/// 敵弾の一覧の取得元。シーンが所有する実体を指すだけ(所有しない)。
 	/// nullptrなら敵弾では被弾しない。
 	/// 判定をここ(撃たれる側)に置く理由: 無敵時間の管理がTakeDamageの1箇所に閉じているため、
@@ -92,6 +100,34 @@ public:
 	const Vector3& GetAimPoint() const { return aimPoint_; }
 	// 銃口(弾の発射位置)。撃った瞬間のマズルフラッシュ等もここを使う
 	const Vector3& GetMuzzlePosition() const { return muzzlePosition_; }
+	/// <summary>
+	/// 自機の進行方向(今いる地点のレールの接線、単位ベクトル)。
+	/// 「自機→狙点」の向きは照準を動かすと横へ傾くので、進行方向が欲しいときはこちらを使う
+	/// </summary>
+	const Vector3& GetForward() const { return forward_; }
+
+	// チャージが満タンか(射撃ボタンを押し続けた時間がチャージ時間に達したか)
+	bool IsCharged() const { return chargeTimer_ >= chargeDuration_; }
+	// チャージの溜まり具合(0=空 〜 1=満タン)
+	float GetChargeRatio() const;
+
+	/// <summary>
+	/// 新しくロックできる状態か(チャージが満タンで、まだ誰もロックしていない)。
+	/// 敵を探すのは敵の位置を知っているEnemySpawnerで、シーンが結果をSetLockTargetで渡す
+	/// </summary>
+	bool CanLockOn() const { return IsCharged() && lockTargetId_ == 0; }
+	/// <summary>
+	/// ロックする敵の番号を受け取る(0でロック解除)。Playerは敵そのものを知らず、番号だけを持つ。
+	/// 離した瞬間にこの番号を付けてチャージ弾を撃ち、弾がその敵を追尾する。
+	/// ロックしていない状態から新しくロックした瞬間にロック音を鳴らす(被弾音をTakeDamageで鳴らすのと同じく、
+	/// 状態を持つPlayerが「変わった瞬間」の音も受け持つ)
+	/// </summary>
+	void SetLockTarget(uint32_t enemyId);
+	// ロック中の敵の番号(0=ロックなし)
+	uint32_t GetLockTargetId() const { return lockTargetId_; }
+	// ロックの吸い付く範囲(照準からの角度[rad])と最大距離[m]。判定はEnemySpawnerが行い、ここは設定値を持つだけ
+	float GetLockAssistAngle() const { return lockAssistAngle_; }
+	float GetLockRange() const { return lockRange_; }
 	// 今フレームでステージと接触しているか
 	bool IsHit() const { return isHit_; }
 	float GetCollisionRadius() const { return collisionRadius_; }
@@ -114,9 +150,16 @@ private:
 	/// </summary>
 	void ComputeRailFrame(float distance, Vector3& forward, Vector3& right, Vector3& up) const;
 
-	// 射撃入力を読み、クールタイムを消化していれば1発撃つ。
-	// worldPosition_と狙点が確定した後に呼ぶこと
+	// 射撃入力を読み、押した瞬間に通常弾を1発撃ち、押し続けている間はチャージを溜め、
+	// 満タンで離すとチャージ弾を撃つ。worldPosition_と狙点が確定した後に呼ぶこと
 	void UpdateShooting(float deltaTime);
+
+	// 弾の発射方向(銃口→狙点)。通常弾とチャージ弾で同じ向きに撃つため1箇所にまとめる
+	Vector3 ComputeShotDirection() const;
+
+	// チャージを溜められるか。発射先が無い間と、チャージ弾が飛んでいる
+	// (容量1のプールが埋まっている)間は溜めない=同時に飛ぶのは1発まで
+	bool CanCharge() const;
 
 	// 敵弾との当たり判定。当たった弾を消してTakeDamageを呼ぶ。
 	// ワールド位置が確定した後、無敵時間を消化した後に呼ぶこと
@@ -170,6 +213,8 @@ private:
 	// --- 射撃 ---
 	// 弾の発射先(シーンが所有。所有しない)
 	BulletManager* bulletManager_ = nullptr;
+	// チャージ弾の発射先(シーンが所有。所有しない)
+	BulletManager* chargeBulletManager_ = nullptr;
 	// 敵弾の一覧の取得元(シーンが所有。所有しない)
 	BulletManager* enemyBulletManager_ = nullptr;
 	// 敵弾で被弾した通算回数(ImGui表示用。無敵で弾かれた分は数えない)
@@ -183,20 +228,45 @@ private:
 	// 狙点をレール上の何m先に置くか
 	float aimDistance_ = 30.0f;
 	// 狙点に自機のオフセットをどれだけ反映するか。
-	// 1.0=レール接線と平行に飛ぶ / 0.0=自機がどこにいてもレール中心線へ完全収束
-	float aimConvergence_ = 0.5f;
+	// 1.0=レール接線と平行に飛ぶ / 0.0=自機がどこにいてもレール中心線へ完全収束 / 1より大きい=外側へ広がる。
+	// 狙点は自機より遠い(カメラから約42m、自機は約12m)ので、画面上でレティクルを自機並みに動かすには
+	// 1より大きい値が要る。2.5で自機の動く範囲の約7割(3.5で完全に同じだが、レティクルが常に機体に重なって見えにくい)
+	float aimConvergence_ = 2.5f;
 	// 銃口を自機の何m前に置くか(自機モデルの中から弾が湧いて見えないようにする)
 	float muzzleForwardOffset_ = 1.0f;
-	// 連射間隔[秒]と残りクールタイム。
-	// IsTriggerではなくIsPress+クールタイムで撃つ(RTはアナログ値で瞬間判定が無いため)
-	float shootInterval_ = 0.12f;
+	// 連打の最短間隔[秒]と残りクールタイム。押した瞬間に1発撃つ方式なので普段の連打では効かないが、
+	// RTを半押しで止めたときに押下判定がしきい値付近で揺れ、1回のつもりで何発も出るのを抑える
+	float shootInterval_ = 0.08f;
 	float shootCooldown_ = 0.0f;
+	// 前フレームで射撃ボタンが押されていたか。押した瞬間・離した瞬間は今フレームとの比較で求める
+	// (RTはアナログ値で瞬間判定が無いため、ActionInput::IsTriggerではなくIsPressの変化を自分で見る)
+	bool wasShootPressed_ = false;
 	// 射撃の許可(SetShootEnabledで外から渡される)。
 	// 状態でも設定でもない「外からの許可」なので、Reset()では戻さない
 	bool shootEnabled_ = true;
 
+	// --- チャージ(射撃ボタンの長押し) ---
+	// 押し続けている時間[秒]。満タン(chargeDuration_)で頭打ちにし、離すと0に戻る
+	float chargeTimer_ = 0.0f;
+	// 満タンになるまでの時間[秒]。短すぎると連打の合間に溜まってしまう
+	float chargeDuration_ = 0.7f;
+
+	// --- ロックオン(チャージ満タン中に照準を敵へ重ねる) ---
+	// ロック中の敵の番号(0=ロックなし)。押している間は照準を外しても保ち、
+	// 離す・撃てなくなる・Resetで外れる(敵が居なくなったときはシーンが外す)
+	uint32_t lockTargetId_ = 0;
+	// 吸い付く範囲。照準から敵の縁までがこの角度[rad]以内なら、チャージ中に照準がその敵へ引き寄せられ、
+	// 満タンでロックする。0なら照準を敵に重ねたときだけ、約30度(画面の端まで)にすると完全な自動照準になる。
+	// 既定は照準の近くだけに吸い付く半自動(連打で狙う通常弾との差を残しつつ、狙いの甘さを補う)
+	float lockAssistAngle_ = 8.0f * std::numbers::pi_v<float> / 180.0f;
+	// ロックできる最大距離[m](カメラから)。チャージ弾の射程(125m)より短くし、届かない敵をロックしない
+	float lockRange_ = 100.0f;
+
 	// 被弾音。SoundManagerのキャッシュと共有し、再生中のPCMを有効に保つ
 	std::shared_ptr<const SoundData> damageSound_;
+	// チャージが満タンになった瞬間の音と、ロックした瞬間の音(持ち方は被弾音と同じ)
+	std::shared_ptr<const SoundData> chargeReadySound_;
+	std::shared_ptr<const SoundData> lockOnSound_;
 
 	// 仮モデル(見た目は後で差し替える)
 	std::unique_ptr<Object3d> object3d_;

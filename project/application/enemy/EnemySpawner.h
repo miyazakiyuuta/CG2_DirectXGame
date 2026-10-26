@@ -54,6 +54,13 @@ public:
 	void SetBulletManager(BulletManager* bulletManager) { bulletManager_ = bulletManager; }
 
 	/// <summary>
+	/// 被弾判定に使うチャージ弾の一覧の取得元。シーンが所有する実体を指すだけ(所有しない)。
+	/// 通常弾と同じ判定を通し、違い(ダメージ・爆発の半径)は弾のProfileから読む。
+	/// nullptrならチャージ弾では被弾しない
+	/// </summary>
+	void SetChargeBulletManager(BulletManager* bulletManager) { chargeBulletManager_ = bulletManager; }
+
+	/// <summary>
 	/// 敵弾の発射先。自弾とは別インスタンスで、シーンが所有する(所有しない)。
 	/// nullptrなら敵は撃ってこない(体当たりだけになる)。
 	/// 自機に当たったかの判定はPlayer側が行う: 無敵時間の所有者がPlayerなので、
@@ -124,6 +131,41 @@ public:
 	/// <param name="point">狙点のワールド座標(Player::GetAimPoint)</param>
 	bool IsAimedAt(const Vector3& point) const;
 
+	/// <summary>
+	/// 視線(originからdirection方向へまっすぐ伸ばした線=レイ)のまわりの円錐に入っている生存中の敵のうち、
+	/// 視線に一番近い(視線からの角度が一番小さい)敵の番号を返す。ロックオンの吸い付き先を探すのに使う。
+	/// originにカメラ位置、directionにカメラ→狙点の向きを渡すと、角度はそのまま
+	/// 「画面上でレティクルからどれだけ離れて見えるか」になる(カメラを通る直線は画面上の1点に重なるため)
+	/// </summary>
+	/// <param name="origin">視線の始点(カメラ位置)</param>
+	/// <param name="direction">視線の向き(単位ベクトル)</param>
+	/// <param name="maxAngle">円錐の半角[rad]。敵の見た目の縁がこの角度以内なら対象にする。
+	/// 0なら「レティクルが敵に重なっている」ときだけ、大きくするほど離れた敵にも吸い付く</param>
+	/// <param name="maxDistance">これより遠い敵は対象にしない[m]</param>
+	/// <returns>敵の番号。見つからなければ0</returns>
+	uint32_t FindEnemyInCone(const Vector3& origin, const Vector3& direction, float maxAngle, float maxDistance) const;
+
+	/// <summary>
+	/// 番号から生存中の敵の位置を引く。ロックした敵の追跡と、チャージ弾の追尾先に使う。
+	/// 添字ではなく番号で引くのは、敵の一覧が撃破のたびに詰められ、並び順が変わってしまうため
+	/// </summary>
+	/// <param name="enemyId">敵の番号(FindEnemyInConeの戻り値)</param>
+	/// <param name="outPosition">見つかった敵のワールド位置</param>
+	/// <returns>居なければ(撃破済み・Reset済み・0を渡した)false</returns>
+	bool TryGetEnemyPosition(uint32_t enemyId, Vector3& outPosition) const;
+
+	/// <summary>
+	/// 番号から生存中の敵の位置と判定半径を引く。ロック枠を敵の大きさに合わせて描くのに使う
+	/// </summary>
+	/// <returns>居なければfalse(TryGetEnemyPositionと同じ)</returns>
+	bool TryGetEnemySphere(uint32_t enemyId, Vector3& outCenter, float& outRadius) const;
+
+	/// <summary>
+	/// 爆発した通算回数。シーンが更新の前後で比べ、増えていたら手応えの演出(画面の揺れ・ヒットストップ)を出す
+	/// (Playerの被弾をHPの増減で拾うのと同じ、「結果の差分を見る」やり方)
+	/// </summary>
+	int GetExplosionCount() const { return explosionCount_; }
+
 	const std::vector<SpawnPoint>& GetSpawnPoints() const { return spawnPoints_; }
 	size_t GetSpawnedCount() const { return enemies_.size(); }
 	// 撃破した通算数(ImGui表示用)
@@ -136,6 +178,8 @@ private:
 	// 発生済みの敵1体分。見た目(Object3d)と当たり判定に要る状態をまとめて持つ。
 	// 弾(Bullet)と違いプールしないのは、敵は同時存在数が少なく、撃破で確実に減るため
 	struct Enemy {
+		// 出現時に振る番号(1から。0は「なし」を表すので振らない)。ロックオンと追尾が敵を指すのに使う
+		uint32_t id = 0;
 		std::unique_ptr<Object3d> object; // 見た目
 		Vector3 position{};               // ワールド位置(objectのtranslateと同期させる)
 		// 種別(typeParams_の添字)。半径や速さを写しではなく添字で持つのは、
@@ -154,8 +198,28 @@ private:
 	// 即deleteするとOBJECT_DELETED_WHILE_STILL_IN_USEでGPU実行が壊れる(Stageと同じ対策)
 	void RetireEnemies();
 
-	// 自弾との当たり判定。命中した弾を消し、敵のHPを減らす
-	void UpdateBulletCollision();
+	// 自弾との当たり判定。命中した弾を消し、敵のHPを減らす。
+	// 爆発する弾(explosionRadius>0)は、当たった位置の周りの敵もまとめて巻き込む。
+	// 通常弾とチャージ弾の両方にこの関数を使う(違いは弾のProfileの値だけなので、型で分けない)
+	void UpdateBulletCollision(BulletManager* bulletManager);
+
+	/// <summary>
+	/// 爆発。爆心から半径内(敵の判定球と重なる範囲)にいる生存中の敵すべてにダメージを与える。
+	/// 撃破の処理(演出・削除・撃破数)はUpdateの既存の流れに任せる。
+	/// 爆発そのものの見た目と音は、弾が消えるときの演出としてBulletManagerが出す(ここはダメージだけ)
+	/// </summary>
+	/// <param name="center">爆心(弾が当たった位置)</param>
+	/// <param name="radius">爆発の半径[m]</param>
+	/// <param name="damage">巻き込んだ敵それぞれに与えるダメージ</param>
+	/// <param name="directHit">弾が直撃した敵。半径に関係なく必ず巻き込む</param>
+	void Explode(const Vector3& center, float radius, int damage, const Enemy& directHit);
+
+	// HPを減らし、残っていれば色に反映する(撃破されたら消えるので色は変えない)
+	void ApplyDamage(Enemy& enemy, int damage) const;
+
+	// 番号から生存中の敵を探す。見つからなければnullptr。
+	// 返したポインタは敵の一覧を変えるまで(次の発生・撃破まで)しか使わないこと(vectorの要素を指すため)
+	const Enemy* FindEnemyById(uint32_t enemyId) const;
 
 	// 自機との接触判定(A-5)。結果をplayerHit_へ書くだけでダメージは与えない
 	void UpdatePlayerCollision(const Vector3& playerPosition, float playerRadius);
@@ -184,11 +248,16 @@ private:
 	std::vector<SpawnPoint> spawnPoints_;
 	// 発生済みの敵の実体
 	std::vector<Enemy> enemies_;
+	// 次に出現する敵へ振る番号。Resetでも戻さない: 番号を使い回すと、
+	// 飛んでいるチャージ弾やロックが持っている古い番号が、新しく出た別の敵を指してしまうため
+	uint32_t nextEnemyId_ = 1;
 	// 破棄待ちの見た目。次のUpdate冒頭(前フレームのGPU実行完了後)にまとめて破棄する
 	std::vector<std::unique_ptr<Object3d>> graveyard_;
 
 	// 自弾の一覧の取得元(シーンが所有。所有しない)
 	BulletManager* bulletManager_ = nullptr;
+	// チャージ弾の一覧の取得元(シーンが所有。所有しない)
+	BulletManager* chargeBulletManager_ = nullptr;
 	// 敵弾の発射先(シーンが所有。所有しない)
 	BulletManager* enemyBulletManager_ = nullptr;
 	Camera* camera_ = nullptr;
@@ -207,7 +276,12 @@ private:
 
 	// --- 全種別で共通のパラメータ ---
 	int defeatParticleCount_ = 40; // 撃破時に出すパーティクルの粒数(見た目の調整用)
-	bool shootEnabled_ = true;     // 撃ってくるか(難易度確認とデバッグ用に丸ごと止められる)
+	// 敵の攻撃の切り替え(難易度確認とデバッグ用に丸ごと止められる)。
+	// 発表の映像で弾や被弾演出がノイズにならないよう、今は2つとも一時的にOFFにしてある(戻すときはtrueに)
+	bool shootEnabled_ = false; // 撃ってくるか
+	// 体当たりしてくるか。OFFの間は、接近型(撃たない種別)がその場に留まり、
+	// どの種別に触れてもダメージにならない(接近の予告音も鳴らさない)
+	bool ramEnabled_ = false;
 	// 間隔に掛ける乱数の幅(±割合)。0なら同じ種別の敵が全員同じ周期で撃つ
 	float shootIntervalRandom_ = 0.35f;
 	int shotCount_ = 0; // 通算の発射数(ImGui表示用)
@@ -217,4 +291,6 @@ private:
 
 	// 撃破した通算数(ImGui表示用)
 	int defeatedCount_ = 0;
+	// 爆発した通算回数(ImGui表示用)
+	int explosionCount_ = 0;
 };

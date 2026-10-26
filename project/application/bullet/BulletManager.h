@@ -4,8 +4,11 @@
 #include "math/Vector4.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 class Camera;
@@ -42,10 +45,38 @@ public:
 		float speed = 80.0f;   // 初速[m/s]
 		float lifeTime = 2.0f; // 寿命[秒](速度×寿命=射程)
 		float radius = 0.3f;   // 判定半径[m]。見た目のscaleと合わせる
+		// 当たった相手に与えるダメージ(自弾→敵のHP、敵弾→自機のHP)
+		int damage = 1;
+		// 当たったときの爆発の半径[m]。0なら爆発せず、当たった相手だけにダメージを与える。
+		// 巻き込み(半径内の敵へのダメージ)は敵の一覧を持つEnemySpawnerが行う
+		float explosionRadius = 0.0f;
+		// 追尾の強さ。1秒間に向きを変えられる最大の角度[度/秒]。
+		// 追尾先の番号付きで撃たれた弾(Fireのtarget)にだけ効く
+		float homingTurnRate = 0.0f;
+		// --- 見た目と音の演出(空なら何もしない=自弾・敵弾は今までどおり) ---
+		// パーティクルはParticleManagerのプリセット名で指定する。登録(RegisterEffect)は使う側(シーン)が
+		// 弾を撃つより前に済ませておくこと(未登録の名前でEmitするとassertで止まる)
+		// 飛んでいる間に出し続ける尾のプリセット名と、1秒あたりの粒数
+		std::string trailEffect;
+		float trailRate = 0.0f;
+		// 弾が消えるとき(敵・地形に当たる、射程切れ)に出すプリセット名と粒数。
+		// 敵に当たったときの「爆発の見た目」もここが担う(巻き込みのダメージはEnemySpawner)
+		std::string impactEffect;
+		int impactParticleCount = 0;
+		// 弾が消えるときの音と音量
+		std::string impactSound;
+		float impactVolume = 1.0f;
 		// ImGuiウィンドウ名。自弾と敵弾で必ず変えること:
 		// 同名のBeginは1枚のウィンドウに合体し、同じラベルのスライダーがID衝突を起こす
 		std::string debugName = "Bullet";
 	};
+
+	/// <summary>
+	/// 番号から追尾先の位置を引く窓口。見つかればoutPositionに書いてtrue、居なければfalseを返す関数。
+	/// 関数として受け取るのは、BulletManagerが敵の型(EnemySpawner)を知らずに追尾できるようにするため
+	/// (敵を知らない作りだからこそ、自弾・敵弾・チャージ弾で同じクラスを使い回せている)
+	/// </summary>
+	using TargetResolver = std::function<bool(uint32_t targetId, Vector3& outPosition)>;
 
 	/// <summary>
 	/// プールを確保する。ここでcapacity個のObject3dをまとめて生成し、以降は生成しない
@@ -60,7 +91,8 @@ public:
 	/// </summary>
 	/// <param name="position">発射位置(銃口のワールド座標)</param>
 	/// <param name="direction">進行方向。正規化されていなくてよい(内部で正規化する)</param>
-	void Fire(const Vector3& position, const Vector3& direction);
+	/// <param name="targetId">追尾する相手の番号。0(省略時)なら追尾せずまっすぐ飛ぶ</param>
+	void Fire(const Vector3& position, const Vector3& direction, uint32_t targetId = 0);
 
 	void Update(float deltaTime);
 	void Draw();
@@ -75,6 +107,9 @@ public:
 	/// </summary>
 	void SetStageColliders(const std::vector<AABB>* colliders) { stageColliders_ = colliders; }
 
+	// 追尾先の位置を引く窓口を渡す。未設定なら、番号付きで撃たれた弾もまっすぐ飛ぶ
+	void SetTargetResolver(TargetResolver resolver) { targetResolver_ = std::move(resolver); }
+
 	// 生存中の弾を全て消す(レール一周・Resetボタン用)。実体は消さないのでいつ呼んでも安全
 	void Clear();
 
@@ -87,17 +122,35 @@ public:
 	const std::vector<Bullet>& GetBullets() const { return bullets_; }
 
 	/// <summary>
-	/// index番の弾を消す。A-4で敵に当たった弾を消すための窓口
+	/// index番の弾を消す。A-4で敵に当たった弾を消すための窓口。
+	/// 地形・射程切れと同じく、Profileに消えるときの演出があれば出す
 	/// </summary>
 	void Kill(size_t index);
 
 	// 判定半径(自弾→敵・敵弾→自機の判定でも同じ値を使う)
 	float GetRadius() const { return profile_.radius; }
+	// 1発あたりのダメージ
+	int GetDamage() const { return profile_.damage; }
+	// 爆発の半径[m](0なら爆発しない)
+	float GetExplosionRadius() const { return profile_.explosionRadius; }
+
+	/// <summary>
+	/// 空きスロットがあるか(=今Fireすれば撃てるか)。
+	/// チャージ弾は容量1で作るので、「飛んでいる間はチャージが溜まらない」の判定にそのまま使える
+	/// </summary>
+	bool HasFreeSlot() const;
 
 	BulletManager();
 	~BulletManager();
 
 private:
+	/// <summary>
+	/// 弾が「消える」ときの共通処理。消えた位置にProfileの演出(パーティクル・音)を出す。
+	/// 敵に当たる(Kill)・地形に当たる・射程切れの3つがここを通るので、どの消え方でも同じ見た目になる。
+	/// Clear(レール一周・Reset)は演出を出さずに消すので、ここを通さない
+	/// </summary>
+	void Expire(size_t index);
+
 	// 弾の状態。要素数はInitialize後に変わらない(indexがスロット番号そのもの)
 	std::vector<Bullet> bullets_;
 	// bullets_と同じ並びの見た目(indexで対応)。activeでない弾の分もここに残り続ける
@@ -106,10 +159,14 @@ private:
 	// Stageが所有するワールドAABB一覧への参照(所有しない)
 	const std::vector<AABB>* stageColliders_ = nullptr;
 	Camera* camera_ = nullptr;
+	// 追尾先の位置を引く窓口(シーンが渡す)
+	TargetResolver targetResolver_;
 
 	// 発射音。SoundManagerのキャッシュと共有し、発射のたびにPCMをコピーしない。
 	// ヘッダにxaudio2.hを引き込まないようSoundDataは前方宣言のまま持つ
 	std::shared_ptr<const SoundData> shotSound_;
+	// 弾が消えるときの音(Profileで指定が無ければnullptr=鳴らさない)
+	std::shared_ptr<const SoundData> impactSound_;
 
 	// 全弾共通のパラメータ(Initializeで受け取り、ImGuiで調整する)
 	Profile profile_;

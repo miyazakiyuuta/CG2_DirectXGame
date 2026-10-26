@@ -23,6 +23,23 @@ namespace {
 	// 被弾音。撃破音より控えめにして、爆発と重なっても濁らないようにする
 	const std::string kDamageSound = "resources/sounds/damage.mp3";
 	constexpr float kDamageVolume = 0.6f;
+
+	// チャージ満タンの音とロック音。どちらも合成で作った仮の音なので、
+	// 同じ名前のファイルを置き換えれば差し替わる(mp3にするなら拡張子もここで直す)
+	const std::string kChargeReadySound = "resources/sounds/charge_ready.wav";
+	constexpr float kChargeReadyVolume = 0.6f;
+	const std::string kLockOnSound = "resources/sounds/lockon.wav";
+	constexpr float kLockOnVolume = 0.7f;
+
+	// 効果音を1回鳴らす(音声ファイルが読めていなければ何もしない=ゲームは止めない)
+	void PlaySe(const std::shared_ptr<const SoundData>& sound, float volume) {
+		if (!sound) {
+			return;
+		}
+		const SoundManager::SoundHandle handle =
+			SoundManager::GetInstance()->PlayWave(sound, false, SoundManager::SoundCategory::SE);
+		SoundManager::GetInstance()->SetVolume(handle, volume);
+	}
 }
 
 const std::string& Player::ModelPath() {
@@ -43,8 +60,10 @@ void Player::Initialize(ActionInput* actionInput) {
 	object3d_->SetModel(kModel);
 	object3d_->SetScale({ kModelScale, kModelScale, kModelScale });
 
-	// 被弾音はSoundManagerのキャッシュと共有する
+	// 被弾音・チャージ満タンの音・ロック音はSoundManagerのキャッシュと共有する
 	damageSound_ = SoundManager::GetInstance()->LoadFile(kDamageSound);
+	chargeReadySound_ = SoundManager::GetInstance()->LoadFile(kChargeReadySound);
+	lockOnSound_ = SoundManager::GetInstance()->LoadFile(kLockOnSound);
 
 	// 状態の初期化はReset()に集約
 	Reset();
@@ -78,7 +97,7 @@ void Player::Update(float deltaTime) {
 
 		// 狙点: レール上のaimDistance_先の点に、自機オフセットをaimConvergence_の割合だけ足す。
 		// 右/上はその地点の接線から作り直す(自機地点の軸を流用すると、カーブでは狙点が
-		// レールから外れて画面外を向く)。aimConvergence_=1なら接線と平行、0なら中心線へ収束する
+		// レールから外れて画面外を向く)。aimConvergence_=1なら接線と平行、0なら中心線へ収束、1より大きいと外側へ広がる
 		Vector3 aimForward, aimRight, aimUp;
 		ComputeRailFrame(railDistance_ + aimDistance_, aimForward, aimRight, aimUp);
 		aimPoint_ = rail_->GetPositionByDistance(railDistance_ + aimDistance_) +
@@ -146,32 +165,88 @@ void Player::ComputeRailFrame(float distance, Vector3& forward, Vector3& right, 
 }
 
 void Player::UpdateShooting(float deltaTime) {
-	// クールタイムは撃てない間も消化する(押しっぱなしで一定間隔の連射になる)
+	// クールタイムは撃てない間も消化する
 	shootCooldown_ -= deltaTime;
 
-	// 射撃を止められている間(エディタのEditモード)は撃たない。
-	// クールタイムの消化より後に置く: 上と同じ方針で、止められている間もクールタイムは進める
+	if (!actionInput_) {
+		return;
+	}
+
+	// 押した瞬間・離した瞬間を、前フレームの押下状態との比較で求める(エッジ検出)。
+	// 押下状態の記録は撃てない間も続ける: 止めると、押したままイントロが明けたフレームを
+	// 「押した瞬間」と取り違え、押し直していないのに1発出てしまう
+	const bool pressed = actionInput_->IsPress(ActionInput::Action::Shoot);
+	const bool justPressed = pressed && !wasShootPressed_;
+	const bool justReleased = !pressed && wasShootPressed_;
+	wasShootPressed_ = pressed;
+
+	// 射撃を止められている間(エディタのEditモード・イントロ中)は撃たず、チャージも溜めない。
+	// 溜まっていた分とロックも捨てる(撃てない間を溜めていた時間に数えない)
 	if (!shootEnabled_) {
+		chargeTimer_ = 0.0f;
+		lockTargetId_ = 0;
 		return;
 	}
 
-	if (!bulletManager_ || !actionInput_) {
-		return;
+	// 押した瞬間に通常弾を1発。押しっぱなしでは連射しない(連打で撃つ)。
+	// 長押しはチャージに使うため、押している間ずっと撃つと「溜めながら撃ち続ける」ことになる
+	if (justPressed && shootCooldown_ <= 0.0f && bulletManager_) {
+		shootCooldown_ = shootInterval_;
+		bulletManager_->Fire(muzzlePosition_, ComputeShotDirection());
 	}
-	// IsTriggerではなくIsPress。RT(アナログトリガー)には瞬間判定が無いため、
-	// 押しっぱなし判定+クールタイムでないとパッドのRT射撃が成立しない(ActionInput.cpp参照)
-	if (!actionInput_->IsPress(ActionInput::Action::Shoot) || shootCooldown_ > 0.0f) {
-		return;
-	}
-	shootCooldown_ = shootInterval_;
 
+	// チャージは押している間だけ溜まり、満タンで頭打ちにする。
+	// 「毎秒量×dt」で溜めるので、ヒットストップ(dt=0)の間は止まる。
+	// チャージ弾が飛んでいる間は溜めない(同時に飛ぶのは1発まで)
+	if (pressed) {
+		if (CanCharge()) {
+			const bool wasCharged = IsCharged();
+			chargeTimer_ = (std::min)(chargeTimer_ + deltaTime, chargeDuration_);
+			// 満タンになった瞬間だけ鳴らす(満タンのまま押している間は鳴らし直さない)
+			if (!wasCharged && IsCharged()) {
+				PlaySe(chargeReadySound_, kChargeReadyVolume);
+			}
+		}
+		return;
+	}
+
+	// 離した瞬間に満タンなら、チャージ弾を撃つ。ロック中ならその敵の番号を付けて撃ち、弾が追尾する。
+	// 満タン前に離した場合は何もしない: 押した瞬間の通常弾はもう出ている
+	if (justReleased && IsCharged() && CanCharge()) {
+		chargeBulletManager_->Fire(muzzlePosition_, ComputeShotDirection(), lockTargetId_);
+	}
+	chargeTimer_ = 0.0f;
+	lockTargetId_ = 0; // 離したらロックも外す(次のロックは、また満タンまで溜めてから)
+}
+
+Vector3 Player::ComputeShotDirection() const {
 	// 発射方向は「銃口→狙点」。レール終端では狙点が手前にクランプされて方向が
 	// 縮退・反転しうるので、その場合は素直に前方(接線)へ撃つ
 	Vector3 direction = aimPoint_ - muzzlePosition_;
 	if (direction.LengthSquared() < 1.0e-6f || Vector3::Dot(direction, forward_) <= 0.0f) {
 		direction = forward_;
 	}
-	bulletManager_->Fire(muzzlePosition_, direction);
+	return direction;
+}
+
+bool Player::CanCharge() const {
+	return chargeBulletManager_ && chargeBulletManager_->HasFreeSlot();
+}
+
+void Player::SetLockTarget(uint32_t enemyId) {
+	// ロックしていない状態から新しくロックした瞬間だけ鳴らす(外すとき・同じ敵のままのときは鳴らさない)
+	if (lockTargetId_ == 0 && enemyId != 0) {
+		PlaySe(lockOnSound_, kLockOnVolume);
+	}
+	lockTargetId_ = enemyId;
+}
+
+float Player::GetChargeRatio() const {
+	// チャージ時間が0以下なら常に満タン扱い(IsChargedと同じ結果にそろえ、0除算もしない)
+	if (chargeDuration_ <= 0.0f) {
+		return 1.0f;
+	}
+	return std::clamp(chargeTimer_ / chargeDuration_, 0.0f, 1.0f);
 }
 
 void Player::UpdateEnemyBulletCollision() {
@@ -199,7 +274,8 @@ void Player::UpdateEnemyBulletCollision() {
 		if (CanTakeDamage()) {
 			++enemyBulletHitCount_;
 		}
-		TakeDamage(1);
+		// ダメージ量は弾のProfileが持つ(既定は1。自弾→敵と同じく弾のデータで決める)
+		TakeDamage(enemyBulletManager_->GetDamage());
 	}
 }
 
@@ -215,11 +291,7 @@ void Player::TakeDamage(int amount) {
 
 	// 被弾音。早期returnの後に置いてあるので、地形に触れ続けても
 	// 無敵が切れるまで鳴らない(ダメージが入った瞬間とだけ一致する)
-	if (damageSound_) {
-		const SoundManager::SoundHandle handle = SoundManager::GetInstance()->PlayWave(
-			damageSound_, false, SoundManager::SoundCategory::SE);
-		SoundManager::GetInstance()->SetVolume(handle, kDamageVolume);
-	}
+	PlaySe(damageSound_, kDamageVolume);
 }
 
 void Player::Draw() {
@@ -272,13 +344,30 @@ void Player::DrawImGui() {
 		ImGui::Text("Hit: no");
 	}
 
-	// 射撃と照準。aimConvergenceは 1.0=接線と平行に飛ぶ / 0.0=レール中心線へ完全収束
+	// 射撃と照準。aimConvergenceは 1.0=接線と平行に飛ぶ / 0.0=レール中心線へ完全収束 / 1より大きい=外側へ広がる
+	// (大きいほど画面上でレティクルが自機の近くまで動く。約3.5で自機と同じ動きになる)
 	ImGui::SeparatorText("Shooting");
-	ImGui::DragFloat("Fire Interval", &shootInterval_, 0.01f, 0.02f, 1.0f, "%.2f s");
+	ImGui::DragFloat("Min Fire Interval", &shootInterval_, 0.01f, 0.02f, 1.0f, "%.2f s");
 	ImGui::DragFloat("Aim Distance", &aimDistance_, 0.5f, 1.0f, 200.0f, "%.1f m");
-	ImGui::DragFloat("Aim Convergence", &aimConvergence_, 0.01f, 0.0f, 1.0f, "%.2f");
+	ImGui::DragFloat("Aim Convergence", &aimConvergence_, 0.01f, 0.0f, 4.0f, "%.2f");
 	ImGui::DragFloat("Muzzle Offset", &muzzleForwardOffset_, 0.05f, 0.0f, 10.0f, "%.2f m");
 	ImGui::Text("Aim: (%.1f, %.1f, %.1f)", aimPoint_.x, aimPoint_.y, aimPoint_.z);
+
+	// チャージ(長押し)。満タンで離すとチャージ弾が出る(弾の速さ・ダメージ・爆発は"Charge Bullet"ウィンドウ)
+	ImGui::SeparatorText("Charge");
+	ImGui::DragFloat("Charge Time", &chargeDuration_, 0.01f, 0.1f, 3.0f, "%.2f s");
+	ImGui::ProgressBar(GetChargeRatio(), ImVec2(-1.0f, 0.0f), IsCharged() ? "CHARGED" : nullptr);
+	// in flightの間は溜まらない(同時に飛ぶのは1発まで)
+	ImGui::Text("Charge Shot: %s", CanCharge() ? "ready" : "in flight");
+	// ロックオン。チャージ中は照準からLock Assistの角度以内にいる敵へ照準が引き寄せられ、満タンでロックする
+	// (0度=重ねたときだけ / 30度前後=画面のどこにいても自動でロック)
+	ImGui::SliderAngle("Lock Assist", &lockAssistAngle_, 0.0f, 45.0f);
+	ImGui::DragFloat("Lock Range", &lockRange_, 1.0f, 1.0f, 300.0f, "%.0f m");
+	if (lockTargetId_ != 0) {
+		ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.2f, 1.0f), "Lock: enemy #%u", lockTargetId_);
+	} else {
+		ImGui::Text("Lock: none");
+	}
 
 	// Boostは未実装(定義のみ)。マッピング確認用に押下状態だけ見せる
 	ImGui::SeparatorText("Actions (mapping check)");
@@ -300,6 +389,10 @@ void Player::Reset() {
 	invincibleTimer_ = 0.0f;
 	enemyBulletHitCount_ = 0; // 敵弾で何回食らったかのカウンタをリセット(ImGui表示用)
 	shootCooldown_ = 0.0f;
+	chargeTimer_ = 0.0f;
+	lockTargetId_ = 0;
+	// wasShootPressed_は戻さない: ゲームの状態ではなく「物理的なボタンの前回値」なので、
+	// 押したままResetしたときに戻すと、押し直していないのに「押した瞬間」と取り違える
 }
 
 Player::Player() = default;

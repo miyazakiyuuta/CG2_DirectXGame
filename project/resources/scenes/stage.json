@@ -395,7 +395,7 @@
         {
             "enemy": "frog",
             "name": "spawn",
-            "railDistance": 25.0,
+            "railDistance": 1.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -418,7 +418,7 @@
         {
             "enemy": "sword",
             "name": "spawn_1",
-            "railDistance": 55.0,
+            "railDistance": 15.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -441,7 +441,7 @@
         {
             "enemy": "frog",
             "name": "spawn_2",
-            "railDistance": 90.0,
+            "railDistance": 50.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -728,7 +728,7 @@
         {
             "enemy": "frog",
             "name": "spawn_3",
-            "railDistance": 130.0,
+            "railDistance": 90.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -751,7 +751,7 @@
         {
             "enemy": "frog",
             "name": "spawn_4",
-            "railDistance": 160.0,
+            "railDistance": 120.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -774,7 +774,7 @@
         {
             "enemy": "frog",
             "name": "spawn_5",
-            "railDistance": 160.0,
+            "railDistance": 120.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -797,7 +797,7 @@
         {
             "enemy": "sword",
             "name": "spawn_6",
-            "railDistance": 195.0,
+            "railDistance": 155.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -820,7 +820,7 @@
         {
             "enemy": "sword",
             "name": "spawn_7",
-            "railDistance": 203.0,
+            "railDistance": 163.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -843,7 +843,7 @@
         {
             "enemy": "sword",
             "name": "spawn_8",
-            "railDistance": 211.0,
+            "railDistance": 171.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -866,7 +866,7 @@
         {
             "enemy": "sword",
             "name": "spawn_9",
-            "railDistance": 240.0,
+            "railDistance": 200.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -889,7 +889,7 @@
         {
             "enemy": "sword",
             "name": "spawn_10",
-            "railDistance": 240.0,
+            "railDistance": 200.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -912,7 +912,7 @@
         {
             "enemy": "frog",
             "name": "spawn_11",
-            "railDistance": 280.0,
+            "railDistance": 240.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -935,7 +935,7 @@
         {
             "enemy": "sword",
             "name": "spawn_12",
-            "railDistance": 280.0,
+            "railDistance": 240.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -958,7 +958,7 @@
         {
             "enemy": "frog",
             "name": "spawn_13",
-            "railDistance": 320.0,
+            "railDistance": 280.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -981,7 +981,7 @@
         {
             "enemy": "sword",
             "name": "spawn_14",
-            "railDistance": 130.0,
+            "railDistance": 90.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -1004,7 +1004,7 @@
         {
             "enemy": "frog",
             "name": "spawn_15",
-            "railDistance": 240.0,
+            "railDistance": 200.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -1027,7 +1027,7 @@
         {
             "enemy": "sword",
             "name": "spawn_16",
-            "railDistance": 280.0,
+            "railDistance": 240.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -1050,7 +1050,7 @@
         {
             "enemy": "sword",
             "name": "spawn_17",
-            "railDistance": 320.0,
+            "railDistance": 280.0,
             "transform": {
                 "rotate": {
                     "x": 0.0,

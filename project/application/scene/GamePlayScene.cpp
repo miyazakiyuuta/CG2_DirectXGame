@@ -89,6 +89,14 @@ namespace {
 	constexpr float kScoreMarginY = 26.0f;
 	// 敵1体撃破あたりの点数
 	constexpr int kScorePerEnemy = 100;
+
+	// チャージ弾の演出に使うパーティクルのプリセット名。登録(RegisterEffect)と、
+	// 弾のProfileへの指定はどちらもこのシーンで行う(名前を2か所に直書きしないよう定数にまとめる)
+	const std::string kChargeTrailEffect = "chargeTrail";
+	const std::string kChargeExplosionEffect = "chargeExplosion";
+	// チャージ弾が消える(爆発する)ときの音。撃破音と同じ素材だが、
+	// 爆発したフレームは撃破音を鳴らさない(EnemySpawner)ので同じ音が重ならない
+	const std::string kChargeExplosionSound = "resources/sounds/explosion.mp3";
 }
 
 void GamePlayScene::Initialize() {
@@ -118,6 +126,37 @@ void GamePlayScene::Initialize() {
 	explosionConfig.endScaleRatio = 0.1f; // 縮みながら消える
 	ParticleManager::GetInstance()->RegisterEffect(
 	EnemySpawner::DefeatEffectName(), "resources/circle.png", explosionConfig, BlendMode::Add);
+
+	// チャージ弾の尾。弾と同じ黄緑で、小さく短命にして「光の筋」に見せる。
+	// 弾の通り道に置いていくだけなので、速度はごく小さくしてその場に残す
+	ParticleConfig chargeTrailConfig;
+	chargeTrailConfig.minScale = { 0.25f, 0.25f, 0.25f };
+	chargeTrailConfig.maxScale = { 0.45f, 0.45f, 0.45f };
+	chargeTrailConfig.minVelocity = { -0.6f, -0.6f, -0.6f };
+	chargeTrailConfig.maxVelocity = { 0.6f, 0.6f, 0.6f };
+	chargeTrailConfig.lifeTimeMin = 0.2f;
+	chargeTrailConfig.lifeTimeMax = 0.4f;
+	chargeTrailConfig.startColor = { 0.7f, 1.0f, 0.4f, 0.9f };
+	chargeTrailConfig.endColor = { 0.2f, 0.8f, 0.1f, 0.0f };
+	chargeTrailConfig.endScaleRatio = 0.2f; // 細くなりながら消える
+	ParticleManager::GetInstance()->RegisterEffect(
+		kChargeTrailEffect, "resources/circle.png", chargeTrailConfig, BlendMode::Add);
+
+	// チャージ弾の爆発。撃破の爆発(上)より大きく速く広げ、爆発の半径(6m)が目で分かる広がりにする
+	// (速さ±14m/s×寿命0.3〜0.6秒 ≒ 半径4〜8m)。色は弾と同じ黄緑から橙へ変え、チャージ弾の爆発だと分かるようにする
+	ParticleConfig chargeExplosionConfig;
+	chargeExplosionConfig.minScale = { 0.6f, 0.6f, 0.6f };
+	chargeExplosionConfig.maxScale = { 1.4f, 1.4f, 1.4f };
+	chargeExplosionConfig.minVelocity = { -14.0f, -14.0f, -14.0f };
+	chargeExplosionConfig.maxVelocity = { 14.0f, 14.0f, 14.0f };
+	chargeExplosionConfig.acceleration = { 0.0f, -2.0f, 0.0f };
+	chargeExplosionConfig.lifeTimeMin = 0.3f;
+	chargeExplosionConfig.lifeTimeMax = 0.6f;
+	chargeExplosionConfig.startColor = { 0.9f, 1.0f, 0.6f, 1.0f };
+	chargeExplosionConfig.endColor = { 1.0f, 0.4f, 0.0f, 0.0f };
+	chargeExplosionConfig.endScaleRatio = 0.2f;
+	ParticleManager::GetInstance()->RegisterEffect(
+		kChargeExplosionEffect, "resources/circle.png", chargeExplosionConfig, BlendMode::Add);
 
 	// GPUパーティクルのサンプル: 空間を漂う塵(大量・常時放出はGPU側の担当)
 	// 定常時の生存数 ≈ emitCount × 平均寿命 ÷ frequency = 1000 × 6 ÷ 0.1 = 約6万粒
@@ -191,6 +230,42 @@ void GamePlayScene::Initialize() {
 	enemyBulletManager_->SetStageColliders(&stage_->GetWorldColliders());
 	enemySpawner_->SetEnemyBulletManager(enemyBulletManager_.get());
 	player_->SetEnemyBulletManager(enemyBulletManager_.get());
+
+	// チャージ弾(長押しで溜めて、離すと撃つ)。BulletManagerの3つ目で、違いはProfileだけ。
+	// 容量を1にして「同時に飛ぶのは1発まで」をプールの空きで表す(Playerは空きが無い間チャージを溜めない)
+	chargeBulletManager_ = std::make_unique<BulletManager>();
+	BulletManager::Profile chargeBulletProfile;
+	chargeBulletProfile.color = { 0.6f, 1.0f, 0.3f, 1.0f }; // 自弾(水色)とも敵弾(橙)とも違う黄緑
+	// 自弾(80m/s)より遅くする: 溜めた弾が飛んでいく様子を目で追えるようにする
+	chargeBulletProfile.speed = 50.0f;
+	chargeBulletProfile.lifeTime = 2.5f; // 射程125m
+	chargeBulletProfile.radius = 0.8f;   // 溜めた分だけ大きく見せる
+	chargeBulletProfile.damage = 3;      // 今の敵(HP2〜3)をどれも直撃1発で倒せる
+	chargeBulletProfile.explosionRadius = 6.0f; // 当たった周りの敵も巻き込む
+	// ロック中に撃ったときの追尾の強さ。50m/sで半径約10mの円を描ける曲がり方
+	// (弱すぎると、近くの敵の周りを曲がり切れずに回ってしまう)
+	chargeBulletProfile.homingTurnRate = 300.0f;
+	// 演出: 飛んでいる間の尾と、消えるとき(敵・地形・射程切れ)の爆発。
+	// どちらのプリセットもこの関数の先頭で登録済み(未登録のままEmitするとassertで止まる)
+	chargeBulletProfile.trailEffect = kChargeTrailEffect;
+	chargeBulletProfile.trailRate = 120.0f;
+	chargeBulletProfile.impactEffect = kChargeExplosionEffect;
+	chargeBulletProfile.impactParticleCount = 120;
+	chargeBulletProfile.impactSound = kChargeExplosionSound;
+	chargeBulletProfile.impactVolume = 0.8f;
+	chargeBulletProfile.shotVolume = 0.6f; // 専用の発射音が入るまでは、自弾と同じ音を大きめに鳴らして区別する
+	chargeBulletProfile.debugName = "Charge Bullet";
+	chargeBulletManager_->Initialize(1, chargeBulletProfile);
+	chargeBulletManager_->SetCamera(camera_.get());
+	chargeBulletManager_->SetStageColliders(&stage_->GetWorldColliders());
+	player_->SetChargeBulletManager(chargeBulletManager_.get());
+	enemySpawner_->SetChargeBulletManager(chargeBulletManager_.get());
+	// 追尾先の位置は「敵の番号→位置」の窓口で引く。BulletManagerは敵の型を知らないまま追尾できる。
+	// enemySpawner_もこのシーンが持っているので、弾より先に消えて窓口が宙に浮くことはない
+	chargeBulletManager_->SetTargetResolver(
+		[spawner = enemySpawner_.get()](uint32_t targetId, Vector3& outPosition) {
+			return spawner->TryGetEnemyPosition(targetId, outPosition);
+		});
 
 	std::string envMapPath = "resources/rostock_laage_airport_4k.dds";
 	TextureManager::GetInstance()->LoadTexture(envMapPath);
@@ -281,6 +356,53 @@ int GamePlayScene::GetScore() const {
 	return static_cast<int>(enemySpawner_->GetDefeatedCount()) * kScorePerEnemy;
 }
 
+void GamePlayScene::StartShake(float power) {
+	// 今の揺れの方が強ければ何もしない。被弾で大きく揺れている最中に爆発が起きても、
+	// 弱い揺れで上書きして被弾の揺れが急に小さくならないようにする
+	const float currentAmplitude = shakeDuration_ > 0.0f ? shakePower_ * (shakeTimer_ / shakeDuration_) : 0.0f;
+	if (currentAmplitude >= power) {
+		return;
+	}
+	shakePower_ = power;
+	shakeTimer_ = shakeDuration_;
+}
+
+void GamePlayScene::UpdateLockOn() {
+	// ロック中の敵が居なくなった(撃破・Reset)ら外す。
+	// 押し続けていれば、すぐ下の判定で別の敵をロックし直せる
+	Vector3 lockPosition{};
+	if (player_->GetLockTargetId() != 0 &&
+		!enemySpawner_->TryGetEnemyPosition(player_->GetLockTargetId(), lockPosition)) {
+		player_->SetLockTarget(0);
+	}
+
+	// 吸い付く候補は、チャージ中(溜め始め〜満タン)でまだロックしていない間だけ毎フレーム選び直す。
+	// 状態として持ち越さず毎フレーム決め直すので、Resetや撃破で候補が残ることがない
+	lockCandidateId_ = 0;
+	if (player_->GetChargeRatio() <= 0.0f || player_->GetLockTargetId() != 0) {
+		return; // 溜めていない・もうロックしている(ロック中はロックした敵へ吸い付く)
+	}
+
+	// 視線 = カメラ → 狙点。カメラを通る直線は画面上では1点(=レティクルの位置)に重なるので、
+	// この直線からの角度は「画面上でレティクルからどれだけ離れて見えるか」と一致する。
+	// 銃口から伸ばさないのは、カメラと自機の位置がずれていて、遠い敵ほど見た目と判定が食い違うため。
+	// カメラは描画に使っている方(デバッグカメラON中はそちら)にして、レティクルの見え方とそろえる。
+	// 狙点は引き寄せる前の(自機の操作どおりの)点を使う。引き寄せた照準で選び直すと、
+	// 照準が動くたびに候補が変わる堂々巡りになるため
+	const Vector3& eye = GetActiveCamera()->GetTranslate();
+	const Vector3 toAim = player_->GetAimPoint() - eye;
+	if (toAim.LengthSquared() < 1.0e-6f) {
+		return; // 狙点がカメラと重なっていて向きが決まらない
+	}
+	lockCandidateId_ = enemySpawner_->FindEnemyInCone(
+		eye, Vector3::Normalized(toAim), player_->GetLockAssistAngle(), player_->GetLockRange());
+
+	// 満タンになったら、引き寄せていた候補をそのままロックする(見えていた吸い付き先と、ロックする敵を一致させる)
+	if (player_->CanLockOn() && lockCandidateId_ != 0) {
+		player_->SetLockTarget(lockCandidateId_);
+	}
+}
+
 void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 	// 被弾から一定時間だけ、画面の縁を赤く染める。
 	// 「実装済みのポストエフェクトをゲームの状況へ繋ぐ」だけなので、
@@ -345,8 +467,28 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	// 照準。狙点は弾と共有している点なので、レティクルの位置＝弾の到達点になる。
 	// 描画に使っているカメラで投影する(デバッグカメラON中はそちらの見え方に合わせる)
 	reticle_->SetAlpha(hudAlpha_);
-	reticle_->SetLockedOn(enemySpawner_->IsAimedAt(player_->GetAimPoint()));
-	reticle_->Update(player_->GetAimPoint(), *GetActiveCamera());
+	reticle_->SetAimingAtEnemy(enemySpawner_->IsAimedAt(player_->GetAimPoint()));
+	// チャージの溜まり具合とロック中の敵。判定と状態の保持はPlayer・EnemySpawnerが済ませていて、
+	// ここは「どう見せるか」を持つReticleへ結果を渡すだけ(照準の色替えと同じ分担)
+	reticle_->SetCharge(player_->GetChargeRatio());
+	Vector3 lockCenter{};
+	float lockRadius = 0.0f;
+	if (enemySpawner_->TryGetEnemySphere(player_->GetLockTargetId(), lockCenter, lockRadius)) {
+		reticle_->SetLockTarget(player_->GetLockTargetId(), lockCenter, lockRadius);
+		// ロック中は、ロックした敵の上へ照準を吸い付けたままにする
+		reticle_->SetAssistTarget(lockCenter, 1.0f);
+	} else {
+		reticle_->ClearLockTarget();
+		// チャージ中は、溜まり具合に合わせて候補の敵へ照準を引き寄せていく(満タンでぴったり重なる)
+		Vector3 candidatePosition{};
+		if (enemySpawner_->TryGetEnemyPosition(lockCandidateId_, candidatePosition)) {
+			reticle_->SetAssistTarget(candidatePosition, player_->GetChargeRatio());
+		} else {
+			reticle_->ClearAssistTarget();
+		}
+	}
+	// 脈打ちとロック枠の動きはHUDのフェードインと同じく実dtで進める(ヒットストップで止めない)
+	reticle_->Update(player_->GetAimPoint(), *GetActiveCamera(), deltaTime);
 }
 
 void GamePlayScene::DrawHud() {
@@ -402,6 +544,9 @@ void GamePlayScene::Finalize() {
 	// 撃破の爆発の粒も消しておく: CPU側はカメラが無いと更新を止め、前の描画数のまま描くので、
 	// 残すと結果画面に止まった爆発が映り、リトライで続きから動き出す(TitleSceneの炎の尾と同じ対処)
 	ParticleManager::GetInstance()->ClearParticles(EnemySpawner::DefeatEffectName());
+	// チャージ弾の尾と爆発も同じ理由で消す
+	ParticleManager::GetInstance()->ClearParticles(kChargeTrailEffect);
+	ParticleManager::GetInstance()->ClearParticles(kChargeExplosionEffect);
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 	GPUParticleManager::GetInstance()->SetCamera(nullptr);
 }
@@ -444,6 +589,7 @@ void GamePlayScene::Update(float deltaTime) {
 	player_->SetCamera(activeCamera);
 	bulletManager_->SetCamera(activeCamera);
 	enemyBulletManager_->SetCamera(activeCamera);
+	chargeBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
 
 	// ゲーム開始のイントロ。Enter/パッドSTARTでスキップする(終点はレールカメラと同じなので、止めるだけで定位置へ移る)。
@@ -480,6 +626,7 @@ void GamePlayScene::Update(float deltaTime) {
 						enemySpawner_->Reset();
 						bulletManager_->Clear(); // 前周の弾がレール先頭に取り残されないようにする
 						enemyBulletManager_->Clear();
+						chargeBulletManager_->Clear();
 					}
 				} else if (railDistance_ >= rail.GetTotalLength()) {
 					// レール終端に到達 = クリア条件(A-5)。
@@ -511,7 +658,7 @@ void GamePlayScene::Update(float deltaTime) {
 			// 減衰は実dtなので、ヒットストップで止まっている間も震え続ける
 			if (shakeTimer_ > 0.0f) {
 				shakeTimer_ = (std::max)(shakeTimer_ - deltaTime, 0.0f);
-				const float amplitude = shakeStrength_ * (shakeTimer_ / shakeDuration_);
+				const float amplitude = shakePower_ * (shakeTimer_ / shakeDuration_);
 				// ワールド軸ではなくカメラのローカル右/上へずらす
 				// (ワールド軸だとカーブの向きによって揺れ方が変わって見えるため)
 				const Matrix4x4 rotation = Matrix4x4::Rotate(camera_->GetTransform().rotate);
@@ -549,16 +696,29 @@ void GamePlayScene::Update(float deltaTime) {
 	player_->Update(gameDelta);
 
 	// プレイヤーの直後に更新する: 同フレームに発射された弾もこのフレーム分だけ進むため、
-	// 発射の1フレーム目が銃口に張り付いて見えることがない
+	// 発射の1フレーム目が銃口に張り付いて見えることがない(チャージ弾も同じ理由でここ)
 	bulletManager_->Update(gameDelta);
+	chargeBulletManager_->Update(gameDelta);
 
 	// 進行度がSpawnPointのrailDistanceを超えたら敵が発生する。
 	// 弾の更新後に呼ぶことで、弾が今フレーム分進んだ位置で被弾判定できる
-	// 進行方向は狙点への向きで代用する(狙点はレールの少し先の点なので、実質レールの接線)。
-	// 射撃型の敵が自機を追い越して背後から撃つのを防ぐために渡している
+	// 進行方向はレールの接線を渡す。射撃型の敵が自機を追い越して背後から撃つのを防ぐために使う
+	// (「自機→狙点」の向きは、Aim Convergenceを1より大きくすると照準に合わせて横へ大きく傾き、
+	// 進行方向の代わりにならない)
+	const int explosionCountBefore = enemySpawner_->GetExplosionCount();
 	enemySpawner_->Update(railDistance_, gameDelta, player_->GetWorldPosition(),
-		player_->GetCollisionRadius(),
-		Vector3::Normalized(player_->GetAimPoint() - player_->GetWorldPosition()));
+		player_->GetCollisionRadius(), player_->GetForward());
+
+	// チャージ弾が敵に当たって爆発したら、小さめの揺れと短いヒットストップで手応えを出す。
+	// 被弾(下のHPの比較)と同じく「更新の前後の差」で拾うので、EnemySpawnerはシーンの演出を知らなくてよい
+	if (enemySpawner_->GetExplosionCount() > explosionCountBefore) {
+		StartShake(explosionShakeStrength_);
+		hitStopTimer_ = (std::max)(hitStopTimer_, explosionHitStopDuration_);
+	}
+
+	// ロックオン。敵の更新の後に行う: 撃破された敵のロックを外し、今フレームの敵の位置で重なりを見るため。
+	// 結果をPlayerが使うのは次フレームの射撃(離した瞬間)になるが、1フレーム(約16ms)の遅れは体感できない
+	UpdateLockOn();
 
 	// 敵弾の更新は敵の更新後。こうすると、このフレームに発射された弾もその場で1フレーム分進み、
 	// 発射の瞬間だけ敵に張り付いて見えることがない(自弾とPlayerの順番と同じ考え方)
@@ -575,7 +735,7 @@ void GamePlayScene::Update(float deltaTime) {
 	// 地形・敵のどちらで減ったかを区別せず、Playerの無敵時間で弾かれた分も自動的に除外される
 	if (player_->GetHp() < hpBeforeUpdate) {
 		hitStopTimer_ = hitStopDuration_;
-		shakeTimer_ = shakeDuration_;
+		StartShake(shakeStrength_);
 		damageEffectTimer_ = damageEffectDuration_;
 	}
 
@@ -639,6 +799,14 @@ void GamePlayScene::Update(float deltaTime) {
 		DebugRenderer::GetInstance()->AddLine(
 			player_->GetMuzzlePosition(), player_->GetAimPoint(), aimColor);
 		DebugRenderer::GetInstance()->AddSphere(player_->GetAimPoint(), 0.5f, aimColor);
+
+		// ロック中は、銃口からロックした敵まで線を引く(ロックオンが効いていることの確認用)
+		Vector3 lockPosition{};
+		if (enemySpawner_->TryGetEnemyPosition(player_->GetLockTargetId(), lockPosition)) {
+			const Vector4 lockColor = { 1.0f, 0.35f, 0.2f, 1.0f };
+			DebugRenderer::GetInstance()->AddLine(player_->GetMuzzlePosition(), lockPosition, lockColor);
+			DebugRenderer::GetInstance()->AddSphere(lockPosition, 1.0f, lockColor);
+		}
 	}
 
 	// SpawnPoint(敵の発生地点)の可視化。未発生=黄、発生済み=グレー。
@@ -663,6 +831,7 @@ void GamePlayScene::Draw() {
 	stage_->Draw();
 	player_->Draw();
 	bulletManager_->Draw();
+	chargeBulletManager_->Draw();
 	enemyBulletManager_->Draw();
 	enemySpawner_->Draw();
 
@@ -822,9 +991,14 @@ void GamePlayScene::DrawImGui() {
 	ImGui::SliderFloat("Flash Power", &damageVignettePower_, 0.0f, 1.0f, "%.2f");
 	if (ImGui::Button("Test Damage")) {
 		hitStopTimer_ = hitStopDuration_;
-		shakeTimer_ = shakeDuration_;
+		StartShake(shakeStrength_);
 		damageEffectTimer_ = damageEffectDuration_;
 	}
+
+	// チャージ弾の爆発の手応え。被弾より弱くして、被弾の揺れと区別できるようにする
+	ImGui::SeparatorText("Explosion Feedback");
+	ImGui::DragFloat("Explosion Hit Stop", &explosionHitStopDuration_, 0.005f, 0.0f, 0.5f, "%.3f s");
+	ImGui::DragFloat("Explosion Shake", &explosionShakeStrength_, 0.05f, 0.0f, 5.0f, "%.2f m");
 	// Edit中は押せなくする。Edit中は進行中のプレイが無いので、プレイの出口を試す意味がない。
 	// また、タイトルから始めてStopでEditに入った場合はstartedFromEditor_がfalseなので、
 	// 押すと結果画面へ遷移してしまう
@@ -884,8 +1058,9 @@ void GamePlayScene::DrawImGui() {
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
 
-	// 敵弾も同じUI(ウィンドウ名だけProfileで分けてある)
+	// 敵弾・チャージ弾も同じUI(ウィンドウ名だけProfileで分けてある)
 	enemyBulletManager_->DrawImGui();
+	chargeBulletManager_->DrawImGui();
 
 	// 敵の生存数・撃破数・HP・移動のパラメータ
 	enemySpawner_->DrawImGui();
@@ -1014,6 +1189,7 @@ void GamePlayScene::ResetGameState() {
 	enemySpawner_->Reset(); // 敵も未発生に戻す
 	bulletManager_->Clear(); // 飛行中の弾も消す
 	enemyBulletManager_->Clear();
+	chargeBulletManager_->Clear();
 
 	// シーンが持つ状態
 	resultRequested_ = false;

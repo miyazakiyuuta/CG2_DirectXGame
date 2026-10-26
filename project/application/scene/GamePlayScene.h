@@ -64,6 +64,14 @@ private:
 	int GetScore() const;
 
 	/// <summary>
+	/// ロックオンのつなぎ込み。チャージ中は照準の近く(Lock Assistの角度以内)にいる敵を吸い付く候補に選び、
+	/// 満タンになったらその候補をPlayerにロックさせる。ロック中の敵が居なくなったら外す。
+	/// 判定は敵側(EnemySpawner)、ロックの保持はPlayerで、ここは両者をつなぐだけ(レティクルの色替えと同じ分担)。
+	/// 敵の更新(撃破・移動)の後に呼ぶこと
+	/// </summary>
+	void UpdateLockOn();
+
+	/// <summary>
 	/// 結果シーンへの遷移を要求する(A-5)。2度目以降の呼び出しは無視される。
 	/// 要求後はゲーム進行(レール前進・敵の発生・被弾)を止める:
 	/// トランジションが閉じ切るまで、このシーンのUpdateは走り続けるため。
@@ -79,6 +87,8 @@ private:
 	void UpdateHud(float deltaTime);
 	// 被弾の画面着色を進める。ヒットストップ中も演出は動かすので実dtで呼ぶこと
 	void UpdateDamageEffect(float deltaTime);
+	// 画面を揺らし始める(被弾・爆発)。今の揺れの方が強ければ何もしない(弱い揺れで強い揺れを打ち消さない)
+	void StartShake(float power);
 	void DrawHud();
 
 	// stage.jsonのカメラ調整値(FovY/railSpeed/backDistance)をライブ値へ反映する(Apply)。
@@ -151,12 +161,19 @@ private:
 	// レールカメラがTransformを書いた後にオフセットを足すだけなので、レール計算は汚さない
 	float shakeTimer_ = 0.0f;
 	float shakeDuration_ = 0.35f;
-	float shakeStrength_ = 0.5f; // 最大振幅[m]
+	float shakeStrength_ = 0.5f; // 被弾時の最大振幅[m]
+	// 今の揺れの最大振幅[m]。被弾と爆発で強さが違うので、揺らし始めたとき(StartShake)の強さを覚えておく
+	float shakePower_ = 0.0f;
 	// 画面の着色: 被弾直後だけ画面の縁を赤くする。実装済みのポストエフェクト(Vignette)へ
 	// 残り時間を流し込むだけで、このシーンは新しいPSOもシェーダも持たない
 	float damageEffectTimer_ = 0.0f;
 	float damageEffectDuration_ = 0.45f;
 	float damageVignettePower_ = 0.85f; // 被弾直後の濃さ(Vignetteのintensityは0〜1)
+
+	// --- チャージ弾の爆発の手応え ---
+	// 被弾と同じヒットストップ・画面の揺れを、弱めに使う(被弾の方が強いと区別できるように)
+	float explosionHitStopDuration_ = 0.05f;
+	float explosionShakeStrength_ = 0.25f; // 最大振幅[m]
 
 	// カメラをプレイヤーの何m後方に置くか。railDistance_はプレイヤーの進行度で、
 	// カメラはプレイヤーの座標系(接線基準)を forward×この値 だけ下がった位置に派生させる。
@@ -176,6 +193,9 @@ private:
 	// 敵弾のプール。自弾と同じクラスで、違いはBulletManager::Profile(見た目・音・速さ)だけ。
 	// 撃つのはEnemySpawner、当たり判定はPlayer、所有はシーンという分担にしてある
 	std::unique_ptr<BulletManager> enemyBulletManager_;
+	// チャージ弾のプール(容量1)。これも同じクラスで、違いはProfile(大きさ・ダメージ・爆発の半径)だけ。
+	// 撃つのはPlayer、敵への当たり判定と爆発の巻き込みはEnemySpawner、所有はシーン
+	std::unique_ptr<BulletManager> chargeBulletManager_;
 	// 狙点と弾道のデバッグ表示
 	bool showAimLine_ = false;
 
@@ -212,6 +232,9 @@ private:
 
 	// 照準(レティクル)。狙点はPlayerが持っているので、これは表示だけを担当する
 	std::unique_ptr<Reticle> reticle_;
+	// チャージ中に照準を引き寄せる先の敵の番号(0=なし)。UpdateLockOnが毎フレーム選び直し、
+	// UpdateHudがレティクルへ渡す。ロックした後はロック中の敵の方へ引き寄せる
+	uint32_t lockCandidateId_ = 0;
 
 	// stage.jsonから構築するステージ配置(静的オブジェクト群)
 	std::unique_ptr<Stage> stage_;
