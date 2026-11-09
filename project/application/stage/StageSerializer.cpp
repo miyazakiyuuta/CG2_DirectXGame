@@ -3,6 +3,7 @@
 #include "math/Serialization.h"
 #include "utility/Logger.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -69,6 +70,31 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 			root.at("rail").get_to(loaded.rail);
 		}
 
+		// 区間(省略可能。無ければ空=ステージ全体が1区間)。
+		// フィールドはcameraと同じく1個ずつ省略可(手編集ミス1項目で全体を失敗させない)
+		if (root.contains("sections")) {
+			for (const json& section : root.at("sections")) {
+				StageData::SectionData sectionData;
+				if (section.contains("name")) {
+					section.at("name").get_to(sectionData.name);
+				}
+				if (section.contains("startDistance")) {
+					section.at("startDistance").get_to(sectionData.startDistance);
+				}
+				loaded.sections.push_back(std::move(sectionData));
+			}
+			// 「開始距離の昇順・先頭は0」の約束(StageData::sections)に揃える。
+			// エディタの操作はこの約束を守るので、崩れているのは手編集したときだけ。
+			// 並び替えは同じ距離どうしの順を保つstable_sortにする(手で書いた順を勝手に入れ替えない)
+			std::stable_sort(loaded.sections.begin(), loaded.sections.end(),
+				[](const StageData::SectionData& a, const StageData::SectionData& b) {
+					return a.startDistance < b.startDistance;
+				});
+			if (!loaded.sections.empty()) {
+				loaded.sections.front().startDistance = 0.0f;
+			}
+		}
+
 		// カメラ調整値(省略可能。無ければhasCamera=falseでシーンはApplyしない)。
 		// フィールドも1個ずつ省略可(無い項目は構造体デフォルトのまま)。colliderのat()一括より
 		// 緩いのは、手編集ミス1項目で全体を失敗させない+将来のフィールド追加で旧ファイルを壊さないため
@@ -131,6 +157,17 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 	// レール制御点も省略可能フィールドの流儀(既定値=空なら書かない)に合わせる
 	if (!stageData.rail.empty()) {
 		root["rail"] = stageData.rail;
+	}
+
+	// 区間もレール制御点と同じく、空なら書かない
+	if (!stageData.sections.empty()) {
+		root["sections"] = json::array();
+		for (const StageData::SectionData& sectionData : stageData.sections) {
+			root["sections"].push_back({
+				{ "name", sectionData.name },
+				{ "startDistance", sectionData.startDistance },
+			});
+		}
 	}
 
 	// カメラ調整値(hasCameraのときだけ書く。Save→Loadのラウンドトリップでデータが一致する)

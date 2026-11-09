@@ -1,5 +1,6 @@
 #pragma once
 #include "scene/BaseScene.h"
+#include "progress/StageProgress.h"
 
 #include <memory>
 
@@ -33,6 +34,13 @@ public:
 	/// </summary>
 	static void SetScore(int score);
 
+	/// <summary>
+	/// 結果画面に表示するランク(駆除報告)を渡す。CLEARのときだけ表示する。
+	/// SetScoreと同じく、GamePlaySceneが遷移を要求する直前に呼ぶ
+	/// (ランクの決め方はStageProgressが持ち、ここは受け取って見せるだけ)
+	/// </summary>
+	static void SetRank(StageProgress::Rank rank);
+
 	void Initialize() override;
 
 	void Finalize() override;
@@ -60,6 +68,11 @@ private:
 
 	// スコア表示(数字画像から桁を切り出して並べる)
 	std::unique_ptr<NumberSprite> scoreNumber_;
+
+	// ランク(CLEARのときだけ)。「RANK」の見出しと文字1つ。
+	// 文字はS/A/B/Cを等幅に並べた1枚の画像から切り出す(数字画像と同じやり方)
+	std::unique_ptr<Sprite> rankLabelSprite_;
+	std::unique_ptr<Sprite> rankSprite_;
 
 	// 入力を受け付けるまでの猶予[秒]と表示開始からの経過。
 	// なぜ猶予が要るか: 射撃(Space/パッドA)を押しっぱなしで死ぬと、

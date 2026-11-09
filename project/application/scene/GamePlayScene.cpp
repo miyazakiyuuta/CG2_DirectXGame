@@ -16,11 +16,14 @@
 #include "player/Player.h"
 #include "bullet/BulletManager.h"
 #include "enemy/EnemySpawner.h"
+#include "progress/StageProgress.h"
 #include "camera/IntroCamera.h"
 #include "direction/GameOverSequence.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
 #include "ui/Reticle.h"
+#include "ui/ProgressGauge.h"
+#include "ui/SectionBanner.h"
 #include "scene/ResultScene.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
@@ -35,6 +38,7 @@
 #include "utility/Random.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
+#include <cstring>
 #include <filesystem>
 #include "debug/EditorPanels.h"
 #include "debug/TransformGizmo.h"
@@ -94,6 +98,8 @@ namespace {
 	constexpr float kScoreMarginY = 26.0f;
 	// 敵1体撃破あたりの点数
 	constexpr int kScorePerEnemy = 100;
+	// 区間を取り逃しなし(PERFECT)で終えたときのボーナス。区間ごとの目標を達成した手応えを点数でも返す
+	constexpr int kScorePerPerfectSection = 500;
 
 	// チャージ弾の演出に使うパーティクルのプリセット名。登録(RegisterEffect)と、
 	// 弾のProfileへの指定はどちらもこのシーンで行う(名前を2か所に直書きしないよう定数にまとめる)
@@ -102,6 +108,12 @@ namespace {
 	// チャージ弾が消える(爆発する)ときの音。撃破音と同じ素材だが、
 	// 爆発したフレームは撃破音を鳴らさない(EnemySpawner)ので同じ音が重ならない
 	const std::string kChargeExplosionSound = "resources/sounds/explosion.mp3";
+
+	// 区間の最短の長さ[m]。区切りどうしをこれより近づけない(長さほぼ0の、敵が入りようのない区間を作らない)
+	constexpr float kMinSectionLength = 1.0f;
+	// 区間の区切りの目印(Show Railのとき、レール上に描く)。レールの赤・制御点の黄と見分けるため水色にする
+	const Vector4 kSectionMarkerColor = { 0.2f, 0.9f, 1.0f, 1.0f }; // Vector4のコンストラクタはconstexprでないのでconst
+	constexpr float kSectionMarkerHeight = 6.0f; // 区切りから上へ伸ばす線の長さ[m](遠くからでも位置が分かるように)
 }
 
 void GamePlayScene::Initialize() {
@@ -199,6 +211,9 @@ void GamePlayScene::Initialize() {
 	// 被弾判定に使う自弾の一覧の取得元(所有はシーン。敵は参照するだけ)
 	enemySpawner_->SetBulletManager(bulletManager_.get());
 	enemySpawner_->BuildFromStage(stage_->GetData());
+
+	// 区間ごとの集計。区切りと敵の結末は毎フレームUpdateで受け取るので、ここでは作るだけ
+	stageProgress_ = std::make_unique<StageProgress>();
 
 	// 敵弾。自弾と同じBulletManagerの2個目で、違いはProfile(見た目・音・速さ)だけ。
 	// 撃つのはEnemySpawner、当たったかを見るのはPlayerで、ここは所有と配線だけを持つ
@@ -342,10 +357,23 @@ void GamePlayScene::InitializeHud() {
 	scoreNumber_->SetPosition({
 		static_cast<float>(WinApp::kClientWidth) - totalWidth - kScoreMarginX * uiScale,
 		kScoreMarginY * uiScale });
+
+	// 進行ゲージは上部の中央。位置と大きさはゲージ側が決める(区間の数で部品の数が変わるため)
+	progressGauge_ = std::make_unique<ProgressGauge>();
+	progressGauge_->Initialize();
+
+	// 区間の結果表示。出すのは区間が確定したとき(Update)なので、ここでは作るだけ
+	sectionBanner_ = std::make_unique<SectionBanner>();
+	sectionBanner_->Initialize();
 }
 
 int GamePlayScene::GetScore() const {
-	return static_cast<int>(enemySpawner_->GetDefeatedCount()) * kScorePerEnemy;
+	return static_cast<int>(enemySpawner_->GetDefeatedCount()) * kScorePerEnemy
+		+ stageProgress_->GetPerfectCount() * kScorePerPerfectSection;
+}
+
+int GamePlayScene::GetDamageTaken() const {
+	return player_->GetMaxHp() - player_->GetHp();
 }
 
 void GamePlayScene::StartShake(float power) {
@@ -465,6 +493,15 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	scoreNumber_->SetColor({ 1.0f, 1.0f, 1.0f, hudAlpha_ });
 	scoreNumber_->Update();
 
+	// 進行ゲージ。区間の集計は敵の更新の後(Update内)で済んでいるので、このフレームの結果がそのまま出る
+	progressGauge_->SetAlpha(hudAlpha_);
+	progressGauge_->Update(stageProgress_->GetSections(), railDistance_, stage_->GetRail().GetTotalLength(),
+		enemySpawner_->HasGoal());
+
+	// 区間の結果表示。表示時間はヒットストップで止めないよう実dtで進める
+	sectionBanner_->SetAlpha(hudAlpha_);
+	sectionBanner_->Update(deltaTime);
+
 	// 照準。狙点は弾と共有している点なので、レティクルの位置＝弾の到達点になる。
 	// 描画に使っているカメラで投影する(デバッグカメラON中はそちらの見え方に合わせる)
 	reticle_->SetAlpha(hudAlpha_);
@@ -503,6 +540,8 @@ void GamePlayScene::DrawHud() {
 	}
 	controlsSprite_->Draw();
 	scoreNumber_->Draw(); // 数字画像が未配置なら何も描かない
+	progressGauge_->Draw();
+	sectionBanner_->Draw(); // 表示中でなければ何も描かない
 	reticle_->Draw();     // 狙点がカメラ背面なら何も描かない
 }
 
@@ -550,6 +589,11 @@ void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition:
 	resultRequested_ = true;
 	// 結果画面へ表示用のスコアを預ける(ChangeSceneはシーン名しか渡せないため)
 	ResultScene::SetScore(GetScore());
+	// クリアならランク(駆除報告)も預ける。決め方(駆除率と被弾数)はStageProgressが持つ。
+	// 女王を倒したフレームでも、区間の集計は敵の更新の直後に済んでいるので、最後の区間まで数えた結果になる
+	if (sceneName == "CLEAR") {
+		ResultScene::SetRank(stageProgress_->ComputeRank(GetDamageTaken()));
+	}
 	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>(startState));
 }
 
@@ -667,10 +711,14 @@ void GamePlayScene::Update(float deltaTime) {
 						chargeBulletManager_->Clear();
 					}
 				} else if (railDistance_ >= rail.GetTotalLength()) {
-					// レール終端に到達 = クリア条件(A-5)。
-					// 終端を超えた分は切り捨てる(スプラインの評価範囲外へ出さない)
+					// 終端を超えた分は切り捨てる(スプラインの評価範囲外へ出さない)。
+					// 以降は毎フレームここで止まるので、終点でレールが止まったまま待つ形になる
 					railDistance_ = rail.GetTotalLength();
-					RequestResult("CLEAR");
+					// 女王(倒すとクリアになる敵)がいるステージは、終点ではクリアにしない。
+					// クリアは女王を倒したとき(敵の更新の後)に出す。いないステージは今までどおり終点到達でクリア
+					if (!enemySpawner_->HasGoal()) {
+						RequestResult("CLEAR");
+					}
 				}
 			}
 
@@ -760,6 +808,23 @@ void GamePlayScene::Update(float deltaTime) {
 		hitStopTimer_ = (std::max)(hitStopTimer_, explosionHitStopDuration_);
 	}
 
+	// 区間ごとの集計。敵の更新(撃破・取り逃しの記録)の後に数え直す。
+	// 区切りはEditで編集中の値をそのまま使う(Saveしなくても集計に効く)
+	stageProgress_->Update(stage_->GetData(), stage_->GetRail().GetTotalLength(), *enemySpawner_);
+	// 今フレーム確定した区間があれば結果を出す。同じフレームに2つ確定したら後の区間を見せる
+	// (Showは表示中でも差し替えるので、ループの最後の1つが残る)
+	for (size_t sectionIndex : stageProgress_->GetNewlyResolved()) {
+		sectionBanner_->Show(stageProgress_->GetSections()[sectionIndex]);
+	}
+
+	// 女王を倒したらクリア(巣の駆除が完了)。終点に着く前に倒した場合も同じくクリアにする。
+	// 撃破の判定は敵の更新の中で済んでいるので、ここはその結果を見て遷移を頼むだけ
+	// (HPが尽きたときのゲームオーバーと同じく、勝敗の判断はシーンが持つ)
+	if (!resultRequested_ && mode_ == Mode::Play && !gameOverSequence_->IsActive() &&
+		enemySpawner_->IsGoalDefeated()) {
+		RequestResult("CLEAR");
+	}
+
 	// ロックオン。敵の更新の後に行う: 撃破された敵のロックを外し、今フレームの敵の位置で重なりを見るため。
 	// 結果をPlayerが使うのは次フレームの射撃(離した瞬間)になるが、1フレーム(約16ms)の遅れは体感できない
 	UpdateLockOn();
@@ -834,6 +899,16 @@ void GamePlayScene::Update(float deltaTime) {
 	if (showRail_) {
 		for (const Vector3& point : railPoints) {
 			DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
+		}
+		// 区間の区切り(各区間の始まり)。レール上の点に球を置き、真上へ線を伸ばす。
+		// "Sections"ウィンドウで開始距離を動かすと、この目印がレールに沿って動く
+		if (railPoints.size() >= 2) {
+			for (const StageData::SectionData& section : stage_->GetData().sections) {
+				const Vector3 position = rail.GetPositionByDistance(section.startDistance);
+				DebugRenderer::GetInstance()->AddSphere(position, 1.5f, kSectionMarkerColor);
+				DebugRenderer::GetInstance()->AddLine(
+					position, position + Vector3{ 0.0f, kSectionMarkerHeight, 0.0f }, kSectionMarkerColor);
+			}
 		}
 	}
 
@@ -1047,6 +1122,12 @@ void GamePlayScene::DrawImGui() {
 	ImGui::SeparatorText("Game");
 	ImGui::Text("HP: %d / %d", player_->GetHp(), player_->GetMaxHp());
 	ImGui::Text("Result: %s", resultRequested_ ? "requested (frozen)" : "playing");
+	// クリア条件。女王(Goalの種別)がステージにいれば「倒すとクリア」、いなければ「終点到達でクリア」
+	if (!enemySpawner_->HasGoal()) {
+		ImGui::Text("Goal: none (clear at rail end)");
+	} else {
+		ImGui::Text("Goal: %s", enemySpawner_->IsGoalDefeated() ? "defeated" : "alive (rail stops at end)");
+	}
 	ImGui::Checkbox("Show HUD", &showHud_);
 
 	// 被弾演出の調整。ヒットストップは長すぎると操作が引っかかるので0.05〜0.15が目安
@@ -1136,6 +1217,12 @@ void GamePlayScene::DrawImGui() {
 
 	// 敵の生存数・撃破数・HP・移動のパラメータ
 	enemySpawner_->DrawImGui();
+
+	// 区間(ステージの区切り)の編集
+	DrawSectionsWindow();
+
+	// 区間ごとの集計・今クリアしたときのランク・ランクの基準
+	stageProgress_->DrawImGui(GetDamageTaken());
 
 	// Sceneビューのクリックで選択を更新し、選択中の対象にギズモを表示
 	// (デバッグカメラON中はその視点で描画されているため、ピック・ギズモも同じカメラで行う)
@@ -1268,6 +1355,8 @@ void GamePlayScene::ResetGameState() {
 	hitStopTimer_ = 0.0f;
 	shakeTimer_ = 0.0f;
 	damageEffectTimer_ = 0.0f;
+	// 区間の結果表示は消す(集計そのものは敵の記録から数え直すので、戻す必要はない)
+	sectionBanner_->Hide();
 	// イントロは止めるだけ(始めるのはInitializeとEnterPlay)。
 	// ここで始めると、Stopボタン(Editへ入る)でも再生されてしまう
 	introCamera_->Stop();
@@ -1329,6 +1418,126 @@ void GamePlayScene::RescanModelFiles() {
 			break;
 		}
 	}
+}
+
+void GamePlayScene::DrawSectionsWindow() {
+	ImGui::Begin("Sections");
+
+	std::vector<StageData::SectionData>& sections = stage_->GetData().sections;
+	const float railLength = stage_->GetRail().GetTotalLength();
+
+	ImGui::Text("Distance: %.1f / %.1f m", railDistance_, railLength);
+	if (sections.empty()) {
+		ImGui::TextDisabled("No sections: the whole stage is one section.");
+	}
+
+	// i番目の区間が始まってよい範囲。前の区切りとも次の区切り(最後の区間なら終点)とも、
+	// 最短の長さ以上あける。並び替えではなく「隣を追い越せない」ことで昇順を保つ:
+	// ドラッグ中に並び替えると、つかんでいる行が別の区間へすり替わってしまうため
+	auto startRange = [&](size_t index, float& outMin, float& outMax) {
+		const float next = index + 1 < sections.size() ? sections[index + 1].startDistance : railLength;
+		outMin = sections[index - 1].startDistance + kMinSectionLength;
+		outMax = (std::max)(next - kMinSectionLength, outMin);
+	};
+
+	int removeIndex = -1;
+	if (!sections.empty() &&
+		ImGui::BeginTable("##sections", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Start", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("End", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableSetupColumn("##operations", ImGuiTableColumnFlags_WidthFixed);
+		ImGui::TableHeadersRow();
+
+		for (size_t i = 0; i < sections.size(); ++i) {
+			StageData::SectionData& section = sections[i];
+			const bool isLast = i + 1 == sections.size();
+			const float end = isLast ? railLength : sections[i + 1].startDistance;
+			ImGui::PushID(static_cast<int>(i));
+			ImGui::TableNextRow();
+
+			// 今いる区間の行を色付けする(レールを進めながら、区切りの位置が合っているか確かめられる)
+			const bool isCurrent = railDistance_ >= section.startDistance && (railDistance_ < end || isLast);
+			if (isCurrent) {
+				ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImGui::GetColorU32({ 0.2f, 0.5f, 0.6f, 0.6f }));
+			}
+
+			// 名前。ImGuiのInputTextはstd::stringを直接扱えない(imgui_stdlibを入れていない)ので、固定長の作業領域を通す
+			ImGui::TableSetColumnIndex(0);
+			char nameBuffer[64];
+			strncpy_s(nameBuffer, section.name.c_str(), _TRUNCATE);
+			ImGui::SetNextItemWidth(-FLT_MIN);
+			if (ImGui::InputText("##name", nameBuffer, sizeof(nameBuffer))) {
+				section.name = nameBuffer;
+			}
+
+			// 開始距離。先頭は必ずレールの始点(0)なので編集させない
+			ImGui::TableSetColumnIndex(1);
+			float minStart = 0.0f;
+			float maxStart = 0.0f;
+			if (i == 0) {
+				ImGui::TextDisabled("0.0 m (start)");
+			} else {
+				startRange(i, minStart, maxStart);
+				ImGui::SetNextItemWidth(-FLT_MIN);
+				// AlwaysClamp: Ctrl+クリックの直接入力でも範囲を越えさせない(越えると隣を追い越して昇順が崩れる)
+				ImGui::DragFloat("##start", &section.startDistance, 0.5f, minStart, maxStart, "%.1f m",
+					ImGuiSliderFlags_AlwaysClamp);
+			}
+
+			ImGui::TableSetColumnIndex(2);
+			ImGui::Text("%.1f m", end);
+
+			ImGui::TableSetColumnIndex(3);
+			if (i > 0) {
+				// 今のレール距離を開始にする(レールを進めて、区切りたい場所で押す)
+				if (ImGui::SmallButton("Here")) {
+					section.startDistance = std::clamp(railDistance_, minStart, maxStart);
+				}
+				ImGui::SameLine();
+			}
+			if (ImGui::SmallButton("Delete")) {
+				removeIndex = static_cast<int>(i); // 一覧を回している最中なので、消すのはループの後
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+	}
+
+	if (removeIndex >= 0) {
+		sections.erase(sections.begin() + removeIndex);
+		// 先頭を消したら、繰り上がった区間がレールの始点から始まるようにする(先頭は0の約束)
+		if (!sections.empty()) {
+			sections.front().startDistance = 0.0f;
+		}
+	}
+
+	// 区間を足す。空なら始点(0)から、それ以外は今のレール距離で区切る。
+	// 挿入位置は昇順が保たれる場所(既存の区切りとの前後関係で決まる)
+	const float addStart = sections.empty() ? 0.0f : std::clamp(railDistance_, 0.0f, railLength);
+	const auto insertAt = std::upper_bound(sections.begin(), sections.end(), addStart,
+		[](float distance, const StageData::SectionData& section) { return distance < section.startDistance; });
+	// 既存の区切りや終点に近すぎると長さほぼ0の区間ができるので、押せなくする
+	bool tooClose = false;
+	if (!sections.empty()) {
+		tooClose = addStart - std::prev(insertAt)->startDistance < kMinSectionLength;
+		const float next = insertAt != sections.end() ? insertAt->startDistance : railLength;
+		tooClose = tooClose || next - addStart < kMinSectionLength;
+	}
+	ImGui::BeginDisabled(tooClose);
+	if (ImGui::Button(sections.empty() ? "Add Section" : "Add Section Here")) {
+		StageData::SectionData section;
+		section.name = "Section " + std::to_string(sections.size() + 1);
+		section.startDistance = addStart;
+		sections.insert(insertAt, std::move(section));
+	}
+	ImGui::EndDisabled();
+	if (tooClose) {
+		ImGui::TextDisabled("Too close to a boundary. Move along the rail first.");
+	}
+	ImGui::TextDisabled("Save with Hierarchy > Stage File > Save.");
+
+	ImGui::End();
 }
 #endif
 

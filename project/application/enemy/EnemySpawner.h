@@ -106,14 +106,37 @@ public:
 		// 自機にこの距離まで近づいたら接近音を1回鳴らす[m]。0なら鳴らさない。
 		// 体当たりの前触れを音で知らせ、視界の端から突っ込んでくる敵にも身構えられるようにする
 		float approachSoundRange = 0.0f;
+		// 倒すとクリアになる種別か(女王)。ステージにこの種別がいれば、終点ではクリアにせずレールを止めて待つ。
+		// 自機の後ろへ回っても通過済み(取り逃し)にしない: 逃げるとクリアできなくなるため
+		bool isGoal = false;
 	};
+
+	/// <summary>
+	/// ステージに「倒すとクリアになる敵」(isGoalの種別。女王)の出現地点があるか。
+	/// あればクリア条件は「終点到達」ではなく「それを倒す」になる
+	/// </summary>
+	bool HasGoal() const;
+
+	/// <summary>
+	/// 「倒すとクリアになる敵」をすべて倒したか。HasGoalがfalseなら常にfalse。
+	/// 撃破の記録(SpawnPoint::outcome)を見るだけなので、Reset・BuildFromStageで自動的にfalseへ戻る
+	/// </summary>
+	bool IsGoalDefeated() const;
 
 	// SpawnPoint1件分(データの写し。StageDataを構造変更しても参照が壊れないよう値で持つ)
 	struct SpawnPoint {
+		// ここから出た敵の結末。区間ごとの集計(StageProgress)がこれを数える
+		enum class Outcome {
+			Pending,  // まだ決まっていない(未発生・交戦中)
+			Defeated, // 倒した
+			Missed,   // 取り逃した(自機の後ろへ抜けた。通過済みの敵はもう撃ち落とせないので、抜けた時点で確定)
+		};
+
 		std::string enemy;
 		float railDistance = 0.0f;
 		Transform transform;
 		bool spawned = false; // 発生済みか(進行度を戻すまで再発生しない)
+		Outcome outcome = Outcome::Pending;
 	};
 
 	/// <summary>
@@ -183,6 +206,9 @@ private:
 	struct Enemy {
 		// 出現時に振る番号(1から。0は「なし」を表すので振らない)。ロックオンと追尾が敵を指すのに使う
 		uint32_t id = 0;
+		// どのSpawnPointから出たか(spawnPoints_の添字)。結末(撃破・取り逃し)をそこへ書き残すのに使う。
+		// spawnPoints_を作り直すとき(BuildFromStage)は敵も全部退避するので、生きている敵の添字は常に有効
+		size_t spawnIndex = 0;
 		std::unique_ptr<Object3d> object; // 見た目
 		Vector3 position{};               // ワールド位置(objectのtranslateと同期させる)
 		// 種別(typeParams_の添字)。半径や速さを写しではなく添字で持つのは、
@@ -229,6 +255,12 @@ private:
 
 	// HPを減らし、残っていれば色に反映する(撃破されたら消えるので色は変えない)
 	void ApplyDamage(Enemy& enemy, int damage) const;
+
+	/// <summary>
+	/// 敵の結末(撃破・取り逃し)を、その敵が出たSpawnPointへ書き残す。
+	/// 区間の集計(StageProgress)はこの記録を数えるだけなので、EnemySpawnerは区間を知らなくてよい
+	/// </summary>
+	void RecordOutcome(const Enemy& enemy, SpawnPoint::Outcome outcome);
 
 	// 番号から生存中の敵を探す。見つからなければnullptr。
 	// 返したポインタは敵の一覧を変えるまで(次の発生・撃破まで)しか使わないこと(vectorの要素を指すため)

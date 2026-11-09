@@ -50,8 +50,22 @@ struct StageData {
 		float backDistance = 10.0f; // GamePlayScene::cameraBackDistance_の初期値と一致
 	};
 
+	// 区間(ステージの区切り)1個分。進行度[m]でステージを分け、「区間ごとの目標(取り逃しなし)」と
+	// 進行ゲージの区切りに使う。区間に属する敵は、SpawnPointのrailDistanceがどの区間に入るかで決まる。
+	// 区間の中身(どんな敵を出すか)はSpawnPointの配置で決まるので、ここは区切りの情報だけを持つ
+	struct SectionData {
+		// エディタ上での表示名(例: "Kitchen")。ImGuiは日本語フォントを読み込んでいないので英数字で付ける
+		std::string name;
+		float startDistance = 0.0f; // この区間が始まる進行度[m]。終わりは次の区間のstartDistance(最後の区間は終点)
+	};
+
 	// 配置オブジェクトのリスト
 	std::vector<ObjectData> objects;
+
+	// 区間のリスト。startDistanceの昇順に並べ、先頭は0(レールの始点)から始める。
+	// こうしておくと「区間i = [i番目の開始, i+1番目の開始)」と隣同士だけで範囲が決まり、隙間も重なりも生まれない。
+	// 空なら、ステージ全体を1つの区間として扱う(sectionsの無い旧stage.jsonと同じ)
+	std::vector<SectionData> sections;
 
 	// レール制御点(CatmullRomSpline用)。ゲーム座標系ネイティブ。空=レールなし
 	std::vector<Vector3> rail;

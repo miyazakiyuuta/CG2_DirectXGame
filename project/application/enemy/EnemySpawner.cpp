@@ -20,10 +20,13 @@
 namespace {
 	// 敵の種別 → モデルの対応表。データ(stage.json)にはモデルパスを持たせず種別だけを持たせ、
 	// 「どの見た目で出すか」はコード側のこの1箇所で決める(種別追加はここに足すだけ)
-	// 現状は2種とも同じ円盤で、大きさ(ScaleOf)だけで見分ける。
+	// 現状は2種とも仮のシロアリ(白い箱)で、大きさ(ScaleOf)だけで見分ける。
+	// 見た目の方針(リアル寄り/デフォルメ寄り)はルックテストで決めるので、それまでは形を作り込まない。
+	// 白いのは、HPの残量を色で見せる(ApplyHpColor: 満タン=白→赤)のに一番読み取りやすいため。
 	// 変数名の frog/sword はstage.jsonに書かれた種別名(データのキー)で、見た目とは無関係
-	const std::string kFrogModel = "enemy/saucer.obj";  // 射撃型
-	const std::string kSwordModel = "enemy/saucer.obj"; // 接近型
+	const std::string kFrogModel = "termite/termite.obj";  // 射撃型
+	const std::string kSwordModel = "termite/termite.obj"; // 接近型
+	const std::string kQueenModel = "termite/termite.obj"; // 女王(倒すとクリア)。大きさだけで見分ける
 
 	// 撃破エフェクトのグループ名。configとテクスチャの登録はシーン側で行う
 	const std::string kDefeatEffect = "enemyExplosion";
@@ -45,20 +48,47 @@ const std::string& EnemySpawner::ModelPathOf(const std::string& enemy) {
 	if (enemy == "sword") {
 		return kSwordModel;
 	}
+	if (enemy == "queen") {
+		return kQueenModel;
+	}
 	return kFrogModel; // 既定(未知の種別もここへ落ちるので、データ不備でも消えずに気付ける)
 }
 
 float EnemySpawner::ScaleOf(const std::string& enemy) {
-	// 円盤の実寸は 約89.4 x 44.4 x 89.4(幅/高さ/奥行き)。幅が判定の直径(radius x 2)になる倍率にする
+	// 箱の実寸は1x1x1。幅が判定の直径(radius x 2)になる倍率にする
+	// (判定の球は箱に内接する。角は少しはみ出すが、正面から見た幅と判定の幅がそろう)
 	if (enemy == "sword") {
-		return 0.045f; // 接近型: 幅約4m(小さく速い)
+		return 4.0f; // 接近型: 幅4m(小さく速い)
 	}
-	return 0.067f;     // 射撃型: 幅約6m
+	if (enemy == "queen") {
+		return 12.0f; // 女王: 幅12m(遠くからでも見える、終点の目標)
+	}
+	return 6.0f;     // 射撃型: 幅6m
 }
 
 const std::vector<std::string>& EnemySpawner::EnemyTypes() {
-	static const std::vector<std::string> kTypes = { "frog", "sword" };
+	static const std::vector<std::string> kTypes = { "frog", "sword", "queen" };
 	return kTypes;
+}
+
+bool EnemySpawner::HasGoal() const {
+	return std::any_of(spawnPoints_.begin(), spawnPoints_.end(), [this](const SpawnPoint& spawnPoint) {
+		return typeParams_[TypeIndexOf(spawnPoint.enemy)].isGoal;
+	});
+}
+
+bool EnemySpawner::IsGoalDefeated() const {
+	bool hasGoal = false;
+	for (const SpawnPoint& spawnPoint : spawnPoints_) {
+		if (!typeParams_[TypeIndexOf(spawnPoint.enemy)].isGoal) {
+			continue;
+		}
+		hasGoal = true;
+		if (spawnPoint.outcome != SpawnPoint::Outcome::Defeated) {
+			return false; // 残っている女王がいる
+		}
+	}
+	return hasGoal;
 }
 
 size_t EnemySpawner::TypeIndexOf(const std::string& enemy) const {
@@ -184,6 +214,13 @@ void EnemySpawner::Explode(const Vector3& center, float radius, int damage, cons
 	++explosionCount_;
 }
 
+void EnemySpawner::RecordOutcome(const Enemy& enemy, SpawnPoint::Outcome outcome) {
+	// 添字はBuildFromStageで敵ごと作り直すので常に有効なはずだが、範囲外でも落とさない(記録が残らないだけ)
+	if (enemy.spawnIndex < spawnPoints_.size()) {
+		spawnPoints_[enemy.spawnIndex].outcome = outcome;
+	}
+}
+
 void EnemySpawner::ApplyDamage(Enemy& enemy, int damage) const {
 	// 0未満にはしない(HP0=撃破という意味を、大ダメージでも崩さない)
 	enemy.hp = (std::max)(enemy.hp - damage, 0);
@@ -288,6 +325,10 @@ void EnemySpawner::UpdateApproachSound(const Vector3& playerPosition) {
 void EnemySpawner::UpdateEscape(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward) {
 	for (Enemy& enemy : enemies_) {
 		if (!enemy.passed) {
+			// 倒すとクリアになる敵(女王)は通過済みにしない。取り逃しになるとクリアできなくなるため
+			if (ParamsOf(enemy).isGoal) {
+				continue;
+			}
 			// 「自機→敵」と進行方向の内積 = 敵が自機より何m前にいるか(負なら後ろ)。
 			// 余裕を超えて後ろへ回ったら通過済みにする
 			const Vector3 toEnemy = enemy.position - playerPosition;
@@ -296,6 +337,9 @@ void EnemySpawner::UpdateEscape(float deltaTime, const Vector3& playerPosition, 
 				continue;
 			}
 			enemy.passed = true;
+			// 通過済みの敵はもう撃ち落とせない(IsInCombatがfalse)ので、離脱し終えるのを待たずにここで取り逃しと確定する
+			// (区間の結果がこの瞬間に出せる)
+			RecordOutcome(enemy, SpawnPoint::Outcome::Missed);
 			// 離脱の向きは「自機の進路から離れる向き」=画面の中心から外側。
 			// 進行方向の成分を引くと、進路に垂直な横ずれだけが残る。
 			// 常に上へ逃がさないのは、自機より下にいる敵が画面の中心を横切って上へ抜けてしまうため
@@ -419,7 +463,8 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 	// 前フレームのコマンドはPostDrawのフェンス待ちで実行完了済みなので、退避分をここで破棄する
 	graveyard_.clear();
 
-	for (SpawnPoint& spawnPoint : spawnPoints_) {
+	for (size_t spawnIndex = 0; spawnIndex < spawnPoints_.size(); ++spawnIndex) {
+		SpawnPoint& spawnPoint = spawnPoints_[spawnIndex];
 		// 到達した瞬間に1度だけ発生させる(Resetするまで再発生しない)
 		if (spawnPoint.spawned || railDistance < spawnPoint.railDistance) {
 			continue;
@@ -428,6 +473,7 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 
 		Enemy enemy;
 		enemy.id = nextEnemyId_++;
+		enemy.spawnIndex = spawnIndex;
 		enemy.typeIndex = TypeIndexOf(spawnPoint.enemy);
 		const TypeParams& params = typeParams_[enemy.typeIndex];
 		enemy.object = std::make_unique<Object3d>();
@@ -481,6 +527,7 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 			defeatSoundPlayed = true;
 		}
 
+		RecordOutcome(enemy, SpawnPoint::Outcome::Defeated);
 		graveyard_.push_back(std::move(enemy.object));
 		enemies_.erase(enemies_.begin() + static_cast<ptrdiff_t>(i - 1));
 		++defeatedCount_;
@@ -530,6 +577,7 @@ void EnemySpawner::Reset() {
 	RetireEnemies();
 	for (SpawnPoint& spawnPoint : spawnPoints_) {
 		spawnPoint.spawned = false;
+		spawnPoint.outcome = SpawnPoint::Outcome::Pending; // 区間の集計もこれで開始時に戻る
 	}
 	defeatedCount_ = 0;
 	explosionCount_ = 0;
@@ -583,6 +631,8 @@ void EnemySpawner::DrawImGui() {
 			ImGui::DragFloat("Fire Range", &params.shootRange, 1.0f, 1.0f, 300.0f, "%.0f m");
 			// 0で鳴らさない。変更は鳴らしていない個体に即座に効く
 			ImGui::DragFloat("Approach Sound Range", &params.approachSoundRange, 0.5f, 0.0f, 200.0f, "%.1f m");
+			// 倒すとクリアになるか。ONの種別がステージにいると、終点でレールが止まり、倒すまで待つ
+			ImGui::Checkbox("Goal (defeat to clear)", &params.isGoal);
 			ImGui::PopID();
 			ImGui::EndTabItem();
 		}
@@ -615,7 +665,7 @@ EnemySpawner::EnemySpawner() {
 	TypeParams frog;
 	frog.name = "frog";
 	frog.maxHp = 3;
-	frog.radius = 3.0f;        // 幅約6mの円盤に合わせる(ScaleOf)
+	frog.radius = 3.0f;        // 幅6mの箱に合わせる(ScaleOf)
 	frog.moveSpeed = 2.0f;     // ゆっくり間合いを詰める(撃つ時間を作る)
 	frog.keepDistance = 22.0f; // 手前で止まり、そこから撃ち続ける
 	frog.shoot = true;
@@ -625,7 +675,7 @@ EnemySpawner::EnemySpawner() {
 	TypeParams sword;
 	sword.name = "sword";
 	sword.maxHp = 2;           // 突っ込んでくる分HPは低く。撃ち落とすか避けるかの二択にする
-	sword.radius = 2.0f;       // 幅約4mの円盤に合わせる(ScaleOf)
+	sword.radius = 2.0f;       // 幅4mの箱に合わせる(ScaleOf)
 	sword.moveSpeed = 9.0f;    // 一気に間合いを詰める
 	sword.keepDistance = 1.5f; // 判定半径の和(自機0.5+敵2.0=2.5m)より内側=必ず体当たりになる
 	sword.shoot = false;       // 撃たない。接近そのものが攻撃
@@ -633,7 +683,20 @@ EnemySpawner::EnemySpawner() {
 	// (敵だけなら接触の約3秒前。自機もレール上を前進するので実際はそれより短い)
 	sword.approachSoundRange = 30.0f;
 
-	typeParams_ = { frog, sword }; // 並びはEnemyTypes()と同じ
+	// 女王(仮)。終点の先に置き、倒すとクリアになる。動きの作り込みは「敵やギミックの挙動」の回で行うので、
+	// 今は既存のパラメータだけで「動かずに撃ってくる、硬くて大きい的」にしておく
+	TypeParams queen;
+	queen.name = "queen";
+	queen.maxHp = 24;           // 通常弾24発 / チャージ弾(3ダメージ)8発。終点で少し粘る硬さ
+	queen.radius = 6.0f;        // 幅12mの箱に合わせる(ScaleOf)
+	queen.moveSpeed = 0.0f;     // その場から動かない(終点の先で待ち構える)
+	queen.keepDistance = 0.0f;
+	queen.shoot = true;
+	queen.shootInterval = 1.6f; // 射撃型より短い間隔で撃ち、止まっている間も避ける必要を作る
+	queen.shootRange = 130.0f;  // 遠くから見えている間に撃ち始める(終点の約60m先に置く前提)
+	queen.isGoal = true;
+
+	typeParams_ = { frog, sword, queen }; // 並びはEnemyTypes()と同じ
 }
 
 EnemySpawner::~EnemySpawner() = default;

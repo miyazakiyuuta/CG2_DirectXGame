@@ -19,9 +19,12 @@ class GameOverSequence;
 class IntroCamera;
 class NumberSprite;
 class Player;
+class ProgressGauge;
 class Reticle;
+class SectionBanner;
 class Sprite;
 class Stage;
+class StageProgress;
 class Skybox;
 struct SoundData;
 class DebugGrid;
@@ -61,8 +64,11 @@ private:
 	// 描画に使うカメラ(デバッグカメラON中はそちらを返す)
 	Camera* GetActiveCamera() const;
 
-	// 現在のスコア。撃破数から導出する(内部で加算する状態を持たない=リトライで自動的に0に戻る)
+	// 現在のスコア。撃破数とPERFECTの区間数から導出する(内部で加算する状態を持たない=リトライで自動的に0に戻る)
 	int GetScore() const;
+
+	// このプレイで受けたダメージの合計(最大HP - 残りHP)。ランク(駆除報告)の評価に使う
+	int GetDamageTaken() const;
 
 	/// <summary>
 	/// ロックオンのつなぎ込み。チャージ中は照準の近く(Lock Assistの角度以内)にいる敵を吸い付く候補に選び、
@@ -124,6 +130,13 @@ private:
 #ifdef USE_IMGUI
 	// resources配下のモデル一覧を取り直す(選択中のパスは一覧が変わっても可能なら維持する)
 	void RescanModelFiles();
+
+	/// <summary>
+	/// "Sections"ウィンドウ: 区間(ステージの区切り)の一覧・追加・削除・開始距離の編集。
+	/// StageDataを直接書き換えるので、Hierarchyの Save(stage) でstage.jsonへ残る。
+	/// どの操作も「開始距離の昇順・先頭は0」の約束(StageData::sections)を崩さない
+	/// </summary>
+	void DrawSectionsWindow();
 #endif
 
 	Mode mode_ = Mode::Play;
@@ -227,6 +240,10 @@ private:
 	// stage.jsonのSpawnPointから敵を発生させる(進行度トリガー)
 	std::unique_ptr<EnemySpawner> enemySpawner_;
 
+	// 区間ごとの集計(駆除数・取り逃し・PERFECT)とクリア時のランク。
+	// 区切り(stage.json)と敵の結末(EnemySpawner)を毎フレーム数え直すだけなので、リセットの必要がない
+	std::unique_ptr<StageProgress> stageProgress_;
+
 	// --- サウンド ---
 	// SoundManagerのキャッシュと共有するBGMデータ。
 	std::shared_ptr<const SoundData> bgmSound_;
@@ -248,6 +265,13 @@ private:
 
 	// スコア表示(画面右上)。撃破数から導出するので、加算のための状態は持たない
 	std::unique_ptr<NumberSprite> scoreNumber_;
+
+	// 進行ゲージ(画面上部の中央)。今どこにいるか・区間の区切り・PERFECTの区間・終点の女王を1本の帯で見せる。
+	// 中身はstageProgress_の集計とレールの進行度で、これは表示だけを担当する
+	std::unique_ptr<ProgressGauge> progressGauge_;
+
+	// 区間の結果表示(PERFECT / SECTION CLEAR と「n / m」)。区間が確定したフレームにShowする
+	std::unique_ptr<SectionBanner> sectionBanner_;
 
 	// 照準(レティクル)。狙点はPlayerが持っているので、これは表示だけを担当する
 	std::unique_ptr<Reticle> reticle_;

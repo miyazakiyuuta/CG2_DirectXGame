@@ -88,6 +88,9 @@
     <Filter Include="application\direction">
       <UniqueIdentifier>{8cc82764-2f99-47d0-9391-7f1410feeb7d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\progress">
+      <UniqueIdentifier>{bf9b334b-e4c6-4fa2-a098-5b18682b3759}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resources">
       <UniqueIdentifier>{7d4111bf-edf7-429d-a130-b3f728e2ef09}</UniqueIdentifier>
     </Filter>
@@ -173,6 +176,15 @@
     </ClCompile>
     <ClCompile Include="application\direction\GameOverSequence.cpp">
       <Filter>application\direction</Filter>
+    </ClCompile>
+    <ClCompile Include="application\ui\SectionBanner.cpp">
+      <Filter>application\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="application\ui\ProgressGauge.cpp">
+      <Filter>application\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="application\progress\StageProgress.cpp">
+      <Filter>application\progress</Filter>
     </ClCompile>
     <ClCompile Include="application\bullet\BulletManager.cpp">
       <Filter>application\bullet</Filter>
@@ -391,6 +403,15 @@
     </ClInclude>
     <ClInclude Include="application\direction\GameOverSequence.h">
       <Filter>application\direction</Filter>
+    </ClInclude>
+    <ClInclude Include="application\ui\SectionBanner.h">
+      <Filter>application\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="application\ui\ProgressGauge.h">
+      <Filter>application\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="application\progress\StageProgress.h">
+      <Filter>application\progress</Filter>
     </ClInclude>
     <ClInclude Include="application\bullet\Bullet.h">
       <Filter>application\bullet</Filter>
