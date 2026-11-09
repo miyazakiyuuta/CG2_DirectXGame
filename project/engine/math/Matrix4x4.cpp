@@ -1,6 +1,7 @@
 #include "Matrix4x4.h"
 #include "math/Vector3.h"
 #include "math/Quaternion.h"
+#include <algorithm>
 #include <cmath>
 #include <assert.h>
 
@@ -162,6 +163,26 @@ Matrix4x4 Matrix4x4::RotateZ(float radian) {
 
 Matrix4x4 Matrix4x4::Rotate(const Vector3& rotate) {
 	return RotateX(rotate.x) * RotateY(rotate.y) * RotateZ(rotate.z);
+}
+
+Vector3 Matrix4x4::ToEuler(const Matrix4x4& rotation) {
+	// Rotate = RotateX(x) * RotateY(y) * RotateZ(z) を展開すると、次の成分が角度だけで決まる
+	// (c=cos, s=sin。行ベクトル規約):
+	//   m[0][2] = -s(y)
+	//   m[1][2] =  s(x)c(y),  m[2][2] = c(x)c(y)
+	//   m[0][1] =  c(y)s(z),  m[0][0] = c(y)c(z)
+	// c(y)で割り切れる組をatan2に渡せば、c(y)の大きさに関係なくxとzが求まる
+	const float sinY = std::clamp(-rotation.m[0][2], -1.0f, 1.0f); // 誤差で±1をわずかに超えてもasinを壊さない
+	const float y = std::asin(sinY);
+	if (std::abs(sinY) < 0.9999f) {
+		const float x = std::atan2(rotation.m[1][2], rotation.m[2][2]);
+		const float z = std::atan2(rotation.m[0][1], rotation.m[0][0]);
+		return { x, y, z };
+	}
+	// y=±90度(ジンバルロック: Xの回転とZの回転が同じ軸に重なり、区別できなくなる状態)。
+	// 回転の結果は同じなのでz=0と決め、残りをxにまとめる(z=0のとき m[1][1]=c(x), m[2][1]=-s(x))
+	const float x = std::atan2(-rotation.m[2][1], rotation.m[1][1]);
+	return { x, y, 0.0f };
 }
 
 Matrix4x4 Matrix4x4::Rotate(const Quaternion& q) {

@@ -51,6 +51,9 @@ void ParticleManager::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager
 void ParticleManager::Update(float deltaTime) {
 	if (!camera_) { return; }
 
+	// スローモーション。エミッタの発生間隔も同じ倍率で伸びるので、1秒あたりの粒の数も一緒に遅くなる
+	deltaTime *= timeScale_;
+
 	// 登録済みエミッタの自動発生(エミッタの寿命はシーン側が握る)
 	for (ParticleEmitter* emitter : emitters_) {
 		emitter->Update(deltaTime);

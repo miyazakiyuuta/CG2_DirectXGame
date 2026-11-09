@@ -118,9 +118,18 @@ void Player::Update(float deltaTime) {
 	// ステージコライダーとの接触判定。ワールド位置が確定した後に行う。
 	// 規模が小さいので総当たり(空間分割は敵・弾が増えてから検討する)
 	hitCount_ = 0;
+	// 当たった地形のうち、自機に最も近い点(=ぶつかった場所)。複数に触れていても最初の1つで代表させる
+	Vector3 terrainHitPoint = worldPosition_;
 	if (stageColliders_) {
 		for (const AABB& aabb : *stageColliders_) {
 			if (IsCollision(aabb, worldPosition_, collisionRadius_)) {
+				if (hitCount_ == 0) {
+					// 箱の中へ各軸を丸めた点が、箱の上で自機に最も近い点になる
+					terrainHitPoint = {
+						std::clamp(worldPosition_.x, aabb.min.x, aabb.max.x),
+						std::clamp(worldPosition_.y, aabb.min.y, aabb.max.y),
+						std::clamp(worldPosition_.z, aabb.min.z, aabb.max.z) };
+				}
 				++hitCount_;
 			}
 		}
@@ -135,7 +144,7 @@ void Player::Update(float deltaTime) {
 	// 地形との接触ダメージ(A-5)。接触状態の所有者がPlayer自身なのでここで適用する。
 	// 敵との接触はEnemySpawnerが判定し、シーンがTakeDamageを呼ぶ(無敵時間の管理はどちらもここ)
 	if (isHit_) {
-		TakeDamage(1);
+		TakeDamage(1, terrainHitPoint);
 	}
 
 	// 敵弾との当たり判定。無敵時間を消化した後に行うので、
@@ -253,6 +262,11 @@ void Player::UpdateEnemyBulletCollision() {
 	if (!enemyBulletManager_) {
 		return; // 敵弾が存在しない(エディタ単体での確認時など)
 	}
+	// 被弾を止められている間(Editモード・イントロ・ゲームオーバー演出)は、自機がそこに居ない扱いにして弾を素通りさせる。
+	// 消してしまうと、ゲームオーバー演出の最中に飛んできた弾が、もう誰も居ない場所で急に消えて見える
+	if (!damageEnabled_) {
+		return;
+	}
 
 	const std::vector<Bullet>& bullets = enemyBulletManager_->GetBullets();
 	const float bulletRadius = enemyBulletManager_->GetRadius();
@@ -266,6 +280,8 @@ void Player::UpdateEnemyBulletCollision() {
 			continue;
 		}
 
+		// 当たった弾の位置を、消す前に控えておく(どこから当たったかとしてTakeDamageへ渡す)
+		const Vector3 bulletPosition = bullets[i].position;
 		// 当たった弾は無敵中でも消す。残すと無敵が切れた瞬間に同じ弾で食らい直し、
 		// 「避けたのに当たった」ように見える
 		enemyBulletManager_->Kill(i);
@@ -275,11 +291,27 @@ void Player::UpdateEnemyBulletCollision() {
 			++enemyBulletHitCount_;
 		}
 		// ダメージ量は弾のProfileが持つ(既定は1。自弾→敵と同じく弾のデータで決める)
-		TakeDamage(enemyBulletManager_->GetDamage());
+		TakeDamage(enemyBulletManager_->GetDamage(), bulletPosition);
 	}
 }
 
 void Player::TakeDamage(int amount) {
+	ApplyDamage(amount, nullptr);
+}
+
+void Player::TakeDamage(int amount, const Vector3& sourcePosition) {
+	ApplyDamage(amount, &sourcePosition);
+}
+
+bool Player::TryGetLastHitSource(Vector3& outPosition) const {
+	if (!hasLastHitSource_) {
+		return false;
+	}
+	outPosition = lastHitSource_;
+	return true;
+}
+
+void Player::ApplyDamage(int amount, const Vector3* sourcePosition) {
 	// 死亡後の減算と、無敵中の連続被弾、外から被弾を無効にされている間(エディタのEditモード)は無視する。
 	// 「誰がダメージを与えたか」に関係なくここ1箇所で弾くので、
 	// 呼び出す側(地形・敵)は無敵時間やモードを意識しなくてよい
@@ -288,6 +320,13 @@ void Player::TakeDamage(int amount) {
 	}
 	hp_ = (std::max)(hp_ - amount, 0);
 	invincibleTimer_ = invincibleDuration_;
+
+	// どこから当たったかは、実際にダメージが入ったときだけ書き換える(無敵で弾かれた当たりでは上書きしない)。
+	// 分からない被弾なら「分からない」で上書きする: 前の被弾の位置が残ると、関係ない場所から煙が出てしまう
+	hasLastHitSource_ = sourcePosition != nullptr;
+	if (sourcePosition) {
+		lastHitSource_ = *sourcePosition;
+	}
 
 	// 被弾音。早期returnの後に置いてあるので、地形に触れ続けても
 	// 無敵が切れるまで鳴らない(ダメージが入った瞬間とだけ一致する)
@@ -381,12 +420,17 @@ void Player::SetCamera(Camera* camera) {
 	object3d_->SetCamera(camera);
 }
 
+const Vector3& Player::GetRotate() const {
+	return object3d_->GetRotate();
+}
+
 void Player::Reset() {
 	// ImGui で調整する設定値は戻さない(Stop のたびに調整が消えると、遊びながら調整する意味がなくなるため)
 	// メンバを足したら、状態か設定かを決め、状態ならここに足すこと
 	offset_ = { 0.0f, 0.0f };
-	hp_ = maxHp_; 
+	hp_ = maxHp_;
 	invincibleTimer_ = 0.0f;
+	hasLastHitSource_ = false; // 前のプレイの被弾位置を持ち越さない
 	enemyBulletHitCount_ = 0; // 敵弾で何回食らったかのカウンタをリセット(ImGui表示用)
 	shootCooldown_ = 0.0f;
 	chargeTimer_ = 0.0f;

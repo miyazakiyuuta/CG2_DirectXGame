@@ -85,6 +85,9 @@
     <Filter Include="application\enemy">
       <UniqueIdentifier>{b4f60a17-9d3e-42c8-8a51-6f27e0d9b3c6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="application\direction">
+      <UniqueIdentifier>{8cc82764-2f99-47d0-9391-7f1410feeb7d}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resources">
       <UniqueIdentifier>{7d4111bf-edf7-429d-a130-b3f728e2ef09}</UniqueIdentifier>
     </Filter>
@@ -167,6 +170,9 @@
     </ClCompile>
     <ClCompile Include="application\camera\IntroCamera.cpp">
       <Filter>application\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="application\direction\GameOverSequence.cpp">
+      <Filter>application\direction</Filter>
     </ClCompile>
     <ClCompile Include="application\bullet\BulletManager.cpp">
       <Filter>application\bullet</Filter>
@@ -382,6 +388,9 @@
     </ClInclude>
     <ClInclude Include="application\camera\IntroCamera.h">
       <Filter>application\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="application\direction\GameOverSequence.h">
+      <Filter>application\direction</Filter>
     </ClInclude>
     <ClInclude Include="application\bullet\Bullet.h">
       <Filter>application\bullet</Filter>

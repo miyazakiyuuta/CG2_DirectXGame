@@ -25,6 +25,9 @@ struct Matrix4x4 {
 	static Matrix4x4 RotateZ(float radian);
 	static Matrix4x4 Rotate(const Vector3& rotate);
 	static Matrix4x4 Rotate(const Quaternion& q);
+	// 回転行列 → オイラー角。Rotate(const Vector3&)の逆で、返した角度をRotateに渡すと元の行列に戻る。
+	// 回転を行列の掛け算で合成した結果を、オイラー角しか受け取らないObject3d::SetRotateへ渡すときに使う
+	static Vector3 ToEuler(const Matrix4x4& rotation);
 
 	static Matrix4x4 Translate(const Vector3& translate);
 	

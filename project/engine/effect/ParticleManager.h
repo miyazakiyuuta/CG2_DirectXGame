@@ -52,6 +52,15 @@ public:
 
 	void SetCamera(const Camera* camera) { camera_ = camera; }
 
+	/// <summary>
+	/// 時間の進む速さの倍率(1=等速 / 0.25=4分の1のスローモーション / 0=停止)。
+	/// エミッタの発生と粒のシミュレーションの両方に掛かる。
+	/// UpdateはFrameworkが実時間で呼ぶため、シーンはdeltaTimeを渡せない。代わりにここで倍率を渡す。
+	/// 全グループに掛かるので、変えた側(シーン)が使い終わったら1へ戻すこと
+	/// </summary>
+	void SetTimeScale(float timeScale) { timeScale_ = timeScale; }
+	float GetTimeScale() const { return timeScale_; }
+
 	// ParticleEmitterがコンストラクタ/デストラクタで自動的に呼ぶ(直接呼ぶ必要はない)
 	void RegisterEmitter(ParticleEmitter* emitter);
 	void UnregisterEmitter(ParticleEmitter* emitter);
@@ -136,6 +145,9 @@ private:
 	DirectXCommon* dxCommon_ = nullptr;
 	SrvManager* srvManager_ = nullptr;
 	const Camera* camera_ = nullptr;
+
+	// 時間の進む速さの倍率(SetTimeScale)
+	float timeScale_ = 1.0f;
 
 	const uint32_t kNumMaxInstance = 1024;
 

@@ -17,6 +17,7 @@
 #include "bullet/BulletManager.h"
 #include "enemy/EnemySpawner.h"
 #include "camera/IntroCamera.h"
+#include "direction/GameOverSequence.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
 #include "ui/Reticle.h"
@@ -75,6 +76,11 @@ namespace {
 	constexpr float kControlsAlpha = 0.75f;
 	// イントロが終わってからHUDが出揃うまでの時間[秒]。HUDが現れること自体が操作開始の合図になる
 	constexpr float kHudFadeInDuration = 0.4f;
+	// ゲームオーバー演出が始まってからHUDが消え切るまでの時間[秒]。操作できなくなったことを画面から伝える
+	constexpr float kHudFadeOutDuration = 0.3f;
+	// ゲームオーバー演出でBGMを消していく時間[秒]。演出(約6.75秒)のうち、爆発(約4.25秒)の直前で消え切り、
+	// 爆発と暗転を静かに見せる。演出の段階の長さを変えたら合わせて見直す
+	constexpr float kGameOverBgmFadeDuration = 4.0f;
 
 	// スコア表示(画面右上)。数字画像は0〜9が等幅で並んだ1枚
 	const std::string kNumberTexture = "resources/ui/numbers.png";
@@ -281,6 +287,11 @@ void GamePlayScene::Initialize() {
 	bgmHandle_ = SoundManager::GetInstance()->PlayWave(
 		bgmSound_, true, SoundManager::SoundCategory::BGM);
 
+	// ゲームオーバーの演出。墜落する機体のモデル・煙と火花・爆発音はここで用意し、HPが尽きたときに始める
+	gameOverSequence_ = std::make_unique<GameOverSequence>();
+	gameOverSequence_->Initialize(effectManager_);
+	gameOverSequence_->SetCamera(camera_.get());
+
 	// ゲーム開始のイントロ。タイトルから・結果画面のリトライから・(Debugで)直接起動のどれで入っても
 	// シーンはここで作られるので、開始はこの1箇所で済む(エディタのPlayボタンはEnterPlayが始める)
 	introCamera_ = std::make_unique<IntroCamera>();
@@ -385,6 +396,12 @@ void GamePlayScene::UpdateLockOn() {
 }
 
 void GamePlayScene::UpdateDamageEffect(float deltaTime) {
+	// ゲームオーバー演出の間は、Vignetteの持ち主は演出の方(赤い縁 → 暗転まで演出が決める)。
+	// 1フレームに2か所から書くと、後に書いた方の値だけが残ってしまうため、ここは何もしない
+	if (gameOverSequence_->IsActive()) {
+		return;
+	}
+
 	// 被弾から一定時間だけ、画面の縁を赤く染める。
 	// 「実装済みのポストエフェクトをゲームの状況へ繋ぐ」だけなので、
 	// このシーンが持つのはタイマーと濃さの2値だけで済んでいる
@@ -425,6 +442,9 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	// (Playに入るとイントロが始まり、終わった後にこの下のフェードインで戻る)
 	if (introCamera_->IsPlaying() || mode_ == Mode::Edit) {
 		hudAlpha_ = 0.0f;
+	} else if (gameOverSequence_->IsActive()) {
+		// ゲームオーバー演出の間は消していく(一瞬で消すと、致命的な被弾でHPが0になった様子が見えない)
+		hudAlpha_ = (std::max)(hudAlpha_ - deltaTime / kHudFadeOutDuration, 0.0f);
 	} else {
 		hudAlpha_ = (std::min)(hudAlpha_ + deltaTime / kHudFadeInDuration, 1.0f);
 	}
@@ -486,7 +506,27 @@ void GamePlayScene::DrawHud() {
 	reticle_->Draw();     // 狙点がカメラ背面なら何も描かない
 }
 
-void GamePlayScene::RequestResult(const std::string& sceneName) {
+void GamePlayScene::StartGameOver() {
+	if (gameOverSequence_->IsActive()) {
+		return; // 演出は1度きり(演出中にForce GameOverを押しても始め直さない)
+	}
+	// Force GameOverをイントロ中に押した場合に備えて止める(イントロのカメラが演出の見送りを上書きしないように)
+	introCamera_->Stop();
+
+	// 煙を出す被弾箇所は、最後に当たった相手の位置から決める(分からなければ演出側の決まった点)
+	Vector3 hitSource{};
+	const bool hasHitSource = player_->TryGetLastHitSource(hitSource);
+	gameOverSequence_->Start(player_->GetWorldPosition(), player_->GetRotate(), hasHitSource ? &hitSource : nullptr);
+
+	// 致命的な被弾の揺れ。通常の被弾(このフレームのHP減少で同時に起きている)より強いので、StartShakeが上書きする
+	StartShake(gameOverSequence_->GetParams().impactShake);
+
+	// BGMを消していく。消え切ると再生が止まるので、このシーンのまま続けるときはResetGameStateが鳴らし直す
+	SoundManager::GetInstance()->FadeOut(bgmHandle_, kGameOverBgmFadeDuration);
+	bgmFadedOut_ = true;
+}
+
+void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition::StartState startState) {
 	if (resultRequested_) {
 		return; // 遷移は1度きり(SceneManager側も予約中は無視するが、進行停止はこのフラグで行う)
 	}
@@ -510,7 +550,7 @@ void GamePlayScene::RequestResult(const std::string& sceneName) {
 	resultRequested_ = true;
 	// 結果画面へ表示用のスコアを預ける(ChangeSceneはシーン名しか渡せないため)
 	ResultScene::SetScore(GetScore());
-	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>());
+	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>(startState));
 }
 
 void GamePlayScene::Finalize() {
@@ -528,6 +568,9 @@ void GamePlayScene::Finalize() {
 	// チャージ弾の尾と爆発も同じ理由で消す
 	ParticleManager::GetInstance()->ClearParticles(kChargeTrailEffect);
 	ParticleManager::GetInstance()->ClearParticles(kChargeExplosionEffect);
+	// ゲームオーバー演出の煙・火花・爆発の粒も同じ理由で消し、パーティクルの時間倍率を等速へ戻す
+	// (倍率はParticleManagerの全グループに掛かるので、残すと次のシーンの粒までスローになる)
+	gameOverSequence_->Stop();
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 	GPUParticleManager::GetInstance()->SetCamera(nullptr);
 }
@@ -536,8 +579,10 @@ void GamePlayScene::Update(float deltaTime) {
 	// ヒットストップ: 残っている間はゲーム進行へ渡すdtを0にする。
 	// タイマー自体は実dtで消化する(止めると永久に解除されない)。
 	// カメラ・HUD・画面の揺れ、およびFrameworkが回すパーティクルは実dtのまま進むので、
-	// 「自機と敵と弾だけが止まり、爆発は流れ続ける」形になる
-	float gameDelta = deltaTime;
+	// 「自機と敵と弾だけが止まり、爆発は流れ続ける」形になる。
+	// ゲームオーバー演出の間は、演出が決めた時間倍率(ヒットストップ=0 / スロー=0.25 / 等速=1)を掛ける。
+	// 倍率は前のフレームの演出の更新で決まった値(1フレームの遅れは体感できない)
+	float gameDelta = deltaTime * gameOverSequence_->GetTimeScale();
 	if (hitStopTimer_ > 0.0f) {
 		hitStopTimer_ = (std::max)(hitStopTimer_ - deltaTime, 0.0f);
 		gameDelta = 0.0f;
@@ -572,6 +617,7 @@ void GamePlayScene::Update(float deltaTime) {
 	enemyBulletManager_->SetCamera(activeCamera);
 	chargeBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
+	gameOverSequence_->SetCamera(activeCamera);
 
 	// ゲーム開始のイントロ。Enter/パッドSTARTでスキップする(終点はレールカメラと同じなので、止めるだけで定位置へ移る)。
 	// タイトル・結果画面の「決定」に入っているSpace/パッドAを含めないのは、射撃と同じボタンのため
@@ -585,6 +631,15 @@ void GamePlayScene::Update(float deltaTime) {
 	// このフレームでイントロ中か。以降のレール前進・カメラ・Playerへの許可はすべてこの値で判断する
 	const bool introPlaying = introCamera_->IsPlaying();
 
+	// ゲームオーバー演出のスキップ(制御不能・遠ざかる の途中なら、その場で爆発へ進む)。
+	// ボタンはイントロのスキップと同じEnter/パッドSTART(射撃のSpace/パッドAは含めない)
+	if (gameOverSequence_->IsActive() &&
+		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
+		gameOverSequence_->Skip();
+	}
+	// このフレームでゲームオーバー演出中か(フレームの途中でHPが尽きて始まった場合は、次のフレームから効く)
+	const bool gameOverActive = gameOverSequence_->IsActive();
+
 	// レールカメラ: railDistance_はプレイヤーの進行度。カメラはプレイヤーの座標系を
 	// 接線方向にcameraBackDistance_だけ下がった位置に置き、接線の向きで進行方向を向く。
 	// rail(d-後方距離)を評価せずforwardで直接下がるのが肝(カメラとプレイヤーが同一の
@@ -594,8 +649,10 @@ void GamePlayScene::Update(float deltaTime) {
 		const CatmullRomSpline& rail = stage_->GetRail();
 		if (rail.GetTotalLength() > 0.0f) {
 			// カメラのTransform更新は止めない: 止めると凍結中のフレームでビューが更新されなくなる。
-			// イントロ中はレールを進めない(自機は始点に留まる=敵の出現タイミングはイントロの長さに左右されない)
-			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying) {
+			// イントロ中はレールを進めない(自機は始点に留まる=敵の出現タイミングはイントロの長さに左右されない)。
+			// ゲームオーバー演出中も止める: カメラが止まった位置に残り、流されていく機体を見送る形になる
+			// (新しい敵も出てこない)
+			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying && !gameOverActive) {
 				railDistance_ += railSpeed_ * gameDelta;
 
 				if (railLoop_) {
@@ -634,6 +691,11 @@ void GamePlayScene::Update(float deltaTime) {
 					cameraPosition, cameraRotate);
 			}
 
+			// ゲームオーバー演出中は、止まった位置のまま向きだけを墜落する機体へ向ける(見送り)
+			if (gameOverActive) {
+				gameOverSequence_->ComputeCameraRotate(cameraPosition, tangent, cameraRotate);
+			}
+
 			// 被弾時の画面の揺れ。レール上の基準位置を出した「後」にオフセットを足すだけなので、
 			// レール座標系の計算(自機位置・狙点・敵の判定)には一切影響しない。
 			// 減衰は実dtなので、ヒットストップで止まっている間も震え続ける
@@ -670,7 +732,8 @@ void GamePlayScene::Update(float deltaTime) {
 	// 正しい値を持つのはmode_とイントロの状態だけにしたいので、切り替え時ではなく毎フレーム渡す
 	// (初期モードがEnterPlay/EnterEditを通らなくても、Resetの呼び順に関係なく正しい値になる。
 	// SetRailDistanceと同じ作法)
-	const bool controllable = mode_ == Mode::Play && !introPlaying;
+	// ゲームオーバー演出中も止める(機体はもう演出の墜落する機体に入れ替わっていて、自機は描かれていない)
+	const bool controllable = mode_ == Mode::Play && !introPlaying && !gameOverActive;
 	player_->SetDamageEnabled(controllable);
 	player_->SetShootEnabled(controllable);
 	player_->SetMoveEnabled(controllable);
@@ -708,8 +771,9 @@ void GamePlayScene::Update(float deltaTime) {
 	// 敵との接触ダメージ。接触の判定は敵側、無敵時間の管理はPlayer側にあるので、
 	// シーンは「触れていたら殴る」という繋ぎ込みだけを持つ。
 	// 地形との接触はPlayer::Updateが自分で適用している
+	// 触れていた敵の位置を「どこから当たったか」として渡す(ゲームオーバー演出の煙の出所になる)
 	if (!resultRequested_ && enemySpawner_->IsPlayerHit() && mode_ == Mode::Play) {
-		player_->TakeDamage(1);
+		player_->TakeDamage(1, enemySpawner_->GetPlayerHitPosition());
 	}
 
 	// 今フレームHPが減っていたらヒットストップと画面の揺れを起こす。
@@ -720,13 +784,30 @@ void GamePlayScene::Update(float deltaTime) {
 		damageEffectTimer_ = damageEffectDuration_;
 	}
 
-	// HPが尽きたらゲームオーバー(A-5)。クリア判定はレール終端側にある
-	if (!resultRequested_ && player_->IsDead() && mode_ == Mode::Play) {
-		RequestResult("GAMEOVER");
+	// HPが尽きたらゲームオーバー演出を始める(A-5)。結果画面へは、演出が真っ黒になり切ってから進む(下)。
+	// クリア判定はレール終端側にある
+	if (!resultRequested_ && player_->IsDead() && mode_ == Mode::Play && !gameOverSequence_->IsActive()) {
+		StartGameOver();
 	}
 
 	// HUDの色と頂点を更新(HPが確定した後)。フェードインはヒットストップで止めないので実dt
 	UpdateHud(deltaTime);
+
+	// ゲームオーバー演出。段階のタイマー・機体・パーティクル・ポストエフェクトは実dtを渡して演出に任せる
+	// (スローの倍率は演出が自分で掛け、ゲーム側へはGetTimeScaleで次のフレームから効く)。
+	// 爆発の揺れは「更新の前後で段階が爆発に変わったか」で拾う: チャージ弾の爆発と同じく、
+	// 演出はシーンの画面の揺れを知らなくてよい(Skipで飛んだ場合も同じ判定で拾える)
+	const GameOverSequence::Phase gameOverPhaseBefore = gameOverSequence_->GetPhase();
+	gameOverSequence_->Update(deltaTime, *GetActiveCamera());
+	if (gameOverPhaseBefore != GameOverSequence::Phase::Explode &&
+		gameOverSequence_->GetPhase() == GameOverSequence::Phase::Explode) {
+		StartShake(gameOverSequence_->GetParams().explosionShake);
+	}
+	// 真っ黒になり切ったら結果画面へ。画面はもう黒いので、遷移の帯は閉じた状態から始めてすぐ切り替える
+	// (タイトル→本編の遷移と同じ)。エディタのPlayから始めたプレイなら、RequestResultがEditへ戻す
+	if (gameOverSequence_->IsFinished()) {
+		RequestResult("GAMEOVER", BlindTransition::StartState::Closed);
+	}
 
 	// 被弾の画面着色。ヒットストップで止めたくないので実dt(deltaTime)を渡す
 	UpdateDamageEffect(deltaTime);
@@ -810,7 +891,12 @@ void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
 
 	stage_->Draw();
-	player_->Draw();
+	// ゲームオーバー演出中は、自機の代わりに演出の墜落する機体を描く(同じモデル・同じ姿勢から始まるので入れ替わりは見えない)
+	if (gameOverSequence_->IsActive()) {
+		gameOverSequence_->Draw();
+	} else {
+		player_->Draw();
+	}
 	bulletManager_->Draw();
 	chargeBulletManager_->Draw();
 	enemyBulletManager_->Draw();
@@ -983,13 +1069,15 @@ void GamePlayScene::DrawImGui() {
 	// Edit中は押せなくする。Edit中は進行中のプレイが無いので、プレイの出口を試す意味がない。
 	// また、タイトルから始めてStopでEditに入った場合はstartedFromEditor_がfalseなので、
 	// 押すと結果画面へ遷移してしまう
-	ImGui::BeginDisabled(mode_ == Mode::Edit);
+	// ゲームオーバー演出の間も押せなくする(プレイの出口へもう向かっている)
+	ImGui::BeginDisabled(mode_ == Mode::Edit || gameOverSequence_->IsActive());
 	if (ImGui::Button("Force Clear")) {
 		RequestResult("CLEAR");
 	}
 	ImGui::SameLine();
+	// 本番(HPが尽きたとき)と同じく演出から通す。演出の調整値は"Game Over"ウィンドウ
 	if (ImGui::Button("Force GameOver")) {
-		RequestResult("GAMEOVER");
+		StartGameOver();
 	}
 	ImGui::EndDisabled();
 
@@ -1035,6 +1123,9 @@ void GamePlayScene::DrawImGui() {
 
 	// イントロの進み具合と軌道の調整値(見直しはHierarchy先頭のRestartボタン)
 	introCamera_->DrawImGui();
+
+	// ゲームオーバー演出の進み具合と調整値(再生はHierarchyのForce GameOver)
+	gameOverSequence_->DrawImGui();
 
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
@@ -1180,6 +1271,16 @@ void GamePlayScene::ResetGameState() {
 	// イントロは止めるだけ(始めるのはInitializeとEnterPlay)。
 	// ここで始めると、Stopボタン(Editへ入る)でも再生されてしまう
 	introCamera_->Stop();
+	// ゲームオーバー演出も止める(墜落する機体・粒・時間倍率・ポストエフェクトを元に戻す)
+	gameOverSequence_->Stop();
+	// 演出でBGMをフェードアウトしていたら鳴らし直す。フェードし切ると再生が止まり、
+	// フェードの途中ならこのまま消えていくので、どちらの場合も止めてから最初から鳴らす
+	// (止まっている再生をStopWaveしても何も起きない)
+	if (bgmFadedOut_) {
+		SoundManager::GetInstance()->StopWave(bgmHandle_);
+		bgmHandle_ = SoundManager::GetInstance()->PlayWave(bgmSound_, true, SoundManager::SoundCategory::BGM);
+		bgmFadedOut_ = false;
+	}
 }
 
 void GamePlayScene::EnterPlay() {

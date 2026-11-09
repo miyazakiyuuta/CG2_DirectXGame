@@ -122,6 +122,9 @@ public:
 	/// ここは「触れているか」だけを答え、TakeDamageを呼ぶのはシーンの役割にする
 	/// </summary>
 	bool IsPlayerHit() const { return playerHit_; }
+	// 今フレーム自機に接触している敵の位置(IsPlayerHitがtrueのときだけ意味を持つ)。
+	// シーンがTakeDamageへ「どこから当たったか」として渡す
+	const Vector3& GetPlayerHitPosition() const { return playerHitPosition_; }
 
 	/// <summary>
 	/// 狙点が生存中の敵の判定球に入っているか(レティクルの色替え用)。
@@ -151,7 +154,7 @@ public:
 	/// </summary>
 	/// <param name="enemyId">敵の番号(FindEnemyInConeの戻り値)</param>
 	/// <param name="outPosition">見つかった敵のワールド位置</param>
-	/// <returns>居なければ(撃破済み・Reset済み・0を渡した)false</returns>
+	/// <returns>居なければ(撃破済み・通過済み・Reset済み・0を渡した)false</returns>
 	bool TryGetEnemyPosition(uint32_t enemyId, Vector3& outPosition) const;
 
 	/// <summary>
@@ -191,6 +194,16 @@ private:
 		float shootCooldown = 0.0f;
 		// 接近音を鳴らし済みか(1体につき1回だけ。近くに居続けても鳴り直さない)
 		bool approachAlerted = false;
+		// 自機を追う速度[m/s](向き×種別の速さ。止まっている間は0)。
+		// 通過済みになった瞬間に離脱の初速として引き継ぎ、向きが急に変わって見えないようにする
+		Vector3 velocity{};
+		// 通過済みか(自機より後ろへ回り、攻撃をやめて離脱している)。一度立ったら戻らない:
+		// 画面外から追いついての体当たりを防ぐのが目的なので、後ろへ回った時点で戦闘から降ろす
+		bool passed = false;
+		// 離脱する向き(単位ベクトル)。通過した瞬間に決めて以後変えない
+		Vector3 escapeDirection{};
+		// 通過済みになってからの経過時間[秒]。escapeLifetime_を超えたら消す
+		float escapeTime = 0.0f;
 	};
 
 	// 発生済みの敵を即deleteせず墓場へ移す。ImGuiのボタン処理(Draw後)から呼ばれると、
@@ -231,6 +244,19 @@ private:
 	// 種別のapproachSoundRangeまで近づいた敵の接近音を鳴らす。
 	// 移動後に呼ぶこと(近づいた瞬間の距離で判定するため)
 	void UpdateApproachSound(const Vector3& playerPosition);
+
+	/// <summary>
+	/// 自機より後ろへ回った敵を通過済みにし、画面の外側へ離脱させる。離脱し終えた敵は消す(撃破扱いにしない)。
+	/// 追尾より先に呼ぶこと(通過済みになったフレームから追わせないため)
+	/// </summary>
+	/// <param name="deltaTime">経過時間[秒]</param>
+	/// <param name="playerPosition">自機のワールド位置</param>
+	/// <param name="playerForward">自機の進行方向(レールの接線。単位ベクトル)</param>
+	void UpdateEscape(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward);
+
+	// 戦闘に参加している敵か(生存中かつ通過済みでない)。
+	// 被弾・ロックオン・照準の対象はこれで絞る。通過済みの敵は見た目だけ残って去っていく
+	static bool IsInCombat(const Enemy& enemy) { return enemy.hp > 0 && !enemy.passed; }
 
 	// 次のクールタイムを引く。個体差を付けて斉射を防ぐ(発生時の初回待ちにも使う)
 	float NextShootCooldown(const TypeParams& params) const;
@@ -285,8 +311,21 @@ private:
 	float shootIntervalRandom_ = 0.35f;
 	int shotCount_ = 0; // 通算の発射数(ImGui表示用)
 
-	// 今フレーム、自機に接触している敵がいるか(A-5)
+	// --- 通過済みの敵の離脱 ---
+	// 自機よりこれだけ後ろへ回ったら通過済みにする[m]。通過済みは戻らないのでちらつきは起きず、
+	// この値は「自機の真横〜少し後ろなら、まだ体当たりしてきてよい」範囲を決める
+	// (体当たりが届くのは判定半径の和以内=自機のすぐそばなので、この範囲の敵は画面に映っている)
+	float passMargin_ = 2.0f;
+	// 画面の外側へ抜けていく速さ[m/s]
+	float escapeSpeed_ = 8.0f;
+	// 追っていた勢いを落とすブレーキ[m/s^2]。9m/sの接近型なら約1.1秒で止まる
+	float escapeBrake_ = 8.0f;
+	// 通過済みになってから消えるまで[秒]。レール速度8m/sなら3秒でカメラ(自機の12m後ろ)より後ろへ抜けている
+	float escapeLifetime_ = 3.0f;
+
+	// 今フレーム、自機に接触している敵がいるか(A-5)と、その敵の位置
 	bool playerHit_ = false;
+	Vector3 playerHitPosition_ = { 0.0f, 0.0f, 0.0f };
 
 	// 撃破した通算数(ImGui表示用)
 	int defeatedCount_ = 0;

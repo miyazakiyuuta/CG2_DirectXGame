@@ -2,6 +2,7 @@
 #include "scene/BaseScene.h"
 #include "scene/EditorObject.h"
 #include "scene/SceneSerializer.h"
+#include "transition/BlindTransition.h"
 
 #include <d3d12.h>
 #include <cstdint>
@@ -14,6 +15,7 @@ class BulletManager;
 class Camera;
 class DebugCamera;
 class EnemySpawner;
+class GameOverSequence;
 class IntroCamera;
 class NumberSprite;
 class Player;
@@ -77,7 +79,17 @@ private:
 	/// エディタのPlayボタンから始めたプレイなら、遷移せずEditへ戻る
 	/// </summary>
 	/// <param name="sceneName">"CLEAR" または "GAMEOVER"</param>
-	void RequestResult(const std::string& sceneName);
+	/// <param name="startState">遷移の帯の始まり方。ゲームオーバー演出で画面が真っ黒になっているときはClosed
+	/// (閉じた状態から始めてすぐ切り替える。タイトル→本編の遷移と同じ)</param>
+	void RequestResult(const std::string& sceneName,
+		BlindTransition::StartState startState = BlindTransition::StartState::Open);
+
+	/// <summary>
+	/// ゲームオーバー演出を始める(HPが尽きたときと、ImGuiのForce GameOverから呼ぶ)。
+	/// 演出が真っ黒になり切ったらRequestResult("GAMEOVER")へ進む。
+	/// 演出中はレールを止め、操作を止め、自機の代わりに墜落する機体を描く
+	/// </summary>
+	void StartGameOver();
 
 	// HUD(HPブロックと操作説明)を作る/更新する/描く。
 	// スプライトは深度OFF・αブレンドONなので3Dの上にそのまま重なる
@@ -183,6 +195,11 @@ private:
 	// 再生中はレールを進めず、自機の移動・射撃・被弾を止め、HUDを消す
 	std::unique_ptr<IntroCamera> introCamera_;
 
+	// ゲームオーバーの演出(致命的な被弾 → 制御不能 → 遠ざかる → 爆発 → 暗転)。
+	// 時間倍率・墜落する機体・パーティクル・ポストエフェクトは演出が持ち、
+	// シーンはレール・操作・HUD・画面の揺れ・結果画面への遷移をつなぐ(イントロと同じ分担)
+	std::unique_ptr<GameOverSequence> gameOverSequence_;
+
 	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
 	std::unique_ptr<ActionInput> actionInput_;
 	std::unique_ptr<Player> player_;
@@ -216,6 +233,9 @@ private:
 	// 再生ハンドルはシーンを抜けるとき(Finalize)にBGMを止めるために保持する。
 	// 型は SoundManager::SoundHandle(=uint32_t)。ヘッダにxaudio2.hを引き込まないため素の型で持つ
 	uint32_t bgmHandle_ = 0; // 0 = SoundManager::InvalidHandle
+	// ゲームオーバー演出でBGMをフェードアウトさせたか。フェードし切ると再生が止まるので、
+	// このシーンのまま続ける(エディタのPlayから始めたプレイがEditへ戻る)ときはResetGameStateで鳴らし直す
+	bool bgmFadedOut_ = false;
 
 	// --- HUD(A-5) ---
 	// HPブロック(white1x1を1マス=HP1として並べる)。残量が整数で読み取れるようバー分割にはしない

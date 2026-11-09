@@ -76,10 +76,24 @@ public:
 
 	/// <summary>
 	/// ダメージを受ける。無敵時間中・死亡後・外から被弾を無効にされている間は何も起きない。
-	/// 地形との接触はUpdate内で自分に適用し、敵との接触はシーンがここを呼ぶ
+	/// 地形との接触はUpdate内で自分に適用し、敵との接触はシーンがここを呼ぶ。
+	/// こちらは「どこから当たったか」が分からないとき用(ImGuiのDamageボタンなど)
 	/// </summary>
 	/// <param name="amount">減らすHP量</param>
 	void TakeDamage(int amount = 1);
+
+	/// <summary>
+	/// ダメージを受け、当たった相手の位置を覚える(ゲームオーバー演出で、煙を機体のどこから出すかに使う)
+	/// </summary>
+	/// <param name="amount">減らすHP量</param>
+	/// <param name="sourcePosition">当たった相手の位置(敵弾の位置・地形の最も近い点・敵の位置)</param>
+	void TakeDamage(int amount, const Vector3& sourcePosition);
+
+	/// <summary>
+	/// 最後にダメージが入ったときの相手の位置。位置の分からない被弾(TakeDamage(amount))だった、
+	/// またはまだ被弾していなければfalse
+	/// </summary>
+	bool TryGetLastHitSource(Vector3& outPosition) const;
 
 	int GetHp() const { return hp_; }
 	int GetMaxHp() const { return maxHp_; }
@@ -92,6 +106,9 @@ public:
 	const Vector2& GetOffset() const { return offset_; }
 	// 合成済みのワールド位置(照準・衝突の起点になる)
 	const Vector3& GetWorldPosition() const { return worldPosition_; }
+	// 自機モデルの回転(オイラー角。レールの接線から求めたpitchとyaw、rollは0)。
+	// ゲームオーバー演出が、墜落する機体を同じ姿勢から動かし始めるのに使う
+	const Vector3& GetRotate() const;
 
 	/// <summary>
 	/// 弾が向かう狙点(ワールド座標)。レティクルはこの点をスクリーン投影して描く。
@@ -169,6 +186,9 @@ private:
 	// 被弾を受け付けない理由を1箇所に集約し、TakeDamageと被弾回数の数え方がずれないようにする
 	bool CanTakeDamage() const { return !IsDead() && !IsInvincible() && damageEnabled_; }
 
+	// TakeDamageの2つの入口の中身。sourcePositionがnullptrなら「どこから当たったか分からない」として覚える
+	void ApplyDamage(int amount, const Vector3* sourcePosition);
+
 	ActionInput* actionInput_ = nullptr;
 	const CatmullRomSpline* rail_ = nullptr;
 
@@ -209,6 +229,9 @@ private:
 	// 被弾の許可(SetDamageEnabledで外から渡される)。
 	// 状態でも設定でもない「外からの許可」なので、Reset()では戻さない
 	bool damageEnabled_ = true;
+	// 最後にダメージが入ったときの相手の位置と、それが分かっているか(TryGetLastHitSource)
+	Vector3 lastHitSource_ = { 0.0f, 0.0f, 0.0f };
+	bool hasLastHitSource_ = false;
 
 	// --- 射撃 ---
 	// 弾の発射先(シーンが所有。所有しない)
