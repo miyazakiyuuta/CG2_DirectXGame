@@ -17,7 +17,10 @@
 mono_crash.*
 
 # Build results
-generated/
+# ビルド成果物はリポジトリ直下の generated/ だけ。先頭の / が無いと、どの階層の「generated」フォルダも除外してしまう
+/generated/
+# 外部ライブラリ(DirectXTex/imgui)のビルド中間物
+project/externals/generated/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -332,3 +335,7 @@ documents/
 
 # Claude Code 用のプロジェクトメモ（ローカル専用）
 CLAUDE.md
+
+# Blenderの作業ファイル(生成スクリプト project/tools/models/ から作り直せるので含めない。.blend1は保存時の自動バックアップ)
+*.blend
+*.blend1
