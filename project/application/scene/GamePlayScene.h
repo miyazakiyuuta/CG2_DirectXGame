@@ -113,6 +113,13 @@ private:
 	// 初回LoadFromFile後とReload成功後に呼ぶ。逆方向(Capture)はSaveボタン側で行う
 	void ApplyCameraFromStage();
 
+	/// <summary>
+	/// 描画する奥行きの範囲を、ゲームのカメラとエディタのカメラ(DebugCamera)の両方へ入れる。
+	/// エディタのカメラは一度起動すると視点を保ち続けるので、起動時に写すだけでは後からの変更が届かない。
+	/// そのため値を変えるたびに(読み込み時とInspectorでの編集時)ここで両方へ入れる
+	/// </summary>
+	void SetCameraClip(float nearClip, float farClip);
+
 	// EnterPlay・EnterEditで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
 	// 開始時の状態に戻す・設定は残す。イントロは止めるだけで、始めるのはInitializeとEnterPlay
 	// (Stopでは再生しないため)

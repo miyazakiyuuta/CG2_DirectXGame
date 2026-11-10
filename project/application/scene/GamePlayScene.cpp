@@ -1095,7 +1095,8 @@ void GamePlayScene::DrawImGui() {
 		// (Save=Capture+書き出し。所有者はシーンなので、Camera APIを呼ぶのはここ)
 		StageData& data = stage_->GetData();
 		data.hasCamera = true;
-		data.camera = { camera_->GetFovY(), railSpeed_, cameraBackDistance_ };
+		data.camera = { camera_->GetFovY(), railSpeed_, cameraBackDistance_,
+			camera_->GetNearClip(), camera_->GetFarClip() };
 		StageSerializer::Save(kStagePath, data);
 	}
 	ImGui::SameLine();
@@ -1259,6 +1260,17 @@ void GamePlayScene::RebuildEditorObjects() {
 		if (ImGui::DragFloat("FovY", &fovY, 0.01f)) {
 			camera_->SetFovY(fovY);
 		}
+		// 描画する奥行きの範囲(1単位=1cm)。手前を小さくするほど遠くの面がちらつきやすくなる。
+		// 手前<奥を崩さないよう、互いの値を範囲の端にする(AlwaysClampで直接入力でも越えさせない)
+		float nearClip = camera_->GetNearClip();
+		float farClip = camera_->GetFarClip();
+		bool clipChanged = ImGui::DragFloat("Near Clip", &nearClip, 0.01f, 0.01f, farClip - 1.0f, "%.2f",
+			ImGuiSliderFlags_AlwaysClamp);
+		clipChanged |= ImGui::DragFloat("Far Clip", &farClip, 10.0f, nearClip + 1.0f, 100000.0f, "%.0f",
+			ImGuiSliderFlags_AlwaysClamp);
+		if (clipChanged) {
+			SetCameraClip(nearClip, farClip);
+		}
 	};
 #endif
 	fixedEditorObjectCount_ = editorObjects_.size();
@@ -1340,6 +1352,14 @@ void GamePlayScene::ApplyCameraFromStage() {
 	camera_->SetFovY(data.camera.fovY);
 	railSpeed_ = data.camera.railSpeed;
 	cameraBackDistance_ = data.camera.backDistance;
+	SetCameraClip(data.camera.nearClip, data.camera.farClip);
+}
+
+void GamePlayScene::SetCameraClip(float nearClip, float farClip) {
+	camera_->SetNearClip(nearClip);
+	camera_->SetFarClip(farClip);
+	debugCamera_->GetCamera()->SetNearClip(nearClip);
+	debugCamera_->GetCamera()->SetFarClip(farClip);
 }
 
 void GamePlayScene::ResetGameState() {

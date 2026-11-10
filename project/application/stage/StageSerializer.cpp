@@ -110,6 +110,12 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 			if (camera.contains("backDistance")) {
 				camera.at("backDistance").get_to(loaded.camera.backDistance);
 			}
+			if (camera.contains("nearClip")) {
+				camera.at("nearClip").get_to(loaded.camera.nearClip);
+			}
+			if (camera.contains("farClip")) {
+				camera.at("farClip").get_to(loaded.camera.farClip);
+			}
 		}
 	} catch (const json::exception& e) {
 		// 壊れたJSON・キー欠損でも落とさずログだけ残す(手編集ミス対策)
@@ -176,6 +182,8 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 			{ "fovY", stageData.camera.fovY },
 			{ "railSpeed", stageData.camera.railSpeed },
 			{ "backDistance", stageData.camera.backDistance },
+			{ "nearClip", stageData.camera.nearClip },
+			{ "farClip", stageData.camera.farClip },
 		};
 	}
 

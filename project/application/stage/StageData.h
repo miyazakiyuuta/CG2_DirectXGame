@@ -48,6 +48,10 @@ struct StageData {
 		float fovY = 0.45f;         // Camera::fovY_の初期値(Camera.cpp)と一致
 		float railSpeed = 10.0f;    // GamePlayScene::railSpeed_の初期値と一致
 		float backDistance = 10.0f; // GamePlayScene::cameraBackDistance_の初期値と一致
+		// 描画する奥行きの範囲。1単位=1cmなので、家の中を見渡すには奥を長く取る(既定のままだと1m先で切れる)。
+		// 24bitの深度バッファでは奥行きの細かさが手前の値でほぼ決まるので、奥を伸ばすときは手前も上げる
+		float nearClip = 0.1f;   // Camera::nearClip_の初期値と一致
+		float farClip = 100.0f;  // Camera::farClip_の初期値と一致
 	};
 
 	// 区間(ステージの区切り)1個分。進行度[m]でステージを分け、「区間ごとの目標(取り逃しなし)」と

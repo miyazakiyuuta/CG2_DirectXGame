@@ -140,7 +140,10 @@ void DebugCamera::SyncPoseFrom(const Camera& src) {
 	position_ = src.GetTranslate();
 	pitch_ = std::clamp(src.GetRotate().x, -kPitchLimit, kPitchLimit);
 	yaw_ = src.GetRotate().y;
+	// レンズの設定もそろえる(視野角と描画する奥行き)。そろえないと、切り替えた瞬間に見える範囲が変わる
 	camera_->SetFovY(src.GetFovY());
+	camera_->SetNearClip(src.GetNearClip());
+	camera_->SetFarClip(src.GetFarClip());
 }
 
 void DebugCamera::DrawImGui() {

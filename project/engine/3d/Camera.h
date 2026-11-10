@@ -33,6 +33,9 @@ public:
 	const Vector3& GetTranslate() const { return transform_.translate; }
 	Transform& GetTransform() { return transform_; } // エディタ(Inspector/ギズモ/保存読込)用
 	float GetFovY() const { return fovY_; }
+	// 描画する奥行きの範囲(手前・奥の限界)。ステージの調整値の保存や、別カメラへレンズ設定を写すのに使う
+	float GetNearClip() const { return nearClip_; }
+	float GetFarClip() const { return farClip_; }
 	D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
 
 private:
