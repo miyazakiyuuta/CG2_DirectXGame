@@ -57,6 +57,10 @@ void EditorPanels::DrawInspector(std::vector<EditorObject>& objects, int selecte
 		if (object.scaleEditable) {
 			ImGui::DragFloat3("Scale", &object.transform->scale.x, 0.01f);
 		}
+	} else if (object.position) {
+		// 位置だけの対象(曲線の制御点など)。回転・拡縮を持たないので位置だけを出す
+		ImGui::SeparatorText("Transform");
+		ImGui::DragFloat3("Position", &object.position->x, 0.01f);
 	}
 
 	// 型別部: 登録側が設定した追加UI(カメラのFovY等)

@@ -211,6 +211,7 @@ void GamePlayScene::Initialize() {
 	// 被弾判定に使う自弾の一覧の取得元(所有はシーン。敵は参照するだけ)
 	enemySpawner_->SetBulletManager(bulletManager_.get());
 	enemySpawner_->BuildFromStage(stage_->GetData());
+	spawnerRailRevision_ = stage_->GetRailRevision();
 
 	// 区間ごとの集計。区切りと敵の結末は毎フレームUpdateで受け取るので、ここでは作るだけ
 	stageProgress_ = std::make_unique<StageProgress>();
@@ -644,9 +645,15 @@ void GamePlayScene::Update(float deltaTime) {
 	// Fキーで選択中オブジェクトへフォーカス(Sceneビュー上でのみ反応)
 	if (debugCamera_->IsActive() && selectedIndex_ >= 0 &&
 		Input::GetInstance()->IsSceneViewHovered() && Input::GetInstance()->IsTriggerKey(DIK_F)) {
-		const Transform* target = editorObjects_[selectedIndex_].transform;
-		float radius = (std::max)({ target->scale.x, target->scale.y, target->scale.z });
-		debugCamera_->FocusOn(target->translate, radius);
+		const EditorObject& target = editorObjects_[selectedIndex_];
+		if (target.transform) {
+			const Transform* transform = target.transform;
+			float radius = (std::max)({ transform->scale.x, transform->scale.y, transform->scale.z });
+			debugCamera_->FocusOn(transform->translate, radius);
+		} else if (target.position) {
+			// 位置だけの対象(レールの制御点)は大きさを持たないので、選択の判定球の大きさで寄る
+			debugCamera_->FocusOn(*target.position, target.pickRadius > 0.0f ? target.pickRadius : 1.0f);
+		}
 	}
 #endif
 	debugCamera_->Update(deltaTime);
@@ -770,6 +777,14 @@ void GamePlayScene::Update(float deltaTime) {
 	// この順なら同フレームの編集(ギズモ移動等)がそのまま当たり判定に反映される
 	stage_->Update(gameDelta);
 
+	// Edit中にレールの形が変わったら(敵の出現距離が付け直されたら)、出現地点の写しを持つEnemySpawnerを作り直す。
+	// 前回作り直したときのレールの版と比べる「差分を見る」作法(Stageは誰が距離を写しているかを知らなくてよい)。
+	// Play中は作り直さない: 通過済みの出現地点まで未発生に戻り、敵が一斉に出直してしまうため(次のPlayで反映される)
+	if (mode_ == Mode::Edit && stage_->GetRailRevision() != spawnerRailRevision_) {
+		enemySpawner_->BuildFromStage(stage_->GetData());
+		spawnerRailRevision_ = stage_->GetRailRevision();
+	}
+
 	// 被弾の検出用に更新前のHPを控える。ダメージ源は地形(Player内部)と敵(この下)の2つに
 	// 分かれているので、ダメージ源を問わず拾える「HPが減ったか」で判定する
 	const int hpBeforeUpdate = player_->GetHp();
@@ -885,7 +900,10 @@ void GamePlayScene::Update(float deltaTime) {
 	// railは下のSpawnPoint表示でも使うので、参照の取得はチェックの外で行う
 	const CatmullRomSpline& rail = stage_->GetRail();
 	const std::vector<Vector3>& railPoints = rail.GetControlPoints();
-	if (showRail_ && railPoints.size() >= 2) {
+	// 制御点を選んでいる間は、Show RailがOFFでもレールを描く(動かしているものが見えないと編集できないため)
+	const int selectedRailPoint = SelectedRailPointIndex();
+	const bool railVisible = showRail_ || selectedRailPoint >= 0;
+	if (railVisible && railPoints.size() >= 2) {
 		// 1区間16分割でサンプリングして折れ線として描く
 		const int division = static_cast<int>(railPoints.size() - 1) * 16;
 		Vector3 prevPos = rail.GetPosition(0.0f);
@@ -896,9 +914,12 @@ void GamePlayScene::Update(float deltaTime) {
 			prevPos = pos;
 		}
 	}
-	if (showRail_) {
-		for (const Vector3& point : railPoints) {
-			DebugRenderer::GetInstance()->AddSphere(point, 0.5f, { 1.0f,1.0f,0.2f,1.0f });
+	if (railVisible) {
+		for (size_t i = 0; i < railPoints.size(); ++i) {
+			// 選んでいる制御点は白く大きく描き、どれを動かしているかを一目で分かるようにする
+			const bool selected = static_cast<int>(i) == selectedRailPoint;
+			DebugRenderer::GetInstance()->AddSphere(railPoints[i], selected ? 1.0f : 0.5f,
+				selected ? Vector4{ 1.0f, 1.0f, 1.0f, 1.0f } : Vector4{ 1.0f, 1.0f, 0.2f, 1.0f });
 		}
 		// 区間の区切り(各区間の始まり)。レール上の点に球を置き、真上へ線を伸ばす。
 		// "Sections"ウィンドウで開始距離を動かすと、この目印がレールに沿って動く
@@ -1020,7 +1041,9 @@ void GamePlayScene::DrawImGui() {
 
 	// ステージオブジェクトの追加/複製/削除(stage.jsonの管轄分のみ。C++直書きの固定オブジェクトは対象外)
 	ImGui::SeparatorText("Stage Objects");
-	const bool stageObjectSelected = selectedIndex_ >= static_cast<int>(fixedEditorObjectCount_);
+	// 配置オブジェクトは[固定]と[制御点]の間。制御点を選んでいるときにDuplicate/Deleteが配置オブジェクトに効かないよう、後ろも区切る
+	const bool stageObjectSelected = selectedIndex_ >= static_cast<int>(fixedEditorObjectCount_) &&
+		selectedIndex_ < static_cast<int>(railEditorObjectStart_);
 	const size_t stageIndex = stageObjectSelected ? selectedIndex_ - fixedEditorObjectCount_ : 0;
 
 	// Addで使うモデルの選択(Rescanボタンが横に並ぶため、Comboは残り幅の6割に抑える)
@@ -1087,6 +1110,34 @@ void GamePlayScene::DrawImGui() {
 		RebuildEditorObjects(); // 選択解除もここで行われる
 	}
 	ImGui::EndDisabled();
+
+	// レールの制御点の追加/削除(Stage Objectsと同じく、選んでいる対象に効く)。
+	// 制御点の移動はギズモ/Inspectorで行い、Stage::Updateがその場でレールを作り直す。
+	// どの操作でも、区間の開始距離と敵の出現距離はレール上の同じ場所に付いてくる(Stage::RebuildRailKeepingDistances)
+	ImGui::SeparatorText("Rail");
+	const std::vector<Vector3>& railPoints = stage_->GetData().rail;
+	ImGui::Text("Points: %zu  Length: %.1f", railPoints.size(), stage_->GetRail().GetTotalLength());
+	const int selectedRailPoint = SelectedRailPointIndex();
+	ImGui::BeginDisabled(selectedRailPoint < 0);
+	if (ImGui::Button("Insert Point After")) {
+		const size_t newIndex = stage_->InsertRailPoint(static_cast<size_t>(selectedRailPoint));
+		RebuildEditorObjects(); // 制御点の数が変わりpositionポインタが無効になるため必須
+		selectedIndex_ = static_cast<int>(railEditorObjectStart_ + newIndex); // 足した点をそのまま動かせるように選ぶ
+	}
+	ImGui::SameLine();
+	// 曲線は制御点2個以上で作れるので、それ以下にはしない(Stage::RemoveRailPointも同じ判定で守っている)
+	ImGui::BeginDisabled(railPoints.size() <= 2);
+	if (ImGui::Button("Delete Point")) {
+		stage_->RemoveRailPoint(static_cast<size_t>(selectedRailPoint));
+		RebuildEditorObjects();
+		// 続けて消したり動かしたりできるよう、1つ手前の点を選ぶ(先頭を消したら新しい先頭)
+		selectedIndex_ = static_cast<int>(railEditorObjectStart_) + (std::max)(selectedRailPoint - 1, 0);
+	}
+	ImGui::EndDisabled();
+	ImGui::EndDisabled();
+	if (selectedRailPoint < 0) {
+		ImGui::TextDisabled("Select a rail point (rail_XX) to insert or delete.");
+	}
 
 	// ステージ配置のファイル操作。Reloadはstage.jsonの内容で上書き(未保存の編集は破棄される)
 	ImGui::SeparatorText("Stage File");
@@ -1228,6 +1279,11 @@ void GamePlayScene::DrawImGui() {
 	// Sceneビューのクリックで選択を更新し、選択中の対象にギズモを表示
 	// (デバッグカメラON中はその視点で描画されているため、ピック・ギズモも同じカメラで行う)
 	Camera* activeCamera = GetActiveCamera();
+	// 制御点は、レールを表示しているときだけクリックで選べる(見えないものは選べない。無効なオブジェクトと同じ決まり)。
+	// Hierarchyからはいつでも選べ、選んでいる間はShow RailがOFFでもレールを描く(Update)
+	for (size_t i = railEditorObjectStart_; i < editorObjects_.size(); ++i) {
+		editorObjects_[i].pickable = showRail_;
+	}
 	TransformGizmo::PickBySceneClick(*activeCamera, editorObjects_, selectedIndex_);
 	if (selectedIndex_ >= 0) {
 		TransformGizmo::Manipulate(*activeCamera, editorObjects_[selectedIndex_]);
@@ -1340,8 +1396,39 @@ void GamePlayScene::RebuildEditorObjects() {
 	}
 #endif
 
+	// レールの制御点を最後に連結する(positionはStageData直指し。動かすとStage::Updateがレールを作り直す)。
+	// 配置オブジェクトの後ろに置くので、上のループ(モデル差し替え・無効フラグ)の対象には入らない
+	railEditorObjectStart_ = editorObjects_.size();
+	std::vector<EditorObject> railObjects = stage_->BuildRailEditorObjects();
+	editorObjects_.insert(editorObjects_.end(),
+		std::make_move_iterator(railObjects.begin()), std::make_move_iterator(railObjects.end()));
+
+#ifdef USE_IMGUI
+	// 制御点のInspector追加UI: 先頭からの距離。区間の区切りや敵の出現距離を決めるときの目安にする
+	for (size_t i = railEditorObjectStart_; i < editorObjects_.size(); ++i) {
+		const size_t railPointIndex = i - railEditorObjectStart_;
+		editorObjects_[i].drawInspector = [this, railPointIndex]() {
+			const CatmullRomSpline& rail = stage_->GetRail();
+			ImGui::Text("Rail Point %zu / %zu", railPointIndex + 1, stage_->GetData().rail.size());
+			// 制御点iは区間iの始まり(最後の点だけは終点)
+			const float distance = railPointIndex < rail.GetSegmentCount()
+				? rail.GetSegmentStartDistance(railPointIndex)
+				: rail.GetTotalLength();
+			ImGui::Text("Distance from start: %.1f", distance);
+		};
+	}
+#endif
+
 	// 一覧が変わったので選択は解除(古いindexは別物を指しうる)
 	selectedIndex_ = -1;
+}
+
+int GamePlayScene::SelectedRailPointIndex() const {
+	if (selectedIndex_ < static_cast<int>(railEditorObjectStart_) ||
+		selectedIndex_ >= static_cast<int>(editorObjects_.size())) {
+		return -1;
+	}
+	return selectedIndex_ - static_cast<int>(railEditorObjectStart_);
 }
 
 void GamePlayScene::ApplyCameraFromStage() {
@@ -1394,6 +1481,11 @@ void GamePlayScene::ResetGameState() {
 
 void GamePlayScene::EnterPlay() {
 	ResetGameState();
+	// 出現地点の写しをステージデータから作り直す(Play = 取り込み + 作り直し)。
+	// EnemySpawnerは出現地点を写して持つので、Edit中にギズモで動かした位置や、
+	// レールの編集で付け直した出現距離は、ここで写し直さないとゲームに届かない
+	enemySpawner_->BuildFromStage(stage_->GetData());
+	spawnerRailRevision_ = stage_->GetRailRevision();
 	mode_ = Mode::Play;
 	// EnterPlayを呼ぶのはエディタのボタン(PlayとRestart)だけなので、ここで立てれば足りる
 	// (本番の開始はInitializeでmode_の初期値Playから始まり、ここを通らない)。

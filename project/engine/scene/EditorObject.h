@@ -18,4 +18,8 @@ struct EditorObject {
 	// 無効フラグ切替時に呼ばれる(引数は新しいdisabled値)。実体の生成/破棄などの副作用は登録側が行う。
 	// 未設定なら切替UI自体を出さない(C++直書きの固定オブジェクトは無効化の対象外)
 	std::function<void(bool)> onSetDisabled;
+	// 回転・拡縮を持たない「位置だけ」の対象(曲線の制御点など)。transformの代わりに設定する(どちらか一方)。
+	// Inspectorは位置だけを出し、ギズモは移動だけになる。クリック選択の判定球はpickRadius(0以下なら1.0)。
+	// 末尾に置くのは、{ name, transform, pickable } のように先頭から順に値を並べて作る既存の書き方を崩さないため
+	Vector3* position = nullptr;
 };

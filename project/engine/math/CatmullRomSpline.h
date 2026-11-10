@@ -23,6 +23,17 @@ public:
 	// スプライン全長
 	float GetTotalLength() const { return totalLength_; }
 
+	// --- 区間(制御点 i と i+1 の間)ごとの距離 ---
+	// 制御点を足し引き・移動したとき、「曲線上のどのあたりか」を区間番号と割合で覚えておき、
+	// 新しい曲線の距離へ戻す、といった使い方のためのもの
+
+	// 区間の数(制御点の数-1)。制御点が2個未満なら0
+	size_t GetSegmentCount() const;
+	// segment番の区間が始まる距離[m](先頭からの累積)。範囲外の番号は端へ丸める
+	float GetSegmentStartDistance(size_t segment) const;
+	// segment番の区間の長さ[m]。範囲外の番号は端へ丸める
+	float GetSegmentLength(size_t segment) const;
+
 	const std::vector<Vector3>& GetControlPoints() const { return controlPoints_; }
 
 private:

@@ -57,6 +57,31 @@ Vector3 CatmullRomSpline::GetPosition(float t) const {
 	return CatmullRomInterpolation(p0, p1, p2, p3, localT);
 }
 
+size_t CatmullRomSpline::GetSegmentCount() const {
+	// 距離テーブルは制御点2個以上のときだけ作られる(SetControlPoints)
+	return arcLengths_.empty() ? 0 : controlPoints_.size() - 1;
+}
+
+float CatmullRomSpline::GetSegmentStartDistance(size_t segment) const {
+	const size_t count = GetSegmentCount();
+	if (count == 0) {
+		return 0.0f;
+	}
+	// サンプルは全体tの等分割で、1区間あたりkSamplesPerSegment個。
+	// なので区間iの始まりは、ちょうど i×kSamplesPerSegment 番目のサンプル(全体t = i/区間数)
+	segment = (std::min)(segment, count - 1);
+	return arcLengths_[segment * kSamplesPerSegment];
+}
+
+float CatmullRomSpline::GetSegmentLength(size_t segment) const {
+	const size_t count = GetSegmentCount();
+	if (count == 0) {
+		return 0.0f;
+	}
+	segment = (std::min)(segment, count - 1);
+	return arcLengths_[(segment + 1) * kSamplesPerSegment] - arcLengths_[segment * kSamplesPerSegment];
+}
+
 Vector3 CatmullRomSpline::GetPositionByDistance(float distance) const {
 	return GetPosition(DistanceToT(distance));
 }

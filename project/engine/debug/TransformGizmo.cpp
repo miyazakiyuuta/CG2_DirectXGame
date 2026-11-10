@@ -56,17 +56,23 @@ void TransformGizmo::PickBySceneClick(const Camera& camera, const std::vector<Ed
 	float nearestT = (std::numeric_limits<float>::max)(); // Windows.hのmaxマクロ対策の括弧
 	for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
 		const EditorObject& target = objects[i];
-		if (!target.pickable || !target.transform) {
+		if (!target.pickable || (!target.transform && !target.position)) {
 			continue;
 		}
+		// 判定球の中心。位置だけの対象(曲線の制御点など)はその位置そのもの
+		const Vector3& center = target.transform ? target.transform->translate : *target.position;
 		float radius = target.pickRadius;
 		if (radius <= 0.0f) {
-			// モデルが単位サイズ前提でscaleの最大成分を半径とする
-			const Vector3& s = target.transform->scale;
-			radius = (std::max)({ s.x, s.y, s.z });
+			if (target.transform) {
+				// モデルが単位サイズ前提でscaleの最大成分を半径とする
+				const Vector3& s = target.transform->scale;
+				radius = (std::max)({ s.x, s.y, s.z });
+			} else {
+				radius = 1.0f; // 位置だけの対象は大きさを持たないので、決めた大きさで判定する
+			}
 		}
 
-		Vector3 toCenter = target.transform->translate - rayOrigin;
+		Vector3 toCenter = center - rayOrigin;
 		float tClosest = Vector3::Dot(toCenter, rayDir); // レイ上で球中心に最も近い点までの距離
 		if (tClosest < 0.0f) {
 			continue; // 球がカメラの後ろ
@@ -85,10 +91,11 @@ void TransformGizmo::PickBySceneClick(const Camera& camera, const std::vector<Ed
 }
 
 bool TransformGizmo::Manipulate(const Camera& camera, EditorObject& object) {
-	if (!object.transform) {
+	if (!object.transform && !object.position) {
 		return false;
 	}
-	Transform& transform = *object.transform;
+	// 位置だけの対象(曲線の制御点など)は回転・拡縮を持たないので、どのモードでも移動として扱う
+	const bool positionOnly = !object.transform;
 
 	// シーンは"Scene"ウィンドウ内のイメージに描画されるため、基準矩形はそのイメージの
 	// スクリーン座標矩形(Game::DrawUIがInputへ渡している値)を使う
@@ -100,7 +107,7 @@ bool TransformGizmo::Manipulate(const Camera& camera, EditorObject& object) {
 
 	// scale編集を許可しない対象(カメラ等)ではScaleモードをTranslateに読み替える
 	ImGuizmo::OPERATION operation = currentOperation;
-	if (operation == ImGuizmo::SCALE && !object.scaleEditable) {
+	if (positionOnly || (operation == ImGuizmo::SCALE && !object.scaleEditable)) {
 		operation = ImGuizmo::TRANSLATE;
 	}
 
@@ -111,7 +118,10 @@ bool TransformGizmo::Manipulate(const Camera& camera, EditorObject& object) {
 	ImGuizmo::SetOrthographic(false);
 	ImGuizmo::SetRect(scenePos.x, scenePos.y, sceneSize.x, sceneSize.y);
 
-	Matrix4x4 world = Matrix4x4::Affine(transform.scale, transform.rotate, transform.translate);
+	// 位置だけの対象は「回転なし・等倍」の行列として渡し、書き戻すのも位置だけにする
+	Matrix4x4 world = positionOnly
+		? Matrix4x4::Affine(Vector3{ 1.0f, 1.0f, 1.0f }, Vector3{ 0.0f, 0.0f, 0.0f }, *object.position)
+		: Matrix4x4::Affine(object.transform->scale, object.transform->rotate, object.transform->translate);
 	Matrix4x4 view = camera.GetViewMatrix();
 	Matrix4x4 proj = camera.GetProjectionMatrix();
 
@@ -119,11 +129,16 @@ bool TransformGizmo::Manipulate(const Camera& camera, EditorObject& object) {
 	if (changed) {
 		float t[3], r[3], s[3];
 		ImGuizmo::DecomposeMatrixToComponents(&world.m[0][0], t, r, s);
-		transform.translate = { t[0], t[1], t[2] };
-		// DecomposeMatrixToComponents の回転は度数法なのでラジアンへ変換
-		constexpr float deg2Rad = std::numbers::pi_v<float> / 180.0f;
-		transform.rotate = { r[0] * deg2Rad, r[1] * deg2Rad, r[2] * deg2Rad };
-		transform.scale = { s[0], s[1], s[2] };
+		if (positionOnly) {
+			*object.position = { t[0], t[1], t[2] };
+		} else {
+			Transform& transform = *object.transform;
+			transform.translate = { t[0], t[1], t[2] };
+			// DecomposeMatrixToComponents の回転は度数法なのでラジアンへ変換
+			constexpr float deg2Rad = std::numbers::pi_v<float> / 180.0f;
+			transform.rotate = { r[0] * deg2Rad, r[1] * deg2Rad, r[2] * deg2Rad };
+			transform.scale = { s[0], s[1], s[2] };
+		}
 	}
 	ImGui::End();
 

@@ -4,6 +4,7 @@
 #include "math/CatmullRomSpline.h"
 #include "math/Collision.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -62,6 +63,35 @@ public:
 	/// </summary>
 	void SetObjectDisabled(size_t index, bool disabled);
 
+	// --- レール(制御点)の編集 ---
+	// 制御点を動かす・足す・消すとレールの長さが変わる。そのとき、レールに沿った距離で書かれているデータ
+	// (区間の開始距離・敵の出現距離railDistance)は、数値のままだと「レール上の別の場所」を指してしまう。
+	// そこで形を変えるたびに、それらを「何番目の区間の何割の位置か」に置き換えてから新しい曲線の距離へ戻し、
+	// レール上の同じ場所に貼り付いたまま付いてくるようにする(敵の出現位置・女王の位置はワールド座標なので動かない)
+
+	/// <summary>
+	/// Hierarchy/Inspector/ギズモ用の制御点の一覧を作る。positionはdata_.railの要素を直接指す
+	/// (配置オブジェクトがdata_.objectsのtransformを直接指すのと同じ)。
+	/// 制御点の数を変えたら(Insert/Remove/Reload)必ず作り直すこと(ポインタが無効になる)
+	/// </summary>
+	std::vector<EditorObject> BuildRailEditorObjects();
+
+	/// <summary>
+	/// index番の制御点の後ろに制御点を1つ挿入する。位置は次の点との間の、今の曲線上の中間
+	/// (曲線の上に置くので形がほとんど変わらない)。最後の点の後ろなら、直前の区間と同じ向き・長さだけ先へ延ばす
+	/// </summary>
+	/// <returns>挿入した制御点の添字(index+1)</returns>
+	size_t InsertRailPoint(size_t index);
+
+	/// <summary>
+	/// index番の制御点を消す。曲線が作れなくなるので、制御点が2個以下のときは何もしない
+	/// </summary>
+	void RemoveRailPoint(size_t index);
+
+	// レールを作り直した通算回数。シーンが前回見た値と比べ、変わっていたら
+	// レールに沿った距離を写して持っている側(EnemySpawner)を作り直す(「差分を見る」作法)
+	uint32_t GetRailRevision() const { return railRevision_; }
+
 	void Update(float deltaTime);
 	void Draw();
 
@@ -100,9 +130,22 @@ private:
 	// worldColliders_を作り直す。Rebuild(構造変更)とUpdate(ライブ編集)の両方から呼ぶ
 	void UpdateWorldColliders();
 
+	/// <summary>
+	/// data_.railの今の制御点でレールを作り直し、レールに沿った距離のデータ(区間の開始・敵の出現距離)を付け直す。
+	/// 手順: ①今の曲線(rail_。まだ古い形)で各距離を「何番目の区間(制御点 i と i+1 の間)の、長さの何割か」に置き換える
+	/// ②remapSegmentで区間番号を付け替える(挿入・削除で番号がずれるため。動かしただけなら何もしない)
+	/// ③新しい制御点で曲線を作り直し、距離へ戻す。
+	/// 区間番号と割合で覚えるのは、その区間より手前の長さが変わっても同じ場所を指し続けるから。
+	/// 定義はStage.cppだけで使うのでそちらに置く(区間番号と割合の型RailAnchorも.cpp内)
+	/// </summary>
+	template <class RemapSegment>
+	void RebuildRailKeepingDistances(RemapSegment remapSegment);
+
 	StageData data_;
 	// data_.railから構築したレール曲線(Rebuildで再構築される)
 	CatmullRomSpline rail_;
+	// レールを作り直した通算回数(GetRailRevision)
+	uint32_t railRevision_ = 0;
 	// 当たり判定用のワールドAABB。data_.objectsとは要素数が異なる(コライダー付きのみ)
 	std::vector<AABB> worldColliders_;
 	Camera* camera_ = nullptr;

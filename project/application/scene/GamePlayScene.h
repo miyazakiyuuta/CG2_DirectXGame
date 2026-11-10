@@ -159,6 +159,15 @@ private:
 	// 先頭からこの個数分がC++直書きの固定オブジェクト(GamePlayScene.jsonの保存対象)。
 	// 以降はステージ分(stage.jsonの管轄なのでシーン保存には含めない)
 	size_t fixedEditorObjectCount_ = 0;
+	// editorObjects_のうち、この添字から後ろがレールの制御点(並びは[固定][配置オブジェクト][制御点])
+	size_t railEditorObjectStart_ = 0;
+
+	// 選択中のレール制御点の番号(data_.railの添字)。制御点を選んでいなければ-1
+	int SelectedRailPointIndex() const;
+
+	// EnemySpawnerを最後に作り直したときのレールの版(Stage::GetRailRevision)。
+	// Edit中にレールの形が変わったら(区間・出現距離が付け直されたら)、これと比べてEnemySpawnerを作り直す
+	uint32_t spawnerRailRevision_ = 0;
 
 #ifdef USE_IMGUI
 	// エディタのモデル選択Comboに出す一覧(resources配下のスキャン結果)と、Addで使う選択位置

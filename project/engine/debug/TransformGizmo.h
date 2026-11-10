@@ -21,7 +21,8 @@ namespace TransformGizmo {
 
 	/// <summary>
 	/// Sceneウィンドウ上にギズモを描画し、ドラッグ中は対象のSRTを書き換える。
-	/// scaleEditable=false の対象ではScaleモードでもTranslateとして動作する
+	/// scaleEditable=false の対象ではScaleモードでもTranslateとして動作する。
+	/// 位置だけの対象(EditorObject::position)はどのモードでもTranslateとして動作し、位置だけを書き戻す
 	/// </summary>
 	/// <returns>SRTが変更されたら true</returns>
 	bool Manipulate(const Camera& camera, EditorObject& object);
