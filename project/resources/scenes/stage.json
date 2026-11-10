@@ -1,7 +1,9 @@
 {
     "camera": {
         "backDistance": 12.0,
+        "farClip": 2000.0,
         "fovY": 0.44999998807907104,
+        "nearClip": 1.0,
         "railSpeed": 8.0
     },
     "objects": [
@@ -241,7 +243,7 @@
         {
             "enemy": "frog",
             "name": "spawn",
-            "railDistance": 1.0,
+            "railDistance": 0.9999999403953552,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -379,11 +381,11 @@
         {
             "enemy": "sword",
             "name": "spawn_6",
-            "railDistance": 155.0,
+            "railDistance": 155.10801696777344,
             "transform": {
                 "rotate": {
                     "x": 0.0,
-                    "y": 0.0,
+                    "y": -0.0,
                     "z": 0.0
                 },
                 "scale": {
@@ -392,7 +394,7 @@
                     "z": 1.0
                 },
                 "translate": {
-                    "x": -7.099999904632568,
+                    "x": -2.6635937690734863,
                     "y": 8.0,
                     "z": 200.10000610351563
                 }
@@ -402,7 +404,7 @@
         {
             "enemy": "sword",
             "name": "spawn_7",
-            "railDistance": 163.0,
+            "railDistance": 163.1446990966797,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -425,7 +427,7 @@
         {
             "enemy": "sword",
             "name": "spawn_8",
-            "railDistance": 171.0,
+            "railDistance": 171.1813201904297,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -448,7 +450,7 @@
         {
             "enemy": "sword",
             "name": "spawn_9",
-            "railDistance": 200.0,
+            "railDistance": 200.29837036132813,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -471,7 +473,7 @@
         {
             "enemy": "sword",
             "name": "spawn_10",
-            "railDistance": 200.0,
+            "railDistance": 200.29837036132813,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -494,7 +496,7 @@
         {
             "enemy": "frog",
             "name": "spawn_11",
-            "railDistance": 240.0,
+            "railDistance": 238.94656372070313,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -517,7 +519,7 @@
         {
             "enemy": "sword",
             "name": "spawn_12",
-            "railDistance": 240.0,
+            "railDistance": 238.94656372070313,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -540,7 +542,7 @@
         {
             "enemy": "frog",
             "name": "spawn_13",
-            "railDistance": 280.0,
+            "railDistance": 277.80206298828125,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -586,7 +588,7 @@
         {
             "enemy": "frog",
             "name": "spawn_15",
-            "railDistance": 200.0,
+            "railDistance": 200.29837036132813,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -609,7 +611,7 @@
         {
             "enemy": "sword",
             "name": "spawn_16",
-            "railDistance": 240.0,
+            "railDistance": 238.94656372070313,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -632,7 +634,7 @@
         {
             "enemy": "sword",
             "name": "spawn_17",
-            "railDistance": 280.0,
+            "railDistance": 277.80206298828125,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -655,7 +657,7 @@
         {
             "enemy": "queen",
             "name": "queen",
-            "railDistance": 300.0,
+            "railDistance": 258.73541259765625,
             "transform": {
                 "rotate": {
                     "x": 0.0,
@@ -668,8 +670,8 @@
                     "z": 1.0
                 },
                 "translate": {
-                    "x": -20.1,
-                    "y": 7.8,
+                    "x": -20.100000381469727,
+                    "y": 7.800000190734863,
                     "z": 396.5
                 }
             },
@@ -713,7 +715,7 @@
             "z": 120.0
         },
         {
-            "x": 10.0,
+            "x": 3.860250949859619,
             "y": 6.699999809265137,
             "z": 140.0
         },
@@ -728,19 +730,19 @@
             "z": 180.0
         },
         {
-            "x": -7.099999904632568,
+            "x": 0.7345547676086426,
             "y": 6.0,
             "z": 200.0
         },
         {
-            "x": -10.0,
+            "x": 0.633084774017334,
             "y": 5.0,
             "z": 220.0
         },
         {
-            "x": -7.099999904632568,
-            "y": 4.0,
-            "z": 240.0
+            "x": 0.026181936264038086,
+            "y": 4.103214263916016,
+            "z": 240.05697631835938
         },
         {
             "x": -0.0,
@@ -748,19 +750,19 @@
             "z": 260.0
         },
         {
-            "x": 7.099999904632568,
-            "y": 3.0,
+            "x": 0.09092020988464355,
+            "y": 3.087228775024414,
             "z": 280.0
         },
         {
-            "x": 10.0,
+            "x": -0.1704108715057373,
             "y": 3.299999952316284,
             "z": 300.0
         },
         {
-            "x": 7.099999904632568,
-            "y": 4.0,
-            "z": 320.0
+            "x": -0.6047358512878418,
+            "y": 4.000087738037109,
+            "z": 320.0020446777344
         },
         {
             "x": 0.0,
@@ -774,12 +776,20 @@
             "startDistance": 0.0
         },
         {
+            "name": "Section 2",
+            "startDistance": 80.0
+        },
+        {
+            "name": "Section 3",
+            "startDistance": 140.04368591308594
+        },
+        {
             "name": "Section 4",
-            "startDistance": 190.0
+            "startDistance": 190.2615203857422
         },
         {
             "name": "Section 5",
-            "startDistance": 260.0
+            "startDistance": 258.73541259765625
         }
     ]
 }
