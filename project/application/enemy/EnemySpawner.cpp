@@ -142,15 +142,6 @@ bool EnemySpawner::ForceDefeatGoal() {
 	return found;
 }
 
-// CLEAR_DEMO
-void EnemySpawner::SetGoalMaxHp(int maxHp) {
-	for (TypeParams& params : typeParams_) {
-		if (params.isGoal) {
-			params.maxHp = (std::max)(maxHp, 1); // 0だと出現した瞬間に倒れてしまう
-		}
-	}
-}
-
 void EnemySpawner::FreezeAll() {
 	frozen_ = true;
 	playerHit_ = false; // 固まった敵はもう触れてもダメージにならない
@@ -270,10 +261,6 @@ void EnemySpawner::BuildFromStage(const StageData& stageData) {
 		}
 		// 無効フラグはstaticと同じ意味(データは残すがゲームには出さない)
 		if (objectData.disabled) {
-			continue;
-		}
-		// CLEAR_DEMO: デモでは女王だけを出す(取り込まなければ、集計もランクも女王1体だけで数えられる)
-		if (goalOnly_ && !typeParams_[TypeIndexOf(objectData.enemy)].isGoal) {
 			continue;
 		}
 

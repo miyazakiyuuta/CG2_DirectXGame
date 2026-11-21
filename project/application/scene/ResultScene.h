@@ -5,7 +5,6 @@
 
 #include <array>
 #include <memory>
-#include <string>
 
 class NumberSprite;
 class Sprite;
@@ -44,12 +43,6 @@ public:
 	/// (ランクの決め方はStageProgressが持ち、ここは受け取って見せるだけ)
 	/// </summary>
 	static void SetRank(StageProgress::Rank rank);
-
-	/// <summary>
-	/// RETRYを選んだときに移るシーン名を渡す(本編は"GAMEPLAY"、デモは"CLEAR_DEMO")。
-	/// SetScoreと同じく、GamePlaySceneが遷移を要求する直前に毎回呼ぶ
-	/// </summary>
-	static void SetRetryScene(const std::string& sceneName); // CLEAR_DEMO
 
 	void Initialize() override;
 

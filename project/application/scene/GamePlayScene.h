@@ -43,14 +43,7 @@ public:
 
 	void DrawImGui() override;
 
-	// 本編か、コンテスト用のデモか。SceneFactoryがシーン名("GAMEPLAY" / "CLEAR_DEMO")で作り分ける
-	// (ResultSceneがCLEAR/GAMEOVERをTypeで作り分けるのと同じやり方。SceneManagerに種類の概念を持ち込まない)
-	enum class Variant {
-		Normal,    // 本編
-		ClearDemo, // CLEAR_DEMO: クリア演出デモ。終点から女王1体だけと戦う(コンテスト後に消す)
-	};
-
-	explicit GamePlayScene(Variant variant = Variant::Normal);
+	GamePlayScene();
 
 	~GamePlayScene() override;
 
@@ -143,16 +136,6 @@ private:
 	/// </summary>
 	void UpdateHeadlight();
 
-	// --- CLEAR_DEMO: クリア演出デモ(コンテスト後に消す) ---
-	bool IsClearDemo() const { return variant_ == Variant::ClearDemo; } // CLEAR_DEMO
-	/// <summary>
-	/// CLEAR_DEMO: デモの設定を入れる(敵は女王だけ・女王は撃たない・女王のHPを減らす)。
-	/// Initializeでステージを読んだ後、敵の出現地点を取り込む前に1回呼ぶ
-	/// </summary>
-	void ApplyClearDemo();
-	// プレイを始めるレール上の距離。本編は始点(0)、デモは終点(女王の目の前)
-	float StartRailDistance() const; // CLEAR_DEMO
-
 	// EnterPlay・EnterEditで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
 	// 開始時の状態に戻す・設定は残す。イントロは止めるだけで、始めるのはInitializeとEnterPlay
 	// (Stopでは再生しないため)
@@ -186,8 +169,6 @@ private:
 #endif
 
 	Mode mode_ = Mode::Play;
-	// 本編かデモか(生成時に決まり、シーンの間は変わらない)
-	Variant variant_ = Variant::Normal; // CLEAR_DEMO
 	// このプレイがエディタのPlayボタン(EnterPlay)から始まったか。
 	// trueの間は、プレイの終わり(GAMEOVER/CLEAR)で結果画面へ遷移せずEditに戻る。
 	// ゲームの状態ではなく「どう始まったか」の情報なので、ResetGameStateでは戻さない。

@@ -16,7 +16,7 @@ struct SoundData;
 // 開始案内・操作説明を出し、以後は「文言を片付ける → 岩をよける → 作品名の登場」をくり返す。
 // 開始入力で出発の演出(隕石がカメラへ迫り、自機は右へよける。隕石が視野を埋める瞬間に真っ黒になる)へ進み、
 // 真っ黒になったら次のシーンへ切り替える(開く側はBlindTransition)。次のシーンは通常GamePlaySceneで、
-// 画面遷移コンテストのデモ中はTitleScene自身、クリア演出コンテストの間はCLEAR_DEMO(TitleScene.cppのkDepartNextScene)。
+// 画面遷移コンテストのデモ中はTitleScene自身(TitleScene.cppのkDepartNextScene)。
 // 文言の表示と入力の作法はResultSceneに揃えている(文言は画像、中央アンカー、1280x720基準で拡大)
 class TitleScene :public BaseScene {
 public:

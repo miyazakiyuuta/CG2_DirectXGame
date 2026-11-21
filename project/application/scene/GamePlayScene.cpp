@@ -115,9 +115,6 @@ namespace {
 	// 区間の区切りの目印(Show Railのとき、レール上に描く)。レールの赤・制御点の黄と見分けるため水色にする
 	const Vector4 kSectionMarkerColor = { 0.2f, 0.9f, 1.0f, 1.0f }; // Vector4のコンストラクタはconstexprでないのでconst
 	constexpr float kSectionMarkerHeight = 6.0f; // 区切りから上へ伸ばす線の長さ[m](遠くからでも位置が分かるように)
-
-	// CLEAR_DEMO: デモの女王のHP。通常弾8発・チャージ弾3発で倒れ、操作に慣れていない人でもすぐ演出まで届く
-	constexpr int kClearDemoQueenHp = 8;
 }
 
 void GamePlayScene::Initialize() {
@@ -230,14 +227,8 @@ void GamePlayScene::Initialize() {
 	enemySpawner_->SetCamera(camera_.get());
 	// 被弾判定に使う自弾の一覧の取得元(所有はシーン。敵は参照するだけ)
 	enemySpawner_->SetBulletManager(bulletManager_.get());
-	// CLEAR_DEMO: デモの設定(女王だけ・撃たない・HPを減らす)は、出現地点を取り込む前に入れる
-	if (IsClearDemo()) {
-		ApplyClearDemo();
-	}
 	enemySpawner_->BuildFromStage(stage_->GetData());
 	spawnerRailRevision_ = stage_->GetRailRevision();
-	// プレイを始める場所(本編は始点、デモは終点)。ステージを読んだ後でないとレールの長さが分からない
-	railDistance_ = StartRailDistance(); // CLEAR_DEMO
 
 	// 区間ごとの集計。区切りと敵の結末は毎フレームUpdateで受け取るので、ここでは作るだけ
 	stageProgress_ = std::make_unique<StageProgress>();
@@ -648,8 +639,6 @@ void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition:
 	resultRequested_ = true;
 	// 結果画面へ表示用のスコアを預ける(ChangeSceneはシーン名しか渡せないため)
 	ResultScene::SetScore(GetScore());
-	// RETRYで戻る先も同じく預ける。毎回入れ直すので、デモの後に本編を遊んでも行き先が残らない
-	ResultScene::SetRetryScene(IsClearDemo() ? "CLEAR_DEMO" : "GAMEPLAY"); // CLEAR_DEMO
 	// クリアならランク(駆除報告)も預ける。決め方(駆除率と被弾数)はStageProgressが持つ。
 	// 女王を倒したフレームでも、区間の集計は敵の更新の直後に済んでいるので、最後の区間まで数えた結果になる
 	if (sceneName == "CLEAR") {
@@ -879,8 +868,7 @@ void GamePlayScene::Update(float deltaTime) {
 	// ゲームオーバー演出中も止める(機体はもう演出の墜落する機体に入れ替わっていて、自機は描かれていない)。
 	// クリア演出中も止める(自機はその場に浮いたまま。決めポーズなどの動きはプレイヤーアクションの回で考える)
 	const bool controllable = mode_ == Mode::Play && !introPlaying && !gameOverActive && !clearActive;
-	// CLEAR_DEMO: デモでは被弾しない(途中でゲームオーバーになると、見せたいクリア演出まで届かない)
-	player_->SetDamageEnabled(controllable && !IsClearDemo());
+	player_->SetDamageEnabled(controllable);
 	player_->SetShootEnabled(controllable);
 	player_->SetMoveEnabled(controllable);
 	player_->Update(gameDelta);
@@ -1693,25 +1681,8 @@ void GamePlayScene::SetCameraClip(float nearClip, float farClip) {
 	debugCamera_->GetCamera()->SetFarClip(farClip);
 }
 
-// CLEAR_DEMO: クリア演出デモ(コンテスト後に消す)
-void GamePlayScene::ApplyClearDemo() {
-	// 敵は女王だけ。出現地点ごと取り込まないので、区間の集計とランクも女王1体だけで数えられる
-	// (他の敵を「出さない」だけにすると、出なかった敵が取り逃しとして残り、ランクが下がる)
-	enemySpawner_->SetGoalOnly(true);
-	// 女王は撃ってこない(自機は被弾しないので、撃たれても当たらない弾が素通りするだけになる)
-	enemySpawner_->SetShootEnabled(false);
-	// 女王のHPを減らし、操作に慣れていない人でもすぐ倒せるようにする
-	enemySpawner_->SetGoalMaxHp(kClearDemoQueenHp);
-}
-
-// CLEAR_DEMO
-float GamePlayScene::StartRailDistance() const {
-	// デモは終点から始める。女王がいるステージは終点でレールが止まるので、女王の目の前で止まったまま戦う
-	return IsClearDemo() ? stage_->GetRail().GetTotalLength() : 0.0f;
-}
-
 void GamePlayScene::ResetGameState() {
-	railDistance_ = StartRailDistance(); // CLEAR_DEMO: デモは終点から始め直す
+	railDistance_ = 0.0f;
 	player_->Reset();
 	enemySpawner_->Reset(); // 敵も未発生に戻す
 	bulletManager_->Clear(); // 飛行中の弾も消す
@@ -1964,6 +1935,6 @@ void GamePlayScene::DrawLightingWindow() {
 }
 #endif
 
-GamePlayScene::GamePlayScene(Variant variant) : variant_(variant) {}
+GamePlayScene::GamePlayScene() = default;
 
 GamePlayScene::~GamePlayScene() = default;

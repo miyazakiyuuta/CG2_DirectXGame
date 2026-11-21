@@ -172,14 +172,6 @@ public:
 	/// </summary>
 	void ExterminateAll();
 
-	// --- CLEAR_DEMO: クリア演出デモ用の設定(コンテスト後にデモと一緒に消す) ---
-	// trueなら、女王(isGoalの種別)以外の出現地点を取り込まない。次のBuildFromStageから効く
-	void SetGoalOnly(bool goalOnly) { goalOnly_ = goalOnly; } // CLEAR_DEMO
-	// 敵が撃ってくるか(ImGuiの"Shoot Enabled"と同じ値)
-	void SetShootEnabled(bool enabled) { shootEnabled_ = enabled; } // CLEAR_DEMO
-	// 女王(isGoalの種別)の最大HP。次に出現する女王から効く
-	void SetGoalMaxHp(int maxHp); // CLEAR_DEMO
-
 	/// <summary>
 	/// 全滅で消えるときの煙のパーティクルのグループ名。DefeatEffectNameと同じく、
 	/// 登録(RegisterEffect)はシーン、発生はここ、と担当が分かれるので名前をここに集約する
@@ -437,9 +429,6 @@ private:
 	float escapeBrake_ = 8.0f;
 	// 通過済みになってから消えるまで[秒]。レール速度8m/sなら3秒でカメラ(自機の12m後ろ)より後ろへ抜けている
 	float escapeLifetime_ = 3.0f;
-
-	// CLEAR_DEMO: 女王以外の出現地点を取り込まないか(SetGoalOnly)
-	bool goalOnly_ = false;
 
 	// --- 巣の全滅(クリア演出) ---
 	// 固まっているか(FreezeAll以降)。立っている間は、発生・被弾・移動・攻撃・接触を行わない

@@ -11,9 +11,6 @@ std::unique_ptr<BaseScene> SceneFactory::CreateScene(const std::string& sceneNam
 		newScene = std::make_unique<TitleScene>();
 	} else if (sceneName == "GAMEPLAY") {
 		newScene = std::make_unique<GamePlayScene>();
-	} else if (sceneName == "CLEAR_DEMO") {
-		// CLEAR_DEMO: クリア演出デモ(コンテスト後に消す)。本編と同じシーンを、終点から女王1体だけで始める
-		newScene = std::make_unique<GamePlayScene>(GamePlayScene::Variant::ClearDemo);
 	} else if (sceneName == "CLEAR") {
 		// 結果表示はResultScene 1クラス。シーン名でTypeを作り分けることで、
 		// SceneManagerに「結果の種別」を渡す仕組みを足さずに済む

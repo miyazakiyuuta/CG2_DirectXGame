@@ -20,8 +20,8 @@ namespace {
 
 	// 選択肢の画像(仮。Pillowで生成した、rank_label.pngと同じ「白文字＋黒縁」)。並びはMenuItemと同じ
 	const std::string kMenuTextures[] = { "resources/ui/menu_retry.png", "resources/ui/menu_title.png" };
-	// TITLEを選んだときに移るシーン。RETRYの行き先はGamePlaySceneから預かる(gPendingRetryScene)
-	const std::string kTitleScene = "TITLE";
+	// 選択肢を選んだときに移るシーン。並びはMenuItemと同じ
+	const char* const kMenuScenes[] = { "GAMEPLAY", "TITLE" };
 	constexpr float kMenuHeight = 48.0f;          // 選んでいる選択肢の文字の高さ[px](1280x720基準)
 	constexpr float kMenuUnselectedScale = 0.75f; // 選んでいない選択肢の大きさ(選んでいる方に対する割合)
 	constexpr float kMenuFadeInDuration = 0.25f;  // 入力の猶予が過ぎてから選択肢が出そろうまで[秒]
@@ -46,8 +46,6 @@ namespace {
 	int gPendingScore = 0;
 	// 同じく、表示用のランク(CLEARのときだけ使う)
 	StageProgress::Rank gPendingRank = StageProgress::Rank::C;
-	// 同じく、RETRYで移るシーン名(本編は"GAMEPLAY"、デモは"CLEAR_DEMO")
-	std::string gPendingRetryScene = "GAMEPLAY"; // CLEAR_DEMO
 
 	// ランク(仮の画像。Pythonで生成したもの。clear.pngと同じ「白文字＋黒縁」)。
 	// ranks.png は S/A/B/C を左から等幅に並べてあり、Rankの並び(S=0〜C=3)の位置を切り出す
@@ -81,11 +79,6 @@ void ResultScene::SetScore(int score) {
 
 void ResultScene::SetRank(StageProgress::Rank rank) {
 	gPendingRank = rank;
-}
-
-// CLEAR_DEMO
-void ResultScene::SetRetryScene(const std::string& sceneName) {
-	gPendingRetryScene = sceneName;
 }
 
 void ResultScene::Initialize() {
@@ -245,12 +238,9 @@ void ResultScene::Draw() {
 
 void ResultScene::Decide() {
 	decided_ = true;
-	// RETRY: 新しいGamePlaySceneが作られるので、HP・敵・弾・進行度はすべて初期状態に戻る
-	// (デモから来たときはデモをもう一度。行き先はGamePlaySceneから預かっている)。
+	// RETRY: 新しいGamePlaySceneが作られるので、HP・敵・弾・進行度はすべて初期状態に戻る。
 	// TITLE: タイトルはオープニングから始まる(シーンが作り直されるため)
-	const std::string& sceneName =
-		selected_ == static_cast<int>(MenuItem::Retry) ? gPendingRetryScene : kTitleScene; // CLEAR_DEMO
-	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>());
+	SceneManager::GetInstance()->ChangeScene(kMenuScenes[selected_], std::make_unique<BlindTransition>());
 }
 
 void ResultScene::UpdateMenu() {
