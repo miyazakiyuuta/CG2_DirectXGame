@@ -96,7 +96,9 @@ namespace {
 	// 出発の演出で真っ黒になった後に進むシーン。ゲームとしては"GAMEPLAY"。
 	// 学内の画面遷移コンテストのデモ中は"TITLE"にして、タイトルからタイトルへ切り替える
 	// (新しいタイトルはオープニングから始まるので、遷移を何度でも見せられる)
-	const std::string kDepartNextScene = "GAMEPLAY";
+	// CLEAR_DEMO: クリア演出コンテストの間は"CLEAR_DEMO"(終点から女王1体だけと戦う)。
+	// コンテストが終わったら"GAMEPLAY"へ戻すこと
+	const std::string kDepartNextScene = "CLEAR_DEMO";
 	// 開始入力の時に飛んでいたタイトルの岩を、ディザで消し切るまでの時間[秒]。
 	// 右へよける自機と重なったり、隕石と紛れたりしないよう、すぐに片付ける
 	constexpr float kOldRockFadeOutDuration = 0.2f;
@@ -324,7 +326,8 @@ void TitleScene::Update(float deltaTime) {
 
 	// 機首は常に奥(+Z)向き。傾き(ロール)だけをフェーズごとに変える
 	shipObject_->SetTranslate(shipPosition_);
-	shipObject_->SetRotate({ 0.0f, 0.0f, shipRoll_ });
+	// 先にモデルの機首を+Z(画面の奥)へ向け直し(Player::ModelCorrection)、そのあと機首の軸まわりに傾ける
+	shipObject_->SetRotate(Matrix4x4::ToEuler(Player::ModelCorrection() * Matrix4x4::RotateZ(shipRoll_)));
 	shipObject_->Update(deltaTime);
 	if (rockVisible_) {
 		rockObject_->Update(deltaTime);

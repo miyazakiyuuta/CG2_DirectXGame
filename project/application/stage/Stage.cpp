@@ -14,6 +14,8 @@ namespace {
 	constexpr size_t kMinRailPoints = 2;
 	// 制御点をクリックで選ぶときの判定球の半径。表示の球(GamePlaySceneでShow Rail時に描く)より大きめにして掴みやすくする
 	constexpr float kRailPointPickRadius = 1.5f;
+	// 点光源をクリックで選ぶときの判定球の半径(Show Lightsで描く目印の球と同じ大きさ)
+	constexpr float kLightPickRadius = 3.0f;
 
 	// レール上の場所を「何番目の区間(制御点 i と i+1 の間)の、長さの何割か」で表したもの
 	struct RailAnchor {
@@ -77,8 +79,9 @@ void Stage::Rebuild() {
 
 	for (const StageData::ObjectData& objectData : data_.objects) {
 		// 無効フラグ付きはデータとして保持しつつ実体を作らない(indexはdata_.objectsと揃える)。
-		// 敵の発生地点(Spawn)もここでは実体を持たない(生成の責任はEnemySpawner側)
-		if (objectData.disabled || objectData.type == StageData::ObjectType::Spawn) {
+		// 敵の発生地点(Spawn)もここでは実体を持たない(生成の責任はEnemySpawner側)。
+		// 点光源(Light)もモデルを持たない(光としての反映はApplyLightsが毎フレーム行う)
+		if (objectData.disabled || objectData.type != StageData::ObjectType::Static) {
 			objects_.push_back(nullptr);
 			continue;
 		}
@@ -156,6 +159,9 @@ void Stage::Update(float deltaTime) {
 	// (Save/Reloadを挟まずその場で確認できる)
 	UpdateWorldColliders();
 
+	// 光も同じく、編集(ギズモで点光源を動かす・Inspectorで色を変える)をその場で反映する
+	ApplyLights();
+
 	// 制御点がギズモやInspectorで動いていたら、レールを作り直す(配置オブジェクトの編集を実体へ写すのと同じ場所)。
 	// 制御点の数は変わっていないので、区間番号はそのまま(どの区間の何割か、を保って距離だけ付け直す)
 	if (!SamePoints(data_.rail, rail_.GetControlPoints())) {
@@ -194,6 +200,49 @@ void Stage::RebuildRailKeepingDistances(RemapSegment remapSegment) {
 		data_.sections.front().startDistance = 0.0f;
 	}
 	++railRevision_;
+}
+
+void Stage::ApplyLights() {
+	Object3dCommon* object3dCommon = Object3dCommon::GetInstance();
+	// lighting項目の無い旧stage.json(またはエディタでステージの光をOFFにした)なら、エンジンの初期値=昼の見た目にする。
+	// 毎フレーム戻すので、編集中にOFFへ切り替えても夜の光が残らない
+	if (!data_.hasLighting) {
+		object3dCommon->ResetLights();
+		pointLightOverflow_ = 0;
+		return;
+	}
+	const StageData::LightingData& lighting = data_.lighting;
+
+	// 環境光と月明かり(平行光源)。向きは手編集で長さが崩れていても使えるよう、ここで正規化する
+	SceneLight sceneLight{};
+	sceneLight.color = { lighting.moonColor.x, lighting.moonColor.y, lighting.moonColor.z, 1.0f };
+	sceneLight.direction = lighting.moonDirection.LengthSquared() > 1.0e-6f
+		? Vector3::Normalized(lighting.moonDirection)
+		: Vector3{ 0.0f, -1.0f, 0.0f };
+	sceneLight.intensity = lighting.moonIntensity;
+	sceneLight.ambientColor = lighting.ambientColor;
+	object3dCommon->SetSceneLight(sceneLight);
+
+	// 点光源(objects[]のLight)。シェーダの配列はkMaxPointLights個までなので、有効なものを先頭から詰め、溢れた数を数える
+	PointLightArray pointLights{};
+	pointLightOverflow_ = 0;
+	for (const StageData::ObjectData& objectData : data_.objects) {
+		if (objectData.type != StageData::ObjectType::Light || objectData.disabled) {
+			continue;
+		}
+		if (pointLights.count >= kMaxPointLights) {
+			++pointLightOverflow_;
+			continue;
+		}
+		PointLight& light = pointLights.lights[pointLights.count++];
+		const StageData::LightData& data = objectData.light;
+		light.color = { data.color.x, data.color.y, data.color.z, 1.0f };
+		light.position = objectData.transform.translate;
+		light.intensity = data.intensity;
+		light.radius = data.radius;
+		light.decay = data.decay;
+	}
+	object3dCommon->SetPointLights(pointLights);
 }
 
 std::vector<EditorObject> Stage::BuildRailEditorObjects() {
@@ -307,6 +356,31 @@ size_t Stage::DuplicateObject(size_t index) {
 	return index + 1;
 }
 
+size_t Stage::DuplicateObjectGrid(size_t index, int countX, int countZ, float spacingX, float spacingZ) {
+	if (index >= data_.objects.size() || countX < 1 || countZ < 1) {
+		return 0;
+	}
+	const StageData::ObjectData original = data_.objects[index]; // 挿入で要素が動くので値で写しておく
+	size_t insertAt = index + 1;
+	for (int z = 0; z < countZ; ++z) {
+		for (int x = 0; x < countX; ++x) {
+			if (x == 0 && z == 0) {
+				continue; // 元のオブジェクトの位置
+			}
+			StageData::ObjectData copied = original;
+			copied.name = MakeUniqueName(original.name);
+			copied.transform.translate.x += spacingX * static_cast<float>(x);
+			copied.transform.translate.z += spacingZ * static_cast<float>(z);
+			// Hierarchy上で元の直後にまとめて並ぶよう、順に後ろへ差し込む
+			data_.objects.insert(data_.objects.begin() + static_cast<std::ptrdiff_t>(insertAt), std::move(copied));
+			++insertAt;
+		}
+	}
+	// 実体の作り直しは最後に1回だけ(1個ごとに作り直すと、そのたびに全オブジェクトを作り直すことになる)
+	Rebuild();
+	return insertAt - (index + 1);
+}
+
 void Stage::RemoveObject(size_t index) {
 	data_.objects.erase(data_.objects.begin() + index);
 	Rebuild();
@@ -359,6 +433,11 @@ std::vector<EditorObject> Stage::BuildEditorObjects() {
 		// disabledは実体が無く画面に見えないため、クリック選択の対象外(Hierarchyからは選べる)
 		editorObject.pickable = !objectData.disabled;
 		editorObject.disabled = objectData.disabled;
+		if (objectData.type == StageData::ObjectType::Light) {
+			// 点光源は位置だけが意味を持つ(拡縮は光に効かない)。モデルが無く小さいので、掴みやすい判定球を付ける
+			editorObject.scaleEditable = false;
+			editorObject.pickRadius = kLightPickRadius;
+		}
 		editorObjects.push_back(std::move(editorObject));
 	}
 	return editorObjects;

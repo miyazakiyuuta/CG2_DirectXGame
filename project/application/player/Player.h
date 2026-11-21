@@ -1,6 +1,7 @@
 #pragma once
 #include "math/Vector2.h"
 #include "math/Vector3.h"
+#include "math/Matrix4x4.h"
 #include "math/Collision.h"
 
 #include <cstdint>
@@ -35,6 +36,13 @@ public:
 	// (モデルを差し替えるときはPlayer.cppの1箇所を直せば、ゲームとタイトルの両方に反映される)
 	static const std::string& ModelPath();
 	static float ModelScale();
+	/// <summary>
+	/// モデルの向きの補正。モデルの規格は機首が-Z、ゲームは機首を+Zとして向きを計算するので、その差を埋める回転。
+	/// 自機のモデルを描く所(Player・墜落演出・タイトル)は、回転の「いちばん最初」(モデル自身の座標)にこれを掛ける。
+	/// 最初に掛けるので、+Zを機首とする既存の計算(傾き・ロール・機首下げ)をそのまま使える。
+	/// 向きの違うモデルに差し替えたときは、ここだけを直せばよい
+	/// </summary>
+	static Matrix4x4 ModelCorrection();
 
 	void SetCamera(Camera* camera);
 	void SetRail(const CatmullRomSpline* rail) { rail_ = rail; }
@@ -195,6 +203,10 @@ private:
 	// レール上の距離[m](シーンから供給)とレール断面内のローカルオフセット(x=右+, y=上+)
 	float railDistance_ = 0.0f;
 	Vector2 offset_ = { 0.0f, 0.0f };
+	// 飛ぶ向き(機首を+Zとしたときのオイラー角)。モデルの向きはこれにModelCorrectionを掛けて描くときに作る。
+	// 「どちらを向いて飛んでいるか」と「モデルをどう回して描くか」を分けておくのは、
+	// 墜落演出がGetRotateを機首の向きとして使うため(補正込みの値を渡すと機首が逆を向く)
+	Vector3 rotate_ = { 0.0f, 0.0f, 0.0f };
 	// 今フレームの合成結果
 	Vector3 worldPosition_ = { 0.0f, 0.0f, 0.0f };
 

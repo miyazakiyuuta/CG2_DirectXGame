@@ -222,6 +222,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="application\ui\Reticle.cpp" />
     <ClCompile Include="application\camera\IntroCamera.cpp" />
     <ClCompile Include="application\direction\GameOverSequence.cpp" />
+    <ClCompile Include="application\direction\ClearSequence.cpp" />
     <ClCompile Include="application\ui\SectionBanner.cpp" />
     <ClCompile Include="application\ui\ProgressGauge.cpp" />
     <ClCompile Include="application\progress\StageProgress.cpp" />
@@ -316,6 +317,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="application\ui\Reticle.h" />
     <ClInclude Include="application\camera\IntroCamera.h" />
     <ClInclude Include="application\direction\GameOverSequence.h" />
+    <ClInclude Include="application\direction\ClearSequence.h" />
     <ClInclude Include="application\ui\SectionBanner.h" />
     <ClInclude Include="application\ui\ProgressGauge.h" />
     <ClInclude Include="application\progress\StageProgress.h" />

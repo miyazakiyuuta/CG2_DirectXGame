@@ -19,6 +19,7 @@
 #include "progress/StageProgress.h"
 #include "camera/IntroCamera.h"
 #include "direction/GameOverSequence.h"
+#include "direction/ClearSequence.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
 #include "ui/Reticle.h"
@@ -58,7 +59,7 @@ namespace {
 	constexpr float kBgmVolume = 0.10f;
 	constexpr float kSeVolume = 0.30f;
 
-	// --- HUDのレイアウト(A-5) ---
+	// --- HUDのレイアウト ---
 	// 1280x720基準で決め、実解像度の倍率を掛けて使う。
 	// kClientWidthは構成で変わる(Debug=1920x1080 / Release=1280x720)ため直値では置けない
 	const std::string kControlsTexture = "resources/ui/controls.png";
@@ -114,6 +115,9 @@ namespace {
 	// 区間の区切りの目印(Show Railのとき、レール上に描く)。レールの赤・制御点の黄と見分けるため水色にする
 	const Vector4 kSectionMarkerColor = { 0.2f, 0.9f, 1.0f, 1.0f }; // Vector4のコンストラクタはconstexprでないのでconst
 	constexpr float kSectionMarkerHeight = 6.0f; // 区切りから上へ伸ばす線の長さ[m](遠くからでも位置が分かるように)
+
+	// CLEAR_DEMO: デモの女王のHP。通常弾8発・チャージ弾3発で倒れ、操作に慣れていない人でもすぐ演出まで届く
+	constexpr int kClearDemoQueenHp = 8;
 }
 
 void GamePlayScene::Initialize() {
@@ -169,11 +173,27 @@ void GamePlayScene::Initialize() {
 	chargeExplosionConfig.acceleration = { 0.0f, -2.0f, 0.0f };
 	chargeExplosionConfig.lifeTimeMin = 0.3f;
 	chargeExplosionConfig.lifeTimeMax = 0.6f;
-	chargeExplosionConfig.startColor = { 0.9f, 1.0f, 0.6f, 1.0f };
+	chargeExplosionConfig.startColor = { 0.9f, 1.0f, 0.6f, 1.0f }; 
 	chargeExplosionConfig.endColor = { 1.0f, 0.4f, 0.0f, 0.0f };
 	chargeExplosionConfig.endScaleRatio = 0.2f;
 	ParticleManager::GetInstance()->RegisterEffect(
 		kChargeExplosionEffect, "resources/circle.png", chargeExplosionConfig, BlendMode::Add);
+
+	// 巣の全滅(クリア演出)で、落ちた敵が消えるときの煙。撃破の爆発(上)と違い光らないので、
+	// αに丸の形を持たせたsmoke.pngをαブレンドで使う(加算だと重なるほど白く光ってしまう)。
+	// 登録はここ・発生はEnemySpawner、という撃破の爆発と同じ分担
+	ParticleConfig exterminateConfig;
+	exterminateConfig.minScale = { 1.0f, 1.0f, 1.0f };
+	exterminateConfig.maxScale = { 2.0f, 2.0f, 2.0f };
+	exterminateConfig.minVelocity = { -2.0f, 0.5f, -2.0f };
+	exterminateConfig.maxVelocity = { 2.0f, 3.0f, 2.0f };
+	exterminateConfig.lifeTimeMin = 0.6f;
+	exterminateConfig.lifeTimeMax = 1.2f;
+	exterminateConfig.startColor = { 0.6f, 0.6f, 0.55f, 0.6f };
+	exterminateConfig.endColor = { 0.3f, 0.3f, 0.3f, 0.0f };
+	exterminateConfig.endScaleRatio = 2.5f; // 広がりながら薄くなる
+	ParticleManager::GetInstance()->RegisterEffect(
+		EnemySpawner::ExterminateEffectName(), "resources/smoke.png", exterminateConfig, BlendMode::Alpha);
 
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize(camera_.get());
@@ -210,8 +230,14 @@ void GamePlayScene::Initialize() {
 	enemySpawner_->SetCamera(camera_.get());
 	// 被弾判定に使う自弾の一覧の取得元(所有はシーン。敵は参照するだけ)
 	enemySpawner_->SetBulletManager(bulletManager_.get());
+	// CLEAR_DEMO: デモの設定(女王だけ・撃たない・HPを減らす)は、出現地点を取り込む前に入れる
+	if (IsClearDemo()) {
+		ApplyClearDemo();
+	}
 	enemySpawner_->BuildFromStage(stage_->GetData());
 	spawnerRailRevision_ = stage_->GetRailRevision();
+	// プレイを始める場所(本編は始点、デモは終点)。ステージを読んだ後でないとレールの長さが分からない
+	railDistance_ = StartRailDistance(); // CLEAR_DEMO
 
 	// 区間ごとの集計。区切りと敵の結末は毎フレームUpdateで受け取るので、ここでは作るだけ
 	stageProgress_ = std::make_unique<StageProgress>();
@@ -307,6 +333,11 @@ void GamePlayScene::Initialize() {
 	gameOverSequence_ = std::make_unique<GameOverSequence>();
 	gameOverSequence_->Initialize(effectManager_);
 	gameOverSequence_->SetCamera(camera_.get());
+
+	// クリアの演出。亡骸の器と爆発の粒はここで用意し、女王を倒したときに始める
+	clearSequence_ = std::make_unique<ClearSequence>();
+	clearSequence_->Initialize(effectManager_);
+	clearSequence_->SetCamera(camera_.get());
 
 	// ゲーム開始のイントロ。タイトルから・結果画面のリトライから・(Debugで)直接起動のどれで入っても
 	// シーンはここで作られるので、開始はこの1箇所で済む(エディタのPlayボタンはEnterPlayが始める)
@@ -425,9 +456,9 @@ void GamePlayScene::UpdateLockOn() {
 }
 
 void GamePlayScene::UpdateDamageEffect(float deltaTime) {
-	// ゲームオーバー演出の間は、Vignetteの持ち主は演出の方(赤い縁 → 暗転まで演出が決める)。
+	// ゲームオーバー演出・クリア演出の間は、Vignetteの持ち主は演出の方(赤い縁や暗転・白い閃光は演出が決める)。
 	// 1フレームに2か所から書くと、後に書いた方の値だけが残ってしまうため、ここは何もしない
-	if (gameOverSequence_->IsActive()) {
+	if (gameOverSequence_->IsActive() || clearSequence_->IsActive()) {
 		return;
 	}
 
@@ -471,8 +502,9 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	// (Playに入るとイントロが始まり、終わった後にこの下のフェードインで戻る)
 	if (introCamera_->IsPlaying() || mode_ == Mode::Edit) {
 		hudAlpha_ = 0.0f;
-	} else if (gameOverSequence_->IsActive()) {
-		// ゲームオーバー演出の間は消していく(一瞬で消すと、致命的な被弾でHPが0になった様子が見えない)
+	} else if (gameOverSequence_->IsActive() || clearSequence_->IsActive()) {
+		// ゲームオーバー演出の間は消していく(一瞬で消すと、致命的な被弾でHPが0になった様子が見えない)。
+		// クリア演出も同じ: 撃破の瞬間のスコアとゲージを一度見せてから、演出だけの画面にする
 		hudAlpha_ = (std::max)(hudAlpha_ - deltaTime / kHudFadeOutDuration, 0.0f);
 	} else {
 		hudAlpha_ = (std::min)(hudAlpha_ + deltaTime / kHudFadeInDuration, 1.0f);
@@ -566,6 +598,32 @@ void GamePlayScene::StartGameOver() {
 	bgmFadedOut_ = true;
 }
 
+void GamePlayScene::StartClear() {
+	if (clearSequence_->IsActive()) {
+		return; // 演出は1度きり
+	}
+
+	// 亡骸を置く場所は、女王が倒れた瞬間の姿(EnemySpawnerが撃破の処理の中で控えている)。
+	// 取れないことは起きないはずだが、取れなければ演出を飛ばして今までどおり結果画面へ進む(クリアできなくなるよりよい)
+	EnemySpawner::GoalPose pose;
+	if (!enemySpawner_->TryGetGoalDefeatPose(pose)) {
+		RequestResult("CLEAR");
+		return;
+	}
+
+	// 時間が止まる瞬間。飛んでいる弾はすべて消す:
+	// 敵弾が止まった画面に残らないように、また自弾が固まった敵を倒して集計(駆除数・ランク)を変えないように
+	bulletManager_->Clear();
+	enemyBulletManager_->Clear();
+	chargeBulletManager_->Clear();
+	// 残りの敵はその場で固める(大爆発の瞬間に、段階の変化を見てExterminateAllで落とす)
+	enemySpawner_->FreezeAll();
+
+	clearSequence_->Start(EnemySpawner::ModelPathOf(pose.enemy), pose.transform, pose.center, pose.radius);
+	StartShake(clearSequence_->GetParams().impactShake);
+	// 音は今回は触らない(BGM・撃破音は今までどおり。大爆発の音やファンファーレは後で決める)
+}
+
 void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition::StartState startState) {
 	if (resultRequested_) {
 		return; // 遷移は1度きり(SceneManager側も予約中は無視するが、進行停止はこのフラグで行う)
@@ -590,6 +648,8 @@ void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition:
 	resultRequested_ = true;
 	// 結果画面へ表示用のスコアを預ける(ChangeSceneはシーン名しか渡せないため)
 	ResultScene::SetScore(GetScore());
+	// RETRYで戻る先も同じく預ける。毎回入れ直すので、デモの後に本編を遊んでも行き先が残らない
+	ResultScene::SetRetryScene(IsClearDemo() ? "CLEAR_DEMO" : "GAMEPLAY"); // CLEAR_DEMO
 	// クリアならランク(駆除報告)も預ける。決め方(駆除率と被弾数)はStageProgressが持つ。
 	// 女王を倒したフレームでも、区間の集計は敵の更新の直後に済んでいるので、最後の区間まで数えた結果になる
 	if (sceneName == "CLEAR") {
@@ -613,11 +673,18 @@ void GamePlayScene::Finalize() {
 	// チャージ弾の尾と爆発も同じ理由で消す
 	ParticleManager::GetInstance()->ClearParticles(kChargeTrailEffect);
 	ParticleManager::GetInstance()->ClearParticles(kChargeExplosionEffect);
+	// 巣の全滅の煙も同じ理由で消す
+	ParticleManager::GetInstance()->ClearParticles(EnemySpawner::ExterminateEffectName());
 	// ゲームオーバー演出の煙・火花・爆発の粒も同じ理由で消し、パーティクルの時間倍率を等速へ戻す
 	// (倍率はParticleManagerの全グループに掛かるので、残すと次のシーンの粒までスローになる)
 	gameOverSequence_->Stop();
+	// クリア演出の炎・火花・煙も同じ(時間倍率も等速へ戻す)
+	clearSequence_->Stop();
 	ParticleManager::GetInstance()->SetCamera(nullptr);
 	GPUParticleManager::GetInstance()->SetCamera(nullptr);
+	// 光は全シーンで共有する状態なので、夜の光にしたこのシーンが元へ戻す
+	// (戻さないと、次のシーン(タイトルなど)まで夜の光のまま描かれる。パーティクルの時間倍率と同じ決まり)
+	Object3dCommon::GetInstance()->ResetLights();
 }
 
 void GamePlayScene::Update(float deltaTime) {
@@ -626,8 +693,9 @@ void GamePlayScene::Update(float deltaTime) {
 	// カメラ・HUD・画面の揺れ、およびFrameworkが回すパーティクルは実dtのまま進むので、
 	// 「自機と敵と弾だけが止まり、爆発は流れ続ける」形になる。
 	// ゲームオーバー演出の間は、演出が決めた時間倍率(ヒットストップ=0 / スロー=0.25 / 等速=1)を掛ける。
-	// 倍率は前のフレームの演出の更新で決まった値(1フレームの遅れは体感できない)
-	float gameDelta = deltaTime * gameOverSequence_->GetTimeScale();
+	// 倍率は前のフレームの演出の更新で決まった値(1フレームの遅れは体感できない)。
+	// クリア演出の倍率も同じく掛ける(2つの演出は同時には起きないので、演出していない方は1のまま)
+	float gameDelta = deltaTime * gameOverSequence_->GetTimeScale() * clearSequence_->GetTimeScale();
 	if (hitStopTimer_ > 0.0f) {
 		hitStopTimer_ = (std::max)(hitStopTimer_ - deltaTime, 0.0f);
 		gameDelta = 0.0f;
@@ -669,6 +737,7 @@ void GamePlayScene::Update(float deltaTime) {
 	chargeBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
 	gameOverSequence_->SetCamera(activeCamera);
+	clearSequence_->SetCamera(activeCamera);
 
 	// ゲーム開始のイントロ。Enter/パッドSTARTでスキップする(終点はレールカメラと同じなので、止めるだけで定位置へ移る)。
 	// タイトル・結果画面の「決定」に入っているSpace/パッドAを含めないのは、射撃と同じボタンのため
@@ -691,6 +760,18 @@ void GamePlayScene::Update(float deltaTime) {
 	// このフレームでゲームオーバー演出中か(フレームの途中でHPが尽きて始まった場合は、次のフレームから効く)
 	const bool gameOverActive = gameOverSequence_->IsActive();
 
+	// クリア演出の段階を、スキップより前に控える。下で「このフレームで大爆発に入ったか」を見るとき、
+	// スキップで大爆発へ飛んだ場合も変化として拾えるようにするため
+	// (スキップの後に控えると、もう大爆発に入った後の値になり、揺れと全滅を取りこぼす)
+	const ClearSequence::Phase clearPhaseBefore = clearSequence_->GetPhase();
+	// クリア演出のスキップ(断末魔の途中なら大爆発へ、全滅・余韻の途中なら終わりへ)。ボタンはゲームオーバーと同じ
+	if (clearSequence_->IsActive() &&
+		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
+		clearSequence_->Skip();
+	}
+	// このフレームでクリア演出中か(女王を倒したフレームに始まった場合は、次のフレームから効く)
+	const bool clearActive = clearSequence_->IsActive();
+
 	// レールカメラ: railDistance_はプレイヤーの進行度。カメラはプレイヤーの座標系を
 	// 接線方向にcameraBackDistance_だけ下がった位置に置き、接線の向きで進行方向を向く。
 	// rail(d-後方距離)を評価せずforwardで直接下がるのが肝(カメラとプレイヤーが同一の
@@ -702,8 +783,8 @@ void GamePlayScene::Update(float deltaTime) {
 			// カメラのTransform更新は止めない: 止めると凍結中のフレームでビューが更新されなくなる。
 			// イントロ中はレールを進めない(自機は始点に留まる=敵の出現タイミングはイントロの長さに左右されない)。
 			// ゲームオーバー演出中も止める: カメラが止まった位置に残り、流されていく機体を見送る形になる
-			// (新しい敵も出てこない)
-			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying && !gameOverActive) {
+			// (新しい敵も出てこない)。クリア演出中も止める(女王の前で止まったまま、爆発を見届ける)
+			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying && !gameOverActive && !clearActive) {
 				railDistance_ += railSpeed_ * gameDelta;
 
 				if (railLoop_) {
@@ -795,9 +876,11 @@ void GamePlayScene::Update(float deltaTime) {
 	// 正しい値を持つのはmode_とイントロの状態だけにしたいので、切り替え時ではなく毎フレーム渡す
 	// (初期モードがEnterPlay/EnterEditを通らなくても、Resetの呼び順に関係なく正しい値になる。
 	// SetRailDistanceと同じ作法)
-	// ゲームオーバー演出中も止める(機体はもう演出の墜落する機体に入れ替わっていて、自機は描かれていない)
-	const bool controllable = mode_ == Mode::Play && !introPlaying && !gameOverActive;
-	player_->SetDamageEnabled(controllable);
+	// ゲームオーバー演出中も止める(機体はもう演出の墜落する機体に入れ替わっていて、自機は描かれていない)。
+	// クリア演出中も止める(自機はその場に浮いたまま。決めポーズなどの動きはプレイヤーアクションの回で考える)
+	const bool controllable = mode_ == Mode::Play && !introPlaying && !gameOverActive && !clearActive;
+	// CLEAR_DEMO: デモでは被弾しない(途中でゲームオーバーになると、見せたいクリア演出まで届かない)
+	player_->SetDamageEnabled(controllable && !IsClearDemo());
 	player_->SetShootEnabled(controllable);
 	player_->SetMoveEnabled(controllable);
 	player_->Update(gameDelta);
@@ -833,11 +916,12 @@ void GamePlayScene::Update(float deltaTime) {
 	}
 
 	// 女王を倒したらクリア(巣の駆除が完了)。終点に着く前に倒した場合も同じくクリアにする。
-	// 撃破の判定は敵の更新の中で済んでいるので、ここはその結果を見て遷移を頼むだけ
-	// (HPが尽きたときのゲームオーバーと同じく、勝敗の判断はシーンが持つ)
+	// 撃破の判定は敵の更新の中で済んでいるので、ここはその結果を見てクリア演出を始めるだけ
+	// (HPが尽きたときのゲームオーバーと同じく、勝敗の判断はシーンが持つ)。
+	// 結果画面へは、演出が終わってから進む(下)
 	if (!resultRequested_ && mode_ == Mode::Play && !gameOverSequence_->IsActive() &&
-		enemySpawner_->IsGoalDefeated()) {
-		RequestResult("CLEAR");
+		!clearSequence_->IsActive() && enemySpawner_->IsGoalDefeated()) {
+		StartClear();
 	}
 
 	// ロックオン。敵の更新の後に行う: 撃破された敵のロックを外し、今フレームの敵の位置で重なりを見るため。
@@ -865,12 +949,18 @@ void GamePlayScene::Update(float deltaTime) {
 	}
 
 	// HPが尽きたらゲームオーバー演出を始める(A-5)。結果画面へは、演出が真っ黒になり切ってから進む(下)。
-	// クリア判定はレール終端側にある
-	if (!resultRequested_ && player_->IsDead() && mode_ == Mode::Play && !gameOverSequence_->IsActive()) {
+	// (クリアの判定は、上の女王の撃破と、女王がいないステージのレール終端にある)。
+	// クリア演出の間は始めない: 演出中は被弾を止めているので本来HPは減らないが、2つの演出が重なると
+	// 時間倍率とポストエフェクトを奪い合うので、念のため入口でも分けておく
+	if (!resultRequested_ && player_->IsDead() && mode_ == Mode::Play && !gameOverSequence_->IsActive() &&
+		!clearSequence_->IsActive()) {
 		StartGameOver();
 	}
 
 	// HUDの色と頂点を更新(HPが確定した後)。フェードインはヒットストップで止めないので実dt
+	// ドローンのライト。自機と照準の更新(移動・照準の吸い付き)が済んだ後に、今フレームの位置と向きで照らす
+	UpdateHeadlight();
+
 	UpdateHud(deltaTime);
 
 	// ゲームオーバー演出。段階のタイマー・機体・パーティクル・ポストエフェクトは実dtを渡して演出に任せる
@@ -887,6 +977,32 @@ void GamePlayScene::Update(float deltaTime) {
 	// (タイトル→本編の遷移と同じ)。エディタのPlayから始めたプレイなら、RequestResultがEditへ戻す
 	if (gameOverSequence_->IsFinished()) {
 		RequestResult("GAMEOVER", BlindTransition::StartState::Closed);
+	}
+
+	// クリア演出。ゲームオーバー演出と同じく、段階のタイマー・亡骸・パーティクル・ポストエフェクトは実dtで演出に任せる。
+	// 画面の揺れと残りの敵の全滅は「更新の前後の差」で拾う(演出はシーンの揺れもEnemySpawnerも知らなくてよい)
+	const int clearPopCountBefore = clearSequence_->GetPopCount();
+	clearSequence_->Update(deltaTime, *GetActiveCamera());
+	if (clearSequence_->GetPopCount() > clearPopCountBefore) {
+		StartShake(clearSequence_->GetParams().popShake); // 小爆発のたびに小さく揺らす
+	}
+	// 大爆発に入ったフレーム(スキップで飛んだ場合も含む。控えはスキップより前)
+	if (clearPhaseBefore != ClearSequence::Phase::Burst && clearSequence_->GetPhase() == ClearSequence::Phase::Burst) {
+		StartShake(clearSequence_->GetParams().burstShake);
+		// 残りの敵を全滅させる(色を失って落ち、順に消える)。Edit中のプレビューでは本物の敵に触らない
+		if (mode_ == Mode::Play) {
+			enemySpawner_->ExterminateAll();
+		}
+	}
+	// 演出が終わったら結果画面へ。画面は明るいままなので、遷移の帯は開いた状態から閉じていく(従来のクリアと同じ)。
+	// エディタのPlayから始めたプレイなら、RequestResultがEditへ戻す。
+	// Edit中のプレビュー(Preview Clear)なら、遷移せずに演出を止めるだけ
+	if (clearSequence_->IsFinished()) {
+		if (mode_ == Mode::Edit) {
+			clearSequence_->Stop();
+		} else {
+			RequestResult("CLEAR");
+		}
 	}
 
 	// 被弾の画面着色。ヒットストップで止めたくないので実dt(deltaTime)を渡す
@@ -947,6 +1063,8 @@ void GamePlayScene::Update(float deltaTime) {
 		// プレイヤーの判定形状(球)も出して、どこで当たるかを見えるようにする
 		DebugRenderer::GetInstance()->AddSphere(
 			player_->GetWorldPosition(), player_->GetCollisionRadius(), colliderColor);
+		// 敵の判定の球も出す(女王のように判定の中心を前へずらした敵で、見た目と判定が合っているかを確かめる)
+		enemySpawner_->DrawHitSpheres();
 	}
 
 	// 照準の可視化(レティクル(A-2)が入るまでの確認用)。
@@ -969,6 +1087,27 @@ void GamePlayScene::Update(float deltaTime) {
 
 	// SpawnPoint(敵の発生地点)の可視化。未発生=黄、発生済み=グレー。
 	// 「レール上のどの進行度で出るか」が分かるよう、発生地点とレール上の該当点を線で結ぶ
+	// 点光源の可視化。位置に光の色の小さな球、届く範囲に薄い大きな球を描く。
+	// ドローンのライトは銃口から照らす向きへ、届く距離の分だけ線を引く
+	if (showLights_) {
+		for (const StageData::ObjectData& objectData : stage_->GetData().objects) {
+			if (objectData.type != StageData::ObjectType::Light || objectData.disabled) {
+				continue;
+			}
+			const Vector3& color = objectData.light.color;
+			const Vector3& position = objectData.transform.translate;
+			DebugRenderer::GetInstance()->AddSphere(position, 3.0f, { color.x, color.y, color.z, 1.0f });
+			DebugRenderer::GetInstance()->AddSphere(position, objectData.light.radius, { color.x, color.y, color.z, 0.25f });
+		}
+		const StageData::LightingData& lighting = stage_->GetData().lighting;
+		const Vector3 toAim = player_->GetAimPoint() - player_->GetMuzzlePosition();
+		if (stage_->GetData().hasLighting && toAim.LengthSquared() > 1.0e-6f) {
+			DebugRenderer::GetInstance()->AddLine(player_->GetMuzzlePosition(),
+				player_->GetMuzzlePosition() + Vector3::Normalized(toAim) * lighting.headlightDistance,
+				{ 1.0f, 1.0f, 0.8f, 1.0f });
+		}
+	}
+
 	if (showSpawnPoints_) {
 		for (const EnemySpawner::SpawnPoint& spawnPoint : enemySpawner_->GetSpawnPoints()) {
 			const Vector4 color = spawnPoint.spawned
@@ -997,6 +1136,8 @@ void GamePlayScene::Draw() {
 	chargeBulletManager_->Draw();
 	enemyBulletManager_->Draw();
 	enemySpawner_->Draw();
+	// クリア演出中は女王の亡骸を描く(女王本体は撃破でEnemySpawnerから消えているので、入れ替わりは見えない)
+	clearSequence_->Draw();
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
 
@@ -1098,6 +1239,21 @@ void GamePlayScene::DrawImGui() {
 		selectedIndex_ = static_cast<int>(fixedEditorObjectCount_ + newIndex);
 	}
 	ImGui::SameLine();
+	// 点光源を追加する。これもstatic・spawnと同じobjects[]に入るので、Hierarchy・ギズモ・複製・削除・無効化がそのまま使える。
+	// 光への反映はStage::Updateが毎フレーム行うので、ここでは追加するだけ
+	if (ImGui::Button("Add Light")) {
+		StageData::ObjectData objectData;
+		objectData.type = StageData::ObjectType::Light;
+		objectData.name = "light";
+		const Transform& cameraTransform = GetActiveCamera()->GetTransform();
+		Vector3 forward = Matrix4x4::Rotate(cameraTransform.rotate).Transform({ 0.0f, 0.0f, 1.0f });
+		objectData.transform.translate = cameraTransform.translate + forward * 10.0f;
+
+		size_t newIndex = stage_->AddObject(std::move(objectData));
+		RebuildEditorObjects();
+		selectedIndex_ = static_cast<int>(fixedEditorObjectCount_ + newIndex);
+	}
+	ImGui::SameLine();
 	ImGui::BeginDisabled(!stageObjectSelected);
 	if (ImGui::Button("Duplicate")) {
 		size_t newIndex = stage_->DuplicateObject(stageIndex);
@@ -1110,6 +1266,29 @@ void GamePlayScene::DrawImGui() {
 		RebuildEditorObjects(); // 選択解除もここで行われる
 	}
 	ImGui::EndDisabled();
+
+	// 格子状に複製(床の板のように同じ物を一定間隔で敷き詰める)。選んだ静的オブジェクトを(-X,-Z)側の角にして並べる。
+	// Inspectorではなくここに置くのは、複製後に一覧を作り直す(RebuildEditorObjects)と、
+	// 実行中のInspectorの描画関数(drawInspector)ごと消えてしまうため
+	const bool staticSelected = stageObjectSelected &&
+		stage_->GetData().objects[stageIndex].type == StageData::ObjectType::Static;
+	if (ImGui::TreeNode("Grid Duplicate")) {
+		ImGui::DragInt("Count X", &gridCountX_, 0.1f, 1, 20);
+		ImGui::DragInt("Count Z", &gridCountZ_, 0.1f, 1, 20);
+		ImGui::DragFloat("Spacing X", &gridSpacingX_, 1.0f, 1.0f, 5000.0f, "%.0f");
+		ImGui::DragFloat("Spacing Z", &gridSpacingZ_, 1.0f, 1.0f, 5000.0f, "%.0f");
+		ImGui::BeginDisabled(!staticSelected);
+		if (ImGui::Button("Duplicate Grid")) {
+			stage_->DuplicateObjectGrid(stageIndex, gridCountX_, gridCountZ_, gridSpacingX_, gridSpacingZ_);
+			RebuildEditorObjects(); // 要素数が変わりTransformポインタが無効になるため必須
+			selectedIndex_ = static_cast<int>(fixedEditorObjectCount_ + stageIndex); // 元のオブジェクトを選んだままにする
+		}
+		ImGui::EndDisabled();
+		if (!staticSelected) {
+			ImGui::TextDisabled("Select a static object (e.g. floor_board).");
+		}
+		ImGui::TreePop();
+	}
 
 	// レールの制御点の追加/削除(Stage Objectsと同じく、選んでいる対象に効く)。
 	// 制御点の移動はギズモ/Inspectorで行い、Stage::Updateがその場でレールを作り直す。
@@ -1202,10 +1381,14 @@ void GamePlayScene::DrawImGui() {
 	// Edit中は押せなくする。Edit中は進行中のプレイが無いので、プレイの出口を試す意味がない。
 	// また、タイトルから始めてStopでEditに入った場合はstartedFromEditor_がfalseなので、
 	// 押すと結果画面へ遷移してしまう
-	// ゲームオーバー演出の間も押せなくする(プレイの出口へもう向かっている)
-	ImGui::BeginDisabled(mode_ == Mode::Edit || gameOverSequence_->IsActive());
+	// ゲームオーバー演出・クリア演出の間も押せなくする(プレイの出口へもう向かっている)
+	ImGui::BeginDisabled(mode_ == Mode::Edit || gameOverSequence_->IsActive() || clearSequence_->IsActive());
 	if (ImGui::Button("Force Clear")) {
-		RequestResult("CLEAR");
+		// 女王が出ていれば倒したことにして、本番と同じく演出から通す(撃破は次のUpdateで普段どおり処理され、
+		// そこでクリア演出が始まる)。まだ出ていなければ亡骸を置く場所が無いので、今までどおり結果画面へ直行する
+		if (!enemySpawner_->ForceDefeatGoal()) {
+			RequestResult("CLEAR");
+		}
 	}
 	ImGui::SameLine();
 	// 本番(HPが尽きたとき)と同じく演出から通す。演出の調整値は"Game Over"ウィンドウ
@@ -1213,11 +1396,23 @@ void GamePlayScene::DrawImGui() {
 		StartGameOver();
 	}
 	ImGui::EndDisabled();
+	// クリア演出だけを、女王の出現地点で再生する(Edit中のみ)。女王までプレイしなくても見た目を調整できる。
+	// 本物の敵・弾・集計には触らず、終わったら止めるだけ(結果画面へは行かない)。調整値は"Clear"ウィンドウ
+	ImGui::BeginDisabled(mode_ != Mode::Edit || clearSequence_->IsActive());
+	if (ImGui::Button("Preview Clear")) {
+		EnemySpawner::GoalPose pose;
+		if (enemySpawner_->TryGetGoalSpawnPose(pose)) {
+			clearSequence_->Start(EnemySpawner::ModelPathOf(pose.enemy), pose.transform, pose.center, pose.radius);
+			StartShake(clearSequence_->GetParams().impactShake);
+		}
+	}
+	ImGui::EndDisabled();
 
 	// 当たり判定の可視化切替(コライダーのワイヤーボックス+プレイヤーの判定球)
 	ImGui::SeparatorText("Collision");
 	ImGui::Checkbox("Show Colliders", &showColliders_);
 	ImGui::Checkbox("Show Rail", &showRail_);
+	ImGui::Checkbox("Show Lights", &showLights_);
 	ImGui::Text("Active Colliders: %zu", stage_->GetWorldColliders().size());
 	// 銃口→狙点の線と狙点の球(レティクル実装前に弾道を確認するため)
 	ImGui::Checkbox("Show Aim Line", &showAimLine_);
@@ -1260,6 +1455,9 @@ void GamePlayScene::DrawImGui() {
 	// ゲームオーバー演出の進み具合と調整値(再生はHierarchyのForce GameOver)
 	gameOverSequence_->DrawImGui();
 
+	// クリア演出の進み具合と調整値(再生はHierarchyのForce Clear / Preview Clear)
+	clearSequence_->DrawImGui();
+
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
 
@@ -1272,6 +1470,9 @@ void GamePlayScene::DrawImGui() {
 
 	// 区間(ステージの区切り)の編集
 	DrawSectionsWindow();
+
+	// ステージ全体の光(環境光・月明かり・ドローンのライト)の編集
+	DrawLightingWindow();
 
 	// 区間ごとの集計・今クリアしたときのランク・ランクの基準
 	stageProgress_->DrawImGui(GetDamageTaken());
@@ -1371,6 +1572,21 @@ void GamePlayScene::RebuildEditorObjects() {
 				return; // spawnにモデル選択・コライダーは不要
 			}
 
+			if (data.type == StageData::ObjectType::Light) {
+				// 点光源: 位置はtransform(ギズモ)で置き、ここでは光の性質を編集する。
+				// StageDataを直接書き換え、Stage::Updateが毎フレーム光へ反映するので、動かしながら照らし方を確かめられる
+				ImGui::TextUnformatted("Type: Light (point light)");
+				ImGui::ColorEdit3("Color", &data.light.color.x);
+				ImGui::DragFloat("Intensity", &data.light.intensity, 0.01f, 0.0f, 10.0f, "%.2f");
+				ImGui::DragFloat("Radius", &data.light.radius, 1.0f, 1.0f, 5000.0f, "%.0f");
+				ImGui::DragFloat("Decay", &data.light.decay, 0.01f, 0.01f, 10.0f, "%.2f");
+				if (!stage_->GetData().hasLighting) {
+					// lighting項目が無いと光そのものを適用しない(昼の見た目)ので、気付けるように出す
+					ImGui::TextColored({ 1.0f, 0.8f, 0.3f, 1.0f }, "Stage lighting is OFF (Lighting window).");
+				}
+				return; // 点光源にモデル選択・コライダーは不要
+			}
+
 			// 参照ではなくコピーで持つ(SetObjectModelが元の文字列を書き換えるため)
 			const std::string current = data.model;
 			if (ImGui::BeginCombo("Model", current.c_str())) {
@@ -1442,6 +1658,34 @@ void GamePlayScene::ApplyCameraFromStage() {
 	SetCameraClip(data.camera.nearClip, data.camera.farClip);
 }
 
+void GamePlayScene::UpdateHeadlight() {
+	// ステージの光が無いときは、Stage::ApplyLightsが光ごと昼の初期値へ戻している(スポットライトも消灯)ので何もしない
+	const StageData& data = stage_->GetData();
+	if (!data.hasLighting) {
+		return;
+	}
+	const StageData::LightingData& lighting = data.lighting;
+
+	SpotLight spotLight{};
+	spotLight.color = { lighting.headlightColor.x, lighting.headlightColor.y, lighting.headlightColor.z, 1.0f };
+	// ゲームオーバー演出の間は消す(機体が壊れて制御を失った)。照らし続けると、墜落の暗転に明るい円が残る
+	spotLight.intensity = gameOverSequence_->IsActive() ? 0.0f : lighting.headlightIntensity;
+	spotLight.distance = lighting.headlightDistance;
+	spotLight.decay = lighting.headlightDecay;
+	// 縁のぼかしは「この角度から外側へ暗くなる」。外枠の角度以上にするとシェーダの割り算が0除算になるので、内側に収める
+	const float falloffStart = (std::min)(lighting.headlightFalloffStart, lighting.headlightAngle * 0.99f);
+	spotLight.cosAngle = std::cos(lighting.headlightAngle);
+	spotLight.cosFalloffStart = std::cos(falloffStart);
+
+	// 銃口から照準の先へ向ける。照らされている所が「これから撃つ所」になり、ライトが狙いの助けになる
+	spotLight.position = player_->GetMuzzlePosition();
+	const Vector3 toAim = player_->GetAimPoint() - spotLight.position;
+	spotLight.direction = toAim.LengthSquared() > 1.0e-6f
+		? Vector3::Normalized(toAim)
+		: player_->GetForward();
+	Object3dCommon::GetInstance()->SetSpotLight(spotLight);
+}
+
 void GamePlayScene::SetCameraClip(float nearClip, float farClip) {
 	camera_->SetNearClip(nearClip);
 	camera_->SetFarClip(farClip);
@@ -1449,8 +1693,25 @@ void GamePlayScene::SetCameraClip(float nearClip, float farClip) {
 	debugCamera_->GetCamera()->SetFarClip(farClip);
 }
 
+// CLEAR_DEMO: クリア演出デモ(コンテスト後に消す)
+void GamePlayScene::ApplyClearDemo() {
+	// 敵は女王だけ。出現地点ごと取り込まないので、区間の集計とランクも女王1体だけで数えられる
+	// (他の敵を「出さない」だけにすると、出なかった敵が取り逃しとして残り、ランクが下がる)
+	enemySpawner_->SetGoalOnly(true);
+	// 女王は撃ってこない(自機は被弾しないので、撃たれても当たらない弾が素通りするだけになる)
+	enemySpawner_->SetShootEnabled(false);
+	// 女王のHPを減らし、操作に慣れていない人でもすぐ倒せるようにする
+	enemySpawner_->SetGoalMaxHp(kClearDemoQueenHp);
+}
+
+// CLEAR_DEMO
+float GamePlayScene::StartRailDistance() const {
+	// デモは終点から始める。女王がいるステージは終点でレールが止まるので、女王の目の前で止まったまま戦う
+	return IsClearDemo() ? stage_->GetRail().GetTotalLength() : 0.0f;
+}
+
 void GamePlayScene::ResetGameState() {
-	railDistance_ = 0.0f;
+	railDistance_ = StartRailDistance(); // CLEAR_DEMO: デモは終点から始め直す
 	player_->Reset();
 	enemySpawner_->Reset(); // 敵も未発生に戻す
 	bulletManager_->Clear(); // 飛行中の弾も消す
@@ -1469,6 +1730,8 @@ void GamePlayScene::ResetGameState() {
 	introCamera_->Stop();
 	// ゲームオーバー演出も止める(墜落する機体・粒・時間倍率・ポストエフェクトを元に戻す)
 	gameOverSequence_->Stop();
+	// クリア演出も止める(亡骸・粒・時間倍率・ポストエフェクトを元に戻す。固まった敵はenemySpawner_->Resetが戻す)
+	clearSequence_->Stop();
 	// 演出でBGMをフェードアウトしていたら鳴らし直す。フェードし切ると再生が止まり、
 	// フェードの途中ならこのまま消えていくので、どちらの場合も止めてから最初から鳴らす
 	// (止まっている再生をStopWaveしても何も起きない)
@@ -1651,8 +1914,56 @@ void GamePlayScene::DrawSectionsWindow() {
 
 	ImGui::End();
 }
+
+void GamePlayScene::DrawLightingWindow() {
+	ImGui::Begin("Lighting");
+
+	StageData& data = stage_->GetData();
+	// OFFにすると光を適用せず、エンジンの初期値(昼の見た目)になる。その状態でSaveするとlighting項目ごと書かれない
+	ImGui::Checkbox("Stage Lighting", &data.hasLighting);
+
+	// 値はStageDataを直接書き換える。光への反映はStage::Update(環境光・月明かり・点光源)と
+	// UpdateHeadlight(ドローンのライト)が毎フレーム行うので、動かしながら見え方を確かめられる
+	StageData::LightingData& lighting = data.lighting;
+	ImGui::BeginDisabled(!data.hasLighting);
+	ImGui::SeparatorText("Ambient");
+	// どの光も届かない面に乗る明るさ。上げすぎると夜に見えず、下げすぎると敵や地形の輪郭が消える
+	ImGui::ColorEdit3("Ambient", &lighting.ambientColor.x);
+
+	ImGui::SeparatorText("Moon (Directional)");
+	ImGui::ColorEdit3("Moon Color", &lighting.moonColor.x);
+	ImGui::DragFloat("Moon Intensity", &lighting.moonIntensity, 0.01f, 0.0f, 5.0f, "%.2f");
+	// 光が進む向き(長さはApplyLightsで1にそろえるので、向きだけ合わせればよい)
+	ImGui::DragFloat3("Moon Direction", &lighting.moonDirection.x, 0.01f, -1.0f, 1.0f, "%.2f");
+
+	ImGui::SeparatorText("Drone Light (Spot)");
+	ImGui::ColorEdit3("Light Color", &lighting.headlightColor.x);
+	ImGui::DragFloat("Light Intensity", &lighting.headlightIntensity, 0.01f, 0.0f, 10.0f, "%.2f");
+	ImGui::DragFloat("Light Distance", &lighting.headlightDistance, 1.0f, 1.0f, 5000.0f, "%.0f");
+	// 角度はラジアンで持ち、ImGuiのSliderAngleで度として表示・編集する(stage.jsonはラジアンの約束)
+	ImGui::SliderAngle("Light Angle", &lighting.headlightAngle, 1.0f, 89.0f);
+	ImGui::SliderAngle("Falloff Start", &lighting.headlightFalloffStart, 0.0f, 89.0f);
+	ImGui::DragFloat("Light Decay", &lighting.headlightDecay, 0.01f, 0.01f, 10.0f, "%.2f");
+	ImGui::EndDisabled();
+
+	// 点光源の数。シェーダの配列の上限を超えた分は使われないので、その数を警告として出す
+	ImGui::SeparatorText("Point Lights");
+	const size_t lightCount = std::count_if(data.objects.begin(), data.objects.end(),
+		[](const StageData::ObjectData& objectData) {
+			return objectData.type == StageData::ObjectType::Light && !objectData.disabled;
+		});
+	ImGui::Text("Enabled: %zu / %u", lightCount, kMaxPointLights);
+	if (stage_->GetPointLightOverflow() > 0) {
+		ImGui::TextColored({ 1.0f, 0.4f, 0.3f, 1.0f }, "%u light(s) over the limit are ignored.",
+			stage_->GetPointLightOverflow());
+	}
+	ImGui::TextDisabled("Add with Hierarchy > Stage Objects > Add Light.");
+	ImGui::TextDisabled("Save with Hierarchy > Stage File > Save.");
+
+	ImGui::End();
+}
 #endif
 
-GamePlayScene::GamePlayScene() = default;
+GamePlayScene::GamePlayScene(Variant variant) : variant_(variant) {}
 
 GamePlayScene::~GamePlayScene() = default;

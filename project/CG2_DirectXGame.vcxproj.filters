@@ -177,6 +177,9 @@
     <ClCompile Include="application\direction\GameOverSequence.cpp">
       <Filter>application\direction</Filter>
     </ClCompile>
+    <ClCompile Include="application\direction\ClearSequence.cpp">
+      <Filter>application\direction</Filter>
+    </ClCompile>
     <ClCompile Include="application\ui\SectionBanner.cpp">
       <Filter>application\ui</Filter>
     </ClCompile>
@@ -402,6 +405,9 @@
       <Filter>application\camera</Filter>
     </ClInclude>
     <ClInclude Include="application\direction\GameOverSequence.h">
+      <Filter>application\direction</Filter>
+    </ClInclude>
+    <ClInclude Include="application\direction\ClearSequence.h">
       <Filter>application\direction</Filter>
     </ClInclude>
     <ClInclude Include="application\ui\SectionBanner.h">

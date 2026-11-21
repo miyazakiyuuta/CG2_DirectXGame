@@ -21,6 +21,15 @@ struct StageData {
 	enum class ObjectType {
 		Static, // 静的配置(地形・建造物など)。モデルをその場に置くだけ
 		Spawn,  // 敵の発生地点。モデルは持たず、種別(enemy)と発生する進行度(railDistance)を持つ
+		Light,  // 点光源(照明・家電の待機ランプなど)。モデルは持たず、位置(transform.translate)と光の性質(light)を持つ
+	};
+
+	// 点光源1個分の性質(ObjectType::Lightのときのみ有効)。位置はObjectDataのtransform.translate
+	struct LightData {
+		Vector3 color = { 1.0f, 0.55f, 0.2f }; // 色(既定は豆電球の橙)
+		float intensity = 1.2f;  // 強さ
+		float radius = 150.0f;   // 届く最大距離[単位=cm]。これより遠くは照らさない
+		float decay = 1.5f;      // 減衰の強さ(大きいほど中心だけが明るい)
 	};
 
 	// 配置オブジェクト1個分のデータ。
@@ -40,6 +49,26 @@ struct StageData {
 		std::string enemy = "frog";
 		// この進行度[m]をプレイヤーが超えたら発生する。出現位置はtransform.translate
 		float railDistance = 0.0f;
+
+		// --- type==Light のときのみ有効 ---
+		LightData light;
+	};
+
+	// ステージ全体の光(夜の雰囲気)。点光源はobjects[]のLightで、ここは位置を持たない光をまとめる。
+	// 各既定値はエンジンの初期値(Object3dCommon::ResetLights=昼の見た目)と一致させる
+	// (lighting項目はあるが一部の値が無い、という手編集のときに昼の値へ落ちるように)
+	struct LightingData {
+		Vector3 ambientColor = { 0.0f, 0.0f, 0.0f };     // 環境光(どの光も届かない面にも乗る明るさ)
+		Vector3 moonColor = { 1.0f, 1.0f, 1.0f };        // 月明かり(平行光源)の色
+		Vector3 moonDirection = { 0.0f, -1.0f, 0.0f };   // 月明かりの向き(光が進む向き。正規化は使う側で行う)
+		float moonIntensity = 1.0f;                      // 月明かりの強さ
+		// ドローンのライト(スポットライト)。自機から照準の先へ向ける(向きはシーンが毎フレーム決める)
+		Vector3 headlightColor = { 1.0f, 1.0f, 1.0f };
+		float headlightIntensity = 0.0f;   // 0=消灯(エンジンの初期値と同じ)
+		float headlightDistance = 400.0f;  // 届く最大距離[単位=cm]
+		float headlightAngle = 0.384f;     // 円錐の半分の角度[rad](約22度)。これより外は照らさない
+		float headlightFalloffStart = 0.209f; // ここ[rad](約12度)から外側へ向けて暗くなる(縁のぼかし)
+		float headlightDecay = 1.2f;       // 距離による減衰の強さ
 	};
 
 	// カメラ調整値。ランタイムの所有者はシーン(GamePlayScene)で、ここはデータの器。
@@ -78,4 +107,9 @@ struct StageData {
 	// シーンはApplyせずライブ値を保つ(「ファイルに無ければ何もしない」の流儀)
 	bool hasCamera = false;
 	CameraData camera;
+
+	// ステージ全体の光(省略可)。hasLighting=false(lighting項目の無い旧stage.json)なら光を一切適用せず、
+	// エンジンの初期値(昼の見た目)のままにする(cameraと同じ「ファイルに無ければ何もしない」の流儀)
+	bool hasLighting = false;
+	LightingData lighting;
 };

@@ -17,7 +17,16 @@
 namespace {
 	const std::string kClearTexture = "resources/ui/clear.png";
 	const std::string kGameOverTexture = "resources/ui/gameover.png";
-	const std::string kRetryTexture = "resources/ui/retry.png";
+
+	// 選択肢の画像(仮。Pillowで生成した、rank_label.pngと同じ「白文字＋黒縁」)。並びはMenuItemと同じ
+	const std::string kMenuTextures[] = { "resources/ui/menu_retry.png", "resources/ui/menu_title.png" };
+	// TITLEを選んだときに移るシーン。RETRYの行き先はGamePlaySceneから預かる(gPendingRetryScene)
+	const std::string kTitleScene = "TITLE";
+	constexpr float kMenuHeight = 48.0f;          // 選んでいる選択肢の文字の高さ[px](1280x720基準)
+	constexpr float kMenuUnselectedScale = 0.75f; // 選んでいない選択肢の大きさ(選んでいる方に対する割合)
+	constexpr float kMenuFadeInDuration = 0.25f;  // 入力の猶予が過ぎてから選択肢が出そろうまで[秒]
+	// 左スティックをこれ以上倒したら1つ動かす(倒し始めの小さな揺れでは動かさない)
+	constexpr float kStickThreshold = 0.5f;
 
 	// 結果音。表示と同時に鳴らす
 	const std::string kClearSound = "resources/sounds/clear.mp3";
@@ -37,6 +46,8 @@ namespace {
 	int gPendingScore = 0;
 	// 同じく、表示用のランク(CLEARのときだけ使う)
 	StageProgress::Rank gPendingRank = StageProgress::Rank::C;
+	// 同じく、RETRYで移るシーン名(本編は"GAMEPLAY"、デモは"CLEAR_DEMO")
+	std::string gPendingRetryScene = "GAMEPLAY"; // CLEAR_DEMO
 
 	// ランク(仮の画像。Pythonで生成したもの。clear.pngと同じ「白文字＋黒縁」)。
 	// ranks.png は S/A/B/C を左から等幅に並べてあり、Rankの並び(S=0〜C=3)の位置を切り出す
@@ -72,6 +83,11 @@ void ResultScene::SetRank(StageProgress::Rank rank) {
 	gPendingRank = rank;
 }
 
+// CLEAR_DEMO
+void ResultScene::SetRetryScene(const std::string& sceneName) {
+	gPendingRetryScene = sceneName;
+}
+
 void ResultScene::Initialize() {
 	const float uiScale = static_cast<float>(WinApp::kClientWidth) / kBaseWidth;
 	const float centerX = static_cast<float>(WinApp::kClientWidth) * 0.5f;
@@ -83,14 +99,15 @@ void ResultScene::Initialize() {
 	const float resultY = height * (isClear ? 0.28f : 0.42f);
 	const float rankY = height * 0.45f;
 	const float scoreTop = height * (isClear ? 0.57f : 0.55f);
-	const float retryY = height * (isClear ? 0.74f : 0.68f);
+	// 選択肢は縦に2つ並べる(上がRETRY、下がTITLE)
+	const float menuTopY = height * (isClear ? 0.73f : 0.70f);
+	const float menuSpacing = height * 0.1f;
 
 	// Sprite::InitializeはTextureManagerに登録済みのSRVを引くだけなので、先に読み込む
 	const std::string& resultTexture = (type_ == Type::Clear) ? kClearTexture : kGameOverTexture;
 	TextureManager::GetInstance()->LoadTexture(resultTexture);
-	TextureManager::GetInstance()->LoadTexture(kRetryTexture);
 
-	// 中央に結果、その下に操作案内。アンカーを中心にすると画像の実寸に関係なく中央へ揃う
+	// 中央に結果、その下に選択肢。アンカーを中心にすると画像の実寸に関係なく中央へ揃う
 	resultSprite_ = std::make_unique<Sprite>();
 	resultSprite_->Initialize(SpriteCommon::GetInstance(), resultTexture);
 	resultSprite_->SetAnchorPoint({ 0.5f, 0.5f });
@@ -103,12 +120,20 @@ void ResultScene::Initialize() {
 		? Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }
 		: Vector4{ 1.0f, 0.45f, 0.45f, 1.0f });
 
-	retrySprite_ = std::make_unique<Sprite>();
-	retrySprite_->Initialize(SpriteCommon::GetInstance(), kRetryTexture);
-	retrySprite_->SetAnchorPoint({ 0.5f, 0.5f });
-	const Vector2 retrySize = retrySprite_->GetSize();
-	retrySprite_->SetSize({ retrySize.x * uiScale, retrySize.y * uiScale });
-	retrySprite_->SetPos({ centerX, retryY });
+	// 選択肢。高さをそろえ、横幅は画像の縦横比から決める(RANKの見出しと同じやり方)
+	for (int i = 0; i < kMenuCount; ++i) {
+		TextureManager::GetInstance()->LoadTexture(kMenuTextures[i]);
+		menuSprites_[i] = std::make_unique<Sprite>();
+		menuSprites_[i]->Initialize(SpriteCommon::GetInstance(), kMenuTextures[i]);
+		menuSprites_[i]->SetAnchorPoint({ 0.5f, 0.5f });
+		const Vector2 textureSize = menuSprites_[i]->GetSize(); // Initialize直後のサイズ=画像の実寸
+		const float menuHeight = kMenuHeight * uiScale;
+		const float menuWidth = textureSize.y > 0.0f ? menuHeight * textureSize.x / textureSize.y : 0.0f;
+		menuSizes_[i] = { menuWidth, menuHeight };
+		menuSprites_[i]->SetPos({ centerX, menuTopY + menuSpacing * static_cast<float>(i) });
+	}
+	selected_ = static_cast<int>(MenuItem::Retry); // 最初はRETRY(CLEAR・GAMEOVERとも同じ)
+	UpdateMenu(); // 最初のフレームから、選択肢の大きさと透明度(猶予の間は0)を決めておく
 
 	// 結果音を鳴らす。シーン入場と同時に1回だけ(Updateではなくここ)
 	const std::string& soundPath = (type_ == Type::Clear) ? kClearSound : kGameOverSound;
@@ -169,26 +194,34 @@ void ResultScene::Finalize() {
 void ResultScene::Update(float deltaTime) {
 	elapsed_ += deltaTime;
 
-	// 操作案内はゆっくり明滅させる(押せる状態になったことを画面だけで伝える)
-	if (elapsed_ >= inputLockDuration_) {
-		const float alpha = 0.55f + 0.45f * std::sin(elapsed_ * 4.0f);
-		Vector4 color = retrySprite_->GetColor();
-		color.w = alpha;
-		retrySprite_->SetColor(color);
+	// 左スティックの傾きを控える(倒した瞬間を、前のフレームとの比較で拾う)
+	previousStickY_ = stickY_;
+	stickY_ = Input::GetInstance()->GetLeftStickY();
 
-		if (IsRetryPressed()) {
-			// 新しいGamePlaySceneが作られるので、HP・敵・弾・進行度はすべて初期状態に戻る
-			SceneManager::GetInstance()->ChangeScene("GAMEPLAY", std::make_unique<BlindTransition>());
-		}
-	} else {
-		Vector4 color = retrySprite_->GetColor();
-		color.w = 0.0f; // 入力猶予の間は案内を出さない
-		retrySprite_->SetColor(color);
+	// 選択肢を出すのは、入力の猶予が過ぎ、かつ遷移の帯が開き切った後。
+	// 帯が開いている途中(約1.1秒)はSceneManagerがChangeSceneを無視するので、その間に決定を受け付けると
+	// 決定したことになったまま遷移が始まらず、以後の入力も受け付けなくなる(画面から進めなくなる)
+	const bool menuReady = elapsed_ >= inputLockDuration_ && !SceneManager::GetInstance()->IsTransitioning();
+	if (menuReady) {
+		menuTimer_ += deltaTime;
 	}
+	// 選択肢が出てから、決定するまでの間だけ選択を受け付ける
+	if (menuReady && !decided_) {
+		// 2つしかないので、端でもう一度押すと反対の端へ回り込む(どちらへ押しても必ず動く)
+		if (IsUpPressed()) {
+			selected_ = (selected_ + kMenuCount - 1) % kMenuCount;
+		}
+		if (IsDownPressed()) {
+			selected_ = (selected_ + 1) % kMenuCount;
+		}
+		if (IsDecidePressed()) {
+			Decide();
+		}
+	}
+	UpdateMenu();
 
 	// 頂点と行列の書き込みはUpdateが行うため、Drawの前に毎フレーム呼ぶ
 	resultSprite_->Update();
-	retrySprite_->Update();
 	scoreNumber_->Update();
 	if (rankSprite_) {
 		rankLabelSprite_->Update();
@@ -200,7 +233,9 @@ void ResultScene::Draw() {
 	// 背景はシーンRTのクリア色(黒)のまま。スプライトは深度OFF・αブレンドON
 	SpriteCommon::GetInstance()->CommonDrawSetting();
 	resultSprite_->Draw();
-	retrySprite_->Draw();
+	for (const std::unique_ptr<Sprite>& menuSprite : menuSprites_) {
+		menuSprite->Draw();
+	}
 	scoreNumber_->Draw(); // 数字画像が未配置なら何も描かない
 	if (rankSprite_) { // CLEARのときだけ作ってある
 		rankLabelSprite_->Draw();
@@ -208,7 +243,51 @@ void ResultScene::Draw() {
 	}
 }
 
-bool ResultScene::IsRetryPressed() const {
+void ResultScene::Decide() {
+	decided_ = true;
+	// RETRY: 新しいGamePlaySceneが作られるので、HP・敵・弾・進行度はすべて初期状態に戻る
+	// (デモから来たときはデモをもう一度。行き先はGamePlaySceneから預かっている)。
+	// TITLE: タイトルはオープニングから始まる(シーンが作り直されるため)
+	const std::string& sceneName =
+		selected_ == static_cast<int>(MenuItem::Retry) ? gPendingRetryScene : kTitleScene; // CLEAR_DEMO
+	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>());
+}
+
+void ResultScene::UpdateMenu() {
+	// 押せる状態になってから、少しかけて出す(押せる状態になったことを画面だけで伝える)。
+	// 決定して次の遷移が始まると数えるのは止まるが、出し切った状態のまま残る
+	const float appear = std::clamp(menuTimer_ / kMenuFadeInDuration, 0.0f, 1.0f);
+	for (int i = 0; i < kMenuCount; ++i) {
+		const bool selected = i == selected_;
+		// 選んでいる方は白く、ゆっくり脈打たせる(今どちらを選んでいるかと、まだ押せることを伝える)。
+		// 決定した後は脈打ちを止めて、選んだものが確定したことを見せる
+		// 選んでいない方は小さく暗くして、選んでいる方と並べたときに差がひと目で分かるようにする
+		const float pulse = decided_ ? 1.0f : 0.8f + 0.2f * std::sin(elapsed_ * 5.0f);
+		const Vector4 color = selected
+			? Vector4{ 1.0f, 1.0f, 1.0f, pulse * appear }
+			: Vector4{ 0.55f, 0.55f, 0.55f, 0.6f * appear };
+		const float scale = selected ? 1.0f : kMenuUnselectedScale;
+		menuSprites_[i]->SetColor(color);
+		menuSprites_[i]->SetSize({ menuSizes_[i].x * scale, menuSizes_[i].y * scale });
+		menuSprites_[i]->Update();
+	}
+}
+
+bool ResultScene::IsUpPressed() const {
+	Input* input = Input::GetInstance();
+	const bool stickUp = stickY_ >= kStickThreshold && previousStickY_ < kStickThreshold;
+	return input->IsTriggerKey(DIK_UP) || input->IsTriggerKey(DIK_W) ||
+		input->IsTriggerPad(XINPUT_GAMEPAD_DPAD_UP) || stickUp;
+}
+
+bool ResultScene::IsDownPressed() const {
+	Input* input = Input::GetInstance();
+	const bool stickDown = stickY_ <= -kStickThreshold && previousStickY_ > -kStickThreshold;
+	return input->IsTriggerKey(DIK_DOWN) || input->IsTriggerKey(DIK_S) ||
+		input->IsTriggerPad(XINPUT_GAMEPAD_DPAD_DOWN) || stickDown;
+}
+
+bool ResultScene::IsDecidePressed() const {
 	Input* input = Input::GetInstance();
 	return input->IsTriggerKey(DIK_RETURN) || input->IsTriggerKey(DIK_SPACE) ||
 		input->IsTriggerPad(XINPUT_GAMEPAD_A) || input->IsTriggerPad(XINPUT_GAMEPAD_START);

@@ -22,8 +22,10 @@ void Object3dCommon::Finalize() {
 void Object3dCommon::Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) {
 	dxCommon_ = dxCommon;
 	srvManager_ = srvManager;
+	InitializeSceneLight();
 	InitializePointLight();
 	InitializeSpotLight();
+	ResetLights(); // 中身(初期値)はここで書く。シーンが光を戻すときも同じ関数を使い、初期値を1か所にまとめる
 	CreateGraphicsPipelineState();
 	CreateSkinningGraphicsPipelineState();
 	CreateComputePipelineState();
@@ -453,18 +455,18 @@ void Object3dCommon::CreateComputePipelineState() {
 	assert(SUCCEEDED(hr));
 }
 
+void Object3dCommon::InitializeSceneLight() {
+	sceneLightResource_ = dxCommon_->CreateBufferResource(sizeof(SceneLight));
+	assert(sceneLightResource_);
+	HRESULT hr = sceneLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&sceneLightData_));
+	assert(SUCCEEDED(hr));
+}
+
 void Object3dCommon::InitializePointLight() {
 	pointLightResource_ = dxCommon_->CreateBufferResource(sizeof(PointLightArray));
 	assert(pointLightResource_);
 	HRESULT hr = pointLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&pointLightData_));
 	assert(SUCCEEDED(hr));
-
-	pointLightData_->count = 1;
-	pointLightData_->lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	pointLightData_->lights[0].position = { 0.0f, 3.0f, 0.0f };
-	pointLightData_->lights[0].intensity = 1.0f;
-	pointLightData_->lights[0].radius = 3.0f;
-	pointLightData_->lights[0].decay = 1.0f;
 }
 
 void Object3dCommon::InitializeSpotLight() {
@@ -472,7 +474,27 @@ void Object3dCommon::InitializeSpotLight() {
 	assert(spotLightResource_);
 	HRESULT hr = spotLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&spotLightData_));
 	assert(SUCCEEDED(hr));
+}
 
+void Object3dCommon::ResetLights() {
+	// 平行光源: 以前Object3dが1体ずつ持っていた初期値と同じ(白・真下・強さ1)。環境光は無し(以前のシェーダに無かったため)
+	*sceneLightData_ = {};
+	sceneLightData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	sceneLightData_->direction = { 0.0f, -1.0f, 0.0f };
+	sceneLightData_->intensity = 1.0f;
+	sceneLightData_->ambientColor = { 0.0f, 0.0f, 0.0f };
+
+	// 点光源: 原点の少し上に白を1つ(以前の初期値のまま)
+	*pointLightData_ = {};
+	pointLightData_->count = 1;
+	pointLightData_->lights[0].color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	pointLightData_->lights[0].position = { 0.0f, 3.0f, 0.0f };
+	pointLightData_->lights[0].intensity = 1.0f;
+	pointLightData_->lights[0].radius = 3.0f;
+	pointLightData_->lights[0].decay = 1.0f;
+
+	// スポットライト: 強さ0(消えている。以前の初期値のまま)
+	*spotLightData_ = {};
 	spotLightData_->color = { 1.0f,1.0f,1.0f,1.0f };
 	spotLightData_->position = { 2.0f,1.25f,0.0f };
 	spotLightData_->distance = 7.0f;

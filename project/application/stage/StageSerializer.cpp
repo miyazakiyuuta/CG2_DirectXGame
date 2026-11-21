@@ -25,15 +25,19 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 		for (const json& object : root.at("objects")) {
 			const std::string type = object.at("type").get<std::string>();
 			// 未知のtypeは読み飛ばす(将来の形式で保存されたファイルでも落とさない)
-			if (type != "static" && type != "spawn") {
+			if (type != "static" && type != "spawn" && type != "light") {
 				Logger::Log("StageSerializer::Load: unsupported type '" + type + "' (skipped)\n");
 				continue;
 			}
 
 			StageData::ObjectData objectData;
-			objectData.type = (type == "spawn")
-				? StageData::ObjectType::Spawn
-				: StageData::ObjectType::Static;
+			if (type == "spawn") {
+				objectData.type = StageData::ObjectType::Spawn;
+			} else if (type == "light") {
+				objectData.type = StageData::ObjectType::Light;
+			} else {
+				objectData.type = StageData::ObjectType::Static;
+			}
 			objectData.name = object.at("name").get<std::string>();
 			// spawnは敵の種別からモデルが決まるためmodelを持たない(省略可)
 			if (object.contains("model")) {
@@ -47,6 +51,23 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 			}
 			if (object.contains("railDistance")) {
 				object.at("railDistance").get_to(objectData.railDistance);
+			}
+
+			// 点光源の性質(省略時は既定値のまま。項目ごとに省略可)
+			if (object.contains("light")) {
+				const json& light = object.at("light");
+				if (light.contains("color")) {
+					light.at("color").get_to(objectData.light.color);
+				}
+				if (light.contains("intensity")) {
+					light.at("intensity").get_to(objectData.light.intensity);
+				}
+				if (light.contains("radius")) {
+					light.at("radius").get_to(objectData.light.radius);
+				}
+				if (light.contains("decay")) {
+					light.at("decay").get_to(objectData.light.decay);
+				}
 			}
 
 			// 以下は省略可能なフィールド(無ければ既定値のまま)
@@ -95,6 +116,50 @@ bool StageSerializer::Load(const std::string& path, StageData& stageData) {
 			}
 		}
 
+		// ステージ全体の光(省略可能。無ければhasLighting=falseで光は適用しない=昼の見た目のまま)。
+		// 値はcameraと同じく1個ずつ省略可
+		if (root.contains("lighting")) {
+			const json& lighting = root.at("lighting");
+			StageData::LightingData& data = loaded.lighting;
+			loaded.hasLighting = true;
+			if (lighting.contains("ambient")) {
+				lighting.at("ambient").get_to(data.ambientColor);
+			}
+			if (lighting.contains("moon")) {
+				const json& moon = lighting.at("moon");
+				if (moon.contains("color")) {
+					moon.at("color").get_to(data.moonColor);
+				}
+				if (moon.contains("direction")) {
+					moon.at("direction").get_to(data.moonDirection);
+				}
+				if (moon.contains("intensity")) {
+					moon.at("intensity").get_to(data.moonIntensity);
+				}
+			}
+			if (lighting.contains("headlight")) {
+				const json& headlight = lighting.at("headlight");
+				if (headlight.contains("color")) {
+					headlight.at("color").get_to(data.headlightColor);
+				}
+				if (headlight.contains("intensity")) {
+					headlight.at("intensity").get_to(data.headlightIntensity);
+				}
+				if (headlight.contains("distance")) {
+					headlight.at("distance").get_to(data.headlightDistance);
+				}
+				if (headlight.contains("angle")) {
+					headlight.at("angle").get_to(data.headlightAngle);
+				}
+				if (headlight.contains("falloffStart")) {
+					headlight.at("falloffStart").get_to(data.headlightFalloffStart);
+				}
+				if (headlight.contains("decay")) {
+					headlight.at("decay").get_to(data.headlightDecay);
+				}
+			}
+		}
+
 		// カメラ調整値(省略可能。無ければhasCamera=falseでシーンはApplyしない)。
 		// フィールドも1個ずつ省略可(無い項目は構造体デフォルトのまま)。colliderのat()一括より
 		// 緩いのは、手編集ミス1項目で全体を失敗させない+将来のフィールド追加で旧ファイルを壊さないため
@@ -133,16 +198,29 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 	json root;
 	root["objects"] = json::array();
 	for (const StageData::ObjectData& objectData : stageData.objects) {
-		const bool isSpawn = objectData.type == StageData::ObjectType::Spawn;
+		const char* typeName = "static";
+		if (objectData.type == StageData::ObjectType::Spawn) {
+			typeName = "spawn";
+		} else if (objectData.type == StageData::ObjectType::Light) {
+			typeName = "light";
+		}
 		json object = {
-			{ "type", isSpawn ? "spawn" : "static" },
+			{ "type", typeName },
 			{ "name", objectData.name },
 			{ "transform", objectData.transform }, // Serialization.h の to_json が自動で効く
 		};
-		if (isSpawn) {
+		if (objectData.type == StageData::ObjectType::Spawn) {
 			// 敵の種別と発生する進行度。モデルは種別から決まるので書かない
 			object["enemy"] = objectData.enemy;
 			object["railDistance"] = objectData.railDistance;
+		} else if (objectData.type == StageData::ObjectType::Light) {
+			// 点光源の性質。モデルは持たない(位置はtransform.translate)
+			object["light"] = {
+				{ "color", objectData.light.color },
+				{ "intensity", objectData.light.intensity },
+				{ "radius", objectData.light.radius },
+				{ "decay", objectData.light.decay },
+			};
 		} else {
 			object["model"] = objectData.model;
 		}
@@ -174,6 +252,27 @@ bool StageSerializer::Save(const std::string& path, const StageData& stageData) 
 				{ "startDistance", sectionData.startDistance },
 			});
 		}
+	}
+
+	// ステージ全体の光(hasLightingのときだけ書く。カメラと同じくラウンドトリップでデータが一致する)
+	if (stageData.hasLighting) {
+		const StageData::LightingData& lighting = stageData.lighting;
+		root["lighting"] = {
+			{ "ambient", lighting.ambientColor },
+			{ "moon", {
+				{ "color", lighting.moonColor },
+				{ "direction", lighting.moonDirection },
+				{ "intensity", lighting.moonIntensity },
+			} },
+			{ "headlight", {
+				{ "color", lighting.headlightColor },
+				{ "intensity", lighting.headlightIntensity },
+				{ "distance", lighting.headlightDistance },
+				{ "angle", lighting.headlightAngle },
+				{ "falloffStart", lighting.headlightFalloffStart },
+				{ "decay", lighting.headlightDecay },
+			} },
+		};
 	}
 
 	// カメラ調整値(hasCameraのときだけ書く。Save→Loadのラウンドトリップでデータが一致する)

@@ -44,6 +44,9 @@ public:
 
 	void Draw();
 
+	// 戦闘中の敵の当たり判定の球をデバッグ表示に積む(Show Colliders用。描くのはDebugRenderer)
+	void DrawHitSpheres() const;
+
 	// 描画に使うカメラを差し替える(生成済みの敵にも反映)
 	void SetCamera(Camera* camera);
 
@@ -94,6 +97,11 @@ public:
 		std::string name;        // 種別名(stage.jsonのenemyと一致させる)
 		int maxHp = 3;           // 発生時のHP。1にすると1発で消えるため既定は3
 		float radius = 2.5f;     // 当たり判定の半径[m](モデルの見た目に合わせる)
+		// 当たり判定の球の中心を、モデルの原点から頭の向き(モデルの規格でローカル-Z)へずらす量[m]。
+		// 女王のように前後に長い体では、原点(体の重心)に球を置くと、正面から撃った弾が見えている前面より
+		// ずっと奥で当たり、着弾の火花が体の中に隠れる。判定を前へ寄せて、見えている前面とそろえる。
+		// 被弾・爆発の巻き込み・体当たり・照準・ロックオン・弾を撃つ位置・撃破の爆発の位置は、すべてこの中心を使う
+		float hitOffset = 0.0f;
 		float moveSpeed = 3.0f;  // 自機へ近づく速さ[m/s]
 		// これ以上は近づかない距離[m]。射撃型はここで止まって撃ち、
 		// 接近型は判定半径の和(自機0.5+敵radius)より内側にして体当たりを成立させる
@@ -122,6 +130,61 @@ public:
 	/// 撃破の記録(SpawnPoint::outcome)を見るだけなので、Reset・BuildFromStageで自動的にfalseへ戻る
 	/// </summary>
 	bool IsGoalDefeated() const;
+
+	/// <summary>
+	/// 倒すとクリアになる敵(女王)の姿。クリア演出が、同じ場所・姿勢・大きさに亡骸を置き直すのに使う
+	/// </summary>
+	struct GoalPose {
+		std::string enemy;   // 種別名(ModelPathOfでモデルを引く)
+		Transform transform; // 見た目の位置・回転・大きさ(亡骸を置く)
+		Vector3 center;      // 当たり判定の球の中心(体の前寄り。小爆発と大爆発はここを中心にする)
+		float radius = 0.0f; // 判定半径(小爆発を散らす範囲と、爆発の大きさの基準)
+	};
+
+	/// <summary>
+	/// 女王が倒れた瞬間の姿を引く。撃破の処理(Update)の中で記録したもの
+	/// </summary>
+	/// <returns>まだ倒していなければ(Reset・BuildFromStageの後も)false</returns>
+	bool TryGetGoalDefeatPose(GoalPose& outPose) const;
+
+	/// <summary>
+	/// 女王の出現地点の姿を引く。Edit中にクリア演出だけを再生して見た目を調整する(Preview Clear)のに使う
+	/// </summary>
+	/// <returns>ステージに女王がいなければfalse</returns>
+	bool TryGetGoalSpawnPose(GoalPose& outPose) const;
+
+	/// <summary>
+	/// 生存中の女王を倒したことにする(ImGuiのForce Clear用)。HPを0にするだけで、
+	/// 撃破の処理(爆発・撃破音・記録)は次のUpdateで普段の撃破と同じ流れを通る
+	/// </summary>
+	/// <returns>生存中の女王がいたか(まだ出ていなければfalse)</returns>
+	bool ForceDefeatGoal();
+
+	/// <summary>
+	/// 女王が倒れた瞬間(クリア演出の始まり)。残りの敵をその場で固め、動き・攻撃・接触・被弾をやめさせる。
+	/// 新しい敵も出さない。Reset・BuildFromStageで元に戻る
+	/// </summary>
+	void FreezeAll();
+
+	/// <summary>
+	/// 大爆発の瞬間(クリア演出)。残りの敵が色を失って落ち、時間差で煙になって消える(巣の全滅)。
+	/// 撃破にも取り逃しにも数えない: 評価(駆除数・ランク)はプレイヤーが自分で倒した分だけにするため
+	/// </summary>
+	void ExterminateAll();
+
+	// --- CLEAR_DEMO: クリア演出デモ用の設定(コンテスト後にデモと一緒に消す) ---
+	// trueなら、女王(isGoalの種別)以外の出現地点を取り込まない。次のBuildFromStageから効く
+	void SetGoalOnly(bool goalOnly) { goalOnly_ = goalOnly; } // CLEAR_DEMO
+	// 敵が撃ってくるか(ImGuiの"Shoot Enabled"と同じ値)
+	void SetShootEnabled(bool enabled) { shootEnabled_ = enabled; } // CLEAR_DEMO
+	// 女王(isGoalの種別)の最大HP。次に出現する女王から効く
+	void SetGoalMaxHp(int maxHp); // CLEAR_DEMO
+
+	/// <summary>
+	/// 全滅で消えるときの煙のパーティクルのグループ名。DefeatEffectNameと同じく、
+	/// 登録(RegisterEffect)はシーン、発生はここ、と担当が分かれるので名前をここに集約する
+	/// </summary>
+	static const std::string& ExterminateEffectName();
 
 	// SpawnPoint1件分(データの写し。StageDataを構造変更しても参照が壊れないよう値で持つ)
 	struct SpawnPoint {
@@ -230,6 +293,11 @@ private:
 		Vector3 escapeDirection{};
 		// 通過済みになってからの経過時間[秒]。escapeLifetime_を超えたら消す
 		float escapeTime = 0.0f;
+		// 全滅で落ちている最中か(クリア演出)。立ったら戦闘から降り、落ちた後に消える
+		bool dying = false;
+		float dyingTime = 0.0f;     // 落ち始めてからの経過時間[秒]
+		float dyingDuration = 0.0f; // 消えるまでの長さ[秒]。個体ごとに散らして、一斉に消えず順に消えていくようにする
+		float dyingSpin = 0.0f;     // 落ちながら転がる速さ[rad/s]
 	};
 
 	// 発生済みの敵を即deleteせず墓場へ移す。ImGuiのボタン処理(Draw後)から呼ばれると、
@@ -286,9 +354,15 @@ private:
 	/// <param name="playerForward">自機の進行方向(レールの接線。単位ベクトル)</param>
 	void UpdateEscape(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward);
 
-	// 戦闘に参加している敵か(生存中かつ通過済みでない)。
+	// 戦闘に参加している敵か(生存中かつ通過済みでも全滅で落ちている最中でもない)。
 	// 被弾・ロックオン・照準の対象はこれで絞る。通過済みの敵は見た目だけ残って去っていく
-	static bool IsInCombat(const Enemy& enemy) { return enemy.hp > 0 && !enemy.passed; }
+	static bool IsInCombat(const Enemy& enemy) { return enemy.hp > 0 && !enemy.passed && !enemy.dying; }
+
+	/// <summary>
+	/// 固まっている間(FreezeAll以降)の更新。全滅で落ちている敵を落とし、落ち切った敵を煙にして消す。
+	/// 固まっているだけの敵は動かさない(見た目の行列だけ更新する)
+	/// </summary>
+	void UpdateFrozen(float deltaTime);
 
 	// 次のクールタイムを引く。個体差を付けて斉射を防ぐ(発生時の初回待ちにも使う)
 	float NextShootCooldown(const TypeParams& params) const;
@@ -297,6 +371,15 @@ private:
 	size_t TypeIndexOf(const std::string& enemy) const;
 	// 個体の性能を引く。添字が範囲外でも落ちないよう丸める
 	const TypeParams& ParamsOf(const Enemy& enemy) const;
+
+	/// <summary>
+	/// 位置から、回転したモデルの前(頭の向き。モデルの規格でローカル-Z)へoffsetだけ進めた点
+	/// </summary>
+	static Vector3 ForwardPoint(const Vector3& position, const Vector3& rotate, float offset);
+
+	// 当たり判定の球の中心(種別のhitOffsetだけ頭の方へずらした点。ずらさない種別は位置そのもの)。
+	// 位置(position)は動かす計算に、この中心は当てる・狙う・撃つ計算に使う
+	Vector3 HitCenter(const Enemy& enemy) const;
 
 	// HPの残量を色で表す(満タン=白 → 残り少ない=赤)。
 	// なぜ色か: 「敵にHPがある」ことをプレイ動画から読み取れるようにするため。
@@ -354,6 +437,22 @@ private:
 	float escapeBrake_ = 8.0f;
 	// 通過済みになってから消えるまで[秒]。レール速度8m/sなら3秒でカメラ(自機の12m後ろ)より後ろへ抜けている
 	float escapeLifetime_ = 3.0f;
+
+	// CLEAR_DEMO: 女王以外の出現地点を取り込まないか(SetGoalOnly)
+	bool goalOnly_ = false;
+
+	// --- 巣の全滅(クリア演出) ---
+	// 固まっているか(FreezeAll以降)。立っている間は、発生・被弾・移動・攻撃・接触を行わない
+	bool frozen_ = false;
+	// 女王が倒れた瞬間の姿(TryGetGoalDefeatPose)
+	bool hasGoalDefeatPose_ = false;
+	GoalPose goalDefeatPose_;
+	// 落ちる重力[m/s^2]。床まで約1秒で届く強さ(現実の9.8より強くして、ポトッと落ちる手応えにする)
+	float exterminateGravity_ = 30.0f;
+	// 落ち始めてから消えるまで[秒]の範囲。個体ごとにこの間で散らす
+	float exterminateLifeMin_ = 0.5f;
+	float exterminateLifeMax_ = 1.4f;
+	int exterminateSmokeCount_ = 12; // 消えるときの煙の粒の数
 
 	// 今フレーム、自機に接触している敵がいるか(A-5)と、その敵の位置
 	bool playerHit_ = false;

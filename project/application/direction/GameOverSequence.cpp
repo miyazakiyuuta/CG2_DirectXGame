@@ -373,7 +373,9 @@ void GameOverSequence::ApplyWreckPose() {
 	const Matrix4x4 rotation =
 		Matrix4x4::RotateZ(roll_) * Matrix4x4::RotateX(tumble_) * Matrix4x4::Rotate(startRotate_);
 	// Object3dはオイラー角しか受け取らないので、合成した回転行列を角度へ戻して渡す
-	wreck_->SetRotate(Matrix4x4::ToEuler(rotation));
+	// 最後に、モデルの機首を+Zへ向け直す補正を「いちばん最初」(左端)に足す。
+	// ロール・機首下げ・被弾時の向きは、機首を+Zとしたまま今までどおり計算できる
+	wreck_->SetRotate(Matrix4x4::ToEuler(Player::ModelCorrection() * rotation));
 	wreck_->SetTranslate(position_);
 
 	// 被弾箇所にも同じ回転を掛ける(機体に貼り付いた点として一緒に回る)

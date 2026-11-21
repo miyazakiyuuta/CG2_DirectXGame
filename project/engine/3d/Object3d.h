@@ -54,9 +54,7 @@ public: // セッター&ゲッター
 	void SetTranslate(const Vector3& translate) { transform_.translate = translate; }
 	void SetCamera(Camera* camera) { camera_ = camera; }
 	void SetColor(Vector4 color) { materialData_->color = color; }
-	void SetLightColor(Vector4 color) { directionalLightData_->color = color; }
-	void SetLightDirection(Vector3 direction) { directionalLightData_->direction = direction; }
-	void SetLightIntensity(float intensity) { directionalLightData_->intensity = intensity; }
+	// 光(平行光源・環境光・点光源・スポットライト)はObject3dCommonが全オブジェクト共通で持つ(SetSceneLightなど)
 	void SetEnableLighting(bool enable) { materialData_->enableLighting = enable; }
 	void SetUseEnvironmentMap(bool use) { materialData_->useEnvironmentMap = use; }
 	void SetDissolve(float dissolve) { materialData_->dissolve = dissolve; }
@@ -69,9 +67,6 @@ public: // セッター&ゲッター
 	const Vector3& GetScale() const { return transform_.scale; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }
-	Vector4 GetLightColor() const { return directionalLightData_->color; }
-	Vector3 GetLightDirection() const { return directionalLightData_->direction; }
-	float GetLightIntensity() const { return directionalLightData_->intensity; }
 	float GetAnimationDuration(const std::string& name) {
 		const auto& animations = model_->GetAnimations();
 		auto it = animations.find(name);
@@ -125,17 +120,10 @@ private: // メンバ構造体
 		Matrix4x4 WorldInverseTranspose;
 	};
 
-	struct DirectionalLight {
-		Vector4 color; //!< ライトの色
-		Vector3 direction; //!< ライトの向き
-		float intensity; //!< 輝度
-	};
-
 private: // メンバ関数
 
 	void CreateMaterialData();
 	void CreateTransformationMatrixData();
-	void CreateDirectionalLightData();
 	// スケルトンの現在ポーズを個体別パレットへ書き込む
 	void UpdatePalette();
 	void DrawDebugSkeleton();
@@ -148,9 +136,6 @@ private: // メンバ変数
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource_;
 	TransformationMatrix* transformationMatrixData_ = nullptr;
 	
-	Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_;
-	DirectionalLight* directionalLightData_ = nullptr;
-
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
 	Material* materialData_ = nullptr;
 	

@@ -15,10 +15,12 @@
 #endif
 
 namespace {
-	// 自機モデル。実寸 約5.4 x 1.3 x 3.7(幅/高さ/奥行き)、機首が+Z
-	const std::string kModel = "player/spaceship.obj";
-	// 幅を約1.1mにして、判定半径(0.5m)と見た目の大きさを揃える
-	constexpr float kModelScale = 0.2f;
+	// 自機モデル(駆除ドローン)。全長1.0に正規化済みで、実寸 約0.98 x 0.25 x 1.0(幅/高さ/全長)、機首が-Z
+	// (モデルの規格。仕様は tools/models/drone/drone_report.txt)
+	const std::string kModel = "drone/drone.obj";
+	// 幅を約1.08にして、以前の宇宙船(5.4×0.2)と同じ画面上の大きさ・判定半径(0.5)にそろえる。
+	// 最終的な値は、床の板(幅15cm)や家具と並べて見てから決める(1単位=1cm)
+	constexpr float kModelScale = 1.1f;
 
 	// 被弾音。撃破音より控えめにして、爆発と重なっても濁らないようにする
 	const std::string kDamageSound = "resources/sounds/damage.mp3";
@@ -48,6 +50,12 @@ const std::string& Player::ModelPath() {
 
 float Player::ModelScale() {
 	return kModelScale;
+}
+
+Matrix4x4 Player::ModelCorrection() {
+	// モデルの規格では機首が-Z、ゲーム(レール・カメラ・墜落演出)は機首を+Zとして向きを計算する。
+	// Y軸まわりに半回転させて、モデルの機首を+Zへ向け直す
+	return Matrix4x4::RotateY(std::numbers::pi_v<float>);
 }
 
 void Player::Initialize(ActionInput* actionInput) {
@@ -103,17 +111,23 @@ void Player::Update(float deltaTime) {
 		aimPoint_ = rail_->GetPositionByDistance(railDistance_ + aimDistance_) +
 			aimRight * (offset_.x * aimConvergence_) + aimUp * (offset_.y * aimConvergence_);
 
-		// 向きはレールカメラと同じ「接線→オイラー角」の逆算(回転規約: 行ベクトル×Rx→Ry→Rz)
+		// 飛ぶ向きはレールカメラと同じ「接線→オイラー角」の逆算(回転規約: 行ベクトル×Rx→Ry→Rz)。
+		// 機首を+Zとしたときの向きで、GetRotateが返す(墜落演出が「被弾した瞬間の機首の向き」として使う)
 		float yaw = std::atan2(forward.x, forward.z);
 		float pitch = std::atan2(-forward.y, std::sqrt(forward.x * forward.x + forward.z * forward.z));
-		object3d_->SetRotate({ pitch, yaw, 0.0f });
+		rotate_ = { pitch, yaw, 0.0f };
 	} else {
 		// レール未設定(stage.jsonにrailが無い等)でも入力確認だけはできるようにする
 		worldPosition_ = { offset_.x, offset_.y, 0.0f };
 		forward_ = { 0.0f, 0.0f, 1.0f };
 		muzzlePosition_ = worldPosition_ + forward_ * muzzleForwardOffset_;
 		aimPoint_ = worldPosition_ + forward_ * aimDistance_;
+		rotate_ = { 0.0f, 0.0f, 0.0f }; // +Z向き
 	}
+
+	// モデルの向き = 先にモデルの機首を+Zへ向け直し(ModelCorrection)、そのあと飛ぶ向きへ回す。
+	// 行ベクトル規約なので、左に置いた行列ほど先(モデル自身の座標)で効く
+	object3d_->SetRotate(Matrix4x4::ToEuler(ModelCorrection() * Matrix4x4::Rotate(rotate_)));
 
 	// ステージコライダーとの接触判定。ワールド位置が確定した後に行う。
 	// 規模が小さいので総当たり(空間分割は敵・弾が増えてから検討する)
@@ -421,7 +435,8 @@ void Player::SetCamera(Camera* camera) {
 }
 
 const Vector3& Player::GetRotate() const {
-	return object3d_->GetRotate();
+	// モデルの向き(補正込み)ではなく、飛ぶ向き(機首を+Zとしたときの向き)を返す
+	return rotate_;
 }
 
 void Player::Reset() {

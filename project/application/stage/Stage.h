@@ -46,6 +46,14 @@ public:
 	size_t DuplicateObject(size_t index);
 
 	/// <summary>
+	/// index番のオブジェクトを、X・Z方向へ格子状に複製する(床の板のように、同じ物を一定間隔で敷き詰める用)。
+	/// 元のオブジェクトを(-X,-Z)側の角として、+X・+Z方向へ countX×countZ 個になるよう並べる(元の1個を含む)。
+	/// 回転は元のまま(床の板は回さず同じ向きで敷く前提)。複製はHierarchy上で元の直後にまとめて並ぶ
+	/// </summary>
+	/// <returns>複製した個数(countX×countZ-1)</returns>
+	size_t DuplicateObjectGrid(size_t index, int countX, int countZ, float spacingX, float spacingZ);
+
+	/// <summary>
 	/// index番のオブジェクトを削除する
 	/// </summary>
 	void RemoveObject(size_t index);
@@ -92,6 +100,9 @@ public:
 	// レールに沿った距離を写して持っている側(EnemySpawner)を作り直す(「差分を見る」作法)
 	uint32_t GetRailRevision() const { return railRevision_; }
 
+	// 点光源のうち、シェーダの上限(kMaxPointLights)を超えて使われなかった数。エディタの警告用
+	uint32_t GetPointLightOverflow() const { return pointLightOverflow_; }
+
 	void Update(float deltaTime);
 	void Draw();
 
@@ -131,6 +142,13 @@ private:
 	void UpdateWorldColliders();
 
 	/// <summary>
+	/// ステージの光(lighting の環境光・月明かりと、objects[]の点光源)をエンジンの共通の光(Object3dCommon)へ渡す。
+	/// 毎フレームUpdateから呼ぶので、エディタでの編集がその場で効く。lighting項目が無ければ何もしない。
+	/// ドローンのライト(スポットライト)は自機の位置と照準で決まるので、ここではなくシーンが渡す
+	/// </summary>
+	void ApplyLights();
+
+	/// <summary>
 	/// data_.railの今の制御点でレールを作り直し、レールに沿った距離のデータ(区間の開始・敵の出現距離)を付け直す。
 	/// 手順: ①今の曲線(rail_。まだ古い形)で各距離を「何番目の区間(制御点 i と i+1 の間)の、長さの何割か」に置き換える
 	/// ②remapSegmentで区間番号を付け替える(挿入・削除で番号がずれるため。動かしただけなら何もしない)
@@ -146,6 +164,8 @@ private:
 	CatmullRomSpline rail_;
 	// レールを作り直した通算回数(GetRailRevision)
 	uint32_t railRevision_ = 0;
+	// 上限を超えて使われなかった点光源の数(GetPointLightOverflow)
+	uint32_t pointLightOverflow_ = 0;
 	// 当たり判定用のワールドAABB。data_.objectsとは要素数が異なる(コライダー付きのみ)
 	std::vector<AABB> worldColliders_;
 	Camera* camera_ = nullptr;

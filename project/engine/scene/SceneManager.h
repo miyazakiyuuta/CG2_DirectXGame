@@ -22,7 +22,14 @@ public:
 
 	void DrawImGui();
 
+	// 遷移中(次のシーンを予約済み、または遷移の演出が終わっていない)の間に呼ぶと、何もせずに戻る
 	void ChangeScene(const std::string& sceneName, std::unique_ptr<ITransition> transition = nullptr);
+
+	/// <summary>
+	/// 遷移中か。シーンが切り替わった直後も、遷移の演出(帯が開く等)が終わるまではtrue。
+	/// この間のChangeSceneは無視されるので、シーン側で「次へ進む」入力を受け付けるかの判断に使う
+	/// </summary>
+	bool IsTransitioning() const { return transition_ != nullptr || nextScene_ != nullptr; }
 
 	void SetSceneFactory(AbstractSceneFactory* factory) { sceneFactory_ = factory; }
 

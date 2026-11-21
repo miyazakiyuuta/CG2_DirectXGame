@@ -15,7 +15,6 @@ void Object3d::Initialize(Object3dCommon* object3dCommon) {
 
 	CreateMaterialData();
 	CreateTransformationMatrixData();
-	CreateDirectionalLightData();
 
 	// スキニング一括ディスパッチの対象として登録する(解除はデストラクタ)
 	object3dCommon_->RegisterObject(this);
@@ -94,8 +93,8 @@ void Object3d::Draw() {
 	// 座標変換行列CBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResource_->GetGPUVirtualAddress());
 
-	// 平行光源CBufferの場所を設定
-	commandList->SetGraphicsRootConstantBufferView(3, directionalLightResource_->GetGPUVirtualAddress());
+	// シーンの光(平行光源＋環境光)のCBuffer。全オブジェクト共通の1つ(点光源・スポットライトと同じ)
+	commandList->SetGraphicsRootConstantBufferView(3, object3dCommon_->GetSceneLightGPUAddress());
 
 	commandList->SetGraphicsRootConstantBufferView(4, camera_->GetGPUAddress());
 
@@ -220,19 +219,6 @@ void Object3d::CreateTransformationMatrixData() {
 	transformationMatrixData_->WVP = Matrix4x4::Identity();
 	transformationMatrixData_->World = Matrix4x4::Identity();
 	transformationMatrixData_->WorldInverseTranspose = Matrix4x4::Identity();
-}
-
-void Object3d::CreateDirectionalLightData() {
-	// 平行光源リソースを作る
-	directionalLightResource_ = dxCommon_->CreateBufferResource(sizeof(DirectionalLight));
-
-	// 平行光源リソースにデータを書き込むためのアドレスを取得して平行光源構造体のポインタに割り当てる
-	directionalLightResource_->Map(0, nullptr, reinterpret_cast<void**>(&directionalLightData_));
-
-	// デフォルト値を書き込んでおく
-	directionalLightData_->color = Vector4{ 1.0f,1.0f,1.0f,1.0f };
-	directionalLightData_->direction = Vector3{ 0.0f,-1.0f,0.0f };
-	directionalLightData_->intensity = 1.0f;
 }
 
 void Object3d::DrawDebugSkeleton() {

@@ -17,13 +17,16 @@ Texture2D<float4> gTexture : register(t0);
 TextureCube<float4> gEnvironmentTexture : register(t1);
 SamplerState gSampler : register(s0);
 
-struct DirectionalLight {
-    float4 color; //!< ライトの色
-    float3 direction; //!< ライトの向き
-    float intensity; //!< 輝度
+// シーン全体の光(平行光源＋環境光)。全オブジェクト共通の1つ(C++側 Object3dCommon.h の SceneLight と1:1)
+struct SceneLight {
+    float4 color; //!< 平行光源の色
+    float3 direction; //!< 平行光源の向き
+    float intensity; //!< 平行光源の強さ
+    float3 ambientColor; //!< 環境光の色(どの光も届かない面にも乗る最低限の明るさ)
+    float padding;
 };
 
-ConstantBuffer<DirectionalLight> gDirectionalLight : register(b1);
+ConstantBuffer<SceneLight> gSceneLight : register(b1);
 ConstantBuffer<Camera> gCamera : register(b2);
 ConstantBuffer<PointLightArray> gPointLights : register(b3);
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
@@ -60,16 +63,19 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
         float3 toEye = normalize(gCamera.worldPosition - input.worldPosition);
         
+        // Ambient(環境光)。向きに関係なく一様に乗る。夜の暗い場面で、光の届かない面が真っ黒に潰れないようにする
+        float3 ambientLight = gMaterial.color.rgb * textureColor.rgb * gSceneLight.ambientColor;
+
         // Directional
-        float NDotL_D = dot(normalize(input.normal), -gDirectionalLight.direction);
+        float NDotL_D = dot(normalize(input.normal), -gSceneLight.direction);
         float cosD = pow(NDotL_D * 0.5f + 0.5f, 2.0f);
-        float3 halfVectorD = normalize(-gDirectionalLight.direction + toEye);
+        float3 halfVectorD = normalize(-gSceneLight.direction + toEye);
         float NDotH_D = dot(normalize(input.normal), halfVectorD);
         float specularPowD = pow(saturate(NDotH_D), gMaterial.shininess);
         // 拡散反射
-        float3 diffuseDirectionalLight = gMaterial.color.rgb * textureColor.rgb * gDirectionalLight.color.rgb * gDirectionalLight.intensity * cosD;
+        float3 diffuseDirectionalLight = gMaterial.color.rgb * textureColor.rgb * gSceneLight.color.rgb * gSceneLight.intensity * cosD;
         // 鏡面反射
-        float3 specularDirectionalLight = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPowD * float3(1.0f, 1.0f, 1.0f);
+        float3 specularDirectionalLight = gSceneLight.color.rgb * gSceneLight.intensity * specularPowD * float3(1.0f, 1.0f, 1.0f);
         
         // Point
         float3 diffusePointLight = float3(0, 0, 0);
@@ -107,7 +113,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
         float3 specularSpotLight = spotLightColor * specularPowS * float3(1.0f, 1.0f, 1.0f);
         
         // 拡散反射 + 鏡面反射
-        output.color.rgb = diffuseDirectionalLight + specularDirectionalLight + diffusePointLight + specularPointLight + diffuseSpotLight + specularSpotLight;
+        output.color.rgb = ambientLight + diffuseDirectionalLight + specularDirectionalLight + diffusePointLight + specularPointLight + diffuseSpotLight + specularSpotLight;
 
         // 環境マップ
         if (gMaterial.useEnvironmentMap != 0) {

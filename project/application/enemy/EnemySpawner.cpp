@@ -3,12 +3,15 @@
 #include "bullet/BulletManager.h"
 #include "stage/StageData.h"
 #include "math/Collision.h"
+#include "math/Matrix4x4.h"
+#include "debug/DebugRenderer.h"
 #include "3d/ModelManager.h"
 #include "3d/Object3d.h"
 #include "3d/Object3dCommon.h"
 #include "effect/ParticleManager.h"
 #include "audio/SoundManager.h"
 #include "utility/Random.h"
+#include "math/Vector4.h"
 
 #include <algorithm>
 #include <cmath>
@@ -20,16 +23,21 @@
 namespace {
 	// 敵の種別 → モデルの対応表。データ(stage.json)にはモデルパスを持たせず種別だけを持たせ、
 	// 「どの見た目で出すか」はコード側のこの1箇所で決める(種別追加はここに足すだけ)
-	// 現状は2種とも仮のシロアリ(白い箱)で、大きさ(ScaleOf)だけで見分ける。
-	// 見た目の方針(リアル寄り/デフォルメ寄り)はルックテストで決めるので、それまでは形を作り込まない。
+	// 射撃型・接近型はまだ仮のシロアリ(白い箱)で、大きさ(ScaleOf)だけで見分ける。
 	// 白いのは、HPの残量を色で見せる(ApplyHpColor: 満タン=白→赤)のに一番読み取りやすいため。
+	// 女王は専用のモデル(頭が-Z・原点は体の重心・全長1の規格)。色はパレット画像に掛け算で効くので、
+	// HPの減りは同じく赤みとして見える。
 	// 変数名の frog/sword はstage.jsonに書かれた種別名(データのキー)で、見た目とは無関係
 	const std::string kFrogModel = "termite/termite.obj";  // 射撃型
 	const std::string kSwordModel = "termite/termite.obj"; // 接近型
-	const std::string kQueenModel = "termite/termite.obj"; // 女王(倒すとクリア)。大きさだけで見分ける
+	const std::string kQueenModel = "termite_queen/termite_queen.obj"; // 女王(倒すとクリア)
 
 	// 撃破エフェクトのグループ名。configとテクスチャの登録はシーン側で行う
 	const std::string kDefeatEffect = "enemyExplosion";
+	// 全滅(クリア演出)で消えるときの煙のグループ名。登録はシーン側で行う(撃破エフェクトと同じ分担)
+	const std::string kExterminateEffect = "enemyExterminate";
+	// 全滅で落ちるときの色。色が抜けた暗い灰色にして「動かなくなった」ことを見せる
+	const Vector4 kExterminatedColor = { 0.25f, 0.25f, 0.25f, 1.0f };
 
 	// 撃破音。発射音と違い同時に何発も鳴らないので、こちらは絞らない
 	const std::string kDefeatSound = "resources/sounds/explosion.mp3";
@@ -42,6 +50,10 @@ namespace {
 
 const std::string& EnemySpawner::DefeatEffectName() {
 	return kDefeatEffect;
+}
+
+const std::string& EnemySpawner::ExterminateEffectName() {
+	return kExterminateEffect;
 }
 
 const std::string& EnemySpawner::ModelPathOf(const std::string& enemy) {
@@ -61,7 +73,9 @@ float EnemySpawner::ScaleOf(const std::string& enemy) {
 		return 4.0f; // 接近型: 幅4m(小さく速い)
 	}
 	if (enemy == "queen") {
-		return 12.0f; // 女王: 幅12m(遠くからでも見える、終点の目標)
+		// 女王: モデルは全長1・胴の最大幅0.3108。正面から見た幅が前の箱と同じ12mになる倍率にする(全長は約39m)。
+		// 終点では真正面から見るので、画面での大きさと当てやすさ(判定半径6m)が箱のときと変わらない
+		return 38.6f;
 	}
 	return 6.0f;     // 射撃型: 幅6m
 }
@@ -91,6 +105,102 @@ bool EnemySpawner::IsGoalDefeated() const {
 	return hasGoal;
 }
 
+bool EnemySpawner::TryGetGoalDefeatPose(GoalPose& outPose) const {
+	if (!hasGoalDefeatPose_) {
+		return false;
+	}
+	outPose = goalDefeatPose_;
+	return true;
+}
+
+bool EnemySpawner::TryGetGoalSpawnPose(GoalPose& outPose) const {
+	for (const SpawnPoint& spawnPoint : spawnPoints_) {
+		const TypeParams& params = typeParams_[TypeIndexOf(spawnPoint.enemy)];
+		if (!params.isGoal) {
+			continue;
+		}
+		outPose.enemy = spawnPoint.enemy;
+		outPose.transform = spawnPoint.transform;
+		// 大きさは発生時と同じく種別ごとの既定を使う(データ側のscaleは見ない)
+		const float scale = ScaleOf(spawnPoint.enemy);
+		outPose.transform.scale = { scale, scale, scale };
+		outPose.center = ForwardPoint(spawnPoint.transform.translate, spawnPoint.transform.rotate, params.hitOffset);
+		outPose.radius = params.radius;
+		return true;
+	}
+	return false;
+}
+
+bool EnemySpawner::ForceDefeatGoal() {
+	bool found = false;
+	for (Enemy& enemy : enemies_) {
+		if (ParamsOf(enemy).isGoal && IsInCombat(enemy)) {
+			enemy.hp = 0; // 撃破の処理は次のUpdateの「撃破された敵を取り除く」で行われる
+			found = true;
+		}
+	}
+	return found;
+}
+
+// CLEAR_DEMO
+void EnemySpawner::SetGoalMaxHp(int maxHp) {
+	for (TypeParams& params : typeParams_) {
+		if (params.isGoal) {
+			params.maxHp = (std::max)(maxHp, 1); // 0だと出現した瞬間に倒れてしまう
+		}
+	}
+}
+
+void EnemySpawner::FreezeAll() {
+	frozen_ = true;
+	playerHit_ = false; // 固まった敵はもう触れてもダメージにならない
+}
+
+void EnemySpawner::ExterminateAll() {
+	frozen_ = true; // FreezeAllを通らずに呼ばれても、以降は固まった扱いにする
+	// ImGuiで下限と上限を逆にされても乱数の範囲が壊れないよう、小さい方を下限にする
+	const float lifeMin = (std::min)(exterminateLifeMin_, exterminateLifeMax_);
+	const float lifeMax = (std::max)(exterminateLifeMin_, exterminateLifeMax_);
+	for (Enemy& enemy : enemies_) {
+		if (enemy.dying) {
+			continue;
+		}
+		enemy.dying = true;
+		enemy.dyingTime = 0.0f;
+		// 消えるまでの長さを個体ごとに散らす。一斉に消えると「全滅」ではなく「表示を消した」ように見えるため
+		enemy.dyingDuration = Random::GetFloat(lifeMin, lifeMax);
+		// 少しだけ跳ねてから落ちる(力が抜けて、足場を離れる感じ)。横へも少し散らして重なりを避ける
+		enemy.velocity = { Random::GetFloat(-2.0f, 2.0f), Random::GetFloat(0.0f, 3.0f), Random::GetFloat(-2.0f, 2.0f) };
+		enemy.dyingSpin = Random::GetFloat(-6.0f, 6.0f);
+		enemy.object->SetColor(kExterminatedColor);
+	}
+}
+
+void EnemySpawner::UpdateFrozen(float deltaTime) {
+	for (size_t i = enemies_.size(); i > 0; --i) {
+		Enemy& enemy = enemies_[i - 1];
+		if (enemy.dying) {
+			// 落ちる。重力で速度を積み、転がりながら下へ
+			enemy.dyingTime += deltaTime;
+			enemy.velocity.y -= exterminateGravity_ * deltaTime;
+			enemy.position += enemy.velocity * deltaTime;
+			enemy.object->SetTranslate(enemy.position);
+			enemy.object->GetTransform().rotate.x += enemy.dyingSpin * deltaTime;
+
+			// 落ち切ったら煙にして消す。撃破・取り逃しのどちらにも記録しない(評価はプレイヤーが倒した分だけ)
+			if (enemy.dyingTime >= enemy.dyingDuration) {
+				ParticleManager::GetInstance()->Emit(
+					kExterminateEffect, enemy.position, static_cast<uint32_t>((std::max)(exterminateSmokeCount_, 0)));
+				graveyard_.push_back(std::move(enemy.object));
+				enemies_.erase(enemies_.begin() + static_cast<ptrdiff_t>(i - 1));
+				continue;
+			}
+		}
+		// 固まっているだけの敵は動かさない(行列の書き込みだけ行う)
+		enemy.object->Update(deltaTime);
+	}
+}
+
 size_t EnemySpawner::TypeIndexOf(const std::string& enemy) const {
 	for (size_t i = 0; i < typeParams_.size(); ++i) {
 		if (typeParams_[i].name == enemy) {
@@ -103,6 +213,20 @@ size_t EnemySpawner::TypeIndexOf(const std::string& enemy) const {
 
 const EnemySpawner::TypeParams& EnemySpawner::ParamsOf(const Enemy& enemy) const {
 	return typeParams_[(std::min)(enemy.typeIndex, typeParams_.size() - 1)];
+}
+
+Vector3 EnemySpawner::ForwardPoint(const Vector3& position, const Vector3& rotate, float offset) {
+	if (offset == 0.0f) {
+		return position; // 回転の計算を省く(箱の敵はすべてここを通る)
+	}
+	// モデルの規格は頭が-Z。ローカルの-Zに回転を掛けたものが、ワールドでの頭の向き
+	// (行ベクトル規約では、ローカルの軸に回転行列を掛けるとワールドでの軸になる)
+	const Vector3 head = Matrix4x4::Rotate(rotate).Transform({ 0.0f, 0.0f, -1.0f });
+	return position + head * offset;
+}
+
+Vector3 EnemySpawner::HitCenter(const Enemy& enemy) const {
+	return ForwardPoint(enemy.position, enemy.object->GetRotate(), ParamsOf(enemy).hitOffset);
 }
 
 void EnemySpawner::RetireEnemies() {
@@ -136,6 +260,9 @@ void EnemySpawner::BuildFromStage(const StageData& stageData) {
 	// 構築し直すので、発生済みの敵も含めて作り直す(Reloadで配置が変わるため)
 	spawnPoints_.clear();
 	RetireEnemies();
+	// 全滅(クリア演出)の状態も開始時に戻す
+	frozen_ = false;
+	hasGoalDefeatPose_ = false;
 
 	for (const StageData::ObjectData& objectData : stageData.objects) {
 		if (objectData.type != StageData::ObjectType::Spawn) {
@@ -143,6 +270,10 @@ void EnemySpawner::BuildFromStage(const StageData& stageData) {
 		}
 		// 無効フラグはstaticと同じ意味(データは残すがゲームには出さない)
 		if (objectData.disabled) {
+			continue;
+		}
+		// CLEAR_DEMO: デモでは女王だけを出す(取り込まなければ、集計もランクも女王1体だけで数えられる)
+		if (goalOnly_ && !typeParams_[TypeIndexOf(objectData.enemy)].isGoal) {
 			continue;
 		}
 
@@ -180,7 +311,7 @@ void EnemySpawner::UpdateBulletCollision(BulletManager* bulletManager) {
 			if (!IsInCombat(enemy)) {
 				continue;
 			}
-			if (!IsCollision(bullet.position, bulletRadius, enemy.position, ParamsOf(enemy).radius)) {
+			if (!IsCollision(bullet.position, bulletRadius, HitCenter(enemy), ParamsOf(enemy).radius)) {
 				continue;
 			}
 
@@ -204,7 +335,7 @@ void EnemySpawner::Explode(const Vector3& center, float radius, int damage, cons
 		if (!IsInCombat(enemy)) {
 			continue; // 同フレームに撃破済みか、通過済み
 		}
-		if (&enemy == &directHit || IsCollision(center, radius, enemy.position, ParamsOf(enemy).radius)) {
+		if (&enemy == &directHit || IsCollision(center, radius, HitCenter(enemy), ParamsOf(enemy).radius)) {
 			ApplyDamage(enemy, damage);
 		}
 	}
@@ -241,9 +372,10 @@ void EnemySpawner::UpdatePlayerCollision(const Vector3& playerPosition, float pl
 		if (enemy.passed) {
 			continue;
 		}
-		if (IsCollision(playerPosition, playerRadius, enemy.position, ParamsOf(enemy).radius)) {
+		const Vector3 hitCenter = HitCenter(enemy);
+		if (IsCollision(playerPosition, playerRadius, hitCenter, ParamsOf(enemy).radius)) {
 			playerHit_ = true;
-			playerHitPosition_ = enemy.position;
+			playerHitPosition_ = hitCenter;
 			return;
 		}
 	}
@@ -268,7 +400,9 @@ void EnemySpawner::UpdateShooting(float deltaTime, const Vector3& playerPosition
 			continue;
 		}
 
-		const Vector3 toPlayer = playerPosition - enemy.position;
+		// 撃つ位置は判定の中心(体の前寄り)。女王のように長い体の敵が、体の奥(重心)から弾を出さないようにする
+		const Vector3 muzzle = HitCenter(enemy);
+		const Vector3 toPlayer = playerPosition - muzzle;
 		const float distanceSquared = toPlayer.LengthSquared();
 		if (distanceSquared > params.shootRange * params.shootRange) {
 			continue; // 遠すぎる。クールタイムは減ったままにして、近づいたら撃たせる
@@ -282,7 +416,7 @@ void EnemySpawner::UpdateShooting(float deltaTime, const Vector3& playerPosition
 		enemy.shootCooldown = NextShootCooldown(params);
 		// 狙いは「撃った瞬間の自機の位置」。先読みはしない:
 		// 自機は毎フレーム動かせるので、置き弾の方が避けて当てる遊びとして成立する
-		enemyBulletManager_->Fire(enemy.position, toPlayer);
+		enemyBulletManager_->Fire(muzzle, toPlayer);
 		++shotCount_;
 	}
 }
@@ -303,7 +437,7 @@ void EnemySpawner::UpdateApproachSound(const Vector3& playerPosition) {
 		if (enemy.approachAlerted || enemy.passed || params.approachSoundRange <= 0.0f) {
 			continue;
 		}
-		const float distanceSquared = (playerPosition - enemy.position).LengthSquared();
+		const float distanceSquared = (playerPosition - HitCenter(enemy)).LengthSquared();
 		if (distanceSquared > params.approachSoundRange * params.approachSoundRange) {
 			continue;
 		}
@@ -382,7 +516,7 @@ float EnemySpawner::NextShootCooldown(const TypeParams& params) const {
 bool EnemySpawner::IsAimedAt(const Vector3& point) const {
 	// 点と球の判定。半径0の球として既存のIsCollisionに通す(専用の関数を増やさない)
 	for (const Enemy& enemy : enemies_) {
-		if (IsInCombat(enemy) && IsCollision(point, 0.0f, enemy.position, ParamsOf(enemy).radius)) {
+		if (IsInCombat(enemy) && IsCollision(point, 0.0f, HitCenter(enemy), ParamsOf(enemy).radius)) {
 			return true;
 		}
 	}
@@ -398,7 +532,7 @@ uint32_t EnemySpawner::FindEnemyInCone(const Vector3& origin, const Vector3& dir
 		if (!IsInCombat(enemy)) {
 			continue; // 通過済みの敵にはロックしない(追尾弾が後ろへ引き返してしまう)
 		}
-		const Vector3 toCenter = enemy.position - origin;
+		const Vector3 toCenter = HitCenter(enemy) - origin;
 		const float distance = toCenter.Length();
 		if (distance < 1.0e-4f || distance > maxDistance) {
 			continue; // カメラと重なっている・遠すぎる
@@ -432,7 +566,7 @@ bool EnemySpawner::TryGetEnemyPosition(uint32_t enemyId, Vector3& outPosition) c
 	if (!enemy) {
 		return false;
 	}
-	outPosition = enemy->position;
+	outPosition = HitCenter(*enemy); // 追尾弾とロックの狙い先は判定の中心
 	return true;
 }
 
@@ -441,7 +575,7 @@ bool EnemySpawner::TryGetEnemySphere(uint32_t enemyId, Vector3& outCenter, float
 	if (!enemy) {
 		return false;
 	}
-	outCenter = enemy->position;
+	outCenter = HitCenter(*enemy);
 	outRadius = ParamsOf(*enemy).radius;
 	return true;
 }
@@ -462,6 +596,14 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 	const Vector3& playerForward) {
 	// 前フレームのコマンドはPostDrawのフェンス待ちで実行完了済みなので、退避分をここで破棄する
 	graveyard_.clear();
+
+	// 巣の全滅(クリア演出)の間は、発生・被弾・移動・攻撃・接触を行わず、落ちていく敵を動かすだけにする。
+	// 女王を倒した後に新しい敵が出てきたり、固まった敵に撃たれたりしないようにする
+	if (frozen_) {
+		playerHit_ = false;
+		UpdateFrozen(deltaTime);
+		return;
+	}
 
 	for (size_t spawnIndex = 0; spawnIndex < spawnPoints_.size(); ++spawnIndex) {
 		SpawnPoint& spawnPoint = spawnPoints_[spawnIndex];
@@ -517,14 +659,25 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		// 撃破演出。敵の実体が消える前にその位置で発生させる。
 		// パーティクルはParticleManagerが所有して寿命まで動かすので、
 		// ここで敵を破棄しても演出は残る(発生源の生存に依存しない)
+		// 出す位置は判定の中心(体の前寄り)。長い体の敵で、重心から出して体の中に隠れないようにする
 		ParticleManager::GetInstance()->Emit(
-			kDefeatEffect, enemy.position, static_cast<uint32_t>(defeatParticleCount_));
+			kDefeatEffect, HitCenter(enemy), static_cast<uint32_t>(defeatParticleCount_));
 
 		if (defeatSound_ && !defeatSoundPlayed) {
 			const SoundManager::SoundHandle handle = SoundManager::GetInstance()->PlayWave(
 				defeatSound_, false, SoundManager::SoundCategory::SE);
 			SoundManager::GetInstance()->SetVolume(handle, kDefeatVolume);
 			defeatSoundPlayed = true;
+		}
+
+		// 女王なら、倒れた瞬間の姿を控える(クリア演出が同じ場所・姿勢・大きさに亡骸を置き直す)
+		if (ParamsOf(enemy).isGoal) {
+			goalDefeatPose_.enemy = spawnPoints_[enemy.spawnIndex].enemy;
+			goalDefeatPose_.transform = enemy.object->GetTransform();
+			goalDefeatPose_.transform.translate = enemy.position;
+			goalDefeatPose_.center = HitCenter(enemy);
+			goalDefeatPose_.radius = ParamsOf(enemy).radius;
+			hasGoalDefeatPose_ = true;
 		}
 
 		RecordOutcome(enemy, SpawnPoint::Outcome::Defeated);
@@ -581,11 +734,24 @@ void EnemySpawner::Reset() {
 	}
 	defeatedCount_ = 0;
 	explosionCount_ = 0;
+	// 全滅(クリア演出)の状態も開始時に戻す
+	frozen_ = false;
+	hasGoalDefeatPose_ = false;
 }
 
 void EnemySpawner::Draw() {
 	for (const Enemy& enemy : enemies_) {
 		enemy.object->Draw();
+	}
+}
+
+void EnemySpawner::DrawHitSpheres() const {
+	// 橙にして、自機・地形の判定(緑)と見分ける
+	const Vector4 color = { 1.0f, 0.6f, 0.1f, 1.0f };
+	for (const Enemy& enemy : enemies_) {
+		if (IsInCombat(enemy)) {
+			DebugRenderer::GetInstance()->AddSphere(HitCenter(enemy), ParamsOf(enemy).radius, color);
+		}
 	}
 }
 
@@ -623,6 +789,8 @@ void EnemySpawner::DrawImGui() {
 			// HPと判定半径の変更は次に発生する敵から効く(HPは発生時に確定するため)
 			ImGui::DragInt("Max HP", &params.maxHp, 0.1f, 1, 20);
 			ImGui::DragFloat("Hit Radius", &params.radius, 0.1f, 0.1f, 20.0f, "%.1f m");
+			// 判定の中心を頭の方へずらす量。毎フレーム引き直すので、発生済みの敵にも即座に効く
+			ImGui::DragFloat("Hit Offset", &params.hitOffset, 0.1f, -50.0f, 50.0f, "%.1f m");
 			// 移動と攻撃は毎フレーム引き直すので、発生済みの敵にも即座に効く
 			ImGui::DragFloat("Move Speed", &params.moveSpeed, 0.1f, 0.0f, 30.0f, "%.1f m/s");
 			ImGui::DragFloat("Keep Distance", &params.keepDistance, 0.1f, 0.0f, 80.0f, "%.1f m");
@@ -655,6 +823,14 @@ void EnemySpawner::DrawImGui() {
 	ImGui::DragFloat("Escape Speed", &escapeSpeed_, 0.1f, 0.0f, 50.0f, "%.1f m/s");
 	ImGui::DragFloat("Escape Brake", &escapeBrake_, 0.1f, 0.0f, 50.0f, "%.1f m/s^2");
 	ImGui::DragFloat("Escape Lifetime", &escapeLifetime_, 0.05f, 0.1f, 10.0f, "%.2f s");
+
+	// 女王を倒した後の巣の全滅(クリア演出)。煙の見た目は"Particle"ウィンドウ側でライブ編集できる
+	ImGui::SeparatorText("Exterminate (clear)");
+	ImGui::Text("Frozen: %s", frozen_ ? "yes" : "no");
+	ImGui::DragFloat("Fall Gravity", &exterminateGravity_, 0.5f, 0.0f, 200.0f, "%.1f m/s^2");
+	ImGui::DragFloat("Life Min", &exterminateLifeMin_, 0.01f, 0.0f, 5.0f, "%.2f s");
+	ImGui::DragFloat("Life Max", &exterminateLifeMax_, 0.01f, 0.0f, 5.0f, "%.2f s");
+	ImGui::DragInt("Smoke Particles", &exterminateSmokeCount_, 0.5f, 0, 100);
 	ImGui::End();
 #endif
 }
@@ -688,7 +864,11 @@ EnemySpawner::EnemySpawner() {
 	TypeParams queen;
 	queen.name = "queen";
 	queen.maxHp = 24;           // 通常弾24発 / チャージ弾(3ダメージ)8発。終点で少し粘る硬さ
-	queen.radius = 6.0f;        // 幅12mの箱に合わせる(ScaleOf)
+	queen.radius = 6.0f;        // 胴の最大幅(約12m。ScaleOf)の半分。真正面から見た輪郭に合わせる
+	// 判定の球を頭の方へ6mずらす。全長約39mのうち、頭の先は重心から約25m前にあり、
+	// 正面から見えている腹の前面も重心より15m以上手前にある。重心のままだと弾が体の奥で当たって
+	// 着弾の火花が隠れるので、球の前端(重心から12m前)が見えている前面の近くに来るよう寄せる
+	queen.hitOffset = 6.0f;
 	queen.moveSpeed = 0.0f;     // その場から動かない(終点の先で待ち構える)
 	queen.keepDistance = 0.0f;
 	queen.shoot = true;

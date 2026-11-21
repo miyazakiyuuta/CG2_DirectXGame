@@ -35,6 +35,17 @@ struct PointLightArray {
 	float padding[3];
 };
 
+// シーン全体の光(平行光源＋環境光)。点光源・スポットライトと同じく、全Object3dが同じ1つを読む。
+// 以前は平行光源をObject3dが1体ずつ持っていたが、誰も個別に変えておらず、夜にするには全オブジェクトを
+// 書き換える必要があったため共通にした。HLSL側(Object3d.PS.hlsl の SceneLight)と16バイト境界を合わせること
+struct SceneLight {
+	Vector4 color;        //!< 平行光源の色
+	Vector3 direction;    //!< 平行光源の向き(光が進む向き)
+	float intensity;      //!< 平行光源の強さ
+	Vector3 ambientColor; //!< 環境光の色。どの光も届かない面にも、最低限この明るさが乗る
+	float padding;
+};
+
 class SrvManager;
 class Object3d;
 
@@ -63,12 +74,21 @@ public: // メンバ関数
 public:
 	// setter
 	void SetDefaultCamera(Camera* camera) { defaultCamera_ = camera; }
+	void SetSceneLight(const SceneLight& light) { *sceneLightData_ = light; }
 	void SetPointLights(const PointLightArray& lights) { *pointLightData_ = lights; }
 	void SetSpotLight(const SpotLight& light) { *spotLightData_ = light; }
+
+	/// <summary>
+	/// 平行光源・環境光・点光源・スポットライトを初期値(昼の見た目)へ戻す。
+	/// 光は全シーンで共有する状態なので、変えたシーンが使い終わったら呼ぶ(ParticleManager::SetTimeScaleと同じ決まり)。
+	/// 呼び忘れると、次のシーンが前のシーンの光のまま描かれる
+	/// </summary>
+	void ResetLights();
 	void SetEnvironmentSrvIndex(uint32_t srvIndex) { environmentSrvIndex_ = srvIndex; }
 	// getter
 	DirectXCommon* GetDxCommon() const { return dxCommon_; }
 	Camera* GetDefaultCamera() const { return defaultCamera_; }
+	D3D12_GPU_VIRTUAL_ADDRESS GetSceneLightGPUAddress() const { return sceneLightResource_->GetGPUVirtualAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS GetPointLightGPUAddress() const { return pointLightResource_->GetGPUVirtualAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS GetSpotLightGPUAddress() const { return spotLightResource_->GetGPUVirtualAddress(); }
 	SrvManager* GetSrvManager() { return srvManager_; }
@@ -82,6 +102,9 @@ private:
 	void CreateGraphicsPipelineState();
 	void CreateSkinningGraphicsPipelineState();
 	void CreateComputePipelineState();
+
+	// 光の定数バッファを作ってMapしておく(中身はResetLightsが書く)
+	void InitializeSceneLight();
 
 	void InitializePointLight();
 
@@ -103,6 +126,9 @@ private: // メンバ変数
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> computePipelineState_ = nullptr;
 
 	Camera* defaultCamera_ = nullptr;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> sceneLightResource_;
+	SceneLight* sceneLightData_ = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource_;
 	PointLightArray* pointLightData_ = nullptr;

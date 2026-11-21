@@ -13,6 +13,7 @@
 class ActionInput;
 class BulletManager;
 class Camera;
+class ClearSequence;
 class DebugCamera;
 class EnemySpawner;
 class GameOverSequence;
@@ -42,7 +43,14 @@ public:
 
 	void DrawImGui() override;
 
-	GamePlayScene();
+	// 本編か、コンテスト用のデモか。SceneFactoryがシーン名("GAMEPLAY" / "CLEAR_DEMO")で作り分ける
+	// (ResultSceneがCLEAR/GAMEOVERをTypeで作り分けるのと同じやり方。SceneManagerに種類の概念を持ち込まない)
+	enum class Variant {
+		Normal,    // 本編
+		ClearDemo, // CLEAR_DEMO: クリア演出デモ。終点から女王1体だけと戦う(コンテスト後に消す)
+	};
+
+	explicit GamePlayScene(Variant variant = Variant::Normal);
 
 	~GamePlayScene() override;
 
@@ -97,6 +105,14 @@ private:
 	/// </summary>
 	void StartGameOver();
 
+	/// <summary>
+	/// クリア演出を始める(女王を倒したとき。ImGuiのForce Clearも女王を倒す形でここへ来る)。
+	/// 演出が終わったらRequestResult("CLEAR")へ進む。
+	/// 時間が止まる瞬間なので、飛んでいる弾をすべて消し、残りの敵をその場で固める。
+	/// 演出中はレールを止め、操作を止め、HUDを消していく(ゲームオーバー演出と同じ)
+	/// </summary>
+	void StartClear();
+
 	// HUD(HPブロックと操作説明)を作る/更新する/描く。
 	// スプライトは深度OFF・αブレンドONなので3Dの上にそのまま重なる
 	void InitializeHud();
@@ -119,6 +135,23 @@ private:
 	/// そのため値を変えるたびに(読み込み時とInspectorでの編集時)ここで両方へ入れる
 	/// </summary>
 	void SetCameraClip(float nearClip, float farClip);
+
+	/// <summary>
+	/// ドローンのライト(スポットライト)を、自機の銃口から照準の先へ向けてエンジンの光へ渡す。
+	/// 位置と向きは毎フレーム自機と照準で決まり、色・強さ・届く距離・角度はstage.jsonのlightingから読む。
+	/// ステージの光が無い(lighting項目が無い)ときと、ゲームオーバー演出中(自機が壊れた)は消す
+	/// </summary>
+	void UpdateHeadlight();
+
+	// --- CLEAR_DEMO: クリア演出デモ(コンテスト後に消す) ---
+	bool IsClearDemo() const { return variant_ == Variant::ClearDemo; } // CLEAR_DEMO
+	/// <summary>
+	/// CLEAR_DEMO: デモの設定を入れる(敵は女王だけ・女王は撃たない・女王のHPを減らす)。
+	/// Initializeでステージを読んだ後、敵の出現地点を取り込む前に1回呼ぶ
+	/// </summary>
+	void ApplyClearDemo();
+	// プレイを始めるレール上の距離。本編は始点(0)、デモは終点(女王の目の前)
+	float StartRailDistance() const; // CLEAR_DEMO
 
 	// EnterPlay・EnterEditで呼ぶ。レール距離・敵発生・敵弾・自機・自弾・被弾演出・resultRequested_を戻す
 	// 開始時の状態に戻す・設定は残す。イントロは止めるだけで、始めるのはInitializeとEnterPlay
@@ -144,9 +177,17 @@ private:
 	/// どの操作も「開始距離の昇順・先頭は0」の約束(StageData::sections)を崩さない
 	/// </summary>
 	void DrawSectionsWindow();
+
+	/// <summary>
+	/// "Lighting"ウィンドウ: ステージ全体の光(環境光・月明かり・ドローンのライト)の編集と、点光源の数の表示。
+	/// StageDataを直接書き換えるので、Hierarchyの Save(stage) でstage.jsonへ残る
+	/// </summary>
+	void DrawLightingWindow();
 #endif
 
 	Mode mode_ = Mode::Play;
+	// 本編かデモか(生成時に決まり、シーンの間は変わらない)
+	Variant variant_ = Variant::Normal; // CLEAR_DEMO
 	// このプレイがエディタのPlayボタン(EnterPlay)から始まったか。
 	// trueの間は、プレイの終わり(GAMEOVER/CLEAR)で結果画面へ遷移せずEditに戻る。
 	// ゲームの状態ではなく「どう始まったか」の情報なので、ResetGameStateでは戻さない。
@@ -173,6 +214,11 @@ private:
 	// エディタのモデル選択Comboに出す一覧(resources配下のスキャン結果)と、Addで使う選択位置
 	std::vector<std::string> modelFiles_;
 	int addModelIndex_ = 0;
+	// 格子状に複製(Grid Duplicate)の入力値。既定は床の板(200cm四方)を3×3で敷く値
+	int gridCountX_ = 3;
+	int gridCountZ_ = 3;
+	float gridSpacingX_ = 200.0f;
+	float gridSpacingZ_ = 200.0f;
 #endif
 
 	std::unique_ptr<Camera> camera_ = nullptr;
@@ -229,6 +275,11 @@ private:
 	// シーンはレール・操作・HUD・画面の揺れ・結果画面への遷移をつなぐ(イントロと同じ分担)
 	std::unique_ptr<GameOverSequence> gameOverSequence_;
 
+	// クリアの演出(女王の撃破 → 断末魔 → 大爆発 → 巣の全滅 → 余韻)。
+	// 時間倍率・女王の亡骸・パーティクル・ポストエフェクトは演出が持ち、
+	// シーンはレール・操作・HUD・画面の揺れ・残りの敵の全滅・結果画面への遷移をつなぐ(ゲームオーバー演出と同じ分担)
+	std::unique_ptr<ClearSequence> clearSequence_;
+
 	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
 	std::unique_ptr<ActionInput> actionInput_;
 	std::unique_ptr<Player> player_;
@@ -252,6 +303,8 @@ private:
 	bool showSpawnPoints_ = false;
 	// ワールドグリッドとレール曲線(赤の折れ線・黄の制御点)のデバッグ表示
 	bool showRail_ = false;
+	// 点光源(位置の球と届く範囲)とドローンのライトの向きのデバッグ表示
+	bool showLights_ = false;
 
 	// stage.jsonのSpawnPointから敵を発生させる(進行度トリガー)
 	std::unique_ptr<EnemySpawner> enemySpawner_;
