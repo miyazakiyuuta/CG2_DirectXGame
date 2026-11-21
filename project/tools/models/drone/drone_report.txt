@@ -1,0 +1,89 @@
+=== drone 生成レポート (Blender 4.2.0) ===
+
+[OBJ / ローダー制約]
+  三角形数           : 6120
+  頂点 v / vt / vn   : 3108 / 14 / 2274
+  三角形以外・UV/法線欠けの面 : 0  (0であること)
+  o/g の数           : 1  (1であること)
+  usemtl の種類      : 1  (1であること)
+  MTLのマテリアル数  : 1  (1であること)
+  map_Kd             : ['map_Kd drone_palette.png']
+  UV: 各面の3頂点ともマスの中心 (左上原点で ((col+0.5)/4, (row+0.5)/4))
+  マスの境界上のUV / 1面で複数マスにまたがる面 : 0 / 0  (0であること)
+  法線: スムーズ + 35°以上の角をシャープ (Smooth by Angle)
+
+[寸法(エンジン座標・縮尺は全長1.0基準・1 unit = 1 cm)]
+  全長(機首の先〜推進器の後端, Z): 1.0000
+  横幅 X (ガードを含む)          : 0.9782   胴体のみ: 0.2585
+  高さ Y                         : 0.2456
+  奥行 Z                         : 1.0000
+  バウンディングボックス
+    min = (-0.4891, -0.1060, -0.4885)
+    max = (+0.4891, +0.1396, +0.5115)
+  原点から最も遠い頂点までの距離 : 0.5209
+  機首の向き確認: 機首の先 Z = -0.4885 (負であること), 推進器の後端 Z = +0.5115
+  左右の確認: rotor_L の頂点の X 平均 = +0.3204 (正 = 機体の左 = +X であること)
+
+[重心]
+  原点 = 体積から求めた重心(各パーツの殻の重なりは二重に数える近似)
+  設計単位からの縮尺 : 0.97087
+  殻の数 / 外向き(符号付き体積 > 0)でない殻 : 26 / 0
+
+[パーツ / ピボット(エンジン座標)]
+  body         cell  0  tris 1072  parent None     pivot (+0.0000, +0.0000, +0.0000)
+  arm_L        cell  4  tris  284  parent body     pivot (+0.0777, -0.0167, +0.0164)
+  arm_R        cell  5  tris  284  parent body     pivot (-0.0777, -0.0167, +0.0164)
+  guard_L      cell  6  tris  932  parent arm_L    pivot (+0.3204, +0.0318, +0.0261)
+  guard_R      cell  7  tris  932  parent arm_R    pivot (-0.3204, +0.0318, +0.0261)
+  rotor_L      cell  8  tris  436  parent arm_L    pivot (+0.3204, +0.0318, +0.0261)  axis (+0, +1, +0)
+  rotor_R      cell  9  tris  436  parent arm_R    pivot (-0.3204, +0.0318, +0.0261)  axis (+0, +1, +0)
+  sensor       cell 10  tris  560  parent body     pivot (+0.0000, +0.0124, -0.4642)
+  nozzle_front cell 11  tris  320  parent body     pivot (+0.0000, -0.0604, -0.3429)
+  thruster     cell 12  tris  864  parent body     pivot (+0.0000, -0.0167, +0.2979)
+  追加で使うマス(extra_cells):
+    body         [1, 2, 3]
+    arm_L        [2, 3]
+    arm_R        [2, 3]
+    guard_L      [2]
+    guard_R      [2]
+    rotor_L      なし
+    rotor_R      なし
+    sensor       [2, 3]
+    nozzle_front [2, 3]
+    thruster     [2, 3, 13]
+  三角形数の合計 : 6120
+
+[回すパーツの見分け(UVのマス)]
+  rotor_L  cell  8  uv_rect [0.0, 0.5, 0.25, 0.75]
+    このマスの三角形 436 (パーツの三角形数と一致: OK) / 頂点 226
+    ほかのマスの面と共有している頂点 : 0  (0であること)
+    回転軸からの最大半径 0.1342 < ガード内径 0.1456 : OK
+    回転の向き: 上から見て時計回り (XMMatrixRotationY の角度の符号 +1)
+  rotor_R  cell  9  uv_rect [0.25, 0.5, 0.5, 0.75]
+    このマスの三角形 436 (パーツの三角形数と一致: OK) / 頂点 226
+    ほかのマスの面と共有している頂点 : 0  (0であること)
+    回転軸からの最大半径 0.1342 < ガード内径 0.1456 : OK
+    回転の向き: 上から見て反時計回り (XMMatrixRotationY の角度の符号 -1)
+
+[点(エンジン座標)]
+  light             pos (+0.0000, +0.0124, -0.4846)  dir (+0.0000, +0.0000, -1.0000)
+  muzzle            pos (+0.0000, -0.0604, -0.4885)  dir (+0.0000, +0.0000, -1.0000)
+  thruster_exhaust  pos (+0.0000, -0.0167, +0.5115)  dir (+0.0000, +0.0000, +1.0000)
+
+[パレット (256x256, 4x4 マス, 1マス64px, uv_rect は左上原点)]
+  cell  0  body_white     rgb(236,239,242)  tris  308  胴体の主色
+  cell  1  body_grey      rgb(168,176,186)  tris  544  胴体の下面・タンクの端
+  cell  2  accent_lime    rgb(178,255, 20)  tris 1004  アクセント(蛍光の黄緑)・回さないパーツで共有
+  cell  3  dark           rgb( 44, 50, 58)  tris  920  暗部(穴・継ぎ目・ハウジング)・回さないパーツで共有
+  cell  4  arm_L          rgb(200,206,214)  tris  180  左腕
+  cell  5  arm_R          rgb(200,206,214)  tris  180  右腕
+  cell  6  guard_L        rgb(222,226,231)  tris  676  左ガード
+  cell  7  guard_R        rgb(222,226,231)  tris  676  右ガード
+  cell  8  rotor_L        rgb(146,160,176)  tris  436  左ローター(回す・専用)
+  cell  9  rotor_R        rgb(146,160,176)  tris  436  右ローター(回す・専用)
+  cell 10  sensor_lens    rgb( 30,224,255)  tris  224  センサーのレンズ(発光用・専用)
+  cell 11  nozzle_front   rgb(128,136,146)  tris  140  殺虫剤の噴射口
+  cell 12  thruster       rgb(156,164,174)  tris  324  推進器のハウジング
+  cell 13  thruster_glow  rgb(165,238,255)  tris   72  推進器の噴射口の発光面(発光用・専用)
+  cell 14  unused         rgb(128,128,128)  tris    0  未使用
+  cell 15  unused         rgb(128,128,128)  tris    0  未使用

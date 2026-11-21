@@ -1,0 +1,686 @@
+{
+  "model": "drone",
+  "generator": "generate_drone.py (Blender 4.2.0)",
+  "coordinate_system": "engine (left-handed, +Y up, head = -Z, origin = center of mass)",
+  "unit": "全長(機首の先〜推進器の後端)を 1.0 に正規化 (1 unit = 1 cm)",
+  "obj": "drone.obj",
+  "palette": {
+    "image": "drone_palette.png",
+    "size": [
+      256,
+      256
+    ],
+    "grid": [
+      4,
+      4
+    ],
+    "cell_px": 64,
+    "cell_order": "左上から右へ。col = index % 4, row = index / 4",
+    "uv_origin": "top-left (DirectX)",
+    "cells": [
+      {
+        "index": 0,
+        "name": "body_white",
+        "srgb": [
+          236,
+          239,
+          242
+        ],
+        "note": "胴体の主色",
+        "uv_rect": [
+          0.0,
+          0.0,
+          0.25,
+          0.25
+        ]
+      },
+      {
+        "index": 1,
+        "name": "body_grey",
+        "srgb": [
+          168,
+          176,
+          186
+        ],
+        "note": "胴体の下面・タンクの端",
+        "uv_rect": [
+          0.25,
+          0.0,
+          0.5,
+          0.25
+        ]
+      },
+      {
+        "index": 2,
+        "name": "accent_lime",
+        "srgb": [
+          178,
+          255,
+          20
+        ],
+        "note": "アクセント(蛍光の黄緑)・回さないパーツで共有",
+        "uv_rect": [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ]
+      },
+      {
+        "index": 3,
+        "name": "dark",
+        "srgb": [
+          44,
+          50,
+          58
+        ],
+        "note": "暗部(穴・継ぎ目・ハウジング)・回さないパーツで共有",
+        "uv_rect": [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      },
+      {
+        "index": 4,
+        "name": "arm_L",
+        "srgb": [
+          200,
+          206,
+          214
+        ],
+        "note": "左腕",
+        "uv_rect": [
+          0.0,
+          0.25,
+          0.25,
+          0.5
+        ]
+      },
+      {
+        "index": 5,
+        "name": "arm_R",
+        "srgb": [
+          200,
+          206,
+          214
+        ],
+        "note": "右腕",
+        "uv_rect": [
+          0.25,
+          0.25,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "index": 6,
+        "name": "guard_L",
+        "srgb": [
+          222,
+          226,
+          231
+        ],
+        "note": "左ガード",
+        "uv_rect": [
+          0.5,
+          0.25,
+          0.75,
+          0.5
+        ]
+      },
+      {
+        "index": 7,
+        "name": "guard_R",
+        "srgb": [
+          222,
+          226,
+          231
+        ],
+        "note": "右ガード",
+        "uv_rect": [
+          0.75,
+          0.25,
+          1.0,
+          0.5
+        ]
+      },
+      {
+        "index": 8,
+        "name": "rotor_L",
+        "srgb": [
+          146,
+          160,
+          176
+        ],
+        "note": "左ローター(回す・専用)",
+        "uv_rect": [
+          0.0,
+          0.5,
+          0.25,
+          0.75
+        ]
+      },
+      {
+        "index": 9,
+        "name": "rotor_R",
+        "srgb": [
+          146,
+          160,
+          176
+        ],
+        "note": "右ローター(回す・専用)",
+        "uv_rect": [
+          0.25,
+          0.5,
+          0.5,
+          0.75
+        ]
+      },
+      {
+        "index": 10,
+        "name": "sensor_lens",
+        "srgb": [
+          30,
+          224,
+          255
+        ],
+        "note": "センサーのレンズ(発光用・専用)",
+        "uv_rect": [
+          0.5,
+          0.5,
+          0.75,
+          0.75
+        ]
+      },
+      {
+        "index": 11,
+        "name": "nozzle_front",
+        "srgb": [
+          128,
+          136,
+          146
+        ],
+        "note": "殺虫剤の噴射口",
+        "uv_rect": [
+          0.75,
+          0.5,
+          1.0,
+          0.75
+        ]
+      },
+      {
+        "index": 12,
+        "name": "thruster",
+        "srgb": [
+          156,
+          164,
+          174
+        ],
+        "note": "推進器のハウジング",
+        "uv_rect": [
+          0.0,
+          0.75,
+          0.25,
+          1.0
+        ]
+      },
+      {
+        "index": 13,
+        "name": "thruster_glow",
+        "srgb": [
+          165,
+          238,
+          255
+        ],
+        "note": "推進器の噴射口の発光面(発光用・専用)",
+        "uv_rect": [
+          0.25,
+          0.75,
+          0.5,
+          1.0
+        ]
+      },
+      {
+        "index": 14,
+        "name": "unused",
+        "srgb": [
+          128,
+          128,
+          128
+        ],
+        "note": "未使用",
+        "uv_rect": [
+          0.5,
+          0.75,
+          0.75,
+          1.0
+        ]
+      },
+      {
+        "index": 15,
+        "name": "unused",
+        "srgb": [
+          128,
+          128,
+          128
+        ],
+        "note": "未使用",
+        "uv_rect": [
+          0.75,
+          0.75,
+          1.0,
+          1.0
+        ]
+      }
+    ],
+    "rotating_cells": [
+      8,
+      9
+    ],
+    "emissive_cells": [
+      10,
+      13
+    ]
+  },
+  "parts": [
+    {
+      "name": "body",
+      "parent": null,
+      "pivot": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_axis": null,
+      "palette_cell": 0,
+      "uv_rect": [
+        0.0,
+        0.0,
+        0.25,
+        0.25
+      ],
+      "extra_cells": [
+        1,
+        2,
+        3
+      ],
+      "extra_uv_rects": [
+        [
+          0.25,
+          0.0,
+          0.5,
+          0.25
+        ],
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      ],
+      "triangles": 1072,
+      "rotates": false
+    },
+    {
+      "name": "arm_L",
+      "parent": "body",
+      "pivot": [
+        0.07767,
+        -0.016707,
+        0.016362
+      ],
+      "rotation_axis": null,
+      "palette_cell": 4,
+      "uv_rect": [
+        0.0,
+        0.25,
+        0.25,
+        0.5
+      ],
+      "extra_cells": [
+        2,
+        3
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      ],
+      "triangles": 284,
+      "rotates": false
+    },
+    {
+      "name": "arm_R",
+      "parent": "body",
+      "pivot": [
+        -0.07767,
+        -0.016707,
+        0.016362
+      ],
+      "rotation_axis": null,
+      "palette_cell": 5,
+      "uv_rect": [
+        0.25,
+        0.25,
+        0.5,
+        0.5
+      ],
+      "extra_cells": [
+        2,
+        3
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      ],
+      "triangles": 284,
+      "rotates": false
+    },
+    {
+      "name": "guard_L",
+      "parent": "arm_L",
+      "pivot": [
+        0.320388,
+        0.031836,
+        0.02607
+      ],
+      "rotation_axis": null,
+      "palette_cell": 6,
+      "uv_rect": [
+        0.5,
+        0.25,
+        0.75,
+        0.5
+      ],
+      "extra_cells": [
+        2
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ]
+      ],
+      "triangles": 932,
+      "rotates": false
+    },
+    {
+      "name": "guard_R",
+      "parent": "arm_R",
+      "pivot": [
+        -0.320388,
+        0.031836,
+        0.02607
+      ],
+      "rotation_axis": null,
+      "palette_cell": 7,
+      "uv_rect": [
+        0.75,
+        0.25,
+        1.0,
+        0.5
+      ],
+      "extra_cells": [
+        2
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ]
+      ],
+      "triangles": 932,
+      "rotates": false
+    },
+    {
+      "name": "rotor_L",
+      "parent": "arm_L",
+      "pivot": [
+        0.320388,
+        0.031836,
+        0.02607
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "palette_cell": 8,
+      "uv_rect": [
+        0.0,
+        0.5,
+        0.25,
+        0.75
+      ],
+      "extra_cells": [],
+      "extra_uv_rects": [],
+      "triangles": 436,
+      "rotates": true,
+      "spin": {
+        "seen_from_above": "clockwise",
+        "sign_about_axis_XMMatrixRotationY": 1,
+        "note": "羽根のピッチはこの向きで上向きの推力になる形"
+      }
+    },
+    {
+      "name": "rotor_R",
+      "parent": "arm_R",
+      "pivot": [
+        -0.320388,
+        0.031836,
+        0.02607
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "palette_cell": 9,
+      "uv_rect": [
+        0.25,
+        0.5,
+        0.5,
+        0.75
+      ],
+      "extra_cells": [],
+      "extra_uv_rects": [],
+      "triangles": 436,
+      "rotates": true,
+      "spin": {
+        "seen_from_above": "counterclockwise",
+        "sign_about_axis_XMMatrixRotationY": -1,
+        "note": "羽根のピッチはこの向きで上向きの推力になる形"
+      }
+    },
+    {
+      "name": "sensor",
+      "parent": "body",
+      "pivot": [
+        0.0,
+        0.012419,
+        -0.464221
+      ],
+      "rotation_axis": null,
+      "palette_cell": 10,
+      "uv_rect": [
+        0.5,
+        0.5,
+        0.75,
+        0.75
+      ],
+      "extra_cells": [
+        2,
+        3
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      ],
+      "triangles": 560,
+      "rotates": false
+    },
+    {
+      "name": "nozzle_front",
+      "parent": "body",
+      "pivot": [
+        0.0,
+        -0.060397,
+        -0.342862
+      ],
+      "rotation_axis": null,
+      "palette_cell": 11,
+      "uv_rect": [
+        0.75,
+        0.5,
+        1.0,
+        0.75
+      ],
+      "extra_cells": [
+        2,
+        3
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ]
+      ],
+      "triangles": 320,
+      "rotates": false
+    },
+    {
+      "name": "thruster",
+      "parent": "body",
+      "pivot": [
+        0.0,
+        -0.016707,
+        0.297915
+      ],
+      "rotation_axis": null,
+      "palette_cell": 12,
+      "uv_rect": [
+        0.0,
+        0.75,
+        0.25,
+        1.0
+      ],
+      "extra_cells": [
+        2,
+        3,
+        13
+      ],
+      "extra_uv_rects": [
+        [
+          0.5,
+          0.0,
+          0.75,
+          0.25
+        ],
+        [
+          0.75,
+          0.0,
+          1.0,
+          0.25
+        ],
+        [
+          0.25,
+          0.75,
+          0.5,
+          1.0
+        ]
+      ],
+      "triangles": 864,
+      "rotates": false
+    }
+  ],
+  "points": [
+    {
+      "name": "light",
+      "position": [
+        0.0,
+        0.012419,
+        -0.484609
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "name": "muzzle",
+      "position": [
+        0.0,
+        -0.060397,
+        -0.488493
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "name": "thruster_exhaust",
+      "position": [
+        0.0,
+        -0.016707,
+        0.511507
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ]
+}

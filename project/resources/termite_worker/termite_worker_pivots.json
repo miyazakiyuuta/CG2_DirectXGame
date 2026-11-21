@@ -1,0 +1,247 @@
+{
+  "model": "termite_worker",
+  "coordinate_system": "engine (left-handed, +Y up, head = -Z, origin = center of mass)",
+  "note": "uv_rect は左上原点(DirectX)のUV。V反転して読み込む前提。頂点のUVがこの範囲に入っていれば、そのパーツの頂点と判別できる。",
+  "parts": [
+    {
+      "name": "thorax",
+      "parent": null,
+      "pivot": [
+        1e-06,
+        -0.022546,
+        -0.115199
+      ],
+      "palette_cell": 1,
+      "uv_rect": [
+        0.25,
+        0.0,
+        0.5,
+        0.25
+      ]
+    },
+    {
+      "name": "abdomen",
+      "parent": "thorax",
+      "pivot": [
+        1e-06,
+        -0.006047,
+        -0.040952
+      ],
+      "palette_cell": 2,
+      "uv_rect": [
+        0.5,
+        0.0,
+        0.75,
+        0.25
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "thorax",
+      "pivot": [
+        1e-06,
+        0.002203,
+        -0.255442
+      ],
+      "palette_cell": 0,
+      "uv_rect": [
+        0.0,
+        0.0,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "name": "eye_L",
+      "parent": "head",
+      "pivot": [
+        0.103735,
+        0.043401,
+        -0.449973
+      ],
+      "palette_cell": 14,
+      "uv_rect": [
+        0.5,
+        0.75,
+        0.75,
+        1.0
+      ]
+    },
+    {
+      "name": "antenna_L",
+      "parent": "head",
+      "pivot": [
+        0.066653,
+        0.079183,
+        -0.469681
+      ],
+      "palette_cell": 10,
+      "uv_rect": [
+        0.5,
+        0.5,
+        0.75,
+        0.75
+      ]
+    },
+    {
+      "name": "mandible_L",
+      "parent": "head",
+      "pivot": [
+        0.051844,
+        -0.030672,
+        -0.482852
+      ],
+      "palette_cell": 12,
+      "uv_rect": [
+        0.0,
+        0.75,
+        0.25,
+        1.0
+      ]
+    },
+    {
+      "name": "leg_L1",
+      "parent": "thorax",
+      "pivot": [
+        0.049499,
+        -0.063794,
+        -0.214194
+      ],
+      "palette_cell": 4,
+      "uv_rect": [
+        0.0,
+        0.25,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "name": "leg_L2",
+      "parent": "thorax",
+      "pivot": [
+        0.049499,
+        -0.063794,
+        -0.131698
+      ],
+      "palette_cell": 6,
+      "uv_rect": [
+        0.5,
+        0.25,
+        0.75,
+        0.5
+      ]
+    },
+    {
+      "name": "leg_L3",
+      "parent": "thorax",
+      "pivot": [
+        0.049499,
+        -0.063794,
+        -0.065701
+      ],
+      "palette_cell": 8,
+      "uv_rect": [
+        0.0,
+        0.5,
+        0.25,
+        0.75
+      ]
+    },
+    {
+      "name": "eye_R",
+      "parent": "head",
+      "pivot": [
+        -0.103733,
+        0.043401,
+        -0.449973
+      ],
+      "palette_cell": 15,
+      "uv_rect": [
+        0.75,
+        0.75,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "antenna_R",
+      "parent": "head",
+      "pivot": [
+        -0.066651,
+        0.079183,
+        -0.469681
+      ],
+      "palette_cell": 11,
+      "uv_rect": [
+        0.75,
+        0.5,
+        1.0,
+        0.75
+      ]
+    },
+    {
+      "name": "mandible_R",
+      "parent": "head",
+      "pivot": [
+        -0.051842,
+        -0.030672,
+        -0.482852
+      ],
+      "palette_cell": 13,
+      "uv_rect": [
+        0.25,
+        0.75,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "name": "leg_R1",
+      "parent": "thorax",
+      "pivot": [
+        -0.049497,
+        -0.063794,
+        -0.214194
+      ],
+      "palette_cell": 5,
+      "uv_rect": [
+        0.25,
+        0.25,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "name": "leg_R2",
+      "parent": "thorax",
+      "pivot": [
+        -0.049497,
+        -0.063794,
+        -0.131698
+      ],
+      "palette_cell": 7,
+      "uv_rect": [
+        0.75,
+        0.25,
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "name": "leg_R3",
+      "parent": "thorax",
+      "pivot": [
+        -0.049497,
+        -0.063794,
+        -0.065701
+      ],
+      "palette_cell": 9,
+      "uv_rect": [
+        0.25,
+        0.5,
+        0.5,
+        0.75
+      ]
+    }
+  ]
+}

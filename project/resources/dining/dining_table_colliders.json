@@ -1,0 +1,72 @@
+{
+  "model": "dining_table",
+  "unit": "cm",
+  "coordinate": "engine (left-handed, +Y up), offset from model origin",
+  "boxes": [
+    {
+      "name": "top",
+      "center": [
+        0.0,
+        64.5,
+        0.0
+      ],
+      "size": [
+        150.0,
+        11.0,
+        80.0
+      ]
+    },
+    {
+      "name": "leg_FL",
+      "center": [
+        66.25,
+        33.5,
+        -31.25
+      ],
+      "size": [
+        5.5,
+        67.0,
+        5.5
+      ]
+    },
+    {
+      "name": "leg_FR",
+      "center": [
+        -66.25,
+        33.5,
+        -31.25
+      ],
+      "size": [
+        5.5,
+        67.0,
+        5.5
+      ]
+    },
+    {
+      "name": "leg_BL",
+      "center": [
+        66.25,
+        33.5,
+        31.25
+      ],
+      "size": [
+        5.5,
+        67.0,
+        5.5
+      ]
+    },
+    {
+      "name": "leg_BR",
+      "center": [
+        -66.25,
+        33.5,
+        31.25
+      ],
+      "size": [
+        5.5,
+        67.0,
+        5.5
+      ]
+    }
+  ]
+}

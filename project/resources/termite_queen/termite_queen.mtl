@@ -1,0 +1,9 @@
+# termite_queen
+newmtl termite_queen_mat
+Ka 0.000000 0.000000 0.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ns 10.000000
+d 1.000000
+illum 1
+map_Kd termite_queen_palette.png

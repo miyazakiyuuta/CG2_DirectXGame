@@ -1,0 +1,45 @@
+=== termite_worker 生成レポート (Blender 4.2.0) ===
+
+[OBJ / ローダー制約]
+  三角形数           : 4584
+  頂点 v / vt / vn   : 2384 / 2247 / 1531
+  三角形以外・UV/法線欠けの面 : 0  (0であること)
+  o/g の数           : 1  (1であること)
+  usemtl の種類      : 1  (1であること)
+  MTLのマテリアル数  : 1  (1であること)
+  map_Kd             : ['map_Kd termite_worker_palette.png']
+
+[寸法(エンジン座標・縮尺は全長1.0基準)]
+  全長(顎の先〜腹の端, Z): 1.0000
+  横幅 X (脚を含む)       : 0.6418   触角も含む: 0.6418
+  高さ Y (脚を含む)       : 0.3682   触角も含む: 0.3837
+  奥行 Z (触角も含む)     : 1.0423
+  バウンディングボックス(触角を含む全体)
+    min = (-0.3209, -0.2094, -0.6236)
+    max = (+0.3209, +0.1743, +0.4187)
+  バウンディングボックス(触角を除く)
+    min = (-0.3209, -0.2094, -0.5813)
+    max = (+0.3209, +0.1588, +0.4187)
+  原点から最も遠い頂点までの距離 : 全体 0.6705 / 触角を除く 0.5848
+  頭の向き確認: 顎の先 Z = -0.5813 (負であること), 腹の端 Z = +0.4187
+
+[重心]
+  原点 = 体積から求めた重心(各パーツの殻の重なりは二重に数える近似)
+  設計単位からの縮尺 : 0.82496
+
+[パーツ / ピボット(エンジン座標)]
+  thorax       cell  1  tris  576  parent None     pivot (+0.0000, -0.0225, -0.1152)
+  abdomen      cell  2  tris  960  parent thorax   pivot (+0.0000, -0.0060, -0.0410)
+  head         cell  0  tris  728  parent thorax   pivot (+0.0000, +0.0022, -0.2554)
+  eye_L        cell 14  tris  100  parent head     pivot (+0.1037, +0.0434, -0.4500)
+  antenna_L    cell 10  tris  448  parent head     pivot (+0.0667, +0.0792, -0.4697)
+  mandible_L   cell 12  tris   96  parent head     pivot (+0.0518, -0.0307, -0.4829)
+  leg_L1       cell  4  tris  172  parent thorax   pivot (+0.0495, -0.0638, -0.2142)
+  leg_L2       cell  6  tris  172  parent thorax   pivot (+0.0495, -0.0638, -0.1317)
+  leg_L3       cell  8  tris  172  parent thorax   pivot (+0.0495, -0.0638, -0.0657)
+  eye_R        cell 15  tris  100  parent head     pivot (-0.1037, +0.0434, -0.4500)
+  antenna_R    cell 11  tris  448  parent head     pivot (-0.0667, +0.0792, -0.4697)
+  mandible_R   cell 13  tris   96  parent head     pivot (-0.0518, -0.0307, -0.4829)
+  leg_R1       cell  5  tris  172  parent thorax   pivot (-0.0495, -0.0638, -0.2142)
+  leg_R2       cell  7  tris  172  parent thorax   pivot (-0.0495, -0.0638, -0.1317)
+  leg_R3       cell  9  tris  172  parent thorax   pivot (-0.0495, -0.0638, -0.0657)
