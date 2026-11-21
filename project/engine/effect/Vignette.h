@@ -8,7 +8,7 @@
 
 class Vignette : public IPostEffect {
 public:
-    Vignette() { name = "Vignette"; }
+    Vignette() : IPostEffect("Vignette") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Draw(uint32_t srcSrvIndex) override;

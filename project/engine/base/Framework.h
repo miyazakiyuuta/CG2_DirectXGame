@@ -1,5 +1,4 @@
 #pragma once
-#include "scene/AbstractSceneFactory.h"
 #include "base/ImGuiManager.h"
 #include "base/RenderTarget.h"
 #include "effect/EffectManager.h"
@@ -7,10 +6,6 @@
 #include <memory>
 #include <wrl/client.h>
 #include <d3d12.h>
-
-#ifdef USE_IMGUI
-#include <imgui.h>
-#endif
 
 // ゲーム全体
 class Framework {
@@ -40,11 +35,14 @@ public: // メンバ関数
 	// 実行
 	void Run();
 
+protected:
+	// 派生(Game)がポストエフェクトをシーンへ渡す・UIで操作するための窓口(所有と生成・破棄はFramework)
+	EffectManager* GetEffectManager() const { return effectManager_.get(); }
+	// 今フレームの最終画像(ポストエフェクト適用後)のSRV番号。DebugのSceneウィンドウ表示用
+	uint32_t GetFinalImageSrvIndex() const { return finalImageSrvIndex_; }
+
 private:
 	bool isEndRequest_ = false;
-
-protected:
-	std::unique_ptr<AbstractSceneFactory> sceneFactory_;
 
 	std::unique_ptr<RenderTarget> sceneRenderTarget_;
 	std::unique_ptr<EffectManager> effectManager_;
@@ -52,15 +50,6 @@ protected:
 
 #ifdef USE_IMGUI
 	std::unique_ptr<ImGuiManager> imGuiManager_;
-	
-
-	// シーンウィンドウの情報
-	struct SceneViewInfo {
-		ImVec2 imagePos; // ゲーム画像の左上のスクリーン座標
-		ImVec2 imageSize; // ゲーム画像のサイズ
-		bool isHovered; // マウスがシーンウィンドウにあるか
-	} sceneViewInfo_;
-	static constexpr float kGameAspect = 1280.0f / 720.0f; // ゲームのアスペクト比
 #endif
 };
 

@@ -113,6 +113,11 @@ private:
 private:
 	static Object3dCommon* instance;
 
+	Object3dCommon() = default;
+	~Object3dCommon() = default;
+	Object3dCommon(const Object3dCommon&) = delete;
+	Object3dCommon& operator=(const Object3dCommon&) = delete;
+
 private: // メンバ変数
 	DirectXCommon* dxCommon_;
 	SrvManager* srvManager_;

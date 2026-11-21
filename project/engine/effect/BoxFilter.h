@@ -7,7 +7,7 @@
 // 重みは全て等しい（=平均）ので、シェーダ側はKだけ受け取れば足りる。
 class BoxFilter : public ConvolutionEffect {
 public:
-    BoxFilter() { name = "BoxFilter"; }
+    BoxFilter() : ConvolutionEffect("BoxFilter") {}
 
     void DrawImGui() override;
 

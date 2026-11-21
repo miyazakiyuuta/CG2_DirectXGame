@@ -11,7 +11,7 @@
 // 経過時間をSeedに加算して毎フレーム模様を変化させる（Freezeで停止＝固定すれば同じ結果）。
 class Noise : public IPostEffect {
 public:
-    Noise() { name = "Noise"; }
+    Noise() : IPostEffect("Noise") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Update(float deltaTime) override;

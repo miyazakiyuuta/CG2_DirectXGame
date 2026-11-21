@@ -12,7 +12,7 @@
 // 穴のすぐ外側(threshold〜threshold+edgeWidth)にedgeColorの縁取りを加算する。
 class Dissolve : public IPostEffect {
 public:
-    Dissolve() { name = "Dissolve"; }
+    Dissolve() : IPostEffect("Dissolve") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Update(float deltaTime) override;

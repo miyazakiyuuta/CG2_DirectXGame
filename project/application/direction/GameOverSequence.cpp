@@ -205,13 +205,13 @@ void GameOverSequence::Stop() {
 	// ポストエフェクトは全シーン共有なので、掛けたまま残さない。
 	// Vignetteは通常の被弾演出と共有だが、そちらは毎フレームON/OFFを決め直すので、ここで切っても困らない
 	if (Vignette* vignette = FindPostEffect<Vignette>(effectManager_, "Vignette")) {
-		vignette->enabled = false;
+		vignette->SetEnabled(false);
 	}
 	if (Monochrome* monochrome = FindPostEffect<Monochrome>(effectManager_, "Monochrome")) {
-		monochrome->enabled = false;
+		monochrome->SetEnabled(false);
 	}
 	if (RadialBlur* radialBlur = FindPostEffect<RadialBlur>(effectManager_, "RadialBlur")) {
-		radialBlur->enabled = false;
+		radialBlur->SetEnabled(false);
 		radialBlur->SetIntensity(0.0f); // 常時掛けの強さはシーンをまたいで残るので0へ戻す
 	}
 }
@@ -444,7 +444,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 			: 0.0f;
 		// 縁の濃さ: 被弾の直後は赤の濃さ、赤が消えた後は黒い縁の濃さ
 		const float edgeIntensity = std::lerp(params_.darkVignette, params_.impactVignette, flash);
-		vignette->enabled = true;
+		vignette->SetEnabled(true);
 		// 色は赤の残りだけで決まり、既定の長さでは暗転が始まる頃にはもう黒になっている。
 		// (1 - fadeCurve)を掛けておくのは、ImGuiで赤を暗転まで長くした場合にも、真っ黒で終わるようにするため
 		vignette->SetColor(kVignetteRed * (flash * (1.0f - fadeCurve)));
@@ -475,7 +475,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 		// 抜けかけの強さも暗転のカーブも減らないので、Skipで早く爆発へ飛んでも途中で色が戻らない
 		const float t = params_.desaturateRatio > 0.0f ? fade / params_.desaturateRatio : 1.0f;
 		const float intensity = std::lerp(drainIntensity, 1.0f, Easing::InOutSine(t));
-		monochrome->enabled = intensity > 0.0f;
+		monochrome->SetEnabled(intensity > 0.0f);
 		monochrome->SetColor({ 1.0f, 1.0f, 1.0f }); // 白=グレースケール
 		monochrome->SetIntensity(intensity);
 	}
@@ -490,7 +490,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 			const float t = params_.driftDuration > 0.0f ? phaseTimer_ / params_.driftDuration : 1.0f;
 			baseIntensity = std::lerp(params_.spinBlur, 0.0f, Easing::InOutSine(t));
 		}
-		radialBlur->enabled = fade <= 0.0f; // 暗転に入ったら外す(爆発の一瞬の強さは爆発の間に抜け切る)
+		radialBlur->SetEnabled(fade <= 0.0f); // 暗転に入ったら外す(爆発の一瞬の強さは爆発の間に抜け切る)
 		radialBlur->SetIntensity(baseIntensity);
 		radialBlur->SetCenterWorld(position_, camera.GetViewProjectionMatrix());
 	}

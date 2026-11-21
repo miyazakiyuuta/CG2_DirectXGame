@@ -42,6 +42,12 @@ public: // メンバ変数
 
 private:
 	static WinApp* instance;
+
+	WinApp() = default;
+	~WinApp() = default;
+	WinApp(const WinApp&) = delete;
+	WinApp& operator=(const WinApp&) = delete;
+
 	static bool isResized_;
 	static int newWidth_;
 	static int newHeight_;

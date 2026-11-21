@@ -18,7 +18,7 @@ void Game::Initialize() {
 
 	sceneFactory_ = std::make_unique<SceneFactory>();
 	SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
-    SceneManager::GetInstance()->SetEffectManager(effectManager_.get());
+    SceneManager::GetInstance()->SetEffectManager(GetEffectManager());
 	SceneManager::GetInstance()->ChangeScene("TITLE");
 	//SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
 
@@ -76,7 +76,7 @@ void Game::DrawUI() {
     sceneViewInfo_.imagePos = ImGui::GetCursorScreenPos();
     sceneViewInfo_.imageSize = imageSize;
 
-    auto srvHandle = SrvManager::GetInstance()->GetGPUDescriptorHandle(finalImageSrvIndex_); // レンダーテクスチャのSRVハンドルを取得
+    auto srvHandle = SrvManager::GetInstance()->GetGPUDescriptorHandle(GetFinalImageSrvIndex()); // レンダーテクスチャのSRVハンドルを取得
     ImGui::Image((ImTextureID)srvHandle.ptr, imageSize); // レンダーテクスチャをウィンドウ内に画像として表示
     // マウスがSceneウィンドウ上にあるか記録
     sceneViewInfo_.isHovered = ImGui::IsWindowHovered();
@@ -87,7 +87,7 @@ void Game::DrawUI() {
 #pragma endregion
 
     ImGui::Begin("PostEffect");
-    effectManager_->DrawImGui();
+    GetEffectManager()->DrawImGui();
     ImGui::End();
 
     ImGui::Begin("Particle");

@@ -9,7 +9,7 @@
 // K（半径）とσをImGuiで実時間調整できる。
 class GaussianFilter : public ConvolutionEffect {
 public:
-    GaussianFilter() { name = "GaussianFilter"; }
+    GaussianFilter() : ConvolutionEffect("GaussianFilter") {}
 
     bool     IsSeparable() const override { return true; }
     uint32_t RenderFirstPass(uint32_t srcSrvIndex) override; // 横

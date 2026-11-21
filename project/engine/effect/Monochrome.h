@@ -8,7 +8,7 @@
 
 class Monochrome : public IPostEffect {
 public:
-    Monochrome() { name = "Monochrome"; }
+    Monochrome() : IPostEffect("Monochrome") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Draw(uint32_t srcSrvIndex) override;

@@ -31,7 +31,7 @@ uint32_t EffectManager::Apply(uint32_t inputSrvIndex) {
     int writeIndex = 0;
 
     for (auto& effect : effects_) {
-        if (!effect->enabled) {
+        if (!effect->IsEnabled()) {
             continue;
         }
 
@@ -64,11 +64,15 @@ void EffectManager::Update(float deltaTime) {
 void EffectManager::DrawImGui() {
 #ifdef USE_IMGUI
     for (auto& effect : effects_) {
-        ImGui::PushID(effect->name);
+        ImGui::PushID(effect->GetName());
         // エフェクトごとに折りたたみ見出し
-        if (ImGui::CollapsingHeader(effect->name)) {
-            // ON/OFFチェックボックス（##で内部IDを区別）
-            ImGui::Checkbox((std::string("Enable##") + effect->name).c_str(), &effect->enabled);
+        if (ImGui::CollapsingHeader(effect->GetName())) {
+            // ON/OFFチェックボックス（##で内部IDを区別）。
+            // ImGuiは書き込み先のアドレスを要求するが、enabledは非公開なのでローカルへ写して編集し、変わった時だけ戻す
+            bool enabled = effect->IsEnabled();
+            if (ImGui::Checkbox((std::string("Enable##") + effect->GetName()).c_str(), &enabled)) {
+                effect->SetEnabled(enabled);
+            }
             // 各エフェクト固有のUI（Monochromeなら色編集）
             effect->DrawImGui();
         }
@@ -79,13 +83,13 @@ void EffectManager::DrawImGui() {
 
 void EffectManager::ResetAll() {
     for (auto& effect : effects_) {
-        effect->enabled = false;
+        effect->SetEnabled(false);
     }
 }
 
 IPostEffect* EffectManager::FindEffect(const std::string& name) {
     for (auto& e : effects_) {
-        if (e->name == name) {
+        if (e->GetName() == name) {
             return e.get();
         }
     }

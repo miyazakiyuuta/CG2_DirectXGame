@@ -4,8 +4,7 @@
 #endif
 
 void BoxFilter::InitializeParam() {
-    CreateParamBuffer(sizeof(BoxFilterParam));
-    param_ = reinterpret_cast<BoxFilterParam*>(mappedParam_);
+    param_ = CreateParamBuffer<BoxFilterParam>();
 
     param_->kernelRadius = 1;   // K=1 → 3x3
     param_->intensity = 1.0f;   // 最初はぼかし全開

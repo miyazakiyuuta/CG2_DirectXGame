@@ -8,10 +8,12 @@
 #endif
 
 void GaussianFilter::InitializeParam() {
+    DirectXCommon* dxCommon = GetDxCommon();
+
     // baseのCreateParamBufferは使わず、横・縦で2本作る
-    paramH_ = dxCommon_->CreateBufferResource(sizeof(GaussianParam));
+    paramH_ = dxCommon->CreateBufferResource(sizeof(GaussianParam));
     paramH_->Map(0, nullptr, reinterpret_cast<void**>(&mappedH_));
-    paramV_ = dxCommon_->CreateBufferResource(sizeof(GaussianParam));
+    paramV_ = dxCommon->CreateBufferResource(sizeof(GaussianParam));
     paramV_->Map(0, nullptr, reinterpret_cast<void**>(&mappedV_));
 
     mappedH_->direction = 0; // 横
@@ -21,8 +23,8 @@ void GaussianFilter::InitializeParam() {
     // 中間RT（横パスの描画先 兼 縦パスの入力）。RTVスロットは自動採番で確保
     intermediate_ = std::make_unique<RenderTarget>();
     intermediate_->Create(
-        dxCommon_->GetDevice(), srvManager_,
-        dxCommon_->GetRTVCPUDescriptorHandle(dxCommon_->AllocateRtvIndex()),
+        dxCommon->GetDevice(), GetSrvManager(),
+        dxCommon->GetRTVCPUDescriptorHandle(dxCommon->AllocateRtvIndex()),
         WinApp::kClientWidth, WinApp::kClientHeight);
 }
 
@@ -38,15 +40,10 @@ void GaussianFilter::UpdateParams() {
 uint32_t GaussianFilter::RenderFirstPass(uint32_t srcSrvIndex) {
     UpdateParams(); // このフレームの値を両CBufferへ反映（縦の分もここで済ます）
 
-    ID3D12GraphicsCommandList* cl = dxCommon_->GetCommandList();
+    ID3D12GraphicsCommandList* cl = GetDxCommon()->GetCommandList();
 
     intermediate_->BeginRenderNoDepth(cl);
-    cl->SetGraphicsRootSignature(rootSignature_.Get());
-    cl->SetPipelineState(pipelineState_.Get());
-    cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    srvManager_->SetGraphicsRootDescriptorTable(0, srcSrvIndex);          // 入力＝前段の出力
-    cl->SetGraphicsRootConstantBufferView(1, paramH_->GetGPUVirtualAddress()); // 横
-    cl->DrawInstanced(3, 1, 0, 0);
+    DrawFullscreen(srcSrvIndex, paramH_->GetGPUVirtualAddress()); // 入力＝前段の出力 / 横
     intermediate_->EndRender(cl);
 
     return intermediate_->GetSrvIndex(); // 縦パスの入力になる
@@ -55,13 +52,7 @@ uint32_t GaussianFilter::RenderFirstPass(uint32_t srcSrvIndex) {
 void GaussianFilter::Draw(uint32_t srcSrvIndex) {
     // srcSrvIndex = RenderFirstPassが返した中間RTのSRV。
     // 出力先(ping-pong)はEffectManagerが既にBeginRender済み。
-    ID3D12GraphicsCommandList* cl = dxCommon_->GetCommandList();
-    cl->SetGraphicsRootSignature(rootSignature_.Get());
-    cl->SetPipelineState(pipelineState_.Get());
-    cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    srvManager_->SetGraphicsRootDescriptorTable(0, srcSrvIndex);
-    cl->SetGraphicsRootConstantBufferView(1, paramV_->GetGPUVirtualAddress()); // 縦
-    cl->DrawInstanced(3, 1, 0, 0);
+    DrawFullscreen(srcSrvIndex, paramV_->GetGPUVirtualAddress()); // 縦
 }
 
 void GaussianFilter::DrawImGui() {

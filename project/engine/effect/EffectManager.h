@@ -24,8 +24,6 @@ public:
 
     void ResetAll();
 
-    std::vector<std::unique_ptr<IPostEffect>>& GetEffects() { return effects_; }
-
     IPostEffect* FindEffect(const std::string& name);
 
 private:

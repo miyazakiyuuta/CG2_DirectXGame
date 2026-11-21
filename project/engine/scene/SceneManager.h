@@ -46,6 +46,11 @@ public:
 private:
 	static SceneManager* instance;
 
+	SceneManager() = default;
+	~SceneManager() = default;
+	SceneManager(const SceneManager&) = delete;
+	SceneManager& operator=(const SceneManager&) = delete;
+
 	AbstractSceneFactory* sceneFactory_;
 
 	std::unique_ptr<BaseScene> scene_ = nullptr;

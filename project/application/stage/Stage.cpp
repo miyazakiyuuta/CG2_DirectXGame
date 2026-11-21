@@ -92,7 +92,7 @@ void Stage::Rebuild() {
 		std::unique_ptr<Object3d> object = std::make_unique<Object3d>();
 		object->Initialize(Object3dCommon::GetInstance());
 		object->SetModel(objectData.model);
-		object->GetTransform() = objectData.transform;
+		object->SetTransform(objectData.transform);
 		if (camera_) {
 			object->SetCamera(camera_);
 		}
@@ -150,7 +150,7 @@ void Stage::Update(float deltaTime) {
 	for (size_t i = 0; i < objects_.size(); ++i) {
 		if (objects_[i]) {
 			// StageDataが唯一の編集対象(Source of Truth)。エディタでの変更を毎フレーム実体へ反映する
-			objects_[i]->GetTransform() = data_.objects[i].transform;
+			objects_[i]->SetTransform(data_.objects[i].transform);
 			objects_[i]->Update(deltaTime);
 		}
 	}

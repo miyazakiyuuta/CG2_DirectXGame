@@ -20,6 +20,17 @@ public:
 
     virtual void DrawImGui() {}
 
-    bool enabled = true;
-    const char* name = "";
+    bool IsEnabled() const { return enabled_; }
+    void SetEnabled(bool enabled) { enabled_ = enabled; }
+
+    // EffectManager::FindEffect の検索キー。生成時に決まり、後から変えられない
+    const char* GetName() const { return name_; }
+
+protected:
+    // 派生クラスは自分の名前を渡す(例: Vignette() : IPostEffect("Vignette") {})
+    explicit IPostEffect(const char* name) : name_(name) {}
+
+private:
+    bool enabled_ = true;
+    const char* name_ = "";
 };

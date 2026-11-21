@@ -306,8 +306,8 @@ void GamePlayScene::Initialize() {
 	// 保存済みのシーン配置があれば復元(無ければ上の初期値のまま)
 	SceneSerializer::Load(kScenePath, BuildSerializeEntries());
 
-	effectManager_->FindEffect("Monochrome")->enabled = false;
-	effectManager_->FindEffect("RadialBlur")->enabled = false;
+	GetEffectManager()->FindEffect("Monochrome")->SetEnabled(false);
+	GetEffectManager()->FindEffect("RadialBlur")->SetEnabled(false);
 
 	// HP表示と操作説明(プレイヤーのMax HPを見るのでplayer_の初期化後に呼ぶ)
 	InitializeHud();
@@ -322,12 +322,12 @@ void GamePlayScene::Initialize() {
 
 	// ゲームオーバーの演出。墜落する機体のモデル・煙と火花・爆発音はここで用意し、HPが尽きたときに始める
 	gameOverSequence_ = std::make_unique<GameOverSequence>();
-	gameOverSequence_->Initialize(effectManager_);
+	gameOverSequence_->Initialize(GetEffectManager());
 	gameOverSequence_->SetCamera(camera_.get());
 
 	// クリアの演出。亡骸の器と爆発の粒はここで用意し、女王を倒したときに始める
 	clearSequence_ = std::make_unique<ClearSequence>();
-	clearSequence_->Initialize(effectManager_);
+	clearSequence_->Initialize(GetEffectManager());
 	clearSequence_->SetCamera(camera_.get());
 
 	// ゲーム開始のイントロ。タイトルから・結果画面のリトライから・(Debugで)直接起動のどれで入っても
@@ -456,7 +456,7 @@ void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 	// 被弾から一定時間だけ、画面の縁を赤く染める。
 	// 「実装済みのポストエフェクトをゲームの状況へ繋ぐ」だけなので、
 	// このシーンが持つのはタイマーと濃さの2値だけで済んでいる
-	IPostEffect* effect = effectManager_->FindEffect("Vignette");
+	IPostEffect* effect = GetEffectManager()->FindEffect("Vignette");
 	if (!effect) {
 		return; // 登録が外れていても落とさない(演出は無くてもゲームは成立する)
 	}
@@ -470,8 +470,8 @@ void GamePlayScene::UpdateDamageEffect(float deltaTime) {
 
 	// 残り0で効果ごと切る。シーンを出るときに掛かりっぱなしにならないよう、
 	// ON/OFFの判断もこの関数に閉じ込めている
-	effect->enabled = ratio > 0.0f;
-	if (!effect->enabled) {
+	effect->SetEnabled(ratio > 0.0f);
+	if (!effect->IsEnabled()) {
 		return;
 	}
 

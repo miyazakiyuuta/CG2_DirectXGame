@@ -623,7 +623,7 @@ void TitleScene::UpdateDarkness() {
 	if (sceneChangeRequested_) {
 		return;
 	}
-	IPostEffect* effect = effectManager_->FindEffect("Vignette");
+	IPostEffect* effect = GetEffectManager()->FindEffect("Vignette");
 	if (!effect) {
 		return; // 登録が外れていても落とさない(暗転が無くても遷移は成立する)
 	}
@@ -638,8 +638,8 @@ void TitleScene::UpdateDarkness() {
 		}
 	}
 	// 暗くしないフェーズでは切っておく(プレビューの後やReplayで演出を戻したときに残らないように)
-	effect->enabled = darkness > 0.0f;
-	if (!effect->enabled) {
+	effect->SetEnabled(darkness > 0.0f);
+	if (!effect->IsEnabled()) {
 		return;
 	}
 

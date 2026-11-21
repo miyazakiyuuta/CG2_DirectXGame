@@ -176,7 +176,9 @@ void EnemySpawner::UpdateFrozen(float deltaTime) {
 			enemy.velocity.y -= exterminateGravity_ * deltaTime;
 			enemy.position += enemy.velocity * deltaTime;
 			enemy.object->SetTranslate(enemy.position);
-			enemy.object->GetTransform().rotate.x += enemy.dyingSpin * deltaTime;
+			Vector3 rotate = enemy.object->GetRotate();
+			rotate.x += enemy.dyingSpin * deltaTime;
+			enemy.object->SetRotate(rotate);
 
 			// 落ち切ったら煙にして消す。撃破・取り逃しのどちらにも記録しない(評価はプレイヤーが倒した分だけ)
 			if (enemy.dyingTime >= enemy.dyingDuration) {
@@ -610,7 +612,7 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		enemy.object->SetModel(ModelPathOf(spawnPoint.enemy));
 		// 出現位置はSpawnPointのtransform(エディタのギズモで置いた場所)。
 		// 大きさだけは種別ごとの既定を使い、データ側のscaleは向き・位置に集中させる
-		enemy.object->GetTransform() = spawnPoint.transform;
+		enemy.object->SetTransform(spawnPoint.transform);
 		const float scale = ScaleOf(spawnPoint.enemy);
 		enemy.object->SetScale({ scale, scale, scale });
 		if (camera_) {

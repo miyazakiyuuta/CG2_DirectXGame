@@ -102,10 +102,13 @@ private:
 	/// </summary>
 	static D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(const Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& descriptorHeap, uint32_t descriptorSize, uint32_t index);
 
-	~DirectXCommon();
-
 private:
 	static DirectXCommon* instance;
+
+	DirectXCommon() = default;
+	~DirectXCommon(); // 定義はcpp(破棄時の後片付けがある)
+	DirectXCommon(const DirectXCommon&) = delete;
+	DirectXCommon& operator=(const DirectXCommon&) = delete;
 
 	HRESULT hr_;
 	// DirectX12デバイス

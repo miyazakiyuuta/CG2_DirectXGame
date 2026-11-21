@@ -10,7 +10,7 @@ class Camera;
 
 class DepthBasedOutline : public IPostEffect {
 public:
-    DepthBasedOutline() { name = "DepthBasedOutline"; }
+    DepthBasedOutline() : IPostEffect("DepthBasedOutline") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Update(float deltaTime) override;

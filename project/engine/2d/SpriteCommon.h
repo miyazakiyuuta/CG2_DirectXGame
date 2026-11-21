@@ -27,6 +27,11 @@ private:
 private:
 	static SpriteCommon* instance;
 
+	SpriteCommon() = default;
+	~SpriteCommon() = default;
+	SpriteCommon(const SpriteCommon&) = delete;
+	SpriteCommon& operator=(const SpriteCommon&) = delete;
+
 private:
 	DirectXCommon* dxCommon_;
 

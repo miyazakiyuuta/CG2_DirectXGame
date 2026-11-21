@@ -183,10 +183,10 @@ void ClearSequence::Stop() {
 	// ポストエフェクトは全シーン共有なので、掛けたまま残さない。
 	// Vignetteは被弾演出と共有だが、そちらは毎フレームON/OFFを決め直すので、ここで切っても困らない
 	if (Vignette* vignette = FindPostEffect<Vignette>(effectManager_, "Vignette")) {
-		vignette->enabled = false;
+		vignette->SetEnabled(false);
 	}
 	if (RadialBlur* radialBlur = FindPostEffect<RadialBlur>(effectManager_, "RadialBlur")) {
-		radialBlur->enabled = false;
+		radialBlur->SetEnabled(false);
 		radialBlur->SetIntensity(0.0f); // 常時掛けの強さはシーンをまたいで残るので0へ戻す
 	}
 }
@@ -317,7 +317,7 @@ void ClearSequence::UpdateRemains(float deltaTime, float gameDeltaTime) {
 			Random::GetFloat(-amplitude, amplitude),
 			Random::GetFloat(-amplitude, amplitude) };
 	}
-	remains_->GetTransform() = transform;
+	remains_->SetTransform(transform);
 
 	// 光る: 撃破の瞬間と、小爆発のたび。ライティングを切ると、陰影の無いその色そのもの(=光って見える)になる
 	// (夜のステージでは、ライティングありの白い面は月明かり程度にしか明るくならないため)
@@ -420,7 +420,7 @@ void ClearSequence::ApplyPostEffects(const Camera& camera) {
 		const float white = (std::max)(impactWhite, burstWhite);
 		const float intensity = (std::max)(white, dark);
 		const float whiteRatio = intensity > 0.0f ? white / intensity : 0.0f;
-		vignette->enabled = intensity > 0.0f;
+		vignette->SetEnabled(intensity > 0.0f);
 		vignette->SetColor({ whiteRatio, whiteRatio, whiteRatio });
 		vignette->SetIntensity(intensity);
 		// 大爆発の白は、半径を縮めて画面の中心まで閉じる(ゲームオーバー演出の暗転と同じやり方を、白で使う)。
@@ -437,8 +437,8 @@ void ClearSequence::ApplyPostEffects(const Camera& camera) {
 		// 瞬間的な強さ(撃破・大爆発)はTriggerが上乗せして自動で戻すので、ここは土台だけ決める
 		const float baseIntensity = phase_ == Phase::Convulse ? params_.convulseBlur * GetConvulseProgress() : 0.0f;
 		// 全滅の間までは点けておく(大爆発の瞬間の強さが抜け切るまで)。余韻に入ったら外す
-		radialBlur->enabled = phase_ == Phase::Impact || phase_ == Phase::Convulse ||
-			phase_ == Phase::Burst || phase_ == Phase::Exterminate;
+		radialBlur->SetEnabled(phase_ == Phase::Impact || phase_ == Phase::Convulse ||
+			phase_ == Phase::Burst || phase_ == Phase::Exterminate);
 		radialBlur->SetIntensity(baseIntensity);
 		radialBlur->SetCenterWorld(center_, camera.GetViewProjectionMatrix());
 	}

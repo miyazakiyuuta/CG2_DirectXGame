@@ -38,6 +38,11 @@ public:
 private:
 	static SrvManager* instance;
 
+	SrvManager() = default;
+	~SrvManager() = default;
+	SrvManager(const SrvManager&) = delete;
+	SrvManager& operator=(const SrvManager&) = delete;
+
 	DirectXCommon* dxCommon_ = nullptr;
 
 	// SRV用のデスクリプタサイズ

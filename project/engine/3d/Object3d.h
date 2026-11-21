@@ -49,6 +49,8 @@ public: // メンバ関数
 public: // セッター&ゲッター
 	// setter
 	void SetModel(const std::string& filePath);
+	// 大きさ・回転・位置をまとめて差し替える(StageDataやSpawnPointのTransformをそのまま写す用)
+	void SetTransform(const Transform& transform) { transform_ = transform; }
 	void SetScale(const Vector3& scale) { transform_.scale = scale; }
 	void SetRotate(const Vector3& rotate) { transform_.rotate = rotate; }
 	void SetTranslate(const Vector3& translate) { transform_.translate = translate; }
@@ -63,7 +65,8 @@ public: // セッター&ゲッター
 	}
 
 	// getter
-	Transform& GetTransform() { return transform_; }
+	// 読み取り専用。書き換えは SetTransform / SetScale / SetRotate / SetTranslate を通す
+	const Transform& GetTransform() const { return transform_; }
 	const Vector3& GetScale() const { return transform_.scale; }
 	const Vector3& GetRotate() const { return transform_.rotate; }
 	const Vector3& GetTranslate() const { return transform_.translate; }

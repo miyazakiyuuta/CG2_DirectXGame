@@ -14,12 +14,18 @@ void ConvolutionEffect::Initialize(DirectXCommon* dxCommon, SrvManager* srvManag
     InitializeParam();             // 派生クラスがCBufferを作って初期値を入れる
 }
 
-void ConvolutionEffect::CreateParamBuffer(size_t size) {
+void* ConvolutionEffect::CreateParamBufferRaw(size_t size) {
     paramResource_ = dxCommon_->CreateBufferResource(size);
-    paramResource_->Map(0, nullptr, &mappedParam_);
+    void* mapped = nullptr;
+    paramResource_->Map(0, nullptr, &mapped); // Mapしっぱなし(毎フレームCPUから書き換える)
+    return mapped;
 }
 
 void ConvolutionEffect::Draw(uint32_t srcSrvIndex) {
+    DrawFullscreen(srcSrvIndex, paramResource_->GetGPUVirtualAddress());
+}
+
+void ConvolutionEffect::DrawFullscreen(uint32_t srcSrvIndex, D3D12_GPU_VIRTUAL_ADDRESS paramAddress) {
     ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
     commandList->SetGraphicsRootSignature(rootSignature_.Get());
     commandList->SetPipelineState(pipelineState_.Get());
@@ -27,7 +33,7 @@ void ConvolutionEffect::Draw(uint32_t srcSrvIndex) {
 
     // root param 0 : 入力テクスチャ(SRV) / root param 1 : CBuffer(b0)
     srvManager_->SetGraphicsRootDescriptorTable(0, srcSrvIndex);
-    commandList->SetGraphicsRootConstantBufferView(1, paramResource_->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootConstantBufferView(1, paramAddress);
 
     commandList->DrawInstanced(3, 1, 0, 0); // フルスクリーン三角形
 }

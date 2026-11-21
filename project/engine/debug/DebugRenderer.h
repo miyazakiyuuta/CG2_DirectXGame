@@ -72,9 +72,12 @@ private:
 	void CreateBox2DMesh();
 
 private:
+	static DebugRenderer* instance;
 
 	DebugRenderer() = default;
-	static DebugRenderer* instance;
+	~DebugRenderer() = default;
+	DebugRenderer(const DebugRenderer&) = delete;
+	DebugRenderer& operator=(const DebugRenderer&) = delete;
 
 	// 固定形状
 	std::vector<SphereRequest> sphereRequests_;

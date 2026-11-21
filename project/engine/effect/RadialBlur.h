@@ -11,7 +11,7 @@
 
 class RadialBlur : public IPostEffect {
 public:
-    RadialBlur() { name = "RadialBlur"; }
+    RadialBlur() : IPostEffect("RadialBlur") {}
 
     void Initialize(DirectXCommon* dxCommon, SrvManager* srvManager) override;
     void Update(float deltaTime) override;

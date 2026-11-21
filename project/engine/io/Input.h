@@ -118,6 +118,11 @@ public:
 private:
 	static Input* instance_;
 
+	Input() = default;
+	~Input() = default;
+	Input(const Input&) = delete;
+	Input& operator=(const Input&) = delete;
+
 	// WindowsAPI
 	WinApp* winApp_ = nullptr;
 
