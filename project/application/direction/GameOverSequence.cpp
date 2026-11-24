@@ -161,11 +161,11 @@ void GameOverSequence::Start(const Vector3& position, const Vector3& rotate, con
 	roll_ = 0.0f;
 	tumble_ = 0.0f;
 	cameraFollow_ = 0.0f;
-	elapsed_ = 0.0f;
 	localHitPoint_ = ComputeLocalHitPoint(position, rotate, hitSource);
 
+	ResetClocks();
 	EnterPhase(Phase::Impact);
-	timeScale_ = ComputeTimeScale();
+	RefreshTimeScale();
 
 	// このフレームの描画に間に合わせる(自機を描かなくなるフレームから、同じ姿勢の機体が見えているように)
 	ApplyWreckPose();
@@ -188,9 +188,7 @@ void GameOverSequence::Start(const Vector3& position, const Vector3& rotate, con
 
 void GameOverSequence::Stop() {
 	phase_ = Phase::None;
-	phaseTimer_ = 0.0f;
-	elapsed_ = 0.0f;
-	timeScale_ = 1.0f;
+	ResetClocks();
 	cameraFollow_ = 0.0f;
 
 	// 時間倍率はParticleManagerの全グループに掛かる。戻さないと撃破の爆発までスローのままになる
@@ -225,73 +223,58 @@ void GameOverSequence::Skip() {
 	}
 }
 
-void GameOverSequence::Update(float deltaTime, const Camera& camera) {
-	// 真っ黒になった後は何も触らない。シーンが結果画面への遷移を頼むと、ChangeSceneが全ポストエフェクトを切る
-	// (同じフレームから遷移の黒い帯が画面を覆う)。ここで点け直すと次のシーンへ点いたまま渡ってしまう
-	// (TitleSceneの出発の演出と同じ注意)
-	if (phase_ == Phase::None || phase_ == Phase::Finished) {
-		return;
-	}
-
-	// 段階を進める。長さはすべて実時間なので、スローモーションの間も演出の長さは変わらない
-	phaseTimer_ += deltaTime;
-	elapsed_ += deltaTime;
+void GameOverSequence::AdvancePhase() {
+	// 長さはすべて実時間なので、スローモーションの間も演出の長さは変わらない
 	switch (phase_) {
 	case Phase::Impact:
-		if (phaseTimer_ >= params_.impactDuration) {
+		if (GetPhaseTimer() >= params_.impactDuration) {
 			EnterPhase(Phase::Spin);
 		}
 		break;
 	case Phase::Spin:
-		if (phaseTimer_ >= params_.spinDuration) {
+		if (GetPhaseTimer() >= params_.spinDuration) {
 			EnterPhase(Phase::Drift);
 		}
 		break;
 	case Phase::Drift:
-		if (phaseTimer_ >= params_.driftDuration) {
+		if (GetPhaseTimer() >= params_.driftDuration) {
 			EnterPhase(Phase::Explode);
 		}
 		break;
 	case Phase::Explode:
-		if (phaseTimer_ >= params_.explodeDuration) {
+		if (GetPhaseTimer() >= params_.explodeDuration) {
 			EnterPhase(Phase::FadeOut);
 		}
 		break;
 	case Phase::FadeOut:
-		if (phaseTimer_ >= params_.fadeDuration) {
+		if (GetPhaseTimer() >= params_.fadeDuration) {
 			EnterPhase(Phase::Finished);
 		}
 		break;
 	default:
 		break;
 	}
+}
 
-	// ゲーム時間の倍率。シーンは次のフレームから、敵・弾のdeltaTimeにもこの倍率を掛ける
-	// (1フレーム(約16ms)の遅れは体感できない)
-	timeScale_ = ComputeTimeScale();
-	// 粒にも同じ倍率を掛け、スロー中は煙と火花も遅くする。ただしヒットストップ(倍率0)の間は等速のまま流す:
-	// 通常の被弾と同じく「止まった画面の中で火花だけが散る」見せ方にするため
-	ParticleManager::GetInstance()->SetTimeScale(phase_ == Phase::Impact ? 1.0f : timeScale_);
+void GameOverSequence::UpdateContents(float deltaTime, const Camera& camera) {
+	(void)camera; // 機体と粒はカメラに依らない(カメラを使うのはApplyPostEffects)
 
 	if (IsWreckVisible()) {
-		UpdateWreck(deltaTime * timeScale_);
+		UpdateWreck(deltaTime * GetTimeScale());
 	}
 
 	// カメラが機体を目で追う割合。遠ざかる間に少しずつ上げ、爆発した後はその向きのまま見届ける
 	if (phase_ == Phase::Drift) {
-		const float t = params_.driftDuration > 0.0f ? phaseTimer_ / params_.driftDuration : 1.0f;
+		const float t = params_.driftDuration > 0.0f ? GetPhaseTimer() / params_.driftDuration : 1.0f;
 		cameraFollow_ = params_.cameraFollow * Easing::InOutSine(t);
 	}
 
 	UpdateEmitters();
-
-	// 真っ黒になったフレームも、真っ黒の状態をここで1度だけ書き込む(次のフレームからは上の早期returnで触らない)
-	ApplyPostEffects(camera);
 }
 
 void GameOverSequence::EnterPhase(Phase phase) {
 	phase_ = phase;
-	phaseTimer_ = 0.0f;
+	RestartPhaseTimer();
 
 	if (phase == Phase::Explode) {
 		Explode();
@@ -306,7 +289,7 @@ float GameOverSequence::ComputeTimeScale() const {
 		return params_.slowTimeScale;
 	case Phase::Drift: {
 		// スローから等速へ、なめらかに戻す
-		const float t = params_.recoverDuration > 0.0f ? phaseTimer_ / params_.recoverDuration : 1.0f;
+		const float t = params_.recoverDuration > 0.0f ? GetPhaseTimer() / params_.recoverDuration : 1.0f;
 		return std::lerp(params_.slowTimeScale, 1.0f, Easing::InOutSine(t));
 	}
 	default:
@@ -321,7 +304,7 @@ float GameOverSequence::GetFadeProgress() const {
 	if (phase_ != Phase::FadeOut || params_.fadeDuration <= 0.0f) {
 		return 0.0f;
 	}
-	return std::clamp(phaseTimer_ / params_.fadeDuration, 0.0f, 1.0f);
+	return std::clamp(GetPhaseTimer() / params_.fadeDuration, 0.0f, 1.0f);
 }
 
 bool GameOverSequence::IsWreckVisible() const {
@@ -440,7 +423,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 		// 赤の残り(1=被弾の直後 〜 0=消えた)。普段の被弾演出(UpdateDamageEffect)と同じく、残り時間に比例して抜く。
 		// 演出が始まってからの実時間で数えるので、ヒットストップやスローの間も赤は普段の被弾と同じ長さで消える
 		const float flash = params_.flashDuration > 0.0f
-			? std::clamp(1.0f - elapsed_ / params_.flashDuration, 0.0f, 1.0f)
+			? std::clamp(1.0f - GetElapsed() / params_.flashDuration, 0.0f, 1.0f)
 			: 0.0f;
 		// 縁の濃さ: 被弾の直後は赤の濃さ、赤が消えた後は黒い縁の濃さ
 		const float edgeIntensity = std::lerp(params_.darkVignette, params_.impactVignette, flash);
@@ -469,7 +452,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 		const float drainLength = drainEnd - drainStart;
 		// カーブはOutCubic(勢いよく動き出し、だんだん減速する)。赤が引くのに続けて、すぐ色も引き始めたように見せる
 		// (InOutSineだと動き出しが遅く、赤が消えてから1秒ほど変化が見えない)
-		const float drain = drainLength > 0.0f ? Easing::OutCubic((elapsed_ - drainStart) / drainLength) : 0.0f;
+		const float drain = drainLength > 0.0f ? Easing::OutCubic((GetElapsed() - drainStart) / drainLength) : 0.0f;
 		const float drainIntensity = params_.drainMonochrome * drain;
 		// 暗転: 前半 desaturateRatio までのカーブで、抜けかけの強さから 1(白黒) へ寄せる。
 		// 抜けかけの強さも暗転のカーブも減らないので、Skipで早く爆発へ飛んでも途中で色が戻らない
@@ -487,7 +470,7 @@ void GameOverSequence::ApplyPostEffects(const Camera& camera) {
 		if (phase_ == Phase::Spin) {
 			baseIntensity = params_.spinBlur;
 		} else if (phase_ == Phase::Drift) {
-			const float t = params_.driftDuration > 0.0f ? phaseTimer_ / params_.driftDuration : 1.0f;
+			const float t = params_.driftDuration > 0.0f ? GetPhaseTimer() / params_.driftDuration : 1.0f;
 			baseIntensity = std::lerp(params_.spinBlur, 0.0f, Easing::InOutSine(t));
 		}
 		radialBlur->SetEnabled(fade <= 0.0f); // 暗転に入ったら外す(爆発の一瞬の強さは爆発の間に抜け切る)
@@ -528,8 +511,8 @@ void GameOverSequence::DrawImGui() {
 	ImGui::Begin("Game Over");
 	const int phaseIndex = static_cast<int>(phase_);
 	ImGui::Text("Phase: %s (%.2f s)", phaseIndex < static_cast<int>(std::size(kPhaseNames)) ? kPhaseNames[phaseIndex] : "?",
-		phaseTimer_);
-	ImGui::Text("Time Scale: %.2f", timeScale_);
+		GetPhaseTimer());
+	ImGui::Text("Time Scale: %.2f", GetTimeScale());
 	// ImGuiのフォントは日本語の字形を持っていないので英語で書く
 	ImGui::TextDisabled("Play: Hierarchy > Force GameOver / Skip: Enter or START");
 

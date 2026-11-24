@@ -1,4 +1,5 @@
 #pragma once
+#include "enemy/EnemyTypeParams.h"
 #include "math/Transform.h"
 #include "math/Vector3.h"
 
@@ -9,6 +10,7 @@
 
 class BulletManager;
 class Camera;
+class Enemy;
 class Object3d;
 struct SoundData;
 struct StageData;
@@ -16,6 +18,9 @@ struct StageData;
 // stage.jsonのSpawnPoint(type="spawn")から敵を発生させる担当。
 // 「レール進行度がSpawnPointのrailDistanceを超えたら、その位置に種別に応じた敵を出す」。
 // 発生した敵はHPを持ち、自弾が当たるとHPが減り、0になると消える。
+// 敵の実体は基底クラスEnemyのポインタで持ち、全種をまとめて回す。種別ごとに違う「どう動き、どう攻めるか」は
+// Enemyの派生クラス(射撃型ShooterEnemy・体当たり型RammerEnemy)がUpdateBehaviorで受け持ち、
+// ここは全種で共通の処理(発生・弾との判定・爆発・通過・全滅・ロックオンの問い合わせ)だけを持つ。
 // なぜStageではなくここに置くか: 敵と進行度はゲーム固有の概念で、Stageは
 // 「ステージデータからランタイム実体を作る器」という役割に留めたいため
 // (application/stage/にゲーム進行のロジックを持ち込まない)。
@@ -82,42 +87,12 @@ public:
 	static const std::string& DefeatEffectName();
 
 	// 敵の種別に対応するモデルパス。未知の種別は既定モデルを返す
+	// (敵の実体が無くても引けるよう、種別名から引く静的な表にしておく。クリア演出・エディタも使う)
 	static const std::string& ModelPathOf(const std::string& enemy);
 	// 種別に応じた表示スケール(モデルごとに実寸が違うため)
 	static float ScaleOf(const std::string& enemy);
 	// エディタのCombo用。ここに足せばUIとゲーム側の対応が同時に増える
 	static const std::vector<std::string>& EnemyTypes();
-
-	/// <summary>
-	/// 敵の種別ごとの性能。接近型と射撃型の違いは派生クラスを分けずにこの値の差で表す
-	/// (ParticleConfigと同じパラメータ駆動。種別を足してもUpdate側の分岐は増えない)。
-	/// 種別を増やすときは EnemyTypes() / ModelPathOf() / コンストラクタの既定値 に1件ずつ足す
-	/// </summary>
-	struct TypeParams {
-		std::string name;        // 種別名(stage.jsonのenemyと一致させる)
-		int maxHp = 3;           // 発生時のHP。1にすると1発で消えるため既定は3
-		float radius = 2.5f;     // 当たり判定の半径[m](モデルの見た目に合わせる)
-		// 当たり判定の球の中心を、モデルの原点から頭の向き(モデルの規格でローカル-Z)へずらす量[m]。
-		// 女王のように前後に長い体では、原点(体の重心)に球を置くと、正面から撃った弾が見えている前面より
-		// ずっと奥で当たり、着弾の火花が体の中に隠れる。判定を前へ寄せて、見えている前面とそろえる。
-		// 被弾・爆発の巻き込み・体当たり・照準・ロックオン・弾を撃つ位置・撃破の爆発の位置は、すべてこの中心を使う
-		float hitOffset = 0.0f;
-		float moveSpeed = 3.0f;  // 自機へ近づく速さ[m/s]
-		// これ以上は近づかない距離[m]。射撃型はここで止まって撃ち、
-		// 接近型は判定半径の和(自機0.5+敵radius)より内側にして体当たりを成立させる
-		float keepDistance = 2.0f;
-		bool shoot = false;         // 弾を撃つか(falseなら体当たり専門)
-		float shootInterval = 2.2f; // 1体あたりの発射間隔[秒]
-		// この距離より遠い敵は撃たない[m]。遠すぎる敵に撃たれると、
-		// 弾が飛んでくる方向が画面から読み取れないまま被弾する
-		float shootRange = 90.0f;
-		// 自機にこの距離まで近づいたら接近音を1回鳴らす[m]。0なら鳴らさない。
-		// 体当たりの前触れを音で知らせ、視界の端から突っ込んでくる敵にも身構えられるようにする
-		float approachSoundRange = 0.0f;
-		// 倒すとクリアになる種別か(女王)。ステージにこの種別がいれば、終点ではクリアにせずレールを止めて待つ。
-		// 自機の後ろへ回っても通過済み(取り逃し)にしない: 逃げるとクリアできなくなるため
-		bool isGoal = false;
-	};
 
 	/// <summary>
 	/// ステージに「倒すとクリアになる敵」(isGoalの種別。女王)の出現地点があるか。
@@ -256,41 +231,12 @@ public:
 	~EnemySpawner();
 
 private:
-	// 発生済みの敵1体分。見た目(Object3d)と当たり判定に要る状態をまとめて持つ。
-	// 弾(Bullet)と違いプールしないのは、敵は同時存在数が少なく、撃破で確実に減るため
-	struct Enemy {
-		// 出現時に振る番号(1から。0は「なし」を表すので振らない)。ロックオンと追尾が敵を指すのに使う
-		uint32_t id = 0;
-		// どのSpawnPointから出たか(spawnPoints_の添字)。結末(撃破・取り逃し)をそこへ書き残すのに使う。
-		// spawnPoints_を作り直すとき(BuildFromStage)は敵も全部退避するので、生きている敵の添字は常に有効
-		size_t spawnIndex = 0;
-		std::unique_ptr<Object3d> object; // 見た目
-		Vector3 position{};               // ワールド位置(objectのtranslateと同期させる)
-		// 種別(typeParams_の添字)。半径や速さを写しではなく添字で持つのは、
-		// ImGuiでの調整を発生済みの敵にも即座に効かせるため(難易度は走らせながら詰める)
-		size_t typeIndex = 0;
-		int hp = 3;                       // 残りHP。0で撃破(最大値は種別のmaxHp)
-		// 次に撃つまでの残り時間[秒]。個体ごとに持たせるのは、
-		// 共通タイマーだと同時に出た敵が必ず同時に撃ち、避けようのない斉射になるため
-		float shootCooldown = 0.0f;
-		// 接近音を鳴らし済みか(1体につき1回だけ。近くに居続けても鳴り直さない)
-		bool approachAlerted = false;
-		// 自機を追う速度[m/s](向き×種別の速さ。止まっている間は0)。
-		// 通過済みになった瞬間に離脱の初速として引き継ぎ、向きが急に変わって見えないようにする
-		Vector3 velocity{};
-		// 通過済みか(自機より後ろへ回り、攻撃をやめて離脱している)。一度立ったら戻らない:
-		// 画面外から追いついての体当たりを防ぐのが目的なので、後ろへ回った時点で戦闘から降ろす
-		bool passed = false;
-		// 離脱する向き(単位ベクトル)。通過した瞬間に決めて以後変えない
-		Vector3 escapeDirection{};
-		// 通過済みになってからの経過時間[秒]。escapeLifetime_を超えたら消す
-		float escapeTime = 0.0f;
-		// 全滅で落ちている最中か(クリア演出)。立ったら戦闘から降り、落ちた後に消える
-		bool dying = false;
-		float dyingTime = 0.0f;     // 落ち始めてからの経過時間[秒]
-		float dyingDuration = 0.0f; // 消えるまでの長さ[秒]。個体ごとに散らして、一斉に消えず順に消えていくようにする
-		float dyingSpin = 0.0f;     // 落ちながら転がる速さ[rad/s]
-	};
+	/// <summary>
+	/// 種別名から、その振る舞いを持つ派生クラスの敵を作る(SceneFactoryと同じ「名前→実体」の窓口)。
+	/// 呼び出し側は基底のポインタ(Enemy)で受け取るので、どの派生クラスかを知らずに済む。
+	/// 未知の種別は既定(射撃型)へ落とす(ModelPathOfと同じ扱い。データ不備でも敵が消えないので気付ける)
+	/// </summary>
+	static std::unique_ptr<Enemy> CreateEnemy(const std::string& enemy);
 
 	// 発生済みの敵を即deleteせず墓場へ移す。ImGuiのボタン処理(Draw後)から呼ばれると、
 	// このフレームの描画コマンドが敵の定数バッファを参照済みのため、
@@ -313,9 +259,6 @@ private:
 	/// <param name="directHit">弾が直撃した敵。半径に関係なく必ず巻き込む</param>
 	void Explode(const Vector3& center, float radius, int damage, const Enemy& directHit);
 
-	// HPを減らし、残っていれば色に反映する(撃破されたら消えるので色は変えない)
-	void ApplyDamage(Enemy& enemy, int damage) const;
-
 	/// <summary>
 	/// 敵の結末(撃破・取り逃し)を、その敵が出たSpawnPointへ書き残す。
 	/// 区間の集計(StageProgress)はこの記録を数えるだけなので、EnemySpawnerは区間を知らなくてよい
@@ -323,19 +266,16 @@ private:
 	void RecordOutcome(const Enemy& enemy, SpawnPoint::Outcome outcome);
 
 	// 番号から生存中の敵を探す。見つからなければnullptr。
-	// 返したポインタは敵の一覧を変えるまで(次の発生・撃破まで)しか使わないこと(vectorの要素を指すため)
+	// 返したポインタは、その敵が一覧から取り除かれるまで(撃破・離脱・Resetまで)しか使わないこと
 	const Enemy* FindEnemyById(uint32_t enemyId) const;
 
 	// 自機との接触判定(A-5)。結果をplayerHit_へ書くだけでダメージは与えない
 	void UpdatePlayerCollision(const Vector3& playerPosition, float playerRadius);
 
-	// 各個体のクールタイムを消化し、来た敵から自機へ向けて撃つ。
-	// 移動後に呼ぶこと(撃つ瞬間の位置から弾を出すため)
-	void UpdateShooting(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward);
-
-	// 種別のapproachSoundRangeまで近づいた敵の接近音を鳴らす。
-	// 移動後に呼ぶこと(近づいた瞬間の距離で判定するため)
-	void UpdateApproachSound(const Vector3& playerPosition);
+	// 接近音を鳴らす。同時に鳴らすのは1つまで(敵は2〜3体まとめて出るので、重ねると音が割れて
+	// 「近づいてきた」という合図として聞き取れなくなる。1つ鳴っていれば合図としては足りる)。
+	// 「どの敵が間合いに入ったか」は体当たり型(RammerEnemy)が判定して報告し、鳴らすかどうかだけをここで決める
+	void PlayApproachSound();
 
 	/// <summary>
 	/// 自機より後ろへ回った敵を通過済みにし、画面の外側へ離脱させる。離脱し終えた敵は消す(撃破扱いにしない)。
@@ -346,41 +286,26 @@ private:
 	/// <param name="playerForward">自機の進行方向(レールの接線。単位ベクトル)</param>
 	void UpdateEscape(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward);
 
-	// 戦闘に参加している敵か(生存中かつ通過済みでも全滅で落ちている最中でもない)。
-	// 被弾・ロックオン・照準の対象はこれで絞る。通過済みの敵は見た目だけ残って去っていく
-	static bool IsInCombat(const Enemy& enemy) { return enemy.hp > 0 && !enemy.passed && !enemy.dying; }
-
 	/// <summary>
 	/// 固まっている間(FreezeAll以降)の更新。全滅で落ちている敵を落とし、落ち切った敵を煙にして消す。
 	/// 固まっているだけの敵は動かさない(見た目の行列だけ更新する)
 	/// </summary>
 	void UpdateFrozen(float deltaTime);
 
-	// 次のクールタイムを引く。個体差を付けて斉射を防ぐ(発生時の初回待ちにも使う)
-	float NextShootCooldown(const TypeParams& params) const;
-
 	// 種別名 → typeParams_の添字。未知の種別は先頭(既定)へ落とす(ModelPathOfと同じ作法)
 	size_t TypeIndexOf(const std::string& enemy) const;
 	// 個体の性能を引く。添字が範囲外でも落ちないよう丸める
-	const TypeParams& ParamsOf(const Enemy& enemy) const;
-
-	/// <summary>
-	/// 位置から、回転したモデルの前(頭の向き。モデルの規格でローカル-Z)へoffsetだけ進めた点
-	/// </summary>
-	static Vector3 ForwardPoint(const Vector3& position, const Vector3& rotate, float offset);
+	const EnemyTypeParams& ParamsOf(const Enemy& enemy) const;
 
 	// 当たり判定の球の中心(種別のhitOffsetだけ頭の方へずらした点。ずらさない種別は位置そのもの)。
 	// 位置(position)は動かす計算に、この中心は当てる・狙う・撃つ計算に使う
 	Vector3 HitCenter(const Enemy& enemy) const;
 
-	// HPの残量を色で表す(満タン=白 → 残り少ない=赤)。
-	// なぜ色か: 「敵にHPがある」ことをプレイ動画から読み取れるようにするため。
-	// 1発で消えるとHPの存在が画面上に一切現れない
-	void ApplyHpColor(Enemy& enemy) const;
-
 	std::vector<SpawnPoint> spawnPoints_;
-	// 発生済みの敵の実体
-	std::vector<Enemy> enemies_;
+	// 発生済みの敵の実体。基底のポインタで持ち、種別(派生クラス)を問わず同じ一覧で回す。
+	// 値(vector<Enemy>)ではなくポインタで持つのは、派生クラスごとに大きさが違い、値で持つと派生部分が切り落とされるため
+	// (スライシング)。要素がヒープ上で動かないので、FindEnemyByIdが返すポインタも一覧の詰め直しで無効にならない
+	std::vector<std::unique_ptr<Enemy>> enemies_;
 	// 次に出現する敵へ振る番号。Resetでも戻さない: 番号を使い回すと、
 	// 飛んでいるチャージ弾やロックが持っている古い番号が、新しく出た別の敵を指してしまうため
 	uint32_t nextEnemyId_ = 1;
@@ -405,13 +330,13 @@ private:
 
 	// --- 種別ごとのパラメータ(ImGuiで調整する) ---
 	// 既定値はコンストラクタで入れる。並びはEnemyTypes()と揃える
-	std::vector<TypeParams> typeParams_;
+	std::vector<EnemyTypeParams> typeParams_;
 
 	// --- 全種別で共通のパラメータ ---
 	int defeatParticleCount_ = 40; // 撃破時に出すパーティクルの粒数(見た目の調整用)
 	// 敵の攻撃の切り替え(難易度確認とデバッグ用に丸ごと止められる)
 	bool shootEnabled_ = true; // 撃ってくるか
-	// 体当たりしてくるか。OFFの間は、接近型(撃たない種別)がその場に留まり、
+	// 体当たりしてくるか。OFFの間は、体当たり型(RammerEnemy)がその場に留まり、
 	// どの種別に触れてもダメージにならない(接近の予告音も鳴らさない)
 	bool ramEnabled_ = true;
 	// 間隔に掛ける乱数の幅(±割合)。0なら同じ種別の敵が全員同じ周期で撃つ

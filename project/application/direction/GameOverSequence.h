@@ -1,4 +1,5 @@
 #pragma once
+#include "direction/PhasedSequence.h"
 #include "math/Vector3.h"
 #include "effect/ParticleConfig.h"
 
@@ -22,10 +23,14 @@ struct SoundData;
 // - ゲーム時間(実時間 × GetTimeScale()): 墜落する機体の動き。シーンは同じ倍率を敵・弾にも掛ける
 // ヒットストップは「倍率0の区間」、スローモーションは「倍率0.25の区間」で、同じ仕組みの強さ違いになる。
 //
+// 毎フレームの更新の順番(時計 → 段階 → 時間倍率 → 機体と粒 → ポストエフェクト)はクリア演出と同じなので、
+// 骨組みは基底のPhasedSequenceが持ち、ここは各段の中身(段階の進め方・機体の動き・画面の効果)だけを書く。
+// シーンはISequence(演出のインターフェース)のポインタで、イントロ・クリア演出とまとめて止めたり描いたりする。
+//
 // 墜落する機体は自機(Player)とは別のObject3dで描く。Playerは位置を「レール上の距離+断面内のずれ」で
 // 表す前提で作られていて、レールを離れて自由に飛ぶ動きを入れるとその前提が崩れるため
 // (見た目はPlayer::ModelPathでそろえる。TitleSceneの自機と同じ作り)
-class GameOverSequence {
+class GameOverSequence : public PhasedSequence {
 public:
 	enum class Phase {
 		None,     // 再生していない
@@ -117,22 +122,17 @@ public:
 
 	// 再生していない状態へ戻す(ゲーム状態のリセットとシーンの終了で使う)。
 	// 時間倍率・粒・ポストエフェクトは全シーン共有なので、ここで必ず元に戻す
-	void Stop();
+	void Stop() override;
 
 	// 制御不能・遠ざかる の途中なら、その場で爆発へ進める(スキップ入力)
-	void Skip();
+	void Skip() override;
 
-	/// <summary>
-	/// 段階を進め、機体・パーティクル・ポストエフェクトを今の段階に合わせる
-	/// </summary>
-	/// <param name="deltaTime">実時間[秒](ヒットストップやスローの影響を受けない時間)</param>
-	/// <param name="camera">描画に使っているカメラ(RadialBlurの中心を機体の画面位置に合わせるため)</param>
-	void Update(float deltaTime, const Camera& camera);
+	// (Updateは基底のPhasedSequenceが持つ。cameraはRadialBlurの中心を機体の画面位置に合わせるのに使う)
 
 	// 墜落する機体を描く(爆発した後は何も描かない)
-	void Draw();
+	void Draw() override;
 
-	void SetCamera(Camera* camera);
+	void SetCamera(Camera* camera) override;
 
 	/// <summary>
 	/// カメラの回転を求める。位置はレール上で止まったまま、向きだけを機体(爆発後は爆発した点)へ向ける
@@ -144,22 +144,31 @@ public:
 
 	Phase GetPhase() const { return phase_; }
 	// 演出中か(Finishedも含む)。シーンはこの間、レールと操作を止め、自機の代わりに墜落する機体を描く
-	bool IsActive() const { return phase_ != Phase::None; }
+	bool IsActive() const override { return phase_ != Phase::None; }
 	// 真っ黒になったか。シーンは結果画面への遷移を頼む
 	bool IsFinished() const { return phase_ == Phase::Finished; }
-	// ゲーム時間の倍率。シーンは敵・弾に渡すdeltaTimeにこれを掛ける
-	float GetTimeScale() const { return timeScale_; }
+	// (ゲーム時間の倍率GetTimeScaleは基底のPhasedSequenceが持つ)
 	const Params& GetParams() const { return params_; }
 
 	// "Game Over"ウィンドウに進み具合と調整値を出す(Debug構成のみ)
-	void DrawImGui();
+	void DrawImGui() override;
 
 private:
+	// --- PhasedSequenceの骨組み(Update)から呼ばれる段 ---
+	bool IsRunning() const override { return phase_ != Phase::None && phase_ != Phase::Finished; }
+	// 今の段階の長さを過ぎていれば次の段階へ進める
+	void AdvancePhase() override;
+	// 今の段階での時間倍率
+	float ComputeTimeScale() const override;
+	// 致命的な被弾の瞬間(ヒットストップ)か
+	bool IsHitStop() const override { return phase_ == Phase::Impact; }
+	// 墜落する機体を動かし(ゲーム時間)、カメラの見送りと煙・火花を今の段階に合わせる
+	void UpdateContents(float deltaTime, const Camera& camera) override;
+	// Vignette・RadialBlur・Monochromeを今の段階に合わせる
+	void ApplyPostEffects(const Camera& camera) override;
+
 	// 段階を切り替え、段階内の経過時間を0へ戻す。入った瞬間の出来事(爆発など)もここで起こす
 	void EnterPhase(Phase phase);
-
-	// 今の段階での時間倍率
-	float ComputeTimeScale() const;
 
 	// 暗転の進み具合(暗転前=0 〜 真っ黒=1)
 	float GetFadeProgress() const;
@@ -183,20 +192,12 @@ private:
 	// 爆発の瞬間。炎・火花・煙を一斉に出し、爆発音を鳴らし、RadialBlurを一瞬強める
 	void Explode();
 
-	// Vignette・RadialBlur・Monochromeを今の段階に合わせる
-	void ApplyPostEffects(const Camera& camera);
-
 	EffectManager* effectManager_ = nullptr;
 	Params params_;
 
 	Phase phase_ = Phase::None;
-	// 今の段階に入ってからの経過時間[秒](実時間)
-	float phaseTimer_ = 0.0f;
-	// 演出が始まってからの経過時間[秒](実時間)。被弾の赤を、段階の区切りに関係なく
-	// 普段の被弾と同じ長さで消すために、段階のタイマーとは別に数える
-	float elapsed_ = 0.0f;
-	// 今フレームのゲーム時間の倍率
-	float timeScale_ = 1.0f;
+	// 段階のタイマー・演出の経過時間・時間倍率は基底のPhasedSequenceが持つ。
+	// 経過時間(GetElapsed)は、被弾の赤を段階の区切りに関係なく普段の被弾と同じ長さで消すのに使う
 
 	// --- 墜落する機体 ---
 	std::unique_ptr<Object3d> wreck_;

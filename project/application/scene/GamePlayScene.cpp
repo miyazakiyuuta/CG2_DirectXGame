@@ -20,12 +20,15 @@
 #include "camera/IntroCamera.h"
 #include "direction/GameOverSequence.h"
 #include "direction/ClearSequence.h"
+#include "direction/ISequence.h"
+#include "effect/IParticleSystem.h"
+#include "ui/IHudElement.h"
 #include "audio/SoundManager.h"
 #include "ui/NumberSprite.h"
 #include "ui/Reticle.h"
 #include "ui/ProgressGauge.h"
 #include "ui/SectionBanner.h"
-#include "scene/ResultScene.h"
+#include "scene/ClearResultScene.h"
 #include "debug/DebugRenderer.h"
 #include "effect/EffectManager.h"
 #include "effect/Vignette.h"
@@ -123,9 +126,12 @@ void GamePlayScene::Initialize() {
 	camera_->SetRotate({ std::numbers::pi_v<float> / 10.0f,0.0f,0.0f });
 	camera_->SetTranslate({ 0.0f,7.5f,-20.0f });
 
-	// パーティクルにこのシーンのアクティブカメラを渡す(初期化・更新・描画はFrameworkが行う)
-	ParticleManager::GetInstance()->SetCamera(camera_.get());
-	GPUParticleManager::GetInstance()->SetCamera(camera_.get());
+	// パーティクルにこのシーンのアクティブカメラを渡す(初期化・更新・描画はFrameworkが行う)。
+	// CPU版・GPU版をパーティクルの仕組みのインターフェースとして並べ、以降のカメラの受け渡しはこの一覧を回す
+	particleSystems_ = { ParticleManager::GetInstance(), GPUParticleManager::GetInstance() };
+	for (IParticleSystem* particleSystem : particleSystems_) {
+		particleSystem->SetCamera(camera_.get());
+	}
 
 	// 敵の撃破演出(A-4の残り)。プリセットとして登録しておき、EnemySpawnerは
 	// Emit(名前, 位置, 個数)の1行で発生させる(発生側がconfigを持たない=調整はここ1箇所)。
@@ -334,6 +340,9 @@ void GamePlayScene::Initialize() {
 	// シーンはここで作られるので、開始はこの1箇所で済む(エディタのPlayボタンはEnterPlayが始める)
 	introCamera_ = std::make_unique<IntroCamera>();
 	introCamera_->Start();
+
+	// 演出をインターフェースの一覧にまとめる(以降、共通の操作はこの一覧を回す)
+	sequences_ = { introCamera_.get(), gameOverSequence_.get(), clearSequence_.get() };
 }
 
 void GamePlayScene::InitializeHud() {
@@ -388,6 +397,9 @@ void GamePlayScene::InitializeHud() {
 	// 区間の結果表示。出すのは区間が確定したとき(Update)なので、ここでは作るだけ
 	sectionBanner_ = std::make_unique<SectionBanner>();
 	sectionBanner_->Initialize();
+
+	// HUD部品をインターフェースの一覧にまとめる(濃さと描画はこの一覧を回す)。並びは描画の順番
+	hudElements_ = { progressGauge_.get(), sectionBanner_.get(), reticle_.get() };
 }
 
 int GamePlayScene::GetScore() const {
@@ -491,7 +503,7 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	// イントロ中はカメラが自機の後ろにいないので、狙点を投影したレティクルも見当違いの所に出てしまう。
 	// Edit中も消す: 編集中はHP・スコア・操作説明・レティクルが画面に重なって邪魔になるため
 	// (Playに入るとイントロが始まり、終わった後にこの下のフェードインで戻る)
-	if (introCamera_->IsPlaying() || mode_ == Mode::Edit) {
+	if (introCamera_->IsActive() || mode_ == Mode::Edit) {
 		hudAlpha_ = 0.0f;
 	} else if (gameOverSequence_->IsActive() || clearSequence_->IsActive()) {
 		// ゲームオーバー演出の間は消していく(一瞬で消すと、致命的な被弾でHPが0になった様子が見えない)。
@@ -517,18 +529,20 @@ void GamePlayScene::UpdateHud(float deltaTime) {
 	scoreNumber_->SetColor({ 1.0f, 1.0f, 1.0f, hudAlpha_ });
 	scoreNumber_->Update();
 
+	// HUD部品の濃さをHUD全体のフェードにそろえる(各部品のUpdateより前に)
+	for (IHudElement* hudElement : hudElements_) {
+		hudElement->SetAlpha(hudAlpha_);
+	}
+
 	// 進行ゲージ。区間の集計は敵の更新の後(Update内)で済んでいるので、このフレームの結果がそのまま出る
-	progressGauge_->SetAlpha(hudAlpha_);
 	progressGauge_->Update(stageProgress_->GetSections(), railDistance_, stage_->GetRail().GetTotalLength(),
 		enemySpawner_->HasGoal());
 
 	// 区間の結果表示。表示時間はヒットストップで止めないよう実dtで進める
-	sectionBanner_->SetAlpha(hudAlpha_);
 	sectionBanner_->Update(deltaTime);
 
 	// 照準。狙点は弾と共有している点なので、レティクルの位置＝弾の到達点になる。
 	// 描画に使っているカメラで投影する(デバッグカメラON中はそちらの見え方に合わせる)
-	reticle_->SetAlpha(hudAlpha_);
 	reticle_->SetAimingAtEnemy(enemySpawner_->IsAimedAt(player_->GetAimPoint()));
 	// チャージの溜まり具合とロック中の敵。判定と状態の保持はPlayer・EnemySpawnerが済ませていて、
 	// ここは「どう見せるか」を持つReticleへ結果を渡すだけ(照準の色替えと同じ分担)
@@ -564,9 +578,10 @@ void GamePlayScene::DrawHud() {
 	}
 	controlsSprite_->Draw();
 	scoreNumber_->Draw(); // 数字画像が未配置なら何も描かない
-	progressGauge_->Draw();
-	sectionBanner_->Draw(); // 表示中でなければ何も描かない
-	reticle_->Draw();     // 狙点がカメラ背面なら何も描かない
+	// 進行ゲージ・区間の結果表示・照準。見せる物が無い部品(表示中でない結果表示・カメラ背面の狙点)は何も描かない
+	for (IHudElement* hudElement : hudElements_) {
+		hudElement->Draw();
+	}
 }
 
 void GamePlayScene::StartGameOver() {
@@ -642,7 +657,7 @@ void GamePlayScene::RequestResult(const std::string& sceneName, BlindTransition:
 	// クリアならランク(駆除報告)も預ける。決め方(駆除率と被弾数)はStageProgressが持つ。
 	// 女王を倒したフレームでも、区間の集計は敵の更新の直後に済んでいるので、最後の区間まで数えた結果になる
 	if (sceneName == "CLEAR") {
-		ResultScene::SetRank(stageProgress_->ComputeRank(GetDamageTaken()));
+		ClearResultScene::SetRank(stageProgress_->ComputeRank(GetDamageTaken()));
 	}
 	SceneManager::GetInstance()->ChangeScene(sceneName, std::make_unique<BlindTransition>(startState));
 }
@@ -664,13 +679,12 @@ void GamePlayScene::Finalize() {
 	ParticleManager::GetInstance()->ClearParticles(kChargeExplosionEffect);
 	// 巣の全滅の煙も同じ理由で消す
 	ParticleManager::GetInstance()->ClearParticles(EnemySpawner::ExterminateEffectName());
-	// ゲームオーバー演出の煙・火花・爆発の粒も同じ理由で消し、パーティクルの時間倍率を等速へ戻す
+	// 演出(ゲームオーバー・クリア)の煙・火花・爆発の粒も同じ理由で消し、パーティクルの時間倍率を等速へ戻す
 	// (倍率はParticleManagerの全グループに掛かるので、残すと次のシーンの粒までスローになる)
-	gameOverSequence_->Stop();
-	// クリア演出の炎・火花・煙も同じ(時間倍率も等速へ戻す)
-	clearSequence_->Stop();
-	ParticleManager::GetInstance()->SetCamera(nullptr);
-	GPUParticleManager::GetInstance()->SetCamera(nullptr);
+	StopAllSequences();
+	for (IParticleSystem* particleSystem : particleSystems_) {
+		particleSystem->SetCamera(nullptr);
+	}
 	// 光は全シーンで共有する状態なので、夜の光にしたこのシーンが元へ戻す
 	// (戻さないと、次のシーン(タイトルなど)まで夜の光のまま描かれる。パーティクルの時間倍率と同じ決まり)
 	Object3dCommon::GetInstance()->ResetLights();
@@ -684,7 +698,7 @@ void GamePlayScene::Update(float deltaTime) {
 	// ゲームオーバー演出の間は、演出が決めた時間倍率(ヒットストップ=0 / スロー=0.25 / 等速=1)を掛ける。
 	// 倍率は前のフレームの演出の更新で決まった値(1フレームの遅れは体感できない)。
 	// クリア演出の倍率も同じく掛ける(2つの演出は同時には起きないので、演出していない方は1のまま)
-	float gameDelta = deltaTime * gameOverSequence_->GetTimeScale() * clearSequence_->GetTimeScale();
+	float gameDelta = deltaTime * GetSequenceTimeScale();
 	if (hitStopTimer_ > 0.0f) {
 		hitStopTimer_ = (std::max)(hitStopTimer_ - deltaTime, 0.0f);
 		gameDelta = 0.0f;
@@ -717,49 +731,47 @@ void GamePlayScene::Update(float deltaTime) {
 
 	// デバッグカメラON中は描画に使うカメラを差し替える(ゲームカメラのTransformは汚さない)
 	Camera* activeCamera = GetActiveCamera();
-	ParticleManager::GetInstance()->SetCamera(activeCamera);
-	GPUParticleManager::GetInstance()->SetCamera(activeCamera);
+	for (IParticleSystem* particleSystem : particleSystems_) {
+		particleSystem->SetCamera(activeCamera);
+	}
 	stage_->SetCamera(activeCamera);
 	player_->SetCamera(activeCamera);
 	bulletManager_->SetCamera(activeCamera);
 	enemyBulletManager_->SetCamera(activeCamera);
 	chargeBulletManager_->SetCamera(activeCamera);
 	enemySpawner_->SetCamera(activeCamera);
-	gameOverSequence_->SetCamera(activeCamera);
-	clearSequence_->SetCamera(activeCamera);
-
-	// ゲーム開始のイントロ。Enter/パッドSTARTでスキップする(終点はレールカメラと同じなので、止めるだけで定位置へ移る)。
-	// タイトル・結果画面の「決定」に入っているSpace/パッドAを含めないのは、射撃と同じボタンのため
-	// (含めると、スキップして操作できるようになった瞬間に1発撃ってしまう)。
-	// 時間はヒットストップの影響を受けない実dtで進める
-	if (introCamera_->IsPlaying() &&
-		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
-		introCamera_->Stop();
+	for (ISequence* sequence : sequences_) {
+		sequence->SetCamera(activeCamera); // 描く物を持たない演出(イントロ)は何もしない
 	}
-	introCamera_->Update(deltaTime);
-	// このフレームでイントロ中か。以降のレール前進・カメラ・Playerへの許可はすべてこの値で判断する
-	const bool introPlaying = introCamera_->IsPlaying();
-
-	// ゲームオーバー演出のスキップ(制御不能・遠ざかる の途中なら、その場で爆発へ進む)。
-	// ボタンはイントロのスキップと同じEnter/パッドSTART(射撃のSpace/パッドAは含めない)
-	if (gameOverSequence_->IsActive() &&
-		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
-		gameOverSequence_->Skip();
-	}
-	// このフレームでゲームオーバー演出中か(フレームの途中でHPが尽きて始まった場合は、次のフレームから効く)
-	const bool gameOverActive = gameOverSequence_->IsActive();
 
 	// クリア演出の段階を、スキップより前に控える。下で「このフレームで大爆発に入ったか」を見るとき、
 	// スキップで大爆発へ飛んだ場合も変化として拾えるようにするため
 	// (スキップの後に控えると、もう大爆発に入った後の値になり、揺れと全滅を取りこぼす)
 	const ClearSequence::Phase clearPhaseBefore = clearSequence_->GetPhase();
-	// クリア演出のスキップ(断末魔の途中なら大爆発へ、全滅・余韻の途中なら終わりへ)。ボタンはゲームオーバーと同じ
-	if (clearSequence_->IsActive() &&
-		(Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START))) {
-		clearSequence_->Skip();
+
+	// 演出のスキップ。ボタンは演出の種類を問わずEnter/パッドSTARTで、どこまで飛ばすかは各演出が決める
+	// (イントロ=止めて定位置へ / ゲームオーバー=その場で爆発へ / クリア=大爆発か終わりへ)。
+	// タイトル・結果画面の「決定」に入っているSpace/パッドAを含めないのは、射撃と同じボタンのため
+	// (含めると、スキップして操作できるようになった瞬間に1発撃ってしまう)
+	if (Input::GetInstance()->IsTriggerKey(DIK_RETURN) || Input::GetInstance()->IsTriggerPad(XINPUT_GAMEPAD_START)) {
+		for (ISequence* sequence : sequences_) {
+			if (sequence->IsActive()) {
+				sequence->Skip();
+			}
+		}
 	}
-	// このフレームでクリア演出中か(女王を倒したフレームに始まった場合は、次のフレームから効く)
-	const bool clearActive = clearSequence_->IsActive();
+
+	// ゲーム開始のイントロ。時間はヒットストップの影響を受けない実dtで進める
+	// (ゲームオーバー・クリア演出の更新は、自機と敵の更新の後=このフレームに始まった演出も拾える位置で行う)
+	introCamera_->Update(deltaTime, *GetActiveCamera());
+	// このフレームでイントロ中か。下のカメラはイントロの軌道で上書きする
+	const bool introPlaying = introCamera_->IsActive();
+	// このフレームでゲームオーバー演出中か(フレームの途中でHPが尽きて始まった場合は、次のフレームから効く)。
+	// 下のカメラは墜落する機体の見送りで上書きする
+	const bool gameOverActive = gameOverSequence_->IsActive();
+	// このフレームでどれかの演出中か(イントロ・ゲームオーバー・クリア)。
+	// 以降のレール前進・Playerへの許可はすべてこの値で判断する(演出の種類ごとに並べて調べない)
+	const bool sequencePlaying = IsAnySequenceActive();
 
 	// レールカメラ: railDistance_はプレイヤーの進行度。カメラはプレイヤーの座標系を
 	// 接線方向にcameraBackDistance_だけ下がった位置に置き、接線の向きで進行方向を向く。
@@ -773,7 +785,7 @@ void GamePlayScene::Update(float deltaTime) {
 			// イントロ中はレールを進めない(自機は始点に留まる=敵の出現タイミングはイントロの長さに左右されない)。
 			// ゲームオーバー演出中も止める: カメラが止まった位置に残り、流されていく機体を見送る形になる
 			// (新しい敵も出てこない)。クリア演出中も止める(女王の前で止まったまま、爆発を見届ける)
-			if (!resultRequested_ && mode_ == Mode::Play && !introPlaying && !gameOverActive && !clearActive) {
+			if (!resultRequested_ && mode_ == Mode::Play && !sequencePlaying) {
 				railDistance_ += railSpeed_ * gameDelta;
 
 				if (railLoop_) {
@@ -867,7 +879,7 @@ void GamePlayScene::Update(float deltaTime) {
 	// SetRailDistanceと同じ作法)
 	// ゲームオーバー演出中も止める(機体はもう演出の墜落する機体に入れ替わっていて、自機は描かれていない)。
 	// クリア演出中も止める(自機はその場に浮いたまま。決めポーズなどの動きはプレイヤーアクションの回で考える)
-	const bool controllable = mode_ == Mode::Play && !introPlaying && !gameOverActive && !clearActive;
+	const bool controllable = mode_ == Mode::Play && !sequencePlaying;
 	player_->SetDamageEnabled(controllable);
 	player_->SetShootEnabled(controllable);
 	player_->SetMoveEnabled(controllable);
@@ -1114,18 +1126,20 @@ void GamePlayScene::Draw() {
 	//skybox_->Draw(*camera_);
 
 	stage_->Draw();
-	// ゲームオーバー演出中は、自機の代わりに演出の墜落する機体を描く(同じモデル・同じ姿勢から始まるので入れ替わりは見えない)
-	if (gameOverSequence_->IsActive()) {
-		gameOverSequence_->Draw();
-	} else {
+	// ゲームオーバー演出中は、自機の代わりに演出の墜落する機体を描く(同じモデル・同じ姿勢から始まるので入れ替わりは見えない)。
+	// 機体そのものは下の演出の一覧が描く
+	if (!gameOverSequence_->IsActive()) {
 		player_->Draw();
 	}
 	bulletManager_->Draw();
 	chargeBulletManager_->Draw();
 	enemyBulletManager_->Draw();
 	enemySpawner_->Draw();
-	// クリア演出中は女王の亡骸を描く(女王本体は撃破でEnemySpawnerから消えているので、入れ替わりは見えない)
-	clearSequence_->Draw();
+	// 演出が持つ物体を描く(墜落する機体・女王の亡骸。描く物が無い演出や、見せ終えた演出は何も描かない)。
+	// 女王本体は撃破でEnemySpawnerから消えているので、亡骸との入れ替わりは見えない
+	for (ISequence* sequence : sequences_) {
+		sequence->Draw();
+	}
 
 	DebugRenderer::GetInstance()->RenderAll(*GetActiveCamera());
 
@@ -1437,14 +1451,11 @@ void GamePlayScene::DrawImGui() {
 	// プレイヤーのオフセット・速度・射撃/照準・アクション押下状態
 	player_->DrawImGui();
 
-	// イントロの進み具合と軌道の調整値(見直しはHierarchy先頭のRestartボタン)
-	introCamera_->DrawImGui();
-
-	// ゲームオーバー演出の進み具合と調整値(再生はHierarchyのForce GameOver)
-	gameOverSequence_->DrawImGui();
-
-	// クリア演出の進み具合と調整値(再生はHierarchyのForce Clear / Preview Clear)
-	clearSequence_->DrawImGui();
+	// 演出の進み具合と調整値("Intro Camera" / "Game Over" / "Clear"の各ウィンドウ)。
+	// 再生は、イントロ=Hierarchy先頭のRestart / ゲームオーバー=Force GameOver / クリア=Force Clear・Preview Clear
+	for (ISequence* sequence : sequences_) {
+		sequence->DrawImGui();
+	}
 
 	// 弾の生存数・速度・寿命・判定半径
 	bulletManager_->DrawImGui();
@@ -1696,13 +1707,10 @@ void GamePlayScene::ResetGameState() {
 	damageEffectTimer_ = 0.0f;
 	// 区間の結果表示は消す(集計そのものは敵の記録から数え直すので、戻す必要はない)
 	sectionBanner_->Hide();
-	// イントロは止めるだけ(始めるのはInitializeとEnterPlay)。
-	// ここで始めると、Stopボタン(Editへ入る)でも再生されてしまう
-	introCamera_->Stop();
-	// ゲームオーバー演出も止める(墜落する機体・粒・時間倍率・ポストエフェクトを元に戻す)
-	gameOverSequence_->Stop();
-	// クリア演出も止める(亡骸・粒・時間倍率・ポストエフェクトを元に戻す。固まった敵はenemySpawner_->Resetが戻す)
-	clearSequence_->Stop();
+	// 演出はすべて止める。イントロは止めるだけ(始めるのはInitializeとEnterPlay。ここで始めると、
+	// Stopボタン(Editへ入る)でも再生されてしまう)。ゲームオーバー・クリア演出は機体・亡骸・粒・時間倍率・
+	// ポストエフェクトを元に戻す(クリア演出で固まった敵はenemySpawner_->Resetが戻す)
+	StopAllSequences();
 	// 演出でBGMをフェードアウトしていたら鳴らし直す。フェードし切ると再生が止まり、
 	// フェードの途中ならこのまま消えていくので、どちらの場合も止めてから最初から鳴らす
 	// (止まっている再生をStopWaveしても何も起きない)
@@ -1741,6 +1749,29 @@ void GamePlayScene::EnterEdit() {
 	// プレイの出口(RequestResult)からUpdateの途中で呼ばれた場合、このフレームの描画カメラは
 	// 決定済みなので、切り替わった視点が使われるのは次のフレームから
 	debugCamera_->SetActive(true);
+}
+
+bool GamePlayScene::IsAnySequenceActive() const {
+	for (const ISequence* sequence : sequences_) {
+		if (sequence->IsActive()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+float GamePlayScene::GetSequenceTimeScale() const {
+	float timeScale = 1.0f;
+	for (const ISequence* sequence : sequences_) {
+		timeScale *= sequence->GetTimeScale(); // 時間を操作しない演出(イントロ)は常に1
+	}
+	return timeScale;
+}
+
+void GamePlayScene::StopAllSequences() {
+	for (ISequence* sequence : sequences_) {
+		sequence->Stop();
+	}
 }
 
 Camera* GamePlayScene::GetActiveCamera() const {

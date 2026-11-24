@@ -2,6 +2,7 @@
 #include "base/DirectXCommon.h"
 #include "effect/GPUParticle.h"
 #include "effect/GPUParticleConfig.h"
+#include "effect/IParticleSystem.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,8 +15,10 @@ class GPUParticleEmitter;
 // GPUパーティクルの共有資源(RootSignature/PSO)とグループ(粒子バッファ+エミッタ)を管理するシングルトン。
 // 生成(Emit CS)・更新(Update CS)・描画まで粒子データはVRAM内で完結し、CPUはパラメータ書き込みとDispatchだけ行う。
 // Initialize/Update/DispatchAll/Draw/FinalizeはFrameworkが呼ぶので、シーンはSetCamera(camera)を渡すだけ。
-// ブレンドはAdd固定(加算合成は描画順非依存のためGPUソートが不要になる)
-class GPUParticleManager {
+// ブレンドはAdd固定(加算合成は描画順非依存のためGPUソートが不要になる)。
+// FrameworkとシーンはIParticleSystem(パーティクルの仕組みのインターフェース)としてCPU版とまとめて扱う
+// (DispatchAllはGPU版にしか無いので、インターフェースには入れず具象の型のまま呼ぶ)
+class GPUParticleManager : public IParticleSystem {
 public:
 	// 1グループあたりの最大粒子数(GPUParticle.hlsliのkMaxParticlesと必ず一致させる)
 	static const uint32_t kMaxParticles = 102400;
@@ -27,13 +30,13 @@ public:
 	void Finalize();
 
 	// エミッタパラメータ・PerFrameのCBV書き込みと射出タイミング判定(Frameworkが毎フレーム呼ぶ)
-	void Update(float deltaTime);
+	void Update(float deltaTime) override;
 
 	// 全グループのEmit/Update CSをまとめてDispatchする(Frameworkがシーン描画前に呼ぶ)
 	void DispatchAll();
 
 	// 加算合成なのでシーン描画の後に呼ぶ(Frameworkが毎フレーム呼ぶ)
-	void Draw();
+	void Draw() override;
 
 	// グループを作成する。既存の名前なら何もしない(冪等)
 	void CreateParticleGroup(const std::string& name, const std::string& textureFilePath, const GPUParticleConfig& config);
@@ -43,7 +46,7 @@ public:
 	// GPUParticleConfig編集用の共通UI(USE_IMGUI未定義時は何もしない)
 	static void DrawConfigImGui(GPUParticleConfig& config);
 
-	void SetCamera(const Camera* camera) { camera_ = camera; }
+	void SetCamera(const Camera* camera) override { camera_ = camera; }
 
 	// GPUParticleEmitterがコンストラクタ/デストラクタで自動的に呼ぶ(直接呼ぶ必要はない)
 	void RegisterEmitter(GPUParticleEmitter* emitter);

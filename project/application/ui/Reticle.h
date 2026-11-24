@@ -1,5 +1,6 @@
 #pragma once
 #include "math/Vector2.h"
+#include "ui/IHudElement.h"
 #include "math/Vector3.h"
 
 #include <cstdint>
@@ -22,7 +23,7 @@ class Sprite;
 // 全構成(Debugのビュー内表示 / Development・Releaseの全画面)で同じ位置に出る。
 // Input::GetSceneImagePos()を使わないのは、あれがUSE_IMGUI限定かつ
 // 「ImGuiのDrawListへ直接描くオーバーレイ」用の値だから(スプライトはRTの中に描かれる)。
-class Reticle {
+class Reticle : public IHudElement {
 public:
 	// 十字とロック枠を構成するスプライトを作る
 	void Initialize();
@@ -38,7 +39,7 @@ public:
 	void Update(const Vector3& aimPoint, const Camera& camera, float deltaTime);
 
 	// 呼び出し側が先にSpriteCommon::CommonDrawSetting()を済ませていること(HUDと同じ経路)
-	void Draw();
+	void Draw() override;
 
 	/// <summary>
 	/// 狙点が敵に重なっているか。trueで色が変わる。
@@ -79,10 +80,10 @@ public:
 	/// 全体の透明度の倍率(0〜1)。HUDのフェードイン用。
 	/// 色そのものはUpdateで状態(敵に重なっているか・チャージ)から決まるので、外からは濃さだけを渡す。Updateより前に呼ぶこと
 	/// </summary>
-	void SetAlpha(float alpha) { alpha_ = alpha; }
+	void SetAlpha(float alpha) override { alpha_ = alpha; }
 
 	Reticle();
-	~Reticle();
+	~Reticle() override;
 
 private:
 	// 十字の各パーツ(4本+中心点)の位置と大きさを両方の列へ同じ規則で書き込む。

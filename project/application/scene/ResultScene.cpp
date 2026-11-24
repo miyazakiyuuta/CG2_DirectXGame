@@ -15,9 +15,6 @@
 #include <string>
 
 namespace {
-	const std::string kClearTexture = "resources/ui/clear.png";
-	const std::string kGameOverTexture = "resources/ui/gameover.png";
-
 	// 選択肢の画像(仮。Pillowで生成した、rank_label.pngと同じ「白文字＋黒縁」)。並びはMenuItemと同じ
 	const std::string kMenuTextures[] = { "resources/ui/menu_retry.png", "resources/ui/menu_title.png" };
 	// 選択肢を選んだときに移るシーン。並びはMenuItemと同じ
@@ -28,9 +25,7 @@ namespace {
 	// 左スティックをこれ以上倒したら1つ動かす(倒し始めの小さな揺れでは動かさない)
 	constexpr float kStickThreshold = 0.5f;
 
-	// 結果音。表示と同時に鳴らす
-	const std::string kClearSound = "resources/sounds/clear.mp3";
-	const std::string kGameOverSound = "resources/sounds/gameover.mp3";
+	// 結果音の音量。どの音を鳴らすかは派生クラスが決める
 	constexpr float kResultVolume = 0.8f;
 
 	// スコア表示。数字画像は0〜9が等幅で並んだ1枚
@@ -44,60 +39,40 @@ namespace {
 	// GamePlaySceneから渡される表示用スコア。
 	// ResultSceneは遷移のたびに作り直されるので、実体ではなくここで預かる
 	int gPendingScore = 0;
-	// 同じく、表示用のランク(CLEARのときだけ使う)
-	StageProgress::Rank gPendingRank = StageProgress::Rank::C;
-
-	// ランク(仮の画像。Pythonで生成したもの。clear.pngと同じ「白文字＋黒縁」)。
-	// ranks.png は S/A/B/C を左から等幅に並べてあり、Rankの並び(S=0〜C=3)の位置を切り出す
-	const std::string kRankTexture = "resources/ui/ranks.png";
-	const std::string kRankLabelTexture = "resources/ui/rank_label.png";
-	constexpr int kRankCount = 4;
-	constexpr float kRankLetterHeight = 110.0f; // 文字の高さ[px](1280x720基準)。結果の中で一番目立たせる
-	constexpr float kRankLabelHeight = 40.0f;   // 「RANK」の高さ[px]
-	constexpr float kRankGap = 16.0f;           // 「RANK」と文字の間[px]
-	// ランクごとの色(画像は白文字なので、色を掛けると文字だけが染まる)。
-	// Sは区間のPERFECTと同じ金色にして「全部うまくいった」ことを同じ色で伝える
-	Vector4 RankColor(StageProgress::Rank rank) {
-		switch (rank) {
-		case StageProgress::Rank::S: return { 1.0f, 0.85f, 0.2f, 1.0f };
-		case StageProgress::Rank::A: return { 1.0f, 0.55f, 0.3f, 1.0f };
-		case StageProgress::Rank::B: return { 0.55f, 0.85f, 1.0f, 1.0f };
-		default:                     return { 0.75f, 0.75f, 0.75f, 1.0f };
-		}
-	}
 
 	// 画像は1280x720想定で作ってあるので、実解像度に合わせて拡大する。
 	// kClientWidthは構成で変わる(Debug=1920x1080 / Release=1280x720)ため直値は使えない
 	constexpr float kBaseWidth = 1280.0f;
 }
 
-ResultScene::ResultScene(Type type) : type_(type) {}
+ResultScene::ResultScene() = default;
 
 void ResultScene::SetScore(int score) {
 	gPendingScore = score;
 }
 
-void ResultScene::SetRank(StageProgress::Rank rank) {
-	gPendingRank = rank;
+float ResultScene::GetUiScale() {
+	return static_cast<float>(WinApp::kClientWidth) / kBaseWidth;
 }
 
 void ResultScene::Initialize() {
-	const float uiScale = static_cast<float>(WinApp::kClientWidth) / kBaseWidth;
+	// 違い(画像・色・音・並び)は仮想関数で派生クラスから引く。
+	// コンストラクタではなくInitializeで引くのは、コンストラクタの中で仮想関数を呼ぶと
+	// 派生クラスの部分がまだ出来上がっておらず、派生クラスの上書きが効かないため
+	const float uiScale = GetUiScale();
 	const float centerX = static_cast<float>(WinApp::kClientWidth) * 0.5f;
 	const float height = static_cast<float>(WinApp::kClientHeight);
 
-	// 縦の並び(画面の高さに対する割合)。CLEARはランクの段が入るぶん、全体を上へ詰める。
-	// ゲームオーバーはランクを出さないので従来どおり
-	const bool isClear = type_ == Type::Clear;
-	const float resultY = height * (isClear ? 0.28f : 0.42f);
-	const float rankY = height * 0.45f;
-	const float scoreTop = height * (isClear ? 0.57f : 0.55f);
+	// 縦の並び(画面の高さに対する割合)。クリアはランクの段が入るぶん、全体を上へ詰める
+	const Layout layout = GetLayout();
+	const float resultY = height * layout.resultY;
+	const float scoreTop = height * layout.scoreTop;
 	// 選択肢は縦に2つ並べる(上がRETRY、下がTITLE)
-	const float menuTopY = height * (isClear ? 0.73f : 0.70f);
+	const float menuTopY = height * layout.menuTopY;
 	const float menuSpacing = height * 0.1f;
 
 	// Sprite::InitializeはTextureManagerに登録済みのSRVを引くだけなので、先に読み込む
-	const std::string& resultTexture = (type_ == Type::Clear) ? kClearTexture : kGameOverTexture;
+	const std::string resultTexture = GetResultTexturePath();
 	TextureManager::GetInstance()->LoadTexture(resultTexture);
 
 	// 中央に結果、その下に選択肢。アンカーを中心にすると画像の実寸に関係なく中央へ揃う
@@ -108,10 +83,7 @@ void ResultScene::Initialize() {
 	const Vector2 resultSize = resultSprite_->GetSize();
 	resultSprite_->SetSize({ resultSize.x * uiScale, resultSize.y * uiScale });
 	resultSprite_->SetPos({ centerX, resultY });
-	// クリアは白、ゲームオーバーは赤みを足して一目で区別できるようにする
-	resultSprite_->SetColor((type_ == Type::Clear)
-		? Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }
-		: Vector4{ 1.0f, 0.45f, 0.45f, 1.0f });
+	resultSprite_->SetColor(GetResultColor());
 
 	// 選択肢。高さをそろえ、横幅は画像の縦横比から決める(RANKの見出しと同じやり方)
 	for (int i = 0; i < kMenuCount; ++i) {
@@ -129,8 +101,7 @@ void ResultScene::Initialize() {
 	UpdateMenu(); // 最初のフレームから、選択肢の大きさと透明度(猶予の間は0)を決めておく
 
 	// 結果音を鳴らす。シーン入場と同時に1回だけ(Updateではなくここ)
-	const std::string& soundPath = (type_ == Type::Clear) ? kClearSound : kGameOverSound;
-	resultSound_ = SoundManager::GetInstance()->LoadFile(soundPath);
+	resultSound_ = SoundManager::GetInstance()->LoadFile(GetResultSoundPath());
 	const SoundManager::SoundHandle handle = SoundManager::GetInstance()->PlayWave(
 		resultSound_, false, SoundManager::SoundCategory::SE);
 	SoundManager::GetInstance()->SetVolume(handle, kResultVolume);
@@ -144,41 +115,6 @@ void ResultScene::Initialize() {
 	scoreNumber_->SetDigitSize({ digitWidth, kScoreDigitHeight * uiScale }, digitGap);
 	scoreNumber_->SetPosition({ centerX - totalWidth * 0.5f, scoreTop });
 	scoreNumber_->SetValue(gPendingScore);
-
-	// ランク(駆除報告)。CLEARのときだけ、「RANK」と文字を横に並べて中央に置く
-	if (isClear) {
-		TextureManager::GetInstance()->LoadTexture(kRankTexture);
-		TextureManager::GetInstance()->LoadTexture(kRankLabelTexture);
-
-		rankLabelSprite_ = std::make_unique<Sprite>();
-		rankLabelSprite_->Initialize(SpriteCommon::GetInstance(), kRankLabelTexture);
-		rankLabelSprite_->SetAnchorPoint({ 0.5f, 0.5f });
-		// Initialize直後のサイズ=画像の実寸。縦横比を保って、高さだけ決める
-		const Vector2 labelTexture = rankLabelSprite_->GetSize();
-		const float labelHeight = kRankLabelHeight * uiScale;
-		const float labelWidth = labelTexture.y > 0.0f ? labelHeight * labelTexture.x / labelTexture.y : 0.0f;
-
-		rankSprite_ = std::make_unique<Sprite>();
-		rankSprite_->Initialize(SpriteCommon::GetInstance(), kRankTexture);
-		rankSprite_->SetAnchorPoint({ 0.5f, 0.5f });
-		// 1文字分の枠 = 画像の横幅 ÷ 4。Rankの並び(S=0〜C=3)の番号の枠を切り出す
-		const Vector2 rankTexture = rankSprite_->GetSize();
-		const float cellWidth = rankTexture.x / static_cast<float>(kRankCount);
-		const int rankIndex = std::clamp(static_cast<int>(gPendingRank), 0, kRankCount - 1);
-		rankSprite_->SetTextureLeftTop({ cellWidth * static_cast<float>(rankIndex), 0.0f });
-		rankSprite_->SetTextureSize({ cellWidth, rankTexture.y });
-		const float letterHeight = kRankLetterHeight * uiScale;
-		const float letterWidth = rankTexture.y > 0.0f ? letterHeight * cellWidth / rankTexture.y : 0.0f;
-
-		// 「RANK」+隙間+文字 の全体を中央へ揃える
-		const float gap = kRankGap * uiScale;
-		const float rowLeft = centerX - (labelWidth + gap + letterWidth) * 0.5f;
-		rankLabelSprite_->SetSize({ labelWidth, labelHeight });
-		rankLabelSprite_->SetPos({ rowLeft + labelWidth * 0.5f, rankY });
-		rankSprite_->SetSize({ letterWidth, letterHeight });
-		rankSprite_->SetPos({ rowLeft + labelWidth + gap + letterWidth * 0.5f, rankY });
-		rankSprite_->SetColor(RankColor(gPendingRank));
-	}
 }
 
 void ResultScene::Finalize() {
@@ -216,10 +152,6 @@ void ResultScene::Update(float deltaTime) {
 	// 頂点と行列の書き込みはUpdateが行うため、Drawの前に毎フレーム呼ぶ
 	resultSprite_->Update();
 	scoreNumber_->Update();
-	if (rankSprite_) {
-		rankLabelSprite_->Update();
-		rankSprite_->Update();
-	}
 }
 
 void ResultScene::Draw() {
@@ -230,10 +162,6 @@ void ResultScene::Draw() {
 		menuSprite->Draw();
 	}
 	scoreNumber_->Draw(); // 数字画像が未配置なら何も描かない
-	if (rankSprite_) { // CLEARのときだけ作ってある
-		rankLabelSprite_->Draw();
-		rankSprite_->Draw();
-	}
 }
 
 void ResultScene::Decide() {

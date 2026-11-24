@@ -27,7 +27,8 @@ void IntroCamera::Stop() {
 	playing_ = false;
 }
 
-void IntroCamera::Update(float deltaTime) {
+void IntroCamera::Update(float deltaTime, const Camera& camera) {
+	(void)camera; // カメラの姿勢はシーンがComputePoseで求めて書き込む
 	if (!playing_) {
 		return;
 	}

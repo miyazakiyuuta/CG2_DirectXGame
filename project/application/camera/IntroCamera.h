@@ -1,16 +1,20 @@
 #pragma once
+#include "direction/ISequence.h"
 #include "math/Vector3.h"
 
 // ゲーム開始のカメラ演出(イントロ)。自機の前方斜め上から回り込み、レールカメラの定位置に着いたら終わる。
 //
 // なぜ専用クラスにするか: 「経過時間とレール上の自機 → カメラの位置と回転」という閉じた計算で、
 // 調整値もここでしか使わないため。ゲーム進行を止める判断(レール・操作・HUD)はシーンが
-// IsPlaying()を見て行い、このクラスはゲームの状態を知らない(Reticleが表示だけを担当するのと同じ分担)。
+// IsActive()を見て行い、このクラスはゲームの状態を知らない(Reticleが表示だけを担当するのと同じ分担)。
 //
 // 位置は自機を中心とした球の上(方位・仰角・距離)で補間し、回転は毎フレーム「自機を見る向き」から求める。
 // 角度を直接補間しないのは、前から後ろへ回り込むとyawが180度変わり、atan2の±πの境目で逆回りしうるため。
 // 終点(方位0・仰角0・距離backDistance)はレールカメラの位置・回転と一致するので、終わった瞬間に画面が飛ばない
-class IntroCamera {
+//
+// 演出のインターフェース(ISequence)を実装し、シーンはゲームオーバー・クリア演出とまとめて止めたり飛ばしたりする。
+// 描く物も時間倍率も持たないので、Draw・SetCamera・GetTimeScaleは基底の既定(何もしない・等速)のまま使う
+class IntroCamera : public ISequence {
 public:
 	/// <summary>
 	/// 演出の時間と軌道。ImGui(Debug構成)から調整できるようメンバに持つ。
@@ -31,14 +35,18 @@ public:
 	// 再生を始める(経過時間を0に戻す)
 	void Start();
 
-	// 再生を終わらせる(スキップ入力とゲーム状態のリセットで使う)。
+	// 再生を終わらせる(ゲーム状態のリセットで使う)。
 	// 終点はレールカメラと同じなので、止めるだけでカメラは定位置へ移る
-	void Stop();
+	void Stop() override;
 
-	// 経過時間を進め、回り込み終えたら再生を終える
-	void Update(float deltaTime);
+	// スキップ入力。止めるだけで定位置へ移るので、Stopと同じ
+	void Skip() override { Stop(); }
 
-	bool IsPlaying() const { return playing_; }
+	// 経過時間を進め、回り込み終えたら再生を終える(カメラの姿勢はComputePoseで求めるので、cameraは使わない)
+	void Update(float deltaTime, const Camera& camera) override;
+
+	// 再生中か。シーンはこの間、レールを進めず、操作を止め、HUDを消す
+	bool IsActive() const override { return playing_; }
 
 	/// <summary>
 	/// 今の経過時間でのカメラの位置と回転を求める。終点ではレールカメラと同じ値になる
@@ -52,7 +60,7 @@ public:
 		Vector3& outTranslate, Vector3& outRotate) const;
 
 	// "Intro Camera"ウィンドウに進み具合と調整値を出す(Debug構成のみ)
-	void DrawImGui();
+	void DrawImGui() override;
 
 private:
 	// 回り込みの進行率(0〜1)。溜めの間は0

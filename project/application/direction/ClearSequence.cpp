@@ -136,13 +136,13 @@ void ClearSequence::Start(const std::string& modelPath, const Transform& transfo
 	baseTransform_ = transform;
 	center_ = center;
 	radius_ = (std::max)(radius, 0.01f);
-	elapsed_ = 0.0f;
-	sinceBurst_ = -1.0f;
+	burstStartTime_ = -1.0f;
 	popTimer_ = params_.popIntervalStart;
 	flashTimer_ = params_.whiteFlashDuration; // 撃破の瞬間、亡骸を白く光らせる
 
+	ResetClocks();
 	EnterPhase(Phase::Impact);
-	timeScale_ = ComputeTimeScale();
+	RefreshTimeScale();
 
 	// このフレームの描画に間に合わせる(女王が消えたフレームから、同じ姿の亡骸が見えているように)
 	UpdateRemains(0.0f, 0.0f);
@@ -166,10 +166,8 @@ void ClearSequence::Start(const std::string& modelPath, const Transform& transfo
 
 void ClearSequence::Stop() {
 	phase_ = Phase::None;
-	phaseTimer_ = 0.0f;
-	elapsed_ = 0.0f;
-	sinceBurst_ = -1.0f;
-	timeScale_ = 1.0f;
+	ResetClocks();
+	burstStartTime_ = -1.0f;
 	flashTimer_ = 0.0f;
 	popTimer_ = 0.0f;
 
@@ -202,70 +200,52 @@ void ClearSequence::Skip() {
 	}
 }
 
-void ClearSequence::Update(float deltaTime, const Camera& camera) {
-	// 終わった後は何も触らない。シーンが結果画面への遷移を頼むと、ChangeSceneが全ポストエフェクトを切る。
-	// ここで点け直すと、次のシーンへ点いたまま渡ってしまう(GameOverSequenceと同じ注意)
-	if (phase_ == Phase::None || phase_ == Phase::Finished) {
-		return;
-	}
-
-	// 段階を進める。長さはすべて実時間なので、スローモーションの間も演出の長さは変わらない
-	phaseTimer_ += deltaTime;
-	elapsed_ += deltaTime;
-	if (sinceBurst_ >= 0.0f) {
-		sinceBurst_ += deltaTime;
-	}
+void ClearSequence::AdvancePhase() {
+	// 長さはすべて実時間なので、スローモーションの間も演出の長さは変わらない
 	switch (phase_) {
 	case Phase::Impact:
-		if (phaseTimer_ >= params_.impactDuration) {
+		if (GetPhaseTimer() >= params_.impactDuration) {
 			EnterPhase(Phase::Convulse);
 		}
 		break;
 	case Phase::Convulse:
-		if (phaseTimer_ >= params_.convulseDuration) {
+		if (GetPhaseTimer() >= params_.convulseDuration) {
 			EnterPhase(Phase::Burst);
 		}
 		break;
 	case Phase::Burst:
-		if (phaseTimer_ >= params_.burstDuration) {
+		if (GetPhaseTimer() >= params_.burstDuration) {
 			EnterPhase(Phase::Exterminate);
 		}
 		break;
 	case Phase::Exterminate:
-		if (phaseTimer_ >= params_.exterminateDuration) {
+		if (GetPhaseTimer() >= params_.exterminateDuration) {
 			EnterPhase(Phase::Hold);
 		}
 		break;
 	case Phase::Hold:
-		if (phaseTimer_ >= params_.holdDuration) {
+		if (GetPhaseTimer() >= params_.holdDuration) {
 			EnterPhase(Phase::Finished);
 		}
 		break;
 	default:
 		break;
 	}
+}
 
-	// ゲーム時間の倍率。シーンは次のフレームから、自機・敵・弾のdeltaTimeにもこの倍率を掛ける
-	timeScale_ = ComputeTimeScale();
-	// 粒にも同じ倍率を掛け、断末魔の間は小爆発もゆっくり広がる。ただしヒットストップ(倍率0)の間は等速のまま流す:
-	// 止まった画面の中で火花だけが散る見せ方にするため(ゲームオーバー演出・通常の被弾と同じ)
-	ParticleManager::GetInstance()->SetTimeScale(phase_ == Phase::Impact ? 1.0f : timeScale_);
-
+void ClearSequence::UpdateContents(float deltaTime, const Camera& camera) {
 	// 小爆発をカメラ側へ寄せるため、今の視点を控える
 	cameraPosition_ = camera.GetTranslate();
 
 	if (IsRemainsVisible()) {
-		UpdateRemains(deltaTime, deltaTime * timeScale_);
+		UpdateRemains(deltaTime, deltaTime * GetTimeScale());
 	}
 	UpdatePops(deltaTime);
-
-	// 終わったフレームも、その時点の状態をここで1度だけ書き込む(次のフレームからは上の早期returnで触らない)
-	ApplyPostEffects(camera);
 }
 
 void ClearSequence::EnterPhase(Phase phase) {
 	phase_ = phase;
-	phaseTimer_ = 0.0f;
+	RestartPhaseTimer();
 
 	if (phase == Phase::Burst) {
 		Burst();
@@ -291,7 +271,7 @@ float ClearSequence::GetConvulseProgress() const {
 	case Phase::Impact:
 		return 0.0f;
 	case Phase::Convulse:
-		return Progress(phaseTimer_, params_.convulseDuration);
+		return Progress(GetPhaseTimer(), params_.convulseDuration);
 	default:
 		return 1.0f;
 	}
@@ -389,8 +369,8 @@ void ClearSequence::Burst() {
 	particleManager->Emit(kSmokeEffect, center, ScaleToRemains(smokeConfig_),
 		static_cast<uint32_t>((std::max)(params_.burstSmokeCount, 0)));
 
-	// 白い閃光と黒い縁が引いていく時計を始める(ApplyPostEffectsが使う)
-	sinceBurst_ = 0.0f;
+	// 白い閃光と黒い縁が引いていく時計を始める(ApplyPostEffectsがGetSinceBurstで使う)
+	burstStartTime_ = GetElapsed();
 
 	// RadialBlurを一瞬強める(中心は爆発した点。ApplyPostEffectsが毎フレーム合わせる)
 	if (RadialBlur* radialBlur = FindPostEffect<RadialBlur>(effectManager_, "RadialBlur")) {
@@ -402,14 +382,15 @@ void ClearSequence::Burst() {
 void ClearSequence::ApplyPostEffects(const Camera& camera) {
 	// --- 白: 撃破の瞬間の白い縁と、大爆発の白い閃光 ---
 	// 撃破の白い縁は、演出が始まってからの実時間で抜く(ヒットストップの間も同じ長さで消える)
-	const float impactWhite = params_.impactFlash * (1.0f - Progress(elapsed_, params_.impactFlashDuration));
+	const float impactWhite = params_.impactFlash * (1.0f - Progress(GetElapsed(), params_.impactFlashDuration));
 	float burstWhite = 0.0f;
 	// --- 黒い縁: 断末魔の間に濃くして緊張を高め、大爆発の後にゆっくり引く ---
 	float dark = 0.0f;
-	if (sinceBurst_ >= 0.0f) {
+	const float sinceBurst = GetSinceBurst();
+	if (sinceBurst >= 0.0f) {
 		// 閃光は OutCubic で引く: 一瞬画面を真っ白に飛ばし、すぐに爆炎が見え始め、薄い明るさだけが少し残る
-		burstWhite = 1.0f - Easing::OutCubic(Progress(sinceBurst_, params_.burstFlashDuration));
-		dark = params_.darkVignette * (1.0f - Easing::InOutSine(Progress(sinceBurst_, params_.darkReleaseDuration)));
+		burstWhite = 1.0f - Easing::OutCubic(Progress(sinceBurst, params_.burstFlashDuration));
+		dark = params_.darkVignette * (1.0f - Easing::InOutSine(Progress(sinceBurst, params_.darkReleaseDuration)));
 	} else if (phase_ == Phase::Convulse) {
 		dark = params_.darkVignette * Easing::InOutSine(GetConvulseProgress());
 	}
@@ -470,8 +451,8 @@ void ClearSequence::DrawImGui() {
 	ImGui::Begin("Clear");
 	const int phaseIndex = static_cast<int>(phase_);
 	ImGui::Text("Phase: %s (%.2f s)", phaseIndex < static_cast<int>(std::size(kPhaseNames)) ? kPhaseNames[phaseIndex] : "?",
-		phaseTimer_);
-	ImGui::Text("Time Scale: %.2f  Pops: %d", timeScale_, popCount_);
+		GetPhaseTimer());
+	ImGui::Text("Time Scale: %.2f  Pops: %d", GetTimeScale(), popCount_);
 	// ImGuiのフォントは日本語の字形を持っていないので英語で書く
 	ImGui::TextDisabled("Play: Hierarchy > Force Clear (Play) / Preview Clear (Edit)");
 	ImGui::TextDisabled("Skip: Enter or START");

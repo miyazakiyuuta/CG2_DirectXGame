@@ -1,5 +1,6 @@
 #pragma once
 #include "progress/StageProgress.h"
+#include "ui/IHudElement.h"
 
 #include <memory>
 #include <vector>
@@ -13,7 +14,7 @@ class Sprite;
 // 表示だけを受け持つ(Reticleと同じ立場)。数え方はStageProgress、進行度はシーンが持っていて、
 // ここは受け取った結果を並べるだけ。
 // 座標の基準はシーンRTのピクセル座標で、1280x720基準のレイアウトに実解像度の倍率を掛ける(HUDと同じ)
-class ProgressGauge {
+class ProgressGauge : public IHudElement {
 public:
 	void Initialize();
 
@@ -28,13 +29,13 @@ public:
 		bool hasGoal);
 
 	// 呼び出し側が先にSpriteCommon::CommonDrawSetting()を済ませていること(HUDと同じ経路)
-	void Draw();
+	void Draw() override;
 
 	// 全体の透明度の倍率(0〜1)。HUDのフェードに合わせる。Updateより前に呼ぶこと
-	void SetAlpha(float alpha) { alpha_ = alpha; }
+	void SetAlpha(float alpha) override { alpha_ = alpha; }
 
 	ProgressGauge();
-	~ProgressGauge();
+	~ProgressGauge() override;
 
 private:
 	// 区間の数に合わせて、区間ごとのパーツ(PERFECTの帯・区切りの目盛り)を用意する。

@@ -1,5 +1,6 @@
 #pragma once
 #include "progress/StageProgress.h"
+#include "ui/IHudElement.h"
 
 #include <memory>
 
@@ -13,7 +14,7 @@ class Sprite;
 // 表示だけを受け持つ(ProgressGauge・Reticleと同じ立場)。いつ出すかはシーンが
 // StageProgress::GetNewlyResolvedを見て決め、Showで結果を渡す。
 // 文字はエンジンにフォント描画が無いので画像で持つ(数字は既存のNumberSpriteと同じnumbers.png)
-class SectionBanner {
+class SectionBanner : public IHudElement {
 public:
 	void Initialize();
 
@@ -32,13 +33,13 @@ public:
 	void Update(float deltaTime);
 
 	// 呼び出し側が先にSpriteCommon::CommonDrawSetting()を済ませていること(HUDと同じ経路)
-	void Draw();
+	void Draw() override;
 
 	// 全体の透明度の倍率(0〜1)。HUDのフェードに合わせる。Updateより前に呼ぶこと
-	void SetAlpha(float alpha) { alpha_ = alpha; }
+	void SetAlpha(float alpha) override { alpha_ = alpha; }
 
 	SectionBanner();
-	~SectionBanner();
+	~SectionBanner() override;
 
 private:
 	// 見出し(PERFECT / SECTION CLEAR)

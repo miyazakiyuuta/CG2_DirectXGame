@@ -147,6 +147,12 @@
     <ClCompile Include="application\scene\ResultScene.cpp">
       <Filter>application\scene</Filter>
     </ClCompile>
+    <ClCompile Include="application\scene\ClearResultScene.cpp">
+      <Filter>application\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="application\scene\GameOverResultScene.cpp">
+      <Filter>application\scene</Filter>
+    </ClCompile>
     <ClCompile Include="application\scene\TitleScene.cpp">
       <Filter>application\scene</Filter>
     </ClCompile>
@@ -180,6 +186,9 @@
     <ClCompile Include="application\direction\ClearSequence.cpp">
       <Filter>application\direction</Filter>
     </ClCompile>
+    <ClCompile Include="application\direction\PhasedSequence.cpp">
+      <Filter>application\direction</Filter>
+    </ClCompile>
     <ClCompile Include="application\ui\SectionBanner.cpp">
       <Filter>application\ui</Filter>
     </ClCompile>
@@ -193,6 +202,15 @@
       <Filter>application\bullet</Filter>
     </ClCompile>
     <ClCompile Include="application\enemy\EnemySpawner.cpp">
+      <Filter>application\enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="application\enemy\Enemy.cpp">
+      <Filter>application\enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="application\enemy\ShooterEnemy.cpp">
+      <Filter>application\enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="application\enemy\RammerEnemy.cpp">
       <Filter>application\enemy</Filter>
     </ClCompile>
     <ClCompile Include="application\stage\Stage.cpp">
@@ -377,6 +395,12 @@
     <ClInclude Include="application\scene\ResultScene.h">
       <Filter>application\scene</Filter>
     </ClInclude>
+    <ClInclude Include="application\scene\ClearResultScene.h">
+      <Filter>application\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="application\scene\GameOverResultScene.h">
+      <Filter>application\scene</Filter>
+    </ClInclude>
     <ClInclude Include="application\scene\TitleScene.h">
       <Filter>application\scene</Filter>
     </ClInclude>
@@ -401,6 +425,9 @@
     <ClInclude Include="application\ui\Reticle.h">
       <Filter>application\ui</Filter>
     </ClInclude>
+    <ClInclude Include="application\ui\IHudElement.h">
+      <Filter>application\ui</Filter>
+    </ClInclude>
     <ClInclude Include="application\camera\IntroCamera.h">
       <Filter>application\camera</Filter>
     </ClInclude>
@@ -408,6 +435,12 @@
       <Filter>application\direction</Filter>
     </ClInclude>
     <ClInclude Include="application\direction\ClearSequence.h">
+      <Filter>application\direction</Filter>
+    </ClInclude>
+    <ClInclude Include="application\direction\ISequence.h">
+      <Filter>application\direction</Filter>
+    </ClInclude>
+    <ClInclude Include="application\direction\PhasedSequence.h">
       <Filter>application\direction</Filter>
     </ClInclude>
     <ClInclude Include="application\ui\SectionBanner.h">
@@ -426,6 +459,18 @@
       <Filter>application\bullet</Filter>
     </ClInclude>
     <ClInclude Include="application\enemy\EnemySpawner.h">
+      <Filter>application\enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="application\enemy\Enemy.h">
+      <Filter>application\enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="application\enemy\ShooterEnemy.h">
+      <Filter>application\enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="application\enemy\RammerEnemy.h">
+      <Filter>application\enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="application\enemy\EnemyTypeParams.h">
       <Filter>application\enemy</Filter>
     </ClInclude>
     <ClInclude Include="application\stage\Stage.h">
@@ -529,6 +574,9 @@
     </ClInclude>
     <ClInclude Include="engine\effect\ParticleManager.h">
       <Filter>engine\effect\CPUParticle</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\effect\IParticleSystem.h">
+      <Filter>engine\effect</Filter>
     </ClInclude>
     <ClInclude Include="engine\effect\ParticleEmitter.h">
       <Filter>engine\effect\CPUParticle</Filter>

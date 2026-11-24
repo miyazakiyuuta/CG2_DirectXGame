@@ -1,9 +1,11 @@
 #include "enemy/EnemySpawner.h"
 
 #include "bullet/BulletManager.h"
+#include "enemy/Enemy.h"
+#include "enemy/RammerEnemy.h"
+#include "enemy/ShooterEnemy.h"
 #include "stage/StageData.h"
 #include "math/Collision.h"
-#include "math/Matrix4x4.h"
 #include "debug/DebugRenderer.h"
 #include "3d/ModelManager.h"
 #include "3d/Object3d.h"
@@ -24,7 +26,7 @@ namespace {
 	// 敵の種別 → モデルの対応表。データ(stage.json)にはモデルパスを持たせず種別だけを持たせ、
 	// 「どの見た目で出すか」はコード側のこの1箇所で決める(種別追加はここに足すだけ)
 	// 射撃型・接近型はまだ仮のシロアリ(白い箱)で、大きさ(ScaleOf)だけで見分ける。
-	// 白いのは、HPの残量を色で見せる(ApplyHpColor: 満タン=白→赤)のに一番読み取りやすいため。
+	// 白いのは、HPの残量を色で見せる(Enemy::ApplyHpColor: 満タン=白→赤)のに一番読み取りやすいため。
 	// 女王は専用のモデル(頭が-Z・原点は体の重心・全長1の規格)。色はパレット画像に掛け算で効くので、
 	// HPの減りは同じく赤みとして見える。
 	// 変数名の frog/sword はstage.jsonに書かれた種別名(データのキー)で、見た目とは無関係
@@ -43,7 +45,7 @@ namespace {
 	const std::string kDefeatSound = "resources/sounds/explosion.mp3";
 	constexpr float kDefeatVolume = 0.8f;
 
-	// 接近音。接近型が間合いに入った合図。同時に鳴らすのは1つまでに絞る(UpdateApproachSound)
+	// 接近音。体当たり型が間合いに入った合図。同時に鳴らすのは1つまでに絞る(PlayApproachSound)
 	const std::string kApproachSound = "resources/sounds/approach.mp3";
 	constexpr float kApproachVolume = 0.8f;
 }
@@ -85,6 +87,17 @@ const std::vector<std::string>& EnemySpawner::EnemyTypes() {
 	return kTypes;
 }
 
+std::unique_ptr<Enemy> EnemySpawner::CreateEnemy(const std::string& enemy) {
+	// 振る舞いの違いで分岐するのはここ1か所だけ。作った後は基底のポインタで扱うので、
+	// 更新処理(Update)には種別の分岐を持ち込まない
+	if (enemy == "sword") {
+		return std::make_unique<RammerEnemy>(); // 体当たり型
+	}
+	// 射撃型(frog)と女王(queen)。女王に固有の動きを作るときは、ここでQueenEnemyを返すように分ける。
+	// 未知の種別も射撃型へ落とす(ModelPathOfと同じく、データ不備でも敵が消えないので気付ける)
+	return std::make_unique<ShooterEnemy>();
+}
+
 bool EnemySpawner::HasGoal() const {
 	return std::any_of(spawnPoints_.begin(), spawnPoints_.end(), [this](const SpawnPoint& spawnPoint) {
 		return typeParams_[TypeIndexOf(spawnPoint.enemy)].isGoal;
@@ -115,7 +128,7 @@ bool EnemySpawner::TryGetGoalDefeatPose(GoalPose& outPose) const {
 
 bool EnemySpawner::TryGetGoalSpawnPose(GoalPose& outPose) const {
 	for (const SpawnPoint& spawnPoint : spawnPoints_) {
-		const TypeParams& params = typeParams_[TypeIndexOf(spawnPoint.enemy)];
+		const EnemyTypeParams& params = typeParams_[TypeIndexOf(spawnPoint.enemy)];
 		if (!params.isGoal) {
 			continue;
 		}
@@ -124,7 +137,7 @@ bool EnemySpawner::TryGetGoalSpawnPose(GoalPose& outPose) const {
 		// 大きさは発生時と同じく種別ごとの既定を使う(データ側のscaleは見ない)
 		const float scale = ScaleOf(spawnPoint.enemy);
 		outPose.transform.scale = { scale, scale, scale };
-		outPose.center = ForwardPoint(spawnPoint.transform.translate, spawnPoint.transform.rotate, params.hitOffset);
+		outPose.center = Enemy::ForwardPoint(spawnPoint.transform.translate, spawnPoint.transform.rotate, params.hitOffset);
 		outPose.radius = params.radius;
 		return true;
 	}
@@ -133,9 +146,9 @@ bool EnemySpawner::TryGetGoalSpawnPose(GoalPose& outPose) const {
 
 bool EnemySpawner::ForceDefeatGoal() {
 	bool found = false;
-	for (Enemy& enemy : enemies_) {
-		if (ParamsOf(enemy).isGoal && IsInCombat(enemy)) {
-			enemy.hp = 0; // 撃破の処理は次のUpdateの「撃破された敵を取り除く」で行われる
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (ParamsOf(*enemy).isGoal && enemy->IsInCombat()) {
+			enemy->ForceDefeat(); // 撃破の処理は次のUpdateの「撃破された敵を取り除く」で行われる
 			found = true;
 		}
 	}
@@ -152,45 +165,38 @@ void EnemySpawner::ExterminateAll() {
 	// ImGuiで下限と上限を逆にされても乱数の範囲が壊れないよう、小さい方を下限にする
 	const float lifeMin = (std::min)(exterminateLifeMin_, exterminateLifeMax_);
 	const float lifeMax = (std::max)(exterminateLifeMin_, exterminateLifeMax_);
-	for (Enemy& enemy : enemies_) {
-		if (enemy.dying) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (enemy->IsDying()) {
 			continue;
 		}
-		enemy.dying = true;
-		enemy.dyingTime = 0.0f;
 		// 消えるまでの長さを個体ごとに散らす。一斉に消えると「全滅」ではなく「表示を消した」ように見えるため
-		enemy.dyingDuration = Random::GetFloat(lifeMin, lifeMax);
+		const float duration = Random::GetFloat(lifeMin, lifeMax);
 		// 少しだけ跳ねてから落ちる(力が抜けて、足場を離れる感じ)。横へも少し散らして重なりを避ける
-		enemy.velocity = { Random::GetFloat(-2.0f, 2.0f), Random::GetFloat(0.0f, 3.0f), Random::GetFloat(-2.0f, 2.0f) };
-		enemy.dyingSpin = Random::GetFloat(-6.0f, 6.0f);
-		enemy.object->SetColor(kExterminatedColor);
+		const Vector3 velocity = {
+			Random::GetFloat(-2.0f, 2.0f), Random::GetFloat(0.0f, 3.0f), Random::GetFloat(-2.0f, 2.0f) };
+		const float spin = Random::GetFloat(-6.0f, 6.0f);
+		enemy->StartDying(duration, velocity, spin, kExterminatedColor);
 	}
 }
 
 void EnemySpawner::UpdateFrozen(float deltaTime) {
 	for (size_t i = enemies_.size(); i > 0; --i) {
-		Enemy& enemy = enemies_[i - 1];
-		if (enemy.dying) {
-			// 落ちる。重力で速度を積み、転がりながら下へ
-			enemy.dyingTime += deltaTime;
-			enemy.velocity.y -= exterminateGravity_ * deltaTime;
-			enemy.position += enemy.velocity * deltaTime;
-			enemy.object->SetTranslate(enemy.position);
-			Vector3 rotate = enemy.object->GetRotate();
-			rotate.x += enemy.dyingSpin * deltaTime;
-			enemy.object->SetRotate(rotate);
+		Enemy& enemy = *enemies_[i - 1];
+		if (enemy.IsDying()) {
+			// 落ちる(重力で速度を積み、転がりながら下へ)
+			enemy.UpdateDying(deltaTime, exterminateGravity_);
 
 			// 落ち切ったら煙にして消す。撃破・取り逃しのどちらにも記録しない(評価はプレイヤーが倒した分だけ)
-			if (enemy.dyingTime >= enemy.dyingDuration) {
+			if (enemy.IsDyingFinished()) {
 				ParticleManager::GetInstance()->Emit(
-					kExterminateEffect, enemy.position, static_cast<uint32_t>((std::max)(exterminateSmokeCount_, 0)));
-				graveyard_.push_back(std::move(enemy.object));
+					kExterminateEffect, enemy.GetPosition(), static_cast<uint32_t>((std::max)(exterminateSmokeCount_, 0)));
+				graveyard_.push_back(enemy.ReleaseObject());
 				enemies_.erase(enemies_.begin() + static_cast<ptrdiff_t>(i - 1));
 				continue;
 			}
 		}
 		// 固まっているだけの敵は動かさない(行列の書き込みだけ行う)
-		enemy.object->Update(deltaTime);
+		enemy.UpdateObject(deltaTime);
 	}
 }
 
@@ -204,41 +210,20 @@ size_t EnemySpawner::TypeIndexOf(const std::string& enemy) const {
 	return 0;
 }
 
-const EnemySpawner::TypeParams& EnemySpawner::ParamsOf(const Enemy& enemy) const {
-	return typeParams_[(std::min)(enemy.typeIndex, typeParams_.size() - 1)];
-}
-
-Vector3 EnemySpawner::ForwardPoint(const Vector3& position, const Vector3& rotate, float offset) {
-	if (offset == 0.0f) {
-		return position; // 回転の計算を省く(箱の敵はすべてここを通る)
-	}
-	// モデルの規格は頭が-Z。ローカルの-Zに回転を掛けたものが、ワールドでの頭の向き
-	// (行ベクトル規約では、ローカルの軸に回転行列を掛けるとワールドでの軸になる)
-	const Vector3 head = Matrix4x4::Rotate(rotate).Transform({ 0.0f, 0.0f, -1.0f });
-	return position + head * offset;
+const EnemyTypeParams& EnemySpawner::ParamsOf(const Enemy& enemy) const {
+	return typeParams_[(std::min)(enemy.GetTypeIndex(), typeParams_.size() - 1)];
 }
 
 Vector3 EnemySpawner::HitCenter(const Enemy& enemy) const {
-	return ForwardPoint(enemy.position, enemy.object->GetRotate(), ParamsOf(enemy).hitOffset);
+	return enemy.HitCenter(ParamsOf(enemy));
 }
 
 void EnemySpawner::RetireEnemies() {
-	for (Enemy& enemy : enemies_) {
-		graveyard_.push_back(std::move(enemy.object));
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		graveyard_.push_back(enemy->ReleaseObject());
 	}
 	enemies_.clear();
 	playerHit_ = false; // 敵が居なくなるので接触状態も落とす
-}
-
-void EnemySpawner::ApplyHpColor(Enemy& enemy) const {
-	// HP満タンで白、減るほど赤へ寄せる。残量が常に見えるのでタイマー付きの点滅が要らない
-	// 最大HPは種別ごとに違うので、色の基準もその個体の種別から引く
-	const int maxHp = ParamsOf(enemy).maxHp;
-	const float ratio = maxHp > 0
-		? std::clamp(static_cast<float>(enemy.hp) / static_cast<float>(maxHp), 0.0f, 1.0f)
-		: 1.0f;
-	const float rest = 0.2f + 0.8f * ratio; // HP0付近で0.2、満タンで1.0
-	enemy.object->SetColor({ 1.0f, rest, rest, 1.0f });
 }
 
 void EnemySpawner::BuildFromStage(const StageData& stageData) {
@@ -295,21 +280,21 @@ void EnemySpawner::UpdateBulletCollision(BulletManager* bulletManager) {
 			continue;
 		}
 
-		for (Enemy& enemy : enemies_) {
+		for (const std::unique_ptr<Enemy>& enemy : enemies_) {
 			// 同フレームに撃破済み(1発で2体分減らさない)か、通過済み(離脱中の敵は撃ち落とせない)
-			if (!IsInCombat(enemy)) {
+			if (!enemy->IsInCombat()) {
 				continue;
 			}
-			if (!IsCollision(bullet.position, bulletRadius, HitCenter(enemy), ParamsOf(enemy).radius)) {
+			if (!IsCollision(bullet.position, bulletRadius, HitCenter(*enemy), ParamsOf(*enemy).radius)) {
 				continue;
 			}
 
 			// 当たった弾は消す(貫通させない)。撃破処理はUpdate側でまとめて行う
 			bulletManager->Kill(bulletIndex);
 			if (explosionRadius > 0.0f) {
-				Explode(bullet.position, explosionRadius, damage, enemy);
+				Explode(bullet.position, explosionRadius, damage, *enemy);
 			} else {
-				ApplyDamage(enemy, damage);
+				enemy->ApplyDamage(damage, ParamsOf(*enemy).maxHp);
 			}
 			break; // この弾は消費済みなので次の弾へ
 		}
@@ -320,12 +305,12 @@ void EnemySpawner::Explode(const Vector3& center, float radius, int damage, cons
 	// 爆発の範囲を球とし、敵の判定球と重なっていれば巻き込む(弾と敵の判定と同じ球同士の判定)。
 	// 直撃した敵を別扱いにするのは、ImGuiで爆発の半径を弾の半径より小さくしても、
 	// 当たったのにダメージが入らない状態にしないため
-	for (Enemy& enemy : enemies_) {
-		if (!IsInCombat(enemy)) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (!enemy->IsInCombat()) {
 			continue; // 同フレームに撃破済みか、通過済み
 		}
-		if (&enemy == &directHit || IsCollision(center, radius, HitCenter(enemy), ParamsOf(enemy).radius)) {
-			ApplyDamage(enemy, damage);
+		if (enemy.get() == &directHit || IsCollision(center, radius, HitCenter(*enemy), ParamsOf(*enemy).radius)) {
+			enemy->ApplyDamage(damage, ParamsOf(*enemy).maxHp);
 		}
 	}
 
@@ -336,16 +321,8 @@ void EnemySpawner::Explode(const Vector3& center, float radius, int damage, cons
 
 void EnemySpawner::RecordOutcome(const Enemy& enemy, SpawnPoint::Outcome outcome) {
 	// 添字はBuildFromStageで敵ごと作り直すので常に有効なはずだが、範囲外でも落とさない(記録が残らないだけ)
-	if (enemy.spawnIndex < spawnPoints_.size()) {
-		spawnPoints_[enemy.spawnIndex].outcome = outcome;
-	}
-}
-
-void EnemySpawner::ApplyDamage(Enemy& enemy, int damage) const {
-	// 0未満にはしない(HP0=撃破という意味を、大ダメージでも崩さない)
-	enemy.hp = (std::max)(enemy.hp - damage, 0);
-	if (enemy.hp > 0) {
-		ApplyHpColor(enemy); // 残りHPを色へ反映(撃破時は消えるので不要)
+	if (enemy.GetSpawnIndex() < spawnPoints_.size()) {
+		spawnPoints_[enemy.GetSpawnIndex()].outcome = outcome;
 	}
 }
 
@@ -356,13 +333,13 @@ void EnemySpawner::UpdatePlayerCollision(const Vector3& playerPosition, float pl
 	if (!ramEnabled_) {
 		return; // 体当たりOFF: その場に留まる敵へ自機が突っ込んでもダメージにしない
 	}
-	for (const Enemy& enemy : enemies_) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
 		// 通過済みの敵は離脱中で、自機の後ろ(画面外)に居る。触れても避けようがないので当たらない
-		if (enemy.passed) {
+		if (enemy->IsPassed()) {
 			continue;
 		}
-		const Vector3 hitCenter = HitCenter(enemy);
-		if (IsCollision(playerPosition, playerRadius, hitCenter, ParamsOf(enemy).radius)) {
+		const Vector3 hitCenter = HitCenter(*enemy);
+		if (IsCollision(playerPosition, playerRadius, hitCenter, ParamsOf(*enemy).radius)) {
 			playerHit_ = true;
 			playerHitPosition_ = hitCenter;
 			return;
@@ -370,142 +347,65 @@ void EnemySpawner::UpdatePlayerCollision(const Vector3& playerPosition, float pl
 	}
 }
 
-void EnemySpawner::UpdateShooting(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward) {
-	if (!enemyBulletManager_) {
-		return; // 発射先が無ければ撃たない(体当たりだけの挙動に戻る)
-	}
-
-	for (Enemy& enemy : enemies_) {
-		// 通過済みの敵は攻撃をやめて離脱する(もう前へ回り込んでこないので、撃つ機会も残さない)
-		if (enemy.passed) {
-			continue;
-		}
-		const TypeParams& params = ParamsOf(enemy);
-		// クールタイムは撃てない状況でも消化する(射程に入った瞬間に撃てる)
-		enemy.shootCooldown -= deltaTime;
-		// 撃たない種別(接近型)はここで抜ける。挙動の分岐はこの1行だけで、
-		// 「どう攻めるか」の違いはパラメータの差として表している
-		if (!shootEnabled_ || !params.shoot || enemy.shootCooldown > 0.0f) {
-			continue;
-		}
-
-		// 撃つ位置は判定の中心(体の前寄り)。女王のように長い体の敵が、体の奥(重心)から弾を出さないようにする
-		const Vector3 muzzle = HitCenter(enemy);
-		const Vector3 toPlayer = playerPosition - muzzle;
-		const float distanceSquared = toPlayer.LengthSquared();
-		if (distanceSquared > params.shootRange * params.shootRange) {
-			continue; // 遠すぎる。クールタイムは減ったままにして、近づいたら撃たせる
-		}
-		// 自機の後ろへ回った敵は撃たない。背後からの弾は画面の外から飛んでくるので、
-		// 避ける手立てがないまま当たる(射撃型は「見えている位置から撃つ」ことが成立条件)
-		if (Vector3::Dot(toPlayer, playerForward) > 0.0f) {
-			continue;
-		}
-
-		enemy.shootCooldown = NextShootCooldown(params);
-		// 狙いは「撃った瞬間の自機の位置」。先読みはしない:
-		// 自機は毎フレーム動かせるので、置き弾の方が避けて当てる遊びとして成立する
-		enemyBulletManager_->Fire(muzzle, toPlayer);
-		++shotCount_;
-	}
-}
-
-void EnemySpawner::UpdateApproachSound(const Vector3& playerPosition) {
+void EnemySpawner::PlayApproachSound() {
 	if (!approachSound_) {
 		return; // 音声ファイルが無ければ鳴らさない(ゲームは止めない)
 	}
-	if (!ramEnabled_) {
-		return; // 接近音は体当たりの予告なので、体当たりしない間は鳴らさない
-	}
-
 	SoundManager* soundManager = SoundManager::GetInstance();
-	for (Enemy& enemy : enemies_) {
-		const TypeParams& params = ParamsOf(enemy);
-		// 鳴らさない種別(射撃型は手前で止まるので体当たりの予告が要らない)と、鳴らし済みの個体は飛ばす。
-		// 通過済みの敵も飛ばす(もう体当たりしてこないので予告が要らない)
-		if (enemy.approachAlerted || enemy.passed || params.approachSoundRange <= 0.0f) {
-			continue;
-		}
-		const float distanceSquared = (playerPosition - HitCenter(enemy)).LengthSquared();
-		if (distanceSquared > params.approachSoundRange * params.approachSoundRange) {
-			continue;
-		}
-
-		// 範囲に入った時点で鳴らし済みにする。下で鳴らせなかった個体も、後から遅れては鳴らさない
-		// (遅れて鳴ると、どの敵が近づいた合図なのか分からなくなるため)
-		enemy.approachAlerted = true;
-
-		// 同時に鳴らすのは1つまで。敵は2〜3体まとめて出るので、重ねると音が割れて
-		// 「近づいてきた」という合図として聞き取れなくなる。1つ鳴っていれば合図としては足りる
-		if (soundManager->IsPlaying(approachSoundHandle_)) {
-			continue;
-		}
-		approachSoundHandle_ = soundManager->PlayWave(approachSound_, false, SoundManager::SoundCategory::SE);
-		soundManager->SetVolume(approachSoundHandle_, kApproachVolume);
+	// 同時に鳴らすのは1つまで。1つ鳴っていれば合図としては足りる
+	if (soundManager->IsPlaying(approachSoundHandle_)) {
+		return;
 	}
+	approachSoundHandle_ = soundManager->PlayWave(approachSound_, false, SoundManager::SoundCategory::SE);
+	soundManager->SetVolume(approachSoundHandle_, kApproachVolume);
 }
 
 void EnemySpawner::UpdateEscape(float deltaTime, const Vector3& playerPosition, const Vector3& playerForward) {
-	for (Enemy& enemy : enemies_) {
-		if (!enemy.passed) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (!enemy->IsPassed()) {
 			// 倒すとクリアになる敵(女王)は通過済みにしない。取り逃しになるとクリアできなくなるため
-			if (ParamsOf(enemy).isGoal) {
+			if (ParamsOf(*enemy).isGoal) {
 				continue;
 			}
 			// 「自機→敵」と進行方向の内積 = 敵が自機より何m前にいるか(負なら後ろ)。
 			// 余裕を超えて後ろへ回ったら通過済みにする
-			const Vector3 toEnemy = enemy.position - playerPosition;
+			const Vector3 toEnemy = enemy->GetPosition() - playerPosition;
 			const float ahead = Vector3::Dot(toEnemy, playerForward);
 			if (ahead >= -passMargin_) {
 				continue;
 			}
-			enemy.passed = true;
-			// 通過済みの敵はもう撃ち落とせない(IsInCombatがfalse)ので、離脱し終えるのを待たずにここで取り逃しと確定する
-			// (区間の結果がこの瞬間に出せる)
-			RecordOutcome(enemy, SpawnPoint::Outcome::Missed);
 			// 離脱の向きは「自機の進路から離れる向き」=画面の中心から外側。
 			// 進行方向の成分を引くと、進路に垂直な横ずれだけが残る。
 			// 常に上へ逃がさないのは、自機より下にいる敵が画面の中心を横切って上へ抜けてしまうため
 			const Vector3 side = toEnemy - playerForward * ahead;
-			enemy.escapeDirection = side.LengthSquared() > 1.0e-6f
+			enemy->StartEscape(side.LengthSquared() > 1.0e-6f
 				? Vector3::Normalized(side)
-				: Vector3{ 0.0f, 1.0f, 0.0f }; // 真後ろで横ずれが無いときだけ真上へ
+				: Vector3{ 0.0f, 1.0f, 0.0f }); // 真後ろで横ずれが無いときだけ真上へ
+			// 通過済みの敵はもう撃ち落とせない(IsInCombatがfalse)ので、離脱し終えるのを待たずにここで取り逃しと確定する
+			// (区間の結果がこの瞬間に出せる)
+			RecordOutcome(*enemy, SpawnPoint::Outcome::Missed);
 		}
 
-		// 追っていた勢いはブレーキで落とし(0で止め、逆向きにはしない)、外側へ抜ける速さを足す。
-		// 自機はレール上を前進し続けるので、勢いが落ちた敵は自然と後ろへ置いていかれる
-		const float speed = enemy.velocity.Length();
-		const float brakedSpeed = (std::max)(speed - escapeBrake_ * deltaTime, 0.0f);
-		enemy.velocity = speed > 1.0e-4f ? enemy.velocity * (brakedSpeed / speed) : Vector3{ 0.0f, 0.0f, 0.0f };
-		enemy.position += (enemy.velocity + enemy.escapeDirection * escapeSpeed_) * deltaTime;
-		enemy.object->SetTranslate(enemy.position);
-		enemy.escapeTime += deltaTime;
+		// 追っていた勢いはブレーキで落とし、外側へ抜ける速さを足す
+		enemy->UpdateEscape(deltaTime, escapeBrake_, escapeSpeed_);
 	}
 
 	// 離脱し終えた敵を取り除く(実体は撃破と同じく墓場へ回す)。
 	// 撃破ではないので、撃破演出・撃破音・撃破数は出さない(素通りさせても点が入らないように)
 	for (size_t i = enemies_.size(); i > 0; --i) {
-		Enemy& enemy = enemies_[i - 1];
-		if (!enemy.passed || enemy.escapeTime < escapeLifetime_) {
+		Enemy& enemy = *enemies_[i - 1];
+		if (!enemy.IsPassed() || enemy.GetEscapeTime() < escapeLifetime_) {
 			continue;
 		}
-		graveyard_.push_back(std::move(enemy.object));
+		graveyard_.push_back(enemy.ReleaseObject());
 		enemies_.erase(enemies_.begin() + static_cast<ptrdiff_t>(i - 1));
 	}
 }
 
-float EnemySpawner::NextShootCooldown(const TypeParams& params) const {
-	// 間隔に±shootIntervalRandom_の幅を掛ける。
-	// 同時に出た敵が同じ周期で撃ち続けると、避けようのない斉射になるため個体差を付ける
-	const float low = params.shootInterval * (1.0f - shootIntervalRandom_);
-	const float high = params.shootInterval * (1.0f + shootIntervalRandom_);
-	return Random::GetFloat(low, high);
-}
-
 bool EnemySpawner::IsAimedAt(const Vector3& point) const {
 	// 点と球の判定。半径0の球として既存のIsCollisionに通す(専用の関数を増やさない)
-	for (const Enemy& enemy : enemies_) {
-		if (IsInCombat(enemy) && IsCollision(point, 0.0f, HitCenter(enemy), ParamsOf(enemy).radius)) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (enemy->IsInCombat() && IsCollision(point, 0.0f, HitCenter(*enemy), ParamsOf(*enemy).radius)) {
 			return true;
 		}
 	}
@@ -517,11 +417,11 @@ uint32_t EnemySpawner::FindEnemyInCone(const Vector3& origin, const Vector3& dir
 	uint32_t bestId = 0;
 	float bestAngle = maxAngle;
 	float bestDistance = maxDistance;
-	for (const Enemy& enemy : enemies_) {
-		if (!IsInCombat(enemy)) {
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (!enemy->IsInCombat()) {
 			continue; // 通過済みの敵にはロックしない(追尾弾が後ろへ引き返してしまう)
 		}
-		const Vector3 toCenter = HitCenter(enemy) - origin;
+		const Vector3 toCenter = HitCenter(*enemy) - origin;
 		const float distance = toCenter.Length();
 		if (distance < 1.0e-4f || distance > maxDistance) {
 			continue; // カメラと重なっている・遠すぎる
@@ -534,7 +434,7 @@ uint32_t EnemySpawner::FindEnemyInCone(const Vector3& origin, const Vector3& dir
 		// 敵の見た目の半径(角度)を引いて「視線から敵の縁まで」の角度にする。
 		// 中心で比べると、近くの大きな敵ほど縁は照準に掛かっているのに遠い扱いになってしまう
 		const float centerAngle = std::acos((std::min)(cosAngle, 1.0f));
-		const float angularRadius = std::asin((std::min)(ParamsOf(enemy).radius / distance, 1.0f));
+		const float angularRadius = std::asin((std::min)(ParamsOf(*enemy).radius / distance, 1.0f));
 		const float edgeAngle = (std::max)(centerAngle - angularRadius, 0.0f);
 		if (edgeAngle > bestAngle) {
 			continue;
@@ -543,7 +443,7 @@ uint32_t EnemySpawner::FindEnemyInCone(const Vector3& origin, const Vector3& dir
 		if (edgeAngle == bestAngle && distance >= bestDistance) {
 			continue;
 		}
-		bestId = enemy.id;
+		bestId = enemy->GetId();
 		bestAngle = edgeAngle;
 		bestDistance = distance;
 	}
@@ -569,13 +469,13 @@ bool EnemySpawner::TryGetEnemySphere(uint32_t enemyId, Vector3& outCenter, float
 	return true;
 }
 
-const EnemySpawner::Enemy* EnemySpawner::FindEnemyById(uint32_t enemyId) const {
+const Enemy* EnemySpawner::FindEnemyById(uint32_t enemyId) const {
 	// 番号は1から振っているので、0(なし)を渡すと必ず見つからずnullptrになる。
 	// 通過済みの敵も見つからない扱いにする: ロック中の敵が通過したらシーンがロックを外し、
 	// 飛んでいる追尾弾も追うのをやめる(後ろへ引き返して画面外へ消えないように)
-	for (const Enemy& enemy : enemies_) {
-		if (enemy.id == enemyId && IsInCombat(enemy)) {
-			return &enemy;
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (enemy->GetId() == enemyId && enemy->IsInCombat()) {
+			return enemy.get();
 		}
 	}
 	return nullptr;
@@ -594,6 +494,16 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		return;
 	}
 
+	// 敵へ渡すこのフレームの状況(全種で同じもの)。敵はこれを読むだけで、シーンやこのクラスを知らない
+	Enemy::Context context;
+	context.deltaTime = deltaTime;
+	context.playerPosition = playerPosition;
+	context.playerForward = playerForward;
+	context.enemyBulletManager = enemyBulletManager_;
+	context.shootEnabled = shootEnabled_;
+	context.ramEnabled = ramEnabled_;
+	context.shootIntervalRandom = shootIntervalRandom_;
+
 	for (size_t spawnIndex = 0; spawnIndex < spawnPoints_.size(); ++spawnIndex) {
 		SpawnPoint& spawnPoint = spawnPoints_[spawnIndex];
 		// 到達した瞬間に1度だけ発生させる(Resetするまで再発生しない)
@@ -602,28 +512,21 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 		}
 		spawnPoint.spawned = true;
 
-		Enemy enemy;
-		enemy.id = nextEnemyId_++;
-		enemy.spawnIndex = spawnIndex;
-		enemy.typeIndex = TypeIndexOf(spawnPoint.enemy);
-		const TypeParams& params = typeParams_[enemy.typeIndex];
-		enemy.object = std::make_unique<Object3d>();
-		enemy.object->Initialize(Object3dCommon::GetInstance());
-		enemy.object->SetModel(ModelPathOf(spawnPoint.enemy));
+		// 種別名から派生クラスの実体を作り、以降は基底のポインタで扱う
+		std::unique_ptr<Enemy> enemy = CreateEnemy(spawnPoint.enemy);
+		const size_t typeIndex = TypeIndexOf(spawnPoint.enemy);
+		std::unique_ptr<Object3d> object = std::make_unique<Object3d>();
+		object->Initialize(Object3dCommon::GetInstance());
+		object->SetModel(ModelPathOf(spawnPoint.enemy));
 		// 出現位置はSpawnPointのtransform(エディタのギズモで置いた場所)。
 		// 大きさだけは種別ごとの既定を使い、データ側のscaleは向き・位置に集中させる
-		enemy.object->SetTransform(spawnPoint.transform);
+		object->SetTransform(spawnPoint.transform);
 		const float scale = ScaleOf(spawnPoint.enemy);
-		enemy.object->SetScale({ scale, scale, scale });
+		object->SetScale({ scale, scale, scale });
 		if (camera_) {
-			enemy.object->SetCamera(camera_);
+			object->SetCamera(camera_);
 		}
-
-		enemy.position = spawnPoint.transform.translate;
-		enemy.hp = params.maxHp;
-		// 出現と同時に撃たれると反応できないので、初回も同じ間隔だけ待たせる
-		enemy.shootCooldown = NextShootCooldown(params);
-		ApplyHpColor(enemy);
+		enemy->Initialize(nextEnemyId_++, spawnIndex, typeIndex, std::move(object), typeParams_[typeIndex], context);
 
 		enemies_.push_back(std::move(enemy));
 	}
@@ -641,8 +544,8 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 
 	// 撃破された敵を取り除く(実体は墓場へ回して次フレーム冒頭で破棄する)
 	for (size_t i = enemies_.size(); i > 0; --i) {
-		Enemy& enemy = enemies_[i - 1];
-		if (enemy.hp > 0) {
+		Enemy& enemy = *enemies_[i - 1];
+		if (!enemy.IsDefeated()) {
 			continue;
 		}
 		// 撃破演出。敵の実体が消える前にその位置で発生させる。
@@ -661,16 +564,15 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 
 		// 女王なら、倒れた瞬間の姿を控える(クリア演出が同じ場所・姿勢・大きさに亡骸を置き直す)
 		if (ParamsOf(enemy).isGoal) {
-			goalDefeatPose_.enemy = spawnPoints_[enemy.spawnIndex].enemy;
-			goalDefeatPose_.transform = enemy.object->GetTransform();
-			goalDefeatPose_.transform.translate = enemy.position;
+			goalDefeatPose_.enemy = spawnPoints_[enemy.GetSpawnIndex()].enemy;
+			goalDefeatPose_.transform = enemy.GetPose();
 			goalDefeatPose_.center = HitCenter(enemy);
 			goalDefeatPose_.radius = ParamsOf(enemy).radius;
 			hasGoalDefeatPose_ = true;
 		}
 
 		RecordOutcome(enemy, SpawnPoint::Outcome::Defeated);
-		graveyard_.push_back(std::move(enemy.object));
+		graveyard_.push_back(enemy.ReleaseObject());
 		enemies_.erase(enemies_.begin() + static_cast<ptrdiff_t>(i - 1));
 		++defeatedCount_;
 	}
@@ -679,36 +581,25 @@ void EnemySpawner::Update(float railDistance, float deltaTime, const Vector3& pl
 	// 追尾より先に行い、通過済みになったフレームから追わせない
 	UpdateEscape(deltaTime, playerPosition, playerForward);
 
-	// 自機へ近づく。ただし種別ごとのkeepDistanceより内側には入らない。
-	// 射撃型はこの距離が遠いので手前で止まって撃ち、接近型は判定半径の和より内側まで
-	// 詰めるので必ず体当たりになる(=どう攻めるかが数値の差だけで決まる)
-	// 体当たりOFFの間、接近型(撃たない種別=体当たり専門)は動かずその場に浮いている的になる
-	for (Enemy& enemy : enemies_) {
-		// 通過済みの敵はUpdateEscapeで動かし済みなので追わない(見た目の更新だけ行う)
-		if (!enemy.passed) {
-			const TypeParams& params = ParamsOf(enemy);
-			const bool canMove = ramEnabled_ || params.shoot;
-			const Vector3 toPlayer = playerPosition - enemy.position;
-			const float distance = std::sqrt(toPlayer.LengthSquared());
-			// 止まっている間の速度は0(通過済みになった瞬間に、離脱の初速として引き継ぐ)
-			enemy.velocity = { 0.0f, 0.0f, 0.0f };
-			if (canMove && distance > params.keepDistance && distance > 1.0e-4f) {
-				const Vector3 direction = Vector3::Normalized(toPlayer);
-				// 行き過ぎて反転しないよう、残り距離を超えて進まないようにする
-				const float step = (std::min)(params.moveSpeed * deltaTime, distance - params.keepDistance);
-				enemy.position += direction * step;
-				enemy.object->SetTranslate(enemy.position);
-				enemy.velocity = direction * params.moveSpeed;
-			}
+	// 種別ごとの振る舞い(どう動き、どう攻めるか)。基底のポインタ経由で呼ぶので、
+	// どの派生クラスの処理が走るかは実体の型で決まり、ここには種別の分岐が無い(種別を足してもこのループは変わらない)。
+	// 射撃型は間合いで止まって撃ち、体当たり型は判定半径の和より内側まで詰めて体当たりになる。
+	// 移動の後に撃つので、弾は「今いる位置」から自機へ向けて出る
+	bool approached = false;
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		// 通過済みの敵はUpdateEscapeで動かし済みなので、攻めさせない(見た目の更新だけ行う)
+		if (!enemy->IsPassed()) {
+			const Enemy::BehaviorResult result = enemy->UpdateBehavior(ParamsOf(*enemy), context);
+			approached = approached || result.approached;
+			shotCount_ += result.shotCount;
 		}
-		enemy.object->Update(deltaTime);
+		enemy->UpdateObject(deltaTime);
 	}
 
-	// 接近音。移動後の距離で判定するので、間合いに入ったフレームで鳴る
-	UpdateApproachSound(playerPosition);
-
-	// 攻撃。移動後に呼ぶので、弾は「今いる位置」から自機へ向けて出る
-	UpdateShooting(deltaTime, playerPosition, playerForward);
+	// 接近音。間合いに入った敵がいれば、同時に1つまでに絞って鳴らす
+	if (approached) {
+		PlayApproachSound();
+	}
 
 	// 自機との接触判定(A-5)。移動後の位置で行うので、寄ってきた敵がその場で当たる
 	UpdatePlayerCollision(playerPosition, playerRadius);
@@ -729,25 +620,25 @@ void EnemySpawner::Reset() {
 }
 
 void EnemySpawner::Draw() {
-	for (const Enemy& enemy : enemies_) {
-		enemy.object->Draw();
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		enemy->Draw();
 	}
 }
 
 void EnemySpawner::DrawHitSpheres() const {
 	// 橙にして、自機・地形の判定(緑)と見分ける
 	const Vector4 color = { 1.0f, 0.6f, 0.1f, 1.0f };
-	for (const Enemy& enemy : enemies_) {
-		if (IsInCombat(enemy)) {
-			DebugRenderer::GetInstance()->AddSphere(HitCenter(enemy), ParamsOf(enemy).radius, color);
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		if (enemy->IsInCombat()) {
+			DebugRenderer::GetInstance()->AddSphere(HitCenter(*enemy), ParamsOf(*enemy).radius, color);
 		}
 	}
 }
 
 void EnemySpawner::SetCamera(Camera* camera) {
 	camera_ = camera;
-	for (Enemy& enemy : enemies_) {
-		enemy.object->SetCamera(camera);
+	for (const std::unique_ptr<Enemy>& enemy : enemies_) {
+		enemy->SetCamera(camera);
 	}
 }
 
@@ -756,7 +647,8 @@ void EnemySpawner::DrawImGui() {
 	ImGui::Begin("Enemy");
 	// 離脱中(通過済み)の数はAliveの内数。撃ち漏らしが離脱しているかの確認用
 	const int escapingCount = static_cast<int>(
-		std::count_if(enemies_.begin(), enemies_.end(), [](const Enemy& enemy) { return enemy.passed; }));
+		std::count_if(enemies_.begin(), enemies_.end(),
+			[](const std::unique_ptr<Enemy>& enemy) { return enemy->IsPassed(); }));
 	ImGui::Text("Alive: %zu (Escaping: %d)  Defeated: %d  Explosions: %d",
 		enemies_.size(), escapingCount, defeatedCount_, explosionCount_);
 	// 体当たりが成立しているかの確認用(Keep Distanceを判定半径の和より大きくすると触れなくなる)
@@ -766,11 +658,11 @@ void EnemySpawner::DrawImGui() {
 		ImGui::Text("Touching Player: no");
 	}
 
-	// 種別ごとのタブ。接近型と射撃型を別々に詰められるようにする
+	// 種別ごとのタブ。体当たり型と射撃型を別々に詰められるようにする
 	// (弾の速さ・寿命・見た目は"Enemy Bullet"ウィンドウ側で調整する)
 	ImGui::SeparatorText("Types");
 	if (ImGui::BeginTabBar("EnemyTypes")) {
-		for (TypeParams& params : typeParams_) {
+		for (EnemyTypeParams& params : typeParams_) {
 			if (!ImGui::BeginTabItem(params.name.c_str())) {
 				continue;
 			}
@@ -783,11 +675,15 @@ void EnemySpawner::DrawImGui() {
 			// 移動と攻撃は毎フレーム引き直すので、発生済みの敵にも即座に効く
 			ImGui::DragFloat("Move Speed", &params.moveSpeed, 0.1f, 0.0f, 30.0f, "%.1f m/s");
 			ImGui::DragFloat("Keep Distance", &params.keepDistance, 0.1f, 0.0f, 80.0f, "%.1f m");
-			ImGui::Checkbox("Shoot", &params.shoot);
+			// 撃つか・体当たりするかは数値ではなく派生クラス(CreateEnemyの対応)で決まるので、ここでは切り替えない。
+			// 種別に関係のない欄も並ぶが、読むのはその振る舞いのクラスだけ(射撃型が接近音の範囲を読むことはない)
+			ImGui::SeparatorText("Shooter (frog / queen)");
 			ImGui::DragFloat("Fire Interval", &params.shootInterval, 0.05f, 0.1f, 10.0f, "%.2f s");
 			ImGui::DragFloat("Fire Range", &params.shootRange, 1.0f, 1.0f, 300.0f, "%.0f m");
+			ImGui::SeparatorText("Rammer (sword)");
 			// 0で鳴らさない。変更は鳴らしていない個体に即座に効く
 			ImGui::DragFloat("Approach Sound Range", &params.approachSoundRange, 0.5f, 0.0f, 200.0f, "%.1f m");
+			ImGui::SeparatorText("Rule");
 			// 倒すとクリアになるか。ONの種別がステージにいると、終点でレールが止まり、倒すまで待つ
 			ImGui::Checkbox("Goal (defeat to clear)", &params.isGoal);
 			ImGui::PopID();
@@ -825,32 +721,29 @@ void EnemySpawner::DrawImGui() {
 }
 
 EnemySpawner::EnemySpawner() {
-	// 種別ごとの既定値。接近型と射撃型の違いはこの数値の差だけで表す
-	// (挙動ごとにクラスを分けないので、種別追加はこの表に1件足すだけで済む)
-	TypeParams frog;
+	// 種別ごとの既定値(数値)。どう動き、どう攻めるか(振る舞い)はCreateEnemyが選ぶ派生クラスが決める
+	EnemyTypeParams frog;
 	frog.name = "frog";
 	frog.maxHp = 3;
 	frog.radius = 3.0f;        // 幅6mの箱に合わせる(ScaleOf)
 	frog.moveSpeed = 2.0f;     // ゆっくり間合いを詰める(撃つ時間を作る)
 	frog.keepDistance = 22.0f; // 手前で止まり、そこから撃ち続ける
-	frog.shoot = true;
 	frog.shootInterval = 2.2f;
 	frog.shootRange = 90.0f;
 
-	TypeParams sword;
+	EnemyTypeParams sword;
 	sword.name = "sword";
 	sword.maxHp = 2;           // 突っ込んでくる分HPは低く。撃ち落とすか避けるかの二択にする
 	sword.radius = 2.0f;       // 幅4mの箱に合わせる(ScaleOf)
 	sword.moveSpeed = 9.0f;    // 一気に間合いを詰める
 	sword.keepDistance = 1.5f; // 判定半径の和(自機0.5+敵2.0=2.5m)より内側=必ず体当たりになる
-	sword.shoot = false;       // 撃たない。接近そのものが攻撃
 	// 9m/sで詰めてくるので、30m手前で鳴らして避ける猶予を作る
 	// (敵だけなら接触の約3秒前。自機もレール上を前進するので実際はそれより短い)
 	sword.approachSoundRange = 30.0f;
 
 	// 女王(仮)。終点の先に置き、倒すとクリアになる。動きの作り込みは「敵やギミックの挙動」の回で行うので、
-	// 今は既存のパラメータだけで「動かずに撃ってくる、硬くて大きい的」にしておく
-	TypeParams queen;
+	// 今は射撃型(ShooterEnemy)の数値だけで「動かずに撃ってくる、硬くて大きい的」にしておく
+	EnemyTypeParams queen;
 	queen.name = "queen";
 	queen.maxHp = 24;           // 通常弾24発 / チャージ弾(3ダメージ)8発。終点で少し粘る硬さ
 	queen.radius = 6.0f;        // 胴の最大幅(約12m。ScaleOf)の半分。真正面から見た輪郭に合わせる
@@ -860,7 +753,6 @@ EnemySpawner::EnemySpawner() {
 	queen.hitOffset = 6.0f;
 	queen.moveSpeed = 0.0f;     // その場から動かない(終点の先で待ち構える)
 	queen.keepDistance = 0.0f;
-	queen.shoot = true;
 	queen.shootInterval = 1.6f; // 射撃型より短い間隔で撃ち、止まっている間も避ける必要を作る
 	queen.shootRange = 130.0f;  // 遠くから見えている間に撃ち始める(終点の約60m先に置く前提)
 	queen.isGoal = true;

@@ -3,9 +3,12 @@
 #include "base/RenderTarget.h"
 #include "effect/EffectManager.h"
 
+#include <array>
 #include <memory>
 #include <wrl/client.h>
 #include <d3d12.h>
+
+class IParticleSystem;
 
 // ゲーム全体
 class Framework {
@@ -47,6 +50,10 @@ private:
 	std::unique_ptr<RenderTarget> sceneRenderTarget_;
 	std::unique_ptr<EffectManager> effectManager_;
 	uint32_t finalImageSrvIndex_ = 0;
+
+	// パーティクルの仕組み(CPU版・GPU版)を、インターフェースとして並べたもの(所有はしない。実体は各シングルトン)。
+	// 毎フレームの更新と描画はこの一覧を回す。並びは更新・描画の順番(CPU→GPU)
+	std::array<IParticleSystem*, 2> particleSystems_{};
 
 #ifdef USE_IMGUI
 	std::unique_ptr<ImGuiManager> imGuiManager_;

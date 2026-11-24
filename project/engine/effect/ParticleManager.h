@@ -5,6 +5,7 @@
 #include "math/Vector3.h"
 #include "math/Vector4.h"
 #include "math/Transform.h"
+#include "effect/IParticleSystem.h"
 #include "effect/ParticleConfig.h"
 #include <string>
 #include <list>
@@ -15,7 +16,9 @@ class SrvManager;
 class Camera;
 class ParticleEmitter;
 
-class ParticleManager {
+// CPUパーティクル。ゲームのイベントに合わせた単発の発生(EmitAt・Emit)を受け持つ。
+// FrameworkとシーンはIParticleSystem(パーティクルの仕組みのインターフェース)としてGPU版とまとめて扱う
+class ParticleManager : public IParticleSystem {
 public:
 	static ParticleManager* GetInstance();
 
@@ -24,10 +27,10 @@ public:
 	void Finalize();
 
 	// 登録済みエミッタの更新と全パーティクルのシミュレーション(Frameworkが毎フレーム呼ぶ)
-	void Update(float deltaTime);
+	void Update(float deltaTime) override;
 
 	// 半透明のためシーン描画の後に呼ぶ(Frameworkが毎フレーム呼ぶ)
-	void Draw();
+	void Draw() override;
 
 	// グループを作成する。既存の名前なら何もしない(冪等)
 	void CreateParticleGroup(const std::string& name, const std::string& textureFilePath, BlendMode blendMode = BlendMode::Alpha);
@@ -50,7 +53,7 @@ public:
 	// ParticleConfig編集用の共通UI(USE_IMGUI未定義時は何もしない)
 	static void DrawConfigImGui(ParticleConfig& config);
 
-	void SetCamera(const Camera* camera) { camera_ = camera; }
+	void SetCamera(const Camera* camera) override { camera_ = camera; }
 
 	/// <summary>
 	/// 時間の進む速さの倍率(1=等速 / 0.25=4分の1のスローモーション / 0=停止)。

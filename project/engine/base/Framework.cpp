@@ -56,6 +56,9 @@ void Framework::Initialize() {
 
 	GPUParticleManager::GetInstance()->Initialize(DirectXCommon::GetInstance(), SrvManager::GetInstance());
 
+	// 毎フレームの更新・描画は、両方をインターフェースの一覧として回す(初期化と解放は順番に意味があるので1つずつ書く)
+	particleSystems_ = { ParticleManager::GetInstance(), GPUParticleManager::GetInstance() };
+
 	DebugRenderer::GetInstance()->Initialize(DirectXCommon::GetInstance());
 
 	auto dxCommon = DirectXCommon::GetInstance();
@@ -106,6 +109,7 @@ void Framework::Finalize() {
 
 	GPUParticleManager::GetInstance()->Finalize();
 	ParticleManager::GetInstance()->Finalize();
+	particleSystems_ = {}; // 実体はここで解放されたので、一覧も空にしておく
 	SoundManager::GetInstance()->Finalize();
 	DebugRenderer::Finalize();
 	PostProcess::Finalize();
@@ -169,8 +173,9 @@ void Framework::Run() {
 		}
 
 		// パーティクルの更新(シーン更新でカメラが確定した後)
-		ParticleManager::GetInstance()->Update(deltaTime);
-		GPUParticleManager::GetInstance()->Update(deltaTime);
+		for (IParticleSystem* particleSystem : particleSystems_) {
+			particleSystem->Update(deltaTime);
+		}
 		// 描画
 
 		// リサイズ検知
@@ -193,8 +198,9 @@ void Framework::Run() {
 		sceneRenderTarget_->BeginRender(commandList);
 		Draw();
 		// パーティクルは半透明なので不透明オブジェクトの後に描く
-		ParticleManager::GetInstance()->Draw();
-		GPUParticleManager::GetInstance()->Draw();
+		for (IParticleSystem* particleSystem : particleSystems_) {
+			particleSystem->Draw();
+		}
 		// 遷移は画面全体を覆うので、パーティクルより後に描く。
 		// 先に描くと、遷移の帯は深度を書かないため、次のシーンのパーティクルが帯の上に透けて見える
 		SceneManager::GetInstance()->DrawTransition();

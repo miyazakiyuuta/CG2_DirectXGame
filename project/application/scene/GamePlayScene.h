@@ -5,6 +5,7 @@
 #include "transition/BlindTransition.h"
 
 #include <d3d12.h>
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -17,7 +18,10 @@ class ClearSequence;
 class DebugCamera;
 class EnemySpawner;
 class GameOverSequence;
+class IHudElement;
 class IntroCamera;
+class IParticleSystem;
+class ISequence;
 class NumberSprite;
 class Player;
 class ProgressGauge;
@@ -105,6 +109,15 @@ private:
 	/// 演出中はレールを止め、操作を止め、HUDを消していく(ゲームオーバー演出と同じ)
 	/// </summary>
 	void StartClear();
+
+	// --- 演出(イントロ・ゲームオーバー・クリア)をまとめて扱う窓口。どれもsequences_を基底のポインタで回す ---
+	// どれかの演出が再生中か。シーンはこの間、レールと操作を止める
+	bool IsAnySequenceActive() const;
+	// 全演出の時間倍率を掛け合わせたもの。演出は同時に1つしか起きず、再生していない演出は等速(1)を返すので、
+	// 掛け合わせれば「今再生している演出の倍率」になる(どの演出が再生中かをシーンが調べなくてよい)
+	float GetSequenceTimeScale() const;
+	// 全演出を止める(時間倍率・粒・ポストエフェクトを元に戻す)。ゲーム状態のリセットとシーンの終了で使う
+	void StopAllSequences();
 
 	// HUD(HPブロックと操作説明)を作る/更新する/描く。
 	// スプライトは深度OFF・αブレンドONなので3Dの上にそのまま重なる
@@ -261,6 +274,16 @@ private:
 	// シーンはレール・操作・HUD・画面の揺れ・残りの敵の全滅・結果画面への遷移をつなぐ(ゲームオーバー演出と同じ分担)
 	std::unique_ptr<ClearSequence> clearSequence_;
 
+	// 上の3つの演出を、演出のインターフェース(ISequence)として並べたもの(所有はしない。実体は上のunique_ptr)。
+	// 時間倍率の掛け合わせ・スキップ・停止・カメラの差し替え・描画・ImGuiは、演出の種類を問わずこの一覧を回す
+	// (演出を足しても、ここに1つ足すだけでシーンの各所は変わらない)。並びは停止とImGuiの順番になる。
+	// 開始(Start)と演出に固有の問い合わせ(カメラの見送り・段階・小爆発の回数)は、具象の型のまま上のメンバで呼ぶ
+	std::array<ISequence*, 3> sequences_{};
+
+	// パーティクルの仕組み(CPU版・GPU版)を、インターフェースとして並べたもの(所有はしない。実体は各シングルトン)。
+	// このシーンが行うのは描画に使うカメラの受け渡しだけで、それをこの一覧を回して両方へ渡す
+	std::array<IParticleSystem*, 2> particleSystems_{};
+
 	// 入力アクション層(KB/パッド→アクションの対応付け)とプレイヤー
 	std::unique_ptr<ActionInput> actionInput_;
 	std::unique_ptr<Player> player_;
@@ -325,6 +348,10 @@ private:
 
 	// 照準(レティクル)。狙点はPlayerが持っているので、これは表示だけを担当する
 	std::unique_ptr<Reticle> reticle_;
+	// 上の3つのHUD部品を、HUD部品のインターフェース(IHudElement)として並べたもの(所有はしない)。
+	// フェードの濃さと描画はこの一覧を回す。並びは描画の順番(後ろほど手前に重なる)。
+	// 部品ごとに渡す情報が違うUpdateは、具象の型のまま上のメンバで呼ぶ
+	std::array<IHudElement*, 3> hudElements_{};
 	// チャージ中に照準を引き寄せる先の敵の番号(0=なし)。UpdateLockOnが毎フレーム選び直し、
 	// UpdateHudがレティクルへ渡す。ロックした後はロック中の敵の方へ引き寄せる
 	uint32_t lockCandidateId_ = 0;

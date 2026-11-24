@@ -1,4 +1,5 @@
 #pragma once
+#include "direction/PhasedSequence.h"
 #include "math/Transform.h"
 #include "math/Vector3.h"
 #include "effect/ParticleConfig.h"
@@ -16,8 +17,9 @@ class Object3d;
 // なぜ専用クラスにするか: GameOverSequenceと同じく「経過時間 → 亡骸・パーティクル・ポストエフェクトの状態」という
 // 閉じた計算で、調整値もここでしか使わないため。ゲーム進行を止める判断(レール・操作・HUD)と、
 // 画面の揺れ・残りの敵の全滅・結果画面への遷移はシーンが行い、このクラスはゲームの状態を知らない。
-// GameOverSequenceと共通の基底クラスにはしない: 似ているのは段階と時間倍率の外形だけで、
-// 中身(墜落する機体 / 女王の亡骸)は別物なので、2つのためにまとめるとかえって読みにくくなる。
+// GameOverSequenceとは、毎フレームの更新の順番(時計 → 段階 → 時間倍率 → 物体と粒 → ポストエフェクト)だけを
+// 基底のPhasedSequenceで共有する。中身(墜落する機体 / 女王の亡骸)は別物なので、基底には順番と時計しか置かず、
+// 段階の進め方・亡骸の動き・画面の効果はここに書く(中身まで基底へ寄せると、片方にしか無い処理が基底に混ざる)。
 //
 // 時間は2本の時計で進める(GameOverSequenceと同じ)。
 // - 実時間(Updateの引数): 段階のタイマー・亡骸の震えと膨らみ・小爆発の間隔・ポストエフェクト。
@@ -28,7 +30,7 @@ class Object3d;
 // 当たり判定・ロックオン・区間の集計がその前提に乗っているため、女王だけに「死にかけ」の状態を足すと
 // そのすべてに分岐が増える。別の物体にすれば、撃破の処理(撃破音・撃破の爆発)は普段の敵と同じまま変わらない
 // (墜落する機体をPlayerと別のObject3dにしたのと同じ考え方)。
-class ClearSequence {
+class ClearSequence : public PhasedSequence {
 public:
 	enum class Phase {
 		None,        // 再生していない
@@ -118,30 +120,24 @@ public:
 
 	// 再生していない状態へ戻す(ゲーム状態のリセットとシーンの終了で使う)。
 	// 時間倍率・粒・ポストエフェクトは全シーン共有なので、ここで必ず元に戻す
-	void Stop();
+	void Stop() override;
 
 	// 断末魔の途中なら大爆発へ、全滅・余韻の途中なら終わりへ進める(スキップ入力)
-	void Skip();
+	void Skip() override;
 
-	/// <summary>
-	/// 段階を進め、亡骸・パーティクル・ポストエフェクトを今の段階に合わせる
-	/// </summary>
-	/// <param name="deltaTime">実時間[秒](ヒットストップやスローの影響を受けない時間)</param>
-	/// <param name="camera">描画に使っているカメラ(RadialBlurの中心と、小爆発をカメラ側へ寄せるため)</param>
-	void Update(float deltaTime, const Camera& camera);
+	// (Updateは基底のPhasedSequenceが持つ。cameraはRadialBlurの中心と、小爆発をカメラ側へ寄せるのに使う)
 
 	// 亡骸を描く(大爆発の後は何も描かない)
-	void Draw();
+	void Draw() override;
 
-	void SetCamera(Camera* camera);
+	void SetCamera(Camera* camera) override;
 
 	Phase GetPhase() const { return phase_; }
 	// 演出中か(Finishedも含む)。シーンはこの間、レールと操作を止める
-	bool IsActive() const { return phase_ != Phase::None; }
+	bool IsActive() const override { return phase_ != Phase::None; }
 	// 終わったか。シーンは結果画面への遷移を頼む
 	bool IsFinished() const { return phase_ == Phase::Finished; }
-	// ゲーム時間の倍率。シーンは自機・敵・弾に渡すdeltaTimeにこれを掛ける
-	float GetTimeScale() const { return timeScale_; }
+	// (ゲーム時間の倍率GetTimeScaleは基底のPhasedSequenceが持つ)
 	const Params& GetParams() const { return params_; }
 	/// <summary>
 	/// 小爆発の通算回数。シーンが更新の前後で比べ、増えていたら小さく揺らす
@@ -150,14 +146,24 @@ public:
 	int GetPopCount() const { return popCount_; }
 
 	// "Clear"ウィンドウに進み具合と調整値を出す(Debug構成のみ)
-	void DrawImGui();
+	void DrawImGui() override;
 
 private:
+	// --- PhasedSequenceの骨組み(Update)から呼ばれる段 ---
+	bool IsRunning() const override { return phase_ != Phase::None && phase_ != Phase::Finished; }
+	// 今の段階の長さを過ぎていれば次の段階へ進める
+	void AdvancePhase() override;
+	// 今の段階での時間倍率
+	float ComputeTimeScale() const override;
+	// 撃破の瞬間(ヒットストップ)か
+	bool IsHitStop() const override { return phase_ == Phase::Impact; }
+	// 亡骸を震わせ・膨らませ・光らせ、断末魔の小爆発を起こす
+	void UpdateContents(float deltaTime, const Camera& camera) override;
+	// Vignette・RadialBlurを今の段階に合わせる
+	void ApplyPostEffects(const Camera& camera) override;
+
 	// 段階を切り替え、段階内の経過時間を0へ戻す。入った瞬間の出来事(大爆発など)もここで起こす
 	void EnterPhase(Phase phase);
-
-	// 今の段階での時間倍率
-	float ComputeTimeScale() const;
 
 	// 断末魔の進み具合(断末魔の前=0 〜 大爆発の直前=1。大爆発より後も1)
 	float GetConvulseProgress() const;
@@ -177,8 +183,8 @@ private:
 	// 大爆発の瞬間。炎・火花・煙を一斉に出し、RadialBlurを一瞬強める
 	void Burst();
 
-	// Vignette・RadialBlurを今の段階に合わせる
-	void ApplyPostEffects(const Camera& camera);
+	// 大爆発からの経過時間[秒](実時間)。負なら大爆発はまだ。白い閃光と黒い縁が引いていく時計
+	float GetSinceBurst() const { return burstStartTime_ < 0.0f ? -1.0f : GetElapsed() - burstStartTime_; }
 
 	// 女王の大きさに合わせて粒の大きさと速さを拡大した設定を返す。
 	// 粒の設定は女王の既定の大きさ(判定半径6m)で決めてあるので、モデルの差し替えで大きさが変わっても釣り合う
@@ -188,14 +194,11 @@ private:
 	Params params_;
 
 	Phase phase_ = Phase::None;
-	// 今の段階に入ってからの経過時間[秒](実時間)
-	float phaseTimer_ = 0.0f;
-	// 演出が始まってからの経過時間[秒](実時間)。撃破の瞬間の白い縁を、段階の区切りに関係なく数える
-	float elapsed_ = 0.0f;
-	// 大爆発からの経過時間[秒](実時間)。負なら大爆発はまだ。白い閃光と黒い縁が引いていく時計
-	float sinceBurst_ = -1.0f;
-	// 今フレームのゲーム時間の倍率
-	float timeScale_ = 1.0f;
+	// 段階のタイマー・演出の経過時間・時間倍率は基底のPhasedSequenceが持つ。
+	// 経過時間(GetElapsed)は、撃破の瞬間の白い縁を段階の区切りに関係なく数えるのに使う
+	// 大爆発が起きた時刻(演出の経過時間[秒])。負なら大爆発はまだ。
+	// 「大爆発からの経過時間」を自前で積み上げず、演出の経過時間との差で求める(時計を1本増やさない)
+	float burstStartTime_ = -1.0f;
 
 	// --- 女王の亡骸 ---
 	std::unique_ptr<Object3d> remains_;

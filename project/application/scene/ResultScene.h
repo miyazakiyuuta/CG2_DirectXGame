@@ -1,49 +1,39 @@
 #pragma once
 #include "scene/BaseScene.h"
-#include "progress/StageProgress.h"
 #include "math/Vector2.h"
+#include "math/Vector4.h"
 
 #include <array>
 #include <memory>
+#include <string>
 
 class NumberSprite;
 class Sprite;
 struct SoundData;
 
-// クリア/ゲームオーバーの結果表示(A-5)。
-// 1クラスで両方を兼ね、どちらを出すかは生成時のTypeで決める。
-// なぜTypeを引数に取るか: SceneManager::ChangeSceneはシーン名しか渡せないため、
-// SceneFactoryが "CLEAR"/"GAMEOVER" を別のTypeで作り分ける。
-// こうするとエンジン層(SceneManager)に「結果の種別」という概念を持ち込まずに済む。
+// 結果表示(A-5)の基底クラス。クリアとゲームオーバーで共通の部分(結果の文言・スコア・RETRY/TITLEの選択肢・入力)を持ち、
+// 違う部分(文言の画像と色・結果音・縦の並び)だけを純粋仮想関数として派生クラスに任せる。
+//   ResultScene(抽象)
+//    ├ ClearResultScene    … 白い文言・クリア音・ランク(駆除報告)の段あり
+//    └ GameOverResultScene … 赤みの文言・ゲームオーバー音
+// 以前は1クラスで両方を兼ね、enum Typeとifで出し分けていた。種類を値で持って各所で分岐する作りは、
+// 種類が増えるたびに分岐が増えていくので、種類ごとの派生クラスに置き換えた(SceneFactoryがシーン名で作り分ける)。
+// ランクはクリアにしか無いので、基底ではなくClearResultSceneに置く
+// (基底に置くと、ゲームオーバーが「何もしないランク表示」を持たされる。飛べない鳥にFlyを持たせるのと同じ誤り)。
+//
 // 最後に「RETRY / TITLE」を選ばせる。RETRYはGamePlaySceneを作り直す(=HP・敵・弾・進行度がすべて初期化される)、
 // TITLEはタイトルへ戻る。どちらも結果を読んでから自分で選ぶので、「唐突にタイトルへ飛ばされる」ことがない。
 class ResultScene : public BaseScene {
 public:
-	enum class Type {
-		Clear,    // レール終端に到達した
-		GameOver, // HPが尽きた
-	};
-
-	// 定義は.cpp側。ヘッダに書くとunique_ptr<Sprite>の破棄が
-	// 前方宣言だけのSpriteを要求してしまう(コンストラクタの例外経路でデストラクタが要る)
-	explicit ResultScene(Type type);
-
 	/// <summary>
 	/// 結果画面に表示するスコアを渡す。GamePlaySceneが遷移を要求する直前に呼ぶ。
 	/// なぜstaticか: SceneManager::ChangeSceneはシーン名しか渡せず、実体は
 	/// SceneFactoryが後から作るため、コンストラクタ引数では渡せない。
 	/// ResultSceneが自分の入力を自分で預かる形にして、SceneManager/SceneFactoryには手を入れない
-	/// (シーン名でTypeを分けているのと同じ方針)
 	/// </summary>
 	static void SetScore(int score);
 
-	/// <summary>
-	/// 結果画面に表示するランク(駆除報告)を渡す。CLEARのときだけ表示する。
-	/// SetScoreと同じく、GamePlaySceneが遷移を要求する直前に呼ぶ
-	/// (ランクの決め方はStageProgressが持ち、ここは受け取って見せるだけ)
-	/// </summary>
-	static void SetRank(StageProgress::Rank rank);
-
+	// 共通部分を作る。派生クラスが足す部分(ランクなど)は、派生クラスがこれを呼んだ後に作る
 	void Initialize() override;
 
 	void Finalize() override;
@@ -52,7 +42,34 @@ public:
 
 	void Draw() override;
 
+	// 基底のポインタ(unique_ptr<BaseScene>)で破棄されるので、BaseSceneの仮想デストラクタを引き継ぐ
 	~ResultScene() override;
+
+protected:
+	// 定義は.cpp側。ヘッダに書くとunique_ptr<Sprite>の破棄が
+	// 前方宣言だけのSpriteを要求してしまう(コンストラクタの例外経路でデストラクタが要る)。
+	// protectedにするのは、結果の種類を決めずに作れない(派生クラスからしか作らせない)ため
+	ResultScene();
+
+	// 縦の並び(画面の高さに対する割合)。ランクの段の有無で、クリアとゲームオーバーで変わる
+	struct Layout {
+		float resultY = 0.42f;  // 結果の文言の中心
+		float scoreTop = 0.55f; // スコアの上端
+		float menuTopY = 0.70f; // 選択肢の上段(RETRY)の中心。下段はこの下に並べる
+	};
+
+	// --- 派生クラスが決める違い ---
+	// 結果の文言の画像(エンジンにフォント描画が無いため、文言は画像として持つ)
+	virtual std::string GetResultTexturePath() const = 0;
+	// 文言の色(一目で結果を区別できるようにする)
+	virtual Vector4 GetResultColor() const = 0;
+	// 表示と同時に1回鳴らす結果音
+	virtual std::string GetResultSoundPath() const = 0;
+	virtual Layout GetLayout() const = 0;
+
+	// 画像は1280x720想定で作ってあるので、実解像度に合わせて拡大する倍率
+	// (kClientWidthは構成で変わる(Debug=1920x1080 / Release=1280x720)ため直値は使えない)
+	static float GetUiScale();
 
 private:
 	// 選択肢。並びは画面の上から順(最初に選ばれているのは先頭=RETRY)
@@ -75,10 +92,7 @@ private:
 	// 選択肢の見た目(選んでいる方は白く大きく脈打たせ、選んでいない方は小さく暗くする)
 	void UpdateMenu();
 
-	Type type_ = Type::GameOver;
-
-	// 結果の文言(clear.png / gameover.png)。
-	// エンジンにフォント描画が無いため、文言は画像として持つ
+	// 結果の文言(clear.png / gameover.png)
 	std::unique_ptr<Sprite> resultSprite_;
 
 	// 選択肢(menu_retry.png / menu_title.png)。並びはMenuItemと同じ
@@ -97,11 +111,6 @@ private:
 
 	// スコア表示(数字画像から桁を切り出して並べる)
 	std::unique_ptr<NumberSprite> scoreNumber_;
-
-	// ランク(CLEARのときだけ)。「RANK」の見出しと文字1つ。
-	// 文字はS/A/B/Cを等幅に並べた1枚の画像から切り出す(数字画像と同じやり方)
-	std::unique_ptr<Sprite> rankLabelSprite_;
-	std::unique_ptr<Sprite> rankSprite_;
 
 	// 選択肢を出してからの経過[秒](出始めのフェードに使う)。
 	// 選択肢を出すのは「入力の猶予が過ぎ、かつ遷移の帯が開き切った」後なので、表示開始からの経過とは別に数える
